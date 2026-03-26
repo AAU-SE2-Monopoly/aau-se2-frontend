@@ -5,4 +5,15 @@
     <string name="title_activity_connection_view">ConnectionView</string>
     <string name="title_activity_view">view</string>
     <string name="title_activity_main2">MainActivity2</string>
+    <string name="status_connecting">Connecting…</string>
+    <string name="status_not_connected">Not connected</string>
+    <string name="error_enter_game_id">Enter a Game ID first</string>
+    <string name="hint_player_name">Player name</string>
+    <string name="default_player_name">Player1</string>
+    <string name="hint_game_id">Game ID (auto-filled on create)</string>
+    <string name="label_action">Action:</string>
+    <string name="btn_connect">Connect</string>
+    <string name="btn_send">Send</string>
+    <string name="btn_clear">Clear</string>
+    <string name="label_events">Game Events (JSON):</string>
 </resources>

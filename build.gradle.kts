@@ -15,7 +15,5 @@ sonar {
         property("sonar.organization", "aau-se2-monopoly")
         property("sonar.host.url", "https://sonarcloud.io")
 
-        // Definiert, wo der Quellcode der Android-App liegt
-        property("sonar.sources", "app/src/main/java")
     }
 }

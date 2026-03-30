@@ -21,6 +21,10 @@
             android:theme="@style/Theme.MyApplication" />
 
         <activity
+            android:name="at.aau.serg.websocketbrokerdemo.GameboardUI.GameboardUI"
+            android:exported="false"
+            android:theme="@style/Theme.MyApplication" />
+        <activity
             android:name="at.aau.serg.websocketbrokerdemo.GameActivity"
             android:exported="true"
             android:label="Monopoly Debug"

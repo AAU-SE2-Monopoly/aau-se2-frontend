@@ -2,6 +2,7 @@
 <androidx.constraintlayout.widget.ConstraintLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:padding="12dp"
@@ -117,6 +118,17 @@
         app:layout_constraintEnd_toEndOf="parent"
         android:layout_marginTop="6dp" />
 
+    <androidx.compose.ui.platform.ComposeView
+        android:id="@+id/compose_view"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:visibility="visible"
+        android:background="@android:color/transparent"
+        app:layout_constraintTop_toBottomOf="@id/btn_clear"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        android:layout_marginTop="16dp" />
+
     <!-- ── Event log label ── -->
     <TextView
         android:id="@+id/tv_event_label"
@@ -125,7 +137,7 @@
         android:text="@string/label_events"
         android:textColor="#CCCCCC"
         android:textSize="14sp"
-        app:layout_constraintTop_toBottomOf="@id/btn_clear"
+        app:layout_constraintTop_toBottomOf="@id/compose_view"
         app:layout_constraintStart_toStartOf="parent"
         android:layout_marginTop="8dp" />
 
@@ -154,4 +166,3 @@
     </ScrollView>
 
 </androidx.constraintlayout.widget.ConstraintLayout>
-

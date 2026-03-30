@@ -1,6 +1,8 @@
 package at.aau.serg.websocketbrokerdemo
 
+import android.content.Intent
 import android.os.Bundle
+import android.view.View
 import android.widget.ArrayAdapter
 import android.widget.Button
 import android.widget.EditText
@@ -9,9 +11,14 @@ import android.widget.Spinner
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.ComponentActivity
+import androidx.compose.material3.Button
+import androidx.compose.material3.Text
+import androidx.compose.ui.platform.ComposeView
+import at.aau.serg.websocketbrokerdemo.GameboardUI.GameboardUI
 import com.example.myapplication.R
 import org.json.JSONException
 import org.json.JSONObject
+import kotlin.jvm.java
 
 class GameActivity : ComponentActivity(), GameCallbacks {
 
@@ -41,6 +48,17 @@ class GameActivity : ComponentActivity(), GameCallbacks {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_game)
 
+        val composeView=findViewById<ComposeView>(R.id.compose_view)
+        composeView.visibility= View.VISIBLE
+        composeView.setContent {
+            Button(onClick={
+                composeView.visibility= View.GONE
+                val intent= Intent(this, GameboardUI::class.java)
+
+                startActivity(intent)
+            }){
+                Text(text="Start Game")
+            }}
         stomp = GameStompClient(this)
 
         tvStatus     = findViewById(R.id.tv_status)

@@ -2,6 +2,10 @@ package at.aau.serg.websocketbrokerdemo.GameboardUI
 
 
 import android.app.Activity
+import android.content.pm.ActivityInfo
+import android.os.Bundle
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.setContent
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -44,98 +48,117 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import at.aau.serg.websocketbrokerdemo.model.BoardFactory
 import at.aau.serg.websocketdemoserver.model.enums.PropertyColor
 import at.aau.serg.websocketdemoserver.model.field.Field
 import at.aau.serg.websocketdemoserver.model.field.PropertyField
 import com.example.myapplication.R
 
-
-@Composable
-fun LockScreenOrientation(orientation: Int){    // lock screen orientation in landscape
-    val context= LocalContext.current           //LockScreenOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE)
-if(!LocalInspectionMode.current){
-    DisposableEffect(orientation){
-        val activity=context as? Activity
-        activity?.requestedOrientation=orientation
-        onDispose {  }
+class GameboardUI : ComponentActivity() {
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        setContent {
+            GameboardScreen()
         }
     }
 }
 
 @Composable
-fun ZoomableWrapper(modifier: Modifier = Modifier, content: @Composable () -> Unit){        //Container for zoom
-    var scale by remember { mutableStateOf(1f) }            //sets Zoom
+fun LockScreenOrientation(orientation: Int) {
+    val context = LocalContext.current
+    if (!LocalInspectionMode.current) {
+        DisposableEffect(orientation) {
+            val activity = context as? Activity
+            val originalOrientation = activity?.requestedOrientation ?: ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+            activity?.requestedOrientation = orientation
+            onDispose {
+                activity?.requestedOrientation = originalOrientation
+            }
+        }
+    }
+}
+
+@Composable
+fun GameboardScreen(modifier: Modifier = Modifier) {
+    LockScreenOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE)
+    val fields = remember { BoardFactory.createDefaultBoard() }
+    GameboardContent(fields, modifier)
+}
+
+@Composable
+fun ZoomableWrapper(modifier: Modifier = Modifier, content: @Composable () -> Unit) {
+    var scale by remember { mutableStateOf(1f) }
     var offset by remember { mutableStateOf(Offset.Zero) }
 
     Box(
-        modifier=modifier
+        modifier = modifier
             .clip(RectangleShape)
             .background(Color.Black)
-            .pointerInput(Unit){
+            .pointerInput(Unit) {
                 detectTransformGestures { _, pan, zoom, _ ->
-                    val newScale=scale*zoom.coerceIn(1f,5f)
-                    val maxX=(size.width.toFloat() * (newScale-1)) / 2      //max drag calculation
-                    val maxY=(size.height.toFloat() * (newScale-1)) / 2
+                    val newScale = (scale * zoom).coerceIn(1f, 5f)
+                    val maxX = (size.width.toFloat() * (newScale - 1)) / 2
+                    val maxY = (size.height.toFloat() * (newScale - 1)) / 2
 
-                    scale=newScale
-                    if(scale>1f){
-                        val newOffset=offset+pan
-                        offset= Offset(
-                            x=newOffset.x.coerceIn(-maxX,maxX),     //if zoomed, drag is limited
-                            y=newOffset.y.coerceIn(-maxY,maxY)
+                    scale = newScale
+                    if (scale > 1f) {
+                        val newOffset = offset + pan
+                        offset = Offset(
+                            x = newOffset.x.coerceIn(-maxX, maxX),
+                            y = newOffset.y.coerceIn(-maxY, maxY)
                         )
-                    } else{
-                        offset=Offset.Zero
+                    } else {
+                        offset = Offset.Zero
                     }
-
-
                 }
-
             }
-    ){
+    ) {
         Box(
-            modifier=Modifier
+            modifier = Modifier
                 .fillMaxSize()
                 .graphicsLayer(
                     scaleX = scale,
                     scaleY = scale,
                     translationX = offset.x,
                     translationY = offset.y
-                ), contentAlignment = Alignment.Center
-        ){
+                ),
+            contentAlignment = Alignment.Center
+        ) {
             content()
         }
     }
-
 }
+
 @Composable
 fun GameboardContent(
-    fields:List<Field>,
-    modifier:Modifier=Modifier
-){
-    ZoomableWrapper(modifier=modifier.fillMaxSize()) {
-        Box(modifier=Modifier.fillMaxSize()
-            .aspectRatio(3840f/2160f),
-            contentAlignment=Alignment.Center
-        ){
-            BoxWithConstraints(modifier=Modifier.fillMaxSize()) {
-                val sw=this.maxWidth.value
-                val sh=this.maxHeight.value
+    fields: List<Field>,
+    modifier: Modifier = Modifier
+) {
+    ZoomableWrapper(modifier = modifier.fillMaxSize()) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .aspectRatio(3840f / 2160f),
+            contentAlignment = Alignment.Center
+        ) {
+            BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+                val sw = this.maxWidth.value
+                val sh = this.maxHeight.value
 
                 Image(
-                    painter = painterResource(id=R.drawable.inskapedownscalewebp),
+                    painter = painterResource(id = R.drawable.inskapedownscalewebp),
                     contentDescription = "Klagenfurt-Map",
-                    modifier=Modifier.fillMaxSize(),
+                    modifier = Modifier.fillMaxSize(),
                     contentScale = ContentScale.FillBounds
                 )
                 Image(
-                    painter = painterResource(id=R.drawable.pathreworked),
+                    painter = painterResource(id = R.drawable.pathreworked),
                     contentDescription = "Path - Klagenfurt-Ring",
-                    modifier=Modifier.fillMaxSize(),
+                    modifier = Modifier.fillMaxSize(),
                     contentScale = ContentScale.FillBounds
                 )
-                fields.forEachIndexed{index,field ->
-                    FieldItem(index,field,sw,sh)
+                fields.forEachIndexed { index, field ->
+                    FieldItem(index, field, sw, sh)
                 }
             }
         }
@@ -143,141 +166,115 @@ fun GameboardContent(
 }
 
 @Composable
-fun FieldItem(index:Int,field:Field,sw:Float,sh:Float){     //function to generate Fields
-    val side = (index/10)%4
-    val posInSide = index%10
+fun FieldItem(index: Int, field: Field, sw: Float, sh: Float) {
+    val side = (index / 10) % 4
+    val posInSide = index % 10
     val isCorner = posInSide == 0
 
+    val corners = listOf(
+        Offset(2445f, 1720f),
+        Offset(1245f, 1720f),
+        Offset(1245f, 520f),
+        Offset(2445f, 520f)
+    )
 
-    //Center(1845/1120)
-        val corners = listOf(
-            Offset(2445f,1720f),
-            Offset(1245f,1720f),
-            Offset(1245f,520f),
-            Offset(2445f,520f)
+    val start = corners[side]
+    val end = corners[(side + 1) % 4]
+    val designCornerSize = 240f
 
-        )
+    fun scaleX(x: Float) = (x / 3840f) * sw
+    fun scaleY(y: Float) = (y / 2160f) * sh
 
-        val start = corners[side]           //range between corners
-        val end =corners[(side + 1) % 4]
-
-        val designCornerSize = 240f
-
-        fun scaleX(x: Float) = (x / 3840f) * sw
-        fun scaleY(y: Float) = (y / 2160f) * sh
-
-        if(isCorner){
-            val textRotation = when(index){
-                0 -> -45f
-                10 -> 45f
-                20 -> 135f
-                30 -> 225f
-                else -> 0f
-            }
-            Box(                                    //corner boxes
-                modifier = Modifier
-                    .offset(x = (scaleX(start.x) - scaleX(designCornerSize) / 2).dp, y = (scaleY(start.y) - scaleY(designCornerSize) / 2).dp)
-                    .size(scaleX(designCornerSize).dp, scaleY(designCornerSize).dp)
-                    .border(1.dp, Color.White.copy(alpha = 0.3f))
-                    .background(Color.Red.copy(alpha = 0.1f)),
-                contentAlignment = Alignment.Center
-            ){
-
-                    Text(
-                        text = field.name,
-                        modifier = Modifier.rotate(textRotation),
-                        color = Color.White,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 6.sp,
-                        textAlign = TextAlign.Center,
-                        style = TextStyle(
-                            hyphens = Hyphens.Auto
-                        ),
-                        overflow = TextOverflow.Clip
-                    )
-
-
-
-
-            }
-
-
-
-
-
-
-        } else{
-            val dx = end.x - start.x
-            val dy = end.y - start.y
-            val dist = Math.sqrt((dx * dx + dy * dy).toDouble()).toFloat()
-            val innerDist = dist - designCornerSize
-            val fieldStep = innerDist / 9f
-            val dirX = dx / dist
-            val dirY = dy / dist
-
-            val centerX = start.x + dirX * (designCornerSize / 2f + posInSide * fieldStep - fieldStep / 2f)
-            val centerY = start.y + dirY * (designCornerSize / 2f + posInSide * fieldStep - fieldStep / 2f)
-
-            val isHorizontal = side == 0 || side == 2
-            val dw = if (isHorizontal) fieldStep else 180f
-            val dh = if (isHorizontal) 180f else fieldStep
-
-            val boxW = scaleX(dw)
-            val boxH = scaleY(dh)
-            val textRotation = side * 90f
-
-            // swap for left/right
-            val textWidth = if (isHorizontal) boxW else boxH
-            val textHeight = if (isHorizontal) boxH else boxW
-
-            //Box for other fields
-            Box(
-                modifier = Modifier
-                    .offset(x = (scaleX(centerX) - boxW / 2).dp, y = (scaleY(centerY) - boxH / 2).dp)
-                    .size(boxW.dp, boxH.dp)
-                    .border(0.5.dp, Color.White.copy(alpha = 0.2f))
-                    .background(Color.Black.copy(alpha = 0.1f))
-            ) {
-
-                // ColorBar
-                if (field is PropertyField) {
-                    val barSize = 35f
-                    val barColor = field.color.toComposeColor()
-                    val barMod = when (side) {
-                        0 -> Modifier.fillMaxWidth().height(scaleY(barSize).dp).align(Alignment.BottomCenter)
-                        1 -> Modifier.fillMaxHeight().width(scaleX(barSize).dp).align(Alignment.CenterStart)
-                        2 -> Modifier.fillMaxWidth().height(scaleY(barSize).dp).align(Alignment.TopCenter)
-                        3 -> Modifier.fillMaxHeight().width(scaleX(barSize).dp).align(Alignment.CenterEnd)
-                        else -> Modifier
-                    }
-                    // Draw ColorBox
-                    Box(modifier = barMod.background(barColor))
-                }
-
-
-                Text(
-                    text = field.name,
-                    modifier = Modifier
-                        .align(Alignment.Center)
-                        .requiredSize(width = textWidth.dp, height = textHeight.dp)
-                        .rotate(textRotation),
-                    color = Color.White,
-                    fontSize = 4.sp,
-                    fontWeight = FontWeight.Bold,
-                    textAlign = TextAlign.Center,
-                    style = TextStyle(
-                        hyphens = Hyphens.Auto
-                    ),
-                    overflow = TextOverflow.Clip
-                )
-            }
+    if (isCorner) {
+        val textRotation = when (index) {
+            0 -> -45f
+            10 -> 45f
+            20 -> 135f
+            30 -> 225f
+            else -> 0f
         }
+        Box(
+            modifier = Modifier
+                .offset(
+                    x = (scaleX(start.x) - scaleX(designCornerSize) / 2).dp,
+                    y = (scaleY(start.y) - scaleY(designCornerSize) / 2).dp
+                )
+                .size(scaleX(designCornerSize).dp, scaleY(designCornerSize).dp)
+                .border(1.dp, Color.White.copy(alpha = 0.3f))
+                .background(Color.Red.copy(alpha = 0.1f)),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = field.name,
+                modifier = Modifier.rotate(textRotation),
+                color = Color.White,
+                fontWeight = FontWeight.Bold,
+                fontSize = 6.sp,
+                textAlign = TextAlign.Center,
+                style = TextStyle(hyphens = Hyphens.Auto),
+                overflow = TextOverflow.Clip
+            )
+        }
+    } else {
+        val dx = end.x - start.x
+        val dy = end.y - start.y
+        val dist = Math.sqrt((dx * dx + dy * dy).toDouble()).toFloat()
+        val innerDist = dist - designCornerSize
+        val fieldStep = innerDist / 9f
+        val dirX = dx / dist
+        val dirY = dy / dist
 
+        val centerX = start.x + dirX * (designCornerSize / 2f + posInSide * fieldStep - fieldStep / 2f)
+        val centerY = start.y + dirY * (designCornerSize / 2f + posInSide * fieldStep - fieldStep / 2f)
 
+        val isHorizontal = side == 0 || side == 2
+        val dw = if (isHorizontal) fieldStep else 180f
+        val dh = if (isHorizontal) 180f else fieldStep
 
+        val boxW = scaleX(dw)
+        val boxH = scaleY(dh)
+        val textRotation = side * 90f
 
+        val textWidth = if (isHorizontal) boxW else boxH
+        val textHeight = if (isHorizontal) boxH else boxW
 
+        Box(
+            modifier = Modifier
+                .offset(x = (scaleX(centerX) - boxW / 2).dp, y = (scaleY(centerY) - boxH / 2).dp)
+                .size(boxW.dp, boxH.dp)
+                .border(0.5.dp, Color.White.copy(alpha = 0.2f))
+                .background(Color.Black.copy(alpha = 0.1f))
+        ) {
+            if (field is PropertyField) {
+                val barSize = 35f
+                val barColor = field.color.toComposeColor()
+                val barMod = when (side) {
+                    0 -> Modifier.fillMaxWidth().height(scaleY(barSize).dp).align(Alignment.BottomCenter)
+                    1 -> Modifier.fillMaxHeight().width(scaleX(barSize).dp).align(Alignment.CenterStart)
+                    2 -> Modifier.fillMaxWidth().height(scaleY(barSize).dp).align(Alignment.TopCenter)
+                    3 -> Modifier.fillMaxHeight().width(scaleX(barSize).dp).align(Alignment.CenterEnd)
+                    else -> Modifier
+                }
+                Box(modifier = barMod.background(barColor))
+            }
+
+            Text(
+                text = field.name,
+                modifier = Modifier
+                    .align(Alignment.Center)
+                    .requiredSize(width = textWidth.dp, height = textHeight.dp)
+                    .rotate(textRotation),
+                color = Color.White,
+                fontSize = 4.sp,
+                fontWeight = FontWeight.Bold,
+                textAlign = TextAlign.Center,
+                style = TextStyle(hyphens = Hyphens.Auto),
+                overflow = TextOverflow.Clip
+            )
+        }
+    }
 }
+
 fun PropertyColor.toComposeColor(): Color = when (this) {
     PropertyColor.BROWN -> Color(0xFF955436)
     PropertyColor.LIGHT_BLUE -> Color(0xFFAAE0FA)

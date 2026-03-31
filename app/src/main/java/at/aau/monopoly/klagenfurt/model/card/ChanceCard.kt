@@ -1,6 +1,6 @@
-package at.aau.monopoly.websocketdemoserver.model.card
+package at.aau.monopoly.klagenfurt.model.card
 
-import at.aau.monopoly.websocketdemoserver.model.enums.CardAction
+import at.aau.monopoly.klagenfurt.model.enums.CardAction
 
 data class ChanceCard(
     override val id: Int,

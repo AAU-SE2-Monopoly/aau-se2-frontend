@@ -1,7 +1,7 @@
-package at.aau.monopoly.websocketdemoserver.model.field
+package at.aau.monopoly.klagenfurt.model.field
 
-import at.aau.monopoly.websocketdemoserver.model.enums.FieldType
-import at.aau.monopoly.websocketdemoserver.model.enums.PropertyColor
+import at.aau.monopoly.klagenfurt.model.enums.FieldType
+import at.aau.monopoly.klagenfurt.model.enums.PropertyColor
 
 data class PropertyField(
     override val id: Int,

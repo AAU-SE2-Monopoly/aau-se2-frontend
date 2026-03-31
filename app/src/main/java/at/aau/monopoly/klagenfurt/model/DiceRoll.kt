@@ -1,4 +1,4 @@
-package at.aau.monopoly.websocketdemoserver.model
+package at.aau.monopoly.klagenfurt.model
 
 /** Represents the result of a single dice roll (two six-sided dice). */
 data class DiceRoll(

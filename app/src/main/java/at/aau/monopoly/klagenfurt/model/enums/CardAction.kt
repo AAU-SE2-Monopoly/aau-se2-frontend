@@ -1,4 +1,4 @@
-package at.aau.monopoly.websocketdemoserver.model.enums
+package at.aau.monopoly.klagenfurt.model.enums
 
 enum class CardAction {
     COLLECT_MONEY,

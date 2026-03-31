@@ -9,6 +9,7 @@ import android.widget.Spinner
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.ComponentActivity
+<<<<<<< HEAD
 import androidx.activity.viewModels
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
@@ -16,6 +17,8 @@ import androidx.lifecycle.repeatOnLifecycle
 import at.aau.serg.websocketbrokerdemo.ui.GameViewModel
 import com.example.myapplication.R
 import kotlinx.coroutines.launch
+=======
+>>>>>>> a31b100 (fix: resolve unresolved reference 'example' after package rename)
 import org.json.JSONException
 import org.json.JSONObject
 

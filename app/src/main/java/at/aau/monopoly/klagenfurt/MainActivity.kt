@@ -6,6 +6,7 @@ import android.widget.Button
 import android.widget.TextView
 import androidx.activity.ComponentActivity
 import androidx.activity.enableEdgeToEdge
+<<<<<<< HEAD
 import androidx.activity.viewModels
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
@@ -21,6 +22,8 @@ class MainActivity : ComponentActivity() {
     }
 
     private lateinit var response: TextView
+=======
+>>>>>>> a31b100 (fix: resolve unresolved reference 'example' after package rename)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)

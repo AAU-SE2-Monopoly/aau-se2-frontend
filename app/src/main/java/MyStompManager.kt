@@ -71,30 +71,34 @@ object MyStompManager {
     fun sendHello() {
         scope.launch {
             try {
-                session?.let {
-                    Log.e("tag", "connecting to topic")
-                    it.sendText("/app/hello", "message from client")
-                } ?: run {
-                    Log.e("MyStomp", "Cannot send: Session is null")
-                    //   callback("Error: Not connected")
+                val currentSession = session
+                if (currentSession != null) {
+                    currentSession.sendText("/app/hello", "message from client")
+                } else {
+                    _responses.emit("Error: Not connected")
                 }
             } catch (e: Exception) {
-                Log.e("MyStomp", "Send failed", e)
+                Log.e("MyStompManager", "Send failed", e)
             }
         }
     }
 
     fun sendJson() {
         val json = JSONObject()
-        json.put("from", "client")
-        json.put("text", "from client")
-        val o = json.toString()
+            .put("from", "client")
+            .put("text", "from client")
+            .toString()
 
         scope.launch {
             try {
-                //   session?.sendText("/app/object", o) ?: callback("Error: Not connected")
+                val currentSession = session
+                if (currentSession != null) {
+                    currentSession.sendText("/app/object", json)
+                } else {
+                    _responses.emit("Error: Not connected")
+                }
             } catch (e: Exception) {
-                Log.e("MyStomp", "Send JSON failed", e)
+                Log.e("MyStompManager", "Send JSON failed", e)
             }
         }
     }

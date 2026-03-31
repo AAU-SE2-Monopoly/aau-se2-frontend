@@ -1,9 +1,9 @@
-package at.aau.monopoly.websocketdemoserver.model
+package at.aau.monopoly.klagenfurt.model
 
-import at.aau.monopoly.websocketdemoserver.model.card.ChanceCard
-import at.aau.monopoly.websocketdemoserver.model.card.CommunityChestCard
-import at.aau.monopoly.websocketdemoserver.model.enums.GamePhase
-import at.aau.monopoly.websocketdemoserver.model.field.Field
+import at.aau.monopoly.klagenfurt.model.card.ChanceCard
+import at.aau.monopoly.klagenfurt.model.card.CommunityChestCard
+import at.aau.monopoly.klagenfurt.model.enums.GamePhase
+import at.aau.monopoly.klagenfurt.model.field.Field
 
 data class GameState(
     val gameId: String,

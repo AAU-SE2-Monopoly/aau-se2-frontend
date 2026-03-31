@@ -1,4 +1,4 @@
-package at.aau.monopoly.websocketdemoserver.model
+package at.aau.monopoly.klagenfurt.model
 
 data class Player(
     val id: String,

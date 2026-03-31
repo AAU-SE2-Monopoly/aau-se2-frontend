@@ -1,12 +1,13 @@
 package at.aau.serg.websocketbrokerdemo
 
-import android.os.Handler
-import android.os.Looper
+
 import android.util.Log
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.launch
 import org.hildan.krossbow.stomp.StompClient
 import org.hildan.krossbow.stomp.StompSession
@@ -15,14 +16,18 @@ import org.hildan.krossbow.stomp.subscribeText
 import org.hildan.krossbow.websocket.okhttp.OkHttpWebSocketClient
 import org.json.JSONObject
 
-private const val WEBSOCKET_URI = "ws://10.0.2.2:8080/ws"
 
-class GameStompClient(private val callbacks: GameCallbacks) {
 
+object GameStompManager  {
+    private const val WEBSOCKET_URI = "ws://10.0.2.2:8080/ws"
     private val scope = CoroutineScope(Dispatchers.IO)
     private var session: StompSession? = null
     private var subscriptionJob: Job? = null
+    private val _events = MutableSharedFlow<String>(replay = 0)
+    val events: SharedFlow<String> = _events.asSharedFlow()
 
+    private val _status = MutableSharedFlow<String>(replay = 1)
+    val status: SharedFlow<String> = _status.asSharedFlow()
     var currentGameId: String = ""
     var currentPlayerId: String = java.util.UUID.randomUUID().toString()
 
@@ -31,25 +36,28 @@ class GameStompClient(private val callbacks: GameCallbacks) {
         scope.launch {
             try {
                 session = client.connect(WEBSOCKET_URI)
-                postToMain { callbacks.onStatus("Connected ✓") }
+                _status.emit("Connected ✓")
             } catch (e: Exception) {
                 Log.e("GameStomp", "connect error", e)
-                postToMain { callbacks.onStatus("Connection failed: ${e.message}") }
+                _status.emit("Connection error: ${e.message}")
             }
-        }
-    }
+         }
+            }
+
+
 
     fun subscribeToGame(gameId: String) {
+        currentGameId=gameId
         subscriptionJob?.cancel()
         subscriptionJob = scope.launch {
             try {
-                val flow: Flow<String> = session!!.subscribeText("/topic/game/$gameId")
-                flow.collect { raw ->
-                    postToMain { callbacks.onGameEvent(raw) }
+                session?.subscribeText("/topic/game/$gameId")?.collect { msg->
+                    _events.emit(msg)
                 }
+
             } catch (e: Exception) {
                 Log.e("GameStomp", "subscription error", e)
-                postToMain { callbacks.onStatus("Subscription error: ${e.message}") }
+               _status.emit("Subscription error: ${e.message}")
             }
         }
     }
@@ -71,15 +79,11 @@ class GameStompClient(private val callbacks: GameCallbacks) {
             .put("getOutOfJailCards", 0)
             .put("ownedPropertyIds", org.json.JSONArray())
             .toString()
-        scope.launch {
-            try {
-                session?.sendText("/app/game/create", playerJson)
-                    ?: postToMain { callbacks.onStatus("Not connected") }
-            } catch (e: Exception) {
-                Log.e("GameStomp", "createGame error", e)
-            }
+        sendRaw("/app/game/create", playerJson)
+
+
         }
-    }
+
 
     fun joinGame(gameId: String, playerName: String) {
         currentGameId = gameId
@@ -116,14 +120,18 @@ class GameStompClient(private val callbacks: GameCallbacks) {
     private fun sendRaw(destination: String, json: String) {
         scope.launch {
             try {
-                session?.sendText(destination, json)
-                    ?: postToMain { callbacks.onStatus("Not connected") }
-            } catch (e: Exception) {
+                val currentsession = session
+                if (currentsession != null) {
+                    currentsession.sendText(destination, json)
+                } else {
+                    _status.emit("Not connected")
+                }
+            }catch (e: Exception) {
                 Log.e("GameStomp", "send error to $destination", e)
             }
         }
     }
 
-    private fun postToMain(block: () -> Unit) = Handler(Looper.getMainLooper()).post(block)
+
 }
 

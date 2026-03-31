@@ -25,21 +25,29 @@ object GameStompManager  {
     private var subscriptionJob: Job? = null
     private val _events = MutableSharedFlow<String>(replay = 0)
     val events: SharedFlow<String> = _events.asSharedFlow()
-
+    private var isConnecting=false
     private val _status = MutableSharedFlow<String>(replay = 1)
     val status: SharedFlow<String> = _status.asSharedFlow()
     var currentGameId: String = ""
     var currentPlayerId: String = java.util.UUID.randomUUID().toString()
 
     fun connect() {
-        val client = StompClient(OkHttpWebSocketClient())
+
+        if (session != null) return
+
+        if (isConnecting) return
+
+        isConnecting = true
         scope.launch {
             try {
-                session = client.connect(WEBSOCKET_URI)
+                session = StompClientProvider.client.connect(WEBSOCKET_URI)
                 _status.emit("Connected ✓")
             } catch (e: Exception) {
                 Log.e("GameStomp", "connect error", e)
                 _status.emit("Connection error: ${e.message}")
+            }
+            finally {
+                isConnecting = false // Reset the flag
             }
          }
             }

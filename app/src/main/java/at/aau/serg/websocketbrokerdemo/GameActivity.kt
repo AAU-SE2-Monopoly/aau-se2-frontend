@@ -9,13 +9,16 @@ import android.widget.Spinner
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.ComponentActivity
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
 import com.example.myapplication.R
+import kotlinx.coroutines.launch
 import org.json.JSONException
 import org.json.JSONObject
 
-class GameActivity : ComponentActivity(), GameCallbacks {
+class GameActivity : ComponentActivity() {
 
-    private lateinit var stomp: GameStompClient
 
     private lateinit var tvStatus: TextView
     private lateinit var tvEventLog: TextView
@@ -41,7 +44,7 @@ class GameActivity : ComponentActivity(), GameCallbacks {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_game)
 
-        stomp = GameStompClient(this)
+
 
         tvStatus     = findViewById(R.id.tv_status)
         tvEventLog   = findViewById(R.id.tv_event_log)
@@ -64,7 +67,7 @@ class GameActivity : ComponentActivity(), GameCallbacks {
 
         btnConnect.setOnClickListener {
             tvStatus.text = getString(R.string.status_connecting)
-            stomp.connect()
+            GameStompManager.connect()
         }
 
         btnClear.setOnClickListener { tvEventLog.text = "" }
@@ -78,77 +81,105 @@ class GameActivity : ComponentActivity(), GameCallbacks {
                 GameActionItem.CREATE_GAME -> {
                     // Subscribe to a temp "wildcard" isn't possible with simple broker,
                     // so we subscribe AFTER we receive the GAME_CREATED event via onGameEvent.
-                    stomp.createGame(playerName)
+                    GameStompManager.createGame(playerName)
                     appendLog("→ CREATE_GAME  player=$playerName")
                 }
+
                 GameActionItem.JOIN_GAME -> {
-                    if (gameId.isEmpty()) { toast(getString(R.string.error_enter_game_id)); return@setOnClickListener }
-                    stomp.joinGame(gameId, playerName)
+                    if (gameId.isEmpty()) {
+                        toast(getString(R.string.error_enter_game_id)); return@setOnClickListener
+                    }
+                    GameStompManager.joinGame(gameId, playerName)
                     appendLog("→ JOIN_GAME  gameId=$gameId  player=$playerName")
                 }
+
                 GameActionItem.START_GAME -> {
-                    if (gameId.isEmpty()) { toast(getString(R.string.error_enter_game_id)); return@setOnClickListener }
-                    stomp.setGameId(gameId)
-                    stomp.startGame()
+                    if (gameId.isEmpty()) {
+                        toast(getString(R.string.error_enter_game_id)); return@setOnClickListener
+                    }
+                    GameStompManager.setGameId(gameId)
+                    GameStompManager.startGame()
                     appendLog("→ START_GAME  gameId=$gameId")
                 }
+
                 GameActionItem.ROLL_DICE -> {
-                    if (gameId.isEmpty()) { toast(getString(R.string.error_enter_game_id)); return@setOnClickListener }
-                    stomp.setGameId(gameId)
-                    stomp.rollDice()
+                    if (gameId.isEmpty()) {
+                        toast(getString(R.string.error_enter_game_id)); return@setOnClickListener
+                    }
+                    GameStompManager.setGameId(gameId)
+                    GameStompManager.rollDice()
                     appendLog("→ ROLL_DICE  gameId=$gameId")
                 }
+
                 GameActionItem.END_TURN -> {
-                    if (gameId.isEmpty()) { toast(getString(R.string.error_enter_game_id)); return@setOnClickListener }
-                    stomp.setGameId(gameId)
-                    stomp.endTurn()
+                    if (gameId.isEmpty()) {
+                        toast(getString(R.string.error_enter_game_id)); return@setOnClickListener
+                    }
+                    GameStompManager.setGameId(gameId)
+                    GameStompManager.endTurn()
                     appendLog("→ END_TURN  gameId=$gameId")
                 }
+
                 GameActionItem.GET_STATE -> {
-                    if (gameId.isEmpty()) { toast(getString(R.string.error_enter_game_id)); return@setOnClickListener }
-                    stomp.setGameId(gameId)
-                    stomp.requestState()
+                    if (gameId.isEmpty()) {
+                        toast(getString(R.string.error_enter_game_id)); return@setOnClickListener
+                    }
+                    GameStompManager.setGameId(gameId)
+                    GameStompManager.requestState()
                     appendLog("→ GET_STATE  gameId=$gameId")
                 }
             }
         }
+        observeStompFlows()
     }
 
-    override fun onStatus(message: String) {
-        tvStatus.text = message
-    }
 
-    override fun onGameEvent(rawJson: String) {
-        // Auto-fill gameId from GAME_CREATED event and subscribe to the topic
-        try {
-            val obj = JSONObject(rawJson)
-            val event = obj.optString("event")
-            val gameId = obj.optString("gameId")
-            if (event == "GAME_CREATED" && gameId.isNotEmpty()) {
-                etGameId.setText(gameId)
-                stomp.setGameId(gameId)
+
+    private fun observeStompFlows() {
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                launch {
+                    GameStompManager.status.collect { message -> tvStatus.text = message }
+                }
+                launch {
+                    GameStompManager.events.collect { rawJson ->
+                        handleGameEvent(rawJson)
+                    }
+                }
             }
-        } catch (_: JSONException) { /* not JSON, skip */ }
 
-        // Pretty-print JSON
-        val pretty = try {
-            JSONObject(rawJson).toString(2)
-        } catch (_: JSONException) { rawJson }
 
-        appendLog("← ${getEventTag(rawJson)}\n$pretty\n${"─".repeat(36)}")
+        }
     }
+   // Auto-fill gameId from GAME_CREATED event and subscribe to the topic
 
+    private fun handleGameEvent(rawJson: String) {
+            try {
+                val obj = JSONObject(rawJson)
+                val event = obj.optString("event")
+                val gameId = obj.optString("gameId")
+                if (event == "GAME_CREATED" && gameId.isNotEmpty()) {
+                    etGameId.setText(gameId)
+                    GameStompManager.setGameId(gameId)
+                }
+            } catch (_: JSONException) { }
+
+            val pretty = try {
+                JSONObject(rawJson).toString(2)
+            } catch (_: JSONException) { rawJson }
+
+            appendLog("← ${getEventTag(rawJson)}\n$pretty\n${"─".repeat(36)}")
+        }
     /** Extracts the "event" field for a concise header label. */
-    private fun getEventTag(raw: String): String = try {
-        JSONObject(raw).optString("event", "EVENT")
-    } catch (_: JSONException) { "EVENT" }
+        private fun getEventTag(raw: String): String = try {
+            JSONObject(raw).optString("event", "EVENT")
+        } catch (_: JSONException) { "EVENT" }
 
-    private fun appendLog(text: String) {
-        val current = tvEventLog.text.toString()
-        tvEventLog.text = if (current.isEmpty()) text else "$text\n\n$current"
-        scrollEvents.post { scrollEvents.fullScroll(ScrollView.FOCUS_UP) }
+        private fun appendLog(text: String) {
+            val current = tvEventLog.text.toString()
+            tvEventLog.text = if (current.isEmpty()) text else "$text\n\n$current"
+            scrollEvents.post { scrollEvents.fullScroll(ScrollView.FOCUS_UP) }
+        }
+
+        private fun toast(msg: String) = Toast.makeText(this, msg, Toast.LENGTH_SHORT).show()
     }
-
-    private fun toast(msg: String) = Toast.makeText(this, msg, Toast.LENGTH_SHORT).show()
-}
-

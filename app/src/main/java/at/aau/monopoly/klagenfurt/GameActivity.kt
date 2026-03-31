@@ -9,7 +9,6 @@ import android.widget.Spinner
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.ComponentActivity
-import com.example.myapplication.R
 import org.json.JSONException
 import org.json.JSONObject
 

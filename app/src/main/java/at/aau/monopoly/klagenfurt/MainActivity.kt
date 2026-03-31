@@ -6,7 +6,6 @@ import android.widget.Button
 import android.widget.TextView
 import androidx.activity.ComponentActivity
 import androidx.activity.enableEdgeToEdge
-import com.example.myapplication.R
 
 class MainActivity : ComponentActivity(), Callbacks {
     lateinit var myStomp: MyStomp

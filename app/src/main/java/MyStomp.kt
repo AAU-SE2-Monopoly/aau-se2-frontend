@@ -1,7 +1,7 @@
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
-import at.aau.serg.websocketbrokerdemo.Callbacks
+import at.aau.monopoly.klagenfurt.Callbacks
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job

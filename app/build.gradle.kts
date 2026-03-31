@@ -6,7 +6,7 @@ plugins {
 }
 
 android {
-    namespace = "com.example.myapplication"
+    namespace = "at.aau.monopoly.klagenfurt"
     compileSdk {
         version = release(36) {
             minorApiLevel = 1
@@ -14,7 +14,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.example.myapplication"
+        applicationId = "at.aau.monopoly.klagenfurt"
         minSdk = 30
         targetSdk = 36
         versionCode = 1

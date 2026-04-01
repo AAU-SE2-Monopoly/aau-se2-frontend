@@ -1,6 +1,6 @@
 
 import android.util.Log
-import at.aau.serg.websocketbrokerdemo.StompClientProvider
+import at.aau.serg.websocketbrokerdemo.ServiceLocator
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -12,12 +12,11 @@ import org.hildan.krossbow.stomp.StompClient
 import org.hildan.krossbow.stomp.StompSession
 import org.hildan.krossbow.stomp.sendText
 import org.hildan.krossbow.stomp.subscribeText
-import org.hildan.krossbow.websocket.okhttp.OkHttpWebSocketClient
 import org.json.JSONObject
 
 private const val WEBSOCKET_URI = "ws://10.0.2.2:8080/websocket-example-broker"
 
-object MyStompManager {
+class MyStompManager(private val stompClient: StompClient) {
 
 
     private var topicJob: Job? = null
@@ -36,10 +35,11 @@ object MyStompManager {
         if (isConnecting) return
 
         isConnecting = true
-        val client = StompClientProvider.client // other config can be passed in here
+
+        // other config can be passed in here
         scope.launch {
             try {
-                session = client.connect(WEBSOCKET_URI)
+                session = stompClient.connect(WEBSOCKET_URI)
 
                 topicJob = launch {
                     session?.subscribeText("/topic/hello-response")?.collect { msg ->
@@ -47,25 +47,22 @@ object MyStompManager {
                     }
                 }
                 jsonJob = launch {
-                    session?.subscribeText("/topic/rcv-object")?.collect  { msg ->
+                    session?.subscribeText("/topic/rcv-object")?.collect { msg ->
                         val text = JSONObject(msg).optString("text", "Parse error")
                         _responses.emit(text)
                     }
 
                 }
                 _responses.emit("connected")
-            } catch(e: Exception) {
-                Log.e("MyStompManager","Connection failed",e)
+            } catch (e: Exception) {
+                Log.e("MyStompManager", "Connection failed", e)
                 _responses.emit("Connection error")
-            }
-            finally {
-                isConnecting=false  //reset the flag
+            } finally {
+                isConnecting = false  //reset the flag
             }
         }
     }
     // connect to JSON topic
-
-
 
 
     fun sendHello() {
@@ -101,5 +98,6 @@ object MyStompManager {
                 Log.e("MyStompManager", "Send JSON failed", e)
             }
         }
+
     }
 }

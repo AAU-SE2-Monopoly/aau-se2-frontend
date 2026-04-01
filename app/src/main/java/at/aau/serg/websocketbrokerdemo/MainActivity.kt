@@ -1,44 +1,47 @@
 package at.aau.serg.websocketbrokerdemo
 
+import MyStompManager
 import android.os.Bundle
 import android.widget.Button
 import android.widget.TextView
 import androidx.activity.ComponentActivity
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.viewModels
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
+import at.aau.serg.websocketbrokerdemo.ui.MainViewModel
 import com.example.myapplication.R
 import kotlinx.coroutines.launch
 
-class MainActivity : ComponentActivity()  {
+class MainActivity : ComponentActivity() {
 
-    lateinit var response: TextView
+    private val viewModel: MainViewModel by viewModels {
+        MainViewModel.Factory(stompManager = MyStompManager(ServiceLocator.provideStompClient()))
+    }
+
+    private lateinit var response: TextView
+
     override fun onCreate(savedInstanceState: Bundle?) {
-
-
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContentView(R.layout.fragment_fullscreen)
 
-        findViewById<Button>(R.id.connectbtn).setOnClickListener { MyStompManager.connect() }
-        findViewById<Button>(R.id.hellobtn).setOnClickListener { MyStompManager.sendHello() }
-        findViewById<Button>(R.id.jsonbtn).setOnClickListener { MyStompManager.sendJson() }
+        findViewById<Button>(R.id.connectbtn).setOnClickListener { viewModel.connect() }
+        findViewById<Button>(R.id.hellobtn).setOnClickListener { viewModel.sendHello() }
+        findViewById<Button>(R.id.jsonbtn).setOnClickListener { viewModel.sendJson() }
         response = findViewById(R.id.response_view)
-        observeStompResponses()
+        
+        observeViewModel()
     }
 
-    private fun observeStompResponses() {
+    private fun observeViewModel() {
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
-                MyStompManager.responses.collect { res ->
+                viewModel.responses.collect { res ->
                     response.text = res
                 }
             }
         }
     }
-
-
-
 }
-

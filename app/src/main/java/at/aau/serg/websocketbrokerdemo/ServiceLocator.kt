@@ -12,6 +12,10 @@ object ServiceLocator {
         StompClient(OkHttpWebSocketClient())
     }
 
+    //Provides the shared StompClient instance.
+
+    fun provideStompClient(): StompClient = stompClient
+
     // Single instance of GameService
     private var gameService: GameService? = null
 

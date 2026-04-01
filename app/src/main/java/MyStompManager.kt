@@ -1,6 +1,6 @@
 
 import android.util.Log
-import at.aau.serg.websocketbrokerdemo.StompClientProvider
+import at.aau.serg.websocketbrokerdemo.ServiceLocator
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -12,12 +12,11 @@ import org.hildan.krossbow.stomp.StompClient
 import org.hildan.krossbow.stomp.StompSession
 import org.hildan.krossbow.stomp.sendText
 import org.hildan.krossbow.stomp.subscribeText
-import org.hildan.krossbow.websocket.okhttp.OkHttpWebSocketClient
 import org.json.JSONObject
 
 private const val WEBSOCKET_URI = "ws://10.0.2.2:8080/websocket-example-broker"
 
-object MyStompManager {
+class MyStompManager(stompClient: StompClient) {
 
 
     private var topicJob: Job? = null
@@ -36,7 +35,8 @@ object MyStompManager {
         if (isConnecting) return
 
         isConnecting = true
-        val client = StompClientProvider.client // other config can be passed in here
+        val client = ServiceLocator.provideStompClient()
+        // other config can be passed in here
         scope.launch {
             try {
                 session = client.connect(WEBSOCKET_URI)

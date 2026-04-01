@@ -16,7 +16,7 @@ import org.json.JSONObject
 
 private const val WEBSOCKET_URI = "ws://10.0.2.2:8080/websocket-example-broker"
 
-class MyStompManager(stompClient: StompClient) {
+class MyStompManager(private val stompClient: StompClient) {
 
 
     private var topicJob: Job? = null
@@ -35,11 +35,11 @@ class MyStompManager(stompClient: StompClient) {
         if (isConnecting) return
 
         isConnecting = true
-        val client = ServiceLocator.provideStompClient()
+
         // other config can be passed in here
         scope.launch {
             try {
-                session = client.connect(WEBSOCKET_URI)
+                session = stompClient.connect(WEBSOCKET_URI)
 
                 topicJob = launch {
                     session?.subscribeText("/topic/hello-response")?.collect { msg ->
@@ -47,25 +47,22 @@ class MyStompManager(stompClient: StompClient) {
                     }
                 }
                 jsonJob = launch {
-                    session?.subscribeText("/topic/rcv-object")?.collect  { msg ->
+                    session?.subscribeText("/topic/rcv-object")?.collect { msg ->
                         val text = JSONObject(msg).optString("text", "Parse error")
                         _responses.emit(text)
                     }
 
                 }
                 _responses.emit("connected")
-            } catch(e: Exception) {
-                Log.e("MyStompManager","Connection failed",e)
+            } catch (e: Exception) {
+                Log.e("MyStompManager", "Connection failed", e)
                 _responses.emit("Connection error")
-            }
-            finally {
-                isConnecting=false  //reset the flag
+            } finally {
+                isConnecting = false  //reset the flag
             }
         }
     }
     // connect to JSON topic
-
-
 
 
     fun sendHello() {
@@ -101,5 +98,6 @@ class MyStompManager(stompClient: StompClient) {
                 Log.e("MyStompManager", "Send JSON failed", e)
             }
         }
+
     }
 }

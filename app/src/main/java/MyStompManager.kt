@@ -1,6 +1,5 @@
 
 import android.util.Log
-import at.aau.serg.websocketbrokerdemo.ServiceLocator
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job

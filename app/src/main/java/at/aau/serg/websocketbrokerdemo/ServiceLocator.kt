@@ -30,4 +30,9 @@ object ServiceLocator {
         gameService = newService
         return newService
     }
+
+    /** ONLY USE FOR TESTING **/
+    fun injectFakeGameService(fake: GameService) {
+        gameService = fake
+    }
 }

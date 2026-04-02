@@ -13,6 +13,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import at.aau.serg.websocketbrokerdemo.networking.Testing.FakeGameService
 import com.example.myapplication.R
 import junit.framework.TestCase.assertEquals
+import kotlinx.coroutines.runBlocking
 import org.hamcrest.CoreMatchers.allOf
 import org.hamcrest.CoreMatchers.containsString
 import org.hamcrest.CoreMatchers.instanceOf
@@ -46,7 +47,7 @@ class GameActivityTest {
     }
 
     @Test
-    fun clickConnectButton_showsConnectingInStatus() {
+    fun clickConnectButton_showsConnectingInStatus_and_callsConnect() {
         onView(withId(R.id.et_player_name))
             .perform(typeText("Player1"), closeSoftKeyboard())
         
@@ -54,10 +55,11 @@ class GameActivityTest {
         
         onView(withId(R.id.tv_status))
             .check(matches(withText(containsString("Connecting"))))
+        assertEquals(true, fakeService.connectCalled)
     }
 
     @Test
-    fun test_Create_GameFlow_should_match_with_String_CREATE_GAME() {
+    fun test_Create_GameFlow_should_match_with_String_CREATE_GAME_and_call_service_createGame() {
         onView(withId(R.id.spinner_action)).perform(click())
         onData(allOf(instanceOf(String::class.java), `is`("Create Game")))
             .perform(click())
@@ -66,10 +68,11 @@ class GameActivityTest {
         
         onView(withId(R.id.tv_event_log))
             .check(matches(withText(containsString("CREATE_GAME"))))
+        assertEquals(1, fakeService.createGameCalls)
     }
 
     @Test
-    fun test_Join_GameFlow_should_match_with_String_JOIN_GAME() {
+    fun test_Join_GameFlow_should_match_with_String_JOIN_GAME_and_call_service_joinGame() {
         onView(withId(R.id.spinner_action)).perform(click())
         onData(allOf(instanceOf(String::class.java), `is`("Join Game")))
             .perform(click())
@@ -79,6 +82,7 @@ class GameActivityTest {
 
        onView(withId(R.id.tv_event_log))
            .check(matches(withText(containsString("JOIN_GAME"))))
+        assertEquals(1, fakeService.joinGameCalls)
     }
 
     @Test
@@ -91,9 +95,24 @@ class GameActivityTest {
 
         assertEquals(0, fakeService.joinGameCalls)
     }
-
     @Test
-    fun test_StartGame_calls_service() {
+    fun test_ReceivingGameCreatedEvent_automatically_sets_GameId() {
+        val serverGameId = "SERVER-GENERATED-ID"
+        val jsonEvent = """{"event": "GAME_CREATED", "gameId": "$serverGameId"}"""
+
+        // 1. Simulate the server sending a GAME_CREATED event
+        runBlocking {
+            fakeService.emitTestEvent(jsonEvent)
+        }
+
+        // 2. Verify the EditText was updated automatically
+        onView(withId(R.id.et_game_id)).check(matches(withText(serverGameId)))
+
+        // 3. Verify the service was notified of the new ID
+        assertEquals(serverGameId, fakeService.lastSubscribedGameId)
+    }
+    @Test
+    fun test_StartGame_calls_service_startGame() {
         onView(withId(R.id.spinner_action)).perform(click())
         onData(allOf(instanceOf(String::class.java), `is`("Start Game"))).perform(click())
         onView(withId(R.id.et_game_id)).perform(typeText("TEST-ID"), closeSoftKeyboard())
@@ -104,7 +123,7 @@ class GameActivityTest {
     }
 
     @Test
-    fun test_RollDice_calls_service() {
+    fun test_RollDice_calls_service_rollDice() {
         onView(withId(R.id.spinner_action)).perform(click())
         onData(allOf(instanceOf(String::class.java), `is`("Roll Dice"))).perform(click())
         onView(withId(R.id.et_game_id)).perform(typeText("TEST-ID"), closeSoftKeyboard())
@@ -115,7 +134,7 @@ class GameActivityTest {
     }
 
     @Test
-    fun test_EndTurn_calls_service() {
+    fun test_EndTurn_calls_service_endTurn() {
         onView(withId(R.id.spinner_action)).perform(click())
         onData(allOf(instanceOf(String::class.java), `is`("End Turn"))).perform(click())
         onView(withId(R.id.et_game_id)).perform(typeText("TEST-ID"), closeSoftKeyboard())
@@ -123,5 +142,15 @@ class GameActivityTest {
         onView(withId(R.id.btn_send)).perform(click())
 
         assertEquals(true, fakeService.endTurnCalled)
+    }
+    @Test
+    fun test_GetState_calls_service_requestState() {
+        onView(withId(R.id.spinner_action)).perform(click())
+        onData(allOf(instanceOf(String::class.java), `is`("Get State"))).perform(click())
+        onView(withId(R.id.et_game_id)).perform(typeText("TEST-ID"), closeSoftKeyboard())
+
+        onView(withId(R.id.btn_send)).perform(click())
+
+        assertEquals(true, fakeService.requestStateCalled)
     }
 }

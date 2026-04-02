@@ -32,35 +32,31 @@ class GameActivityTest {
 
     @Before
     fun setup() {
-
         fakeService = FakeGameService()
         ServiceLocator.injectGameServiceForTest(fakeService)
-        
-
         scenario = ActivityScenario.launch(GameActivity::class.java)
     }
 
     @After
     fun tearDown() {
-
         scenario.close()
         ServiceLocator.resetForTests()
-
     }
+
     @Test
-    fun test_clearButton_clearsEventLog_afterTextWasAdded() = runBlocking {
-        fakeService.emitTestEvent("""{"event":"TEST_MESSAGE"}""")
+    fun test_clearButton_clearsEventLog_afterTextWasAdded() {
+        runBlocking {
+            fakeService.emitTestEvent("""{"event":"TEST_MESSAGE"}""")
 
+            onView(withId(R.id.tv_event_log))
+                .check(matches(withText(containsString("TEST_MESSAGE"))))
 
-        onView(withId(R.id.tv_event_log))
-            .check(matches(withText(containsString("TEST_MESSAGE"))))
+            onView(withId(R.id.btn_clear)).perform(click())
 
-        onView(withId(R.id.btn_clear)).perform(click())
-
-        onView(withId(R.id.tv_event_log))
-            .check(matches(withText("")))
+            onView(withId(R.id.tv_event_log))
+                .check(matches(withText("")))
+        }
     }
-
 
     @Test
     fun test_clearButton_clearsEventLog() {
@@ -70,12 +66,9 @@ class GameActivityTest {
 
     @Test
     fun test_setupSpinner_populatesWithGameActionItems() {
-        // Beweist, dass setupSpinner() den Adapter korrekt angebunden hat.
-        // Wir prüfen, ob der initial ausgewählte Text "Create Game" ist.
         onView(withId(R.id.spinner_action))
             .check(matches(withSpinnerText(containsString("Create Game"))))
     }
-
 
     @Test
     fun clickConnectButton_showsConnectingInStatus_and_callsConnect() {
@@ -126,22 +119,20 @@ class GameActivityTest {
 
         assertEquals(0, fakeService.joinGameCalls)
     }
+
     @Test
     fun test_ReceivingGameCreatedEvent_automatically_sets_GameId() {
         val serverGameId = "SERVER-GENERATED-ID"
         val jsonEvent = """{"event": "GAME_CREATED", "gameId": "$serverGameId"}"""
 
-        // 1. Simulate the server sending a GAME_CREATED event
         runBlocking {
             fakeService.emitTestEvent(jsonEvent)
         }
 
-        // 2. Verify the EditText was updated automatically
         onView(withId(R.id.et_game_id)).check(matches(withText(serverGameId)))
-
-        // 3. Verify the service was notified of the new ID
         assertEquals(serverGameId, fakeService.lastSubscribedGameId)
     }
+
     @Test
     fun test_StartGame_calls_service_startGame() {
         onView(withId(R.id.spinner_action)).perform(click())
@@ -174,6 +165,7 @@ class GameActivityTest {
 
         assertEquals(true, fakeService.endTurnCalled)
     }
+
     @Test
     fun test_GetState_calls_service_requestState() {
         onView(withId(R.id.spinner_action)).perform(click())
@@ -184,18 +176,47 @@ class GameActivityTest {
 
         assertEquals(true, fakeService.requestStateCalled)
     }
+
     @Test
-    fun test_observeViewModel_collects_statusFlow_and_eventsFlow(){
+    fun test_observeViewModel_collects_statusFlow_and_eventsFlow() {
         runBlocking {
             fakeService.emitTestStatus("TEST-STATUS")
             fakeService.emitTestEvent("TestEvent")
 
+            onView(withId(R.id.tv_status))
+                .check(matches(withText(containsString("TEST-STATUS"))))
+            onView(withId(R.id.tv_event_log))
+                .check(matches(withText(containsString("TestEvent"))))
+        }
+    }
 
+    @Test
+    fun test_handleGameEvent_withValidJson_updatesGameId_andAppendsPrettyLog() {
+        runBlocking {
+            val validJson = """{"event": "GAME_CREATED", "gameId": "NEW-LOBBY"}"""
+            fakeService.emitTestEvent(validJson)
 
-        onView(withId(R.id.tv_status))
-            .check(matches(withText(containsString("TEST-STATUS"))))
-        onView(withId(R.id.tv_event_log))
-            .check(matches(withText(containsString("TestEvent"))))
+            onView(withId(R.id.et_game_id))
+                .check(matches(withText("NEW-LOBBY")))
+
+            onView(withId(R.id.tv_event_log))
+                .check(matches(withText(containsString("← GAME_CREATED"))))
+            
+            onView(withId(R.id.tv_event_log))
+                .check(matches(withText(containsString("\"gameId\": \"NEW-LOBBY\""))))
+        }
+    }
+
+    @Test
+    fun test_handleGameEvent_withInvalidJson_usesFallbackTag_andRawText() {
+        runBlocking {
+            val brokenJson = "Das ist einfach nur Text, kein JSON"
+            fakeService.emitTestEvent(brokenJson)
+            onView(withId(R.id.tv_event_log))
+                .check(matches(withText(containsString("← EVENT"))))
+
+            onView(withId(R.id.tv_event_log))
+                .check(matches(withText(containsString(brokenJson))))
         }
     }
 }

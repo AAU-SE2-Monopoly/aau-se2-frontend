@@ -134,6 +134,7 @@ dependencies {
 
     // HIER IST MOCKK FÜR DIE ANDROID-TESTS
     androidTestImplementation("io.mockk:mockk-android:1.13.8")
+    testImplementation("io.mockk:mockk:1.13.8")
 
     debugImplementation(libs.androidx.ui.tooling)
     debugImplementation(libs.androidx.ui.test.manifest)

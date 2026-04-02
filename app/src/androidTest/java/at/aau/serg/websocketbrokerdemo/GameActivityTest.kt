@@ -8,6 +8,7 @@ import androidx.test.espresso.action.ViewActions.closeSoftKeyboard
 import androidx.test.espresso.action.ViewActions.typeText
 import androidx.test.espresso.assertion.ViewAssertions.matches
 import androidx.test.espresso.matcher.ViewMatchers.withId
+import androidx.test.espresso.matcher.ViewMatchers.withSpinnerText
 import androidx.test.espresso.matcher.ViewMatchers.withText
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import at.aau.serg.websocketbrokerdemo.networking.Testing.FakeGameService
@@ -33,7 +34,7 @@ class GameActivityTest {
     fun setup() {
 
         fakeService = FakeGameService()
-        ServiceLocator.injectFakeGameService(fakeService)
+        ServiceLocator.injectGameServiceForTest(fakeService)
         
 
         scenario = ActivityScenario.launch(GameActivity::class.java)
@@ -43,8 +44,38 @@ class GameActivityTest {
     fun tearDown() {
 
         scenario.close()
-        ServiceLocator.reset()
+        ServiceLocator.resetForTests()
+
     }
+    @Test
+    fun test_clearButton_clearsEventLog_afterTextWasAdded() = runBlocking {
+        fakeService.emitTestEvent("""{"event":"TEST_MESSAGE"}""")
+
+
+        onView(withId(R.id.tv_event_log))
+            .check(matches(withText(containsString("TEST_MESSAGE"))))
+
+        onView(withId(R.id.btn_clear)).perform(click())
+
+        onView(withId(R.id.tv_event_log))
+            .check(matches(withText("")))
+    }
+
+
+    @Test
+    fun test_clearButton_clearsEventLog() {
+        onView(withId(R.id.btn_clear)).perform(click())
+        onView(withId(R.id.tv_event_log)).check(matches(withText("")))
+    }
+
+    @Test
+    fun test_setupSpinner_populatesWithGameActionItems() {
+        // Beweist, dass setupSpinner() den Adapter korrekt angebunden hat.
+        // Wir prüfen, ob der initial ausgewählte Text "Create Game" ist.
+        onView(withId(R.id.spinner_action))
+            .check(matches(withSpinnerText(containsString("Create Game"))))
+    }
+
 
     @Test
     fun clickConnectButton_showsConnectingInStatus_and_callsConnect() {
@@ -152,5 +183,19 @@ class GameActivityTest {
         onView(withId(R.id.btn_send)).perform(click())
 
         assertEquals(true, fakeService.requestStateCalled)
+    }
+    @Test
+    fun test_observeViewModel_collects_statusFlow_and_eventsFlow(){
+        runBlocking {
+            fakeService.emitTestStatus("TEST-STATUS")
+            fakeService.emitTestEvent("TestEvent")
+
+
+
+        onView(withId(R.id.tv_status))
+            .check(matches(withText(containsString("TEST-STATUS"))))
+        onView(withId(R.id.tv_event_log))
+            .check(matches(withText(containsString("TestEvent"))))
+        }
     }
 }

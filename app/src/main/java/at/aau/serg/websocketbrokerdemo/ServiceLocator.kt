@@ -6,34 +6,52 @@ import org.hildan.krossbow.stomp.StompClient
 import org.hildan.krossbow.websocket.okhttp.OkHttpWebSocketClient
 
 object ServiceLocator {
-    
-    private val stompClient by lazy {
-        StompClient(OkHttpWebSocketClient())
-    }
 
-    fun provideStompClient(): StompClient = stompClient
+    // Normale Properties statt 'by lazy', damit wir sie in Tests überschreiben können.
+    // Sichtbarkeit des Setters bleibt intern für normale Nutzung gesperrt.
+    @Volatile
+    private var stompClient: StompClient? = null
 
+    @Volatile
     private var gameService: GameService? = null
 
-    fun provideGameService(): GameService {
-        synchronized(this) {
-            return gameService ?: createGameService()
+    fun provideStompClient(): StompClient {
+        // Double-Checked Locking für Thread-Sicherheit (falls es parallel aufgerufen wird)
+        return stompClient ?: synchronized(this) {
+            stompClient ?: StompClient(OkHttpWebSocketClient()).also { stompClient = it }
         }
     }
 
-    private fun createGameService(): GameService {
-        val newService = GameStompClient(stompClient)
-        gameService = newService
-        return newService
+    fun provideGameService(): GameService {
+        return gameService ?: synchronized(this) {
+            gameService ?: GameStompClient(provideStompClient()).also { gameService = it }
+        }
     }
 
-    /** ONLY USE FOR TESTING **/
-    fun injectFakeGameService(fake: GameService) {
-        gameService = fake
+    // --- TEST HELPERS ---
+    // Diese Methoden sind essentiell, damit du MockK in Espresso verwenden kannst.
+
+    /**
+     * Injiziert einen Mock für den GameService.
+     * Aufruf in der @Before Methode deines Tests.
+     */
+    fun injectGameServiceForTest(mock: GameService) {
+        gameService = mock
     }
 
-    /** Resets the locator state. Call in @After methods. **/
-    fun reset() {
+    /**
+     * Injiziert einen Mock für den StompClient (falls benötigt).
+     */
+    fun injectStompClientForTest(mock: StompClient) {
+        stompClient = mock
+    }
+
+    /**
+     * ZWINGEND in der @After Methode jedes Tests aufrufen,
+     * damit Mocks nicht in den nächsten Test leaken!
+     */
+    fun resetForTests() {
+        stompClient = null
         gameService = null
     }
 }

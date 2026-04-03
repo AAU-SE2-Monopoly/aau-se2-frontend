@@ -25,6 +25,12 @@ android {
     }
 
     buildTypes {
+        getByName("debug") {
+            // Aktiviert Coverage für androidTest (ab Android Gradle Plugin 8.0)
+            enableAndroidTestCoverage = true
+            // Optional, aktiviert es auch für normale Unit Tests im Debug-Build
+            enableUnitTestCoverage = true
+        }
         release {
             isMinifyEnabled = false
             proguardFiles(

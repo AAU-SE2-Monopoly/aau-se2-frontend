@@ -9,7 +9,7 @@ import androidx.test.espresso.matcher.ViewMatchers.withId
 import androidx.test.espresso.matcher.ViewMatchers.withText
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.example.myapplication.R
-
+import io.mockk.coEvery
 import io.mockk.mockk
 import io.mockk.coVerify
 
@@ -80,6 +80,26 @@ class MainActivityTest {
             onView(withId(R.id.response_view))
                 .check(matches(isDisplayed()))
                 .check(matches(withText("response")))
+        }
+    }
+
+    @Test
+    fun testObserveViewModel_updatesTextViewOnFlowEmission() {
+        // 1. Wir zwingen den gemockten StompClient zum Absturz
+        coEvery { mockStompClient.connect(any(), any()) } throws RuntimeException("Simulierter Netzwerkfehler")
+
+        ActivityScenario.launch(MainActivity::class.java).use {
+            // 2. Den Connect-Button klicken, was den gesamten Flow auslöst
+            onView(withId(R.id.connectbtn)).perform(click())
+
+            // 3. Wichtig: Da dein MyStompManager "Dispatchers.IO" (einen Hintergrund-Thread)
+            // verwendet, weiß Espresso nicht automatisch, wann die Coroutine fertig ist.
+            // Ein kurzes Sleep ist in solchen Architektur-Fällen ein pragmatischer Workaround
+            // für UI-Tests, um Flakiness zu vermeiden.
+            Thread.sleep(300)
+
+            // 4. Prüfen, ob die UI den Text aus dem Flow korrekt übernommen hat
+            onView(withId(R.id.response_view)).check(matches(withText("Connection error")))
         }
     }
 }

@@ -2,13 +2,7 @@ package at.aau.serg.websocketbrokerdemo
 
 import MyStompManager
 import android.util.Log
-import io.mockk.coEvery
-import io.mockk.coVerify
-import io.mockk.every
-import io.mockk.mockk
-import io.mockk.mockkStatic
-import io.mockk.unmockkAll
-import io.mockk.verify
+import io.mockk.*
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
@@ -17,10 +11,12 @@ import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
+import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.hildan.krossbow.stomp.StompClient
 import org.hildan.krossbow.stomp.StompSession
 import org.hildan.krossbow.stomp.frame.StompFrame
+import org.json.JSONObject
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.BeforeEach
@@ -43,6 +39,26 @@ class MyStompManagerTest {
         mockkStatic(Log::class)
         every { Log.e(any(), any(), any()) } returns 0
         every { Log.e(any(), any()) } returns 0
+
+        // Mocking JSONObject to avoid "Method put in org.json.JSONObject not mocked"
+        mockkConstructor(JSONObject::class)
+        val jsonMock = mockk<JSONObject>(relaxed = true)
+
+        // When any JSONObject is constructed, make sure its methods behave
+        // For 'put' we return the mock to support chaining
+        every { anyConstructed<JSONObject>().put(any<String>(), any<Any>()) } returns jsonMock
+        every { anyConstructed<JSONObject>().toString() } returns "{}"
+        every {
+            anyConstructed<JSONObject>().optString(
+                any<String>(),
+                any<String>()
+            )
+        } returns "Parsed JSON Message"
+
+        // Also mock the controlled mock's behavior
+        every { jsonMock.put(any<String>(), any<Any>()) } returns jsonMock
+        every { jsonMock.toString() } returns "{}"
+        every { jsonMock.optString(any<String>(), any<String>()) } returns "Parsed JSON Message"
 
         coEvery { mockStompClient.connect(any(), any()) } returns mockSession
 
@@ -172,7 +188,12 @@ class MyStompManagerTest {
         coVerify(timeout = 2000) { mockStompClient.connect(any(), any()) }
 
         // Wir zwingen die Send-Methode zum Absturz
-        coEvery { mockSession.send(headers = any(), body = any()) } throws RuntimeException("Network crash")
+        coEvery {
+            mockSession.send(
+                headers = any(),
+                body = any()
+            )
+        } throws RuntimeException("Network crash")
 
         stompManager.sendHello()
 
@@ -208,15 +229,26 @@ class MyStompManagerTest {
 
     @Test
     fun sendJson_throwsException_logsError() = runTest {
+
         stompManager.connect()
-        coVerify(timeout = 2000) { mockStompClient.connect(any(), any()) }
-
-        coEvery { mockSession.send(headers = any(), body = any()) } throws RuntimeException("JSON crash")
-
-        stompManager.sendJson()
 
         delay(100)
 
-        verify { Log.e("MyStompManager", "Send JSON failed", any()) }
+        coEvery {
+            mockSession.send(any(), any())
+        } throws RuntimeException("JSON crash")
+
+        stompManager.sendJson()
+
+        delay(200)
+
+        // 5. Verification
+        verify(exactly = 1) {
+            Log.e(
+                eq("MyStompManager"),
+                eq("Send JSON failed"),
+                match { it is RuntimeException && it.message == "JSON crash" }
+            )
+        }
     }
 }

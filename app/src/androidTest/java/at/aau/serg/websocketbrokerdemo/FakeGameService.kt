@@ -1,4 +1,4 @@
-package at.aau.serg.websocketbrokerdemo.networking.Testing
+package at.aau.serg.websocketbrokerdemo
 
 import at.aau.serg.websocketbrokerdemo.networking.GameService
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -18,7 +18,7 @@ class FakeGameService : GameService {
     var lastCreatedPlayerName: String? = null
     var lastJoinedGameId: String? = null
     var lastJoinedPlayerName: String? = null
-    
+
     // Call counters
     var joinGameCalls = 0
     var createGameCalls = 0

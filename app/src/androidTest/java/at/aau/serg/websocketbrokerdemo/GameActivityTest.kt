@@ -11,7 +11,6 @@ import androidx.test.espresso.matcher.ViewMatchers.withId
 import androidx.test.espresso.matcher.ViewMatchers.withSpinnerText
 import androidx.test.espresso.matcher.ViewMatchers.withText
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import at.aau.serg.websocketbrokerdemo.networking.Testing.FakeGameService
 import com.example.myapplication.R
 import junit.framework.TestCase.assertEquals
 import kotlinx.coroutines.runBlocking

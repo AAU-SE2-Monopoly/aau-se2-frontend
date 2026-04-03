@@ -7,16 +7,13 @@ plugins {
 
 android {
     namespace = "com.example.myapplication"
-    compileSdk {
-        version = release(36) {
-            minorApiLevel = 1
-        }
-    }
+    compileSdk = 36// Falls ihr zwingend 36 braucht, ändern, aber 35 ist aktuell stabiler Standard.
+    // Falls deine vorherige Syntax zwingend war, nutze: compileSdkPreview = "VanillaIceCream" o.ä.
 
     defaultConfig {
         applicationId = "com.example.myapplication"
         minSdk = 30
-        targetSdk = 36
+        targetSdk = 35
         versionCode = 1
         versionName = "1.0"
 
@@ -41,7 +38,7 @@ android {
         compose = true
         viewBinding = true
     }
-
+    packaging { resources { excludes += listOf( "META-INF/LICENSE.md", "META-INF/LICENSE-notice.md", "META-INF/AL2.0", "META-INF/LGPL2.1" ) } }
     testOptions {
         unitTests {
             all {
@@ -75,15 +72,13 @@ tasks.register<JacocoReport>("jacocoTestReport") {
         "android/**/*.*"
     )
 
-    val debugTree =
-        fileTree("${project.layout.buildDirectory.get().asFile}/tmp/kotlin-classes/debug") {
-            exclude(fileFilter)
-        }
+    val debugTree = fileTree("${project.layout.buildDirectory.get().asFile}/tmp/kotlin-classes/debug") {
+        exclude(fileFilter)
+    }
 
-    val javaDebugTree =
-        fileTree("${project.layout.buildDirectory.get().asFile}/intermediates/javac/debug") {
-            exclude(fileFilter)
-        }
+    val javaDebugTree = fileTree("${project.layout.buildDirectory.get().asFile}/intermediates/javac/debug") {
+        exclude(fileFilter)
+    }
 
     val mainSrc = listOf(
         "${project.projectDir}/src/main/java",
@@ -115,6 +110,7 @@ dependencies {
     implementation(libs.krossbow.websocket.okhttp)
     implementation(libs.krossbow.stomp.core)
     implementation(libs.krossbow.websocket.builtin)
+
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.activity.compose)
@@ -124,18 +120,21 @@ dependencies {
     implementation(libs.androidx.ui.tooling.preview)
     implementation(libs.androidx.material3)
     implementation(libs.androidx.constraintlayout)
-    implementation(libs.androidx.junit.ktx)
+
     testImplementation(libs.junit)
     testImplementation(libs.junit.jupiter.api)
     testRuntimeOnly(libs.junit.jupiter.engine)
     testRuntimeOnly(libs.junit.platform.launcher)
-    androidTestImplementation("androidx.test.espresso:espresso-core:3.5.1")
-    androidTestImplementation("androidx.test.ext:junit:1.1.5")
-    androidTestImplementation("androidx.test:rules:1.5.0")
+
+    // UI Test Dependencies
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.androidx.ui.test.junit4)
+
+    // HIER IST MOCKK FÜR DIE ANDROID-TESTS
+    androidTestImplementation("io.mockk:mockk-android:1.13.8")
+
     debugImplementation(libs.androidx.ui.tooling)
     debugImplementation(libs.androidx.ui.test.manifest)
 }

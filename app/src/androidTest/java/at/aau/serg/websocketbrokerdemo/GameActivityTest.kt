@@ -219,4 +219,18 @@ class GameActivityTest {
                 .check(matches(withText(containsString(brokenJson))))
         }
     }
+    @Test
+    fun test_appendLog_withMultipleMessages_prependsNewText() {
+        runBlocking {
+            fakeService.emitTestEvent("""{"event":"ERSTE_NACHRICHT"}""")
+
+            fakeService.emitTestEvent("""{"event":"ZWEITE_NACHRICHT"}""")
+
+            onView(withId(R.id.tv_event_log))
+                .check(matches(withText(containsString("ERSTE_NACHRICHT"))))
+
+            onView(withId(R.id.tv_event_log))
+                .check(matches(withText(containsString("ZWEITE_NACHRICHT"))))
+        }
+    }
 }

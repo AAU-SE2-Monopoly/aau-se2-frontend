@@ -7,6 +7,7 @@ interface GameService {
     val status: SharedFlow<String>
     
     fun connect()
+    fun disconnect()
     fun subscribeToGame(gameId: String)
     fun createGame(playerName: String)
     fun joinGame(gameId: String, playerName: String)

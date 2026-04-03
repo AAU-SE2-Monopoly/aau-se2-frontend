@@ -6,10 +6,6 @@ plugins {
 }
 
 android {
-
-    testOptions {
-        unitTests.isReturnDefaultValues = true
-    }
     namespace = "com.example.myapplication"
     compileSdk = 36// Falls ihr zwingend 36 braucht, ändern, aber 35 ist aktuell stabiler Standard.
     // Falls deine vorherige Syntax zwingend war, nutze: compileSdkPreview = "VanillaIceCream" o.ä.
@@ -25,12 +21,6 @@ android {
     }
 
     buildTypes {
-        getByName("debug") {
-            // Aktiviert Coverage für androidTest (ab Android Gradle Plugin 8.0)
-            enableAndroidTestCoverage = true
-            // Optional, aktiviert es auch für normale Unit Tests im Debug-Build
-            enableUnitTestCoverage = true
-        }
         release {
             isMinifyEnabled = false
             proguardFiles(
@@ -117,8 +107,6 @@ sonar {
 }
 
 dependencies {
-    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.8.0") // Version ggf. anpassen
-    testImplementation("org.json:json:20230227")
     implementation(libs.krossbow.websocket.okhttp)
     implementation(libs.krossbow.stomp.core)
     implementation(libs.krossbow.websocket.builtin)
@@ -137,6 +125,8 @@ dependencies {
     testImplementation(libs.junit.jupiter.api)
     testRuntimeOnly(libs.junit.jupiter.engine)
     testRuntimeOnly(libs.junit.platform.launcher)
+    testImplementation("io.mockk:mockk:1.13.10")
+    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.7.3")
 
     // UI Test Dependencies
     androidTestImplementation(libs.androidx.junit)
@@ -146,7 +136,6 @@ dependencies {
 
     // HIER IST MOCKK FÜR DIE ANDROID-TESTS
     androidTestImplementation("io.mockk:mockk-android:1.13.8")
-    testImplementation("io.mockk:mockk:1.13.8")
 
     debugImplementation(libs.androidx.ui.tooling)
     debugImplementation(libs.androidx.ui.test.manifest)

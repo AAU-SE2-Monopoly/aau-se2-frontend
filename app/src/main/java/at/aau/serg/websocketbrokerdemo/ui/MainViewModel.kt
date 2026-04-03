@@ -15,7 +15,13 @@ class MainViewModel(private val stompManager: MyStompManager) : ViewModel() {
 
     class Factory(private val stompManager: MyStompManager) : ViewModelProvider.Factory {
         override fun <T : ViewModel> create(modelClass: Class<T>): T {
-            return MainViewModel(stompManager) as T
+            // Prüfen, ob die angeforderte Klasse ein MainViewModel (oder eine Superklasse davon) ist
+            if (modelClass.isAssignableFrom(MainViewModel::class.java)) {
+                @Suppress("UNCHECKED_CAST")
+                return MainViewModel(stompManager) as T
+            }
+            // Falls eine falsche Klasse angefordert wird, zwingend abbrechen
+            throw IllegalArgumentException("Unknown ViewModel class")
         }
     }
 }

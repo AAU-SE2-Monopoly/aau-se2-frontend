@@ -6,6 +6,10 @@ plugins {
 }
 
 android {
+
+    testOptions {
+        unitTests.isReturnDefaultValues = true
+    }
     namespace = "com.example.myapplication"
     compileSdk = 36// Falls ihr zwingend 36 braucht, ändern, aber 35 ist aktuell stabiler Standard.
     // Falls deine vorherige Syntax zwingend war, nutze: compileSdkPreview = "VanillaIceCream" o.ä.
@@ -107,6 +111,8 @@ sonar {
 }
 
 dependencies {
+    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.8.0") // Version ggf. anpassen
+    testImplementation("org.json:json:20230227")
     implementation(libs.krossbow.websocket.okhttp)
     implementation(libs.krossbow.stomp.core)
     implementation(libs.krossbow.websocket.builtin)

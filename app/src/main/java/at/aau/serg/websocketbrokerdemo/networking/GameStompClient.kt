@@ -1,9 +1,11 @@
 package at.aau.serg.websocketbrokerdemo.networking
 
 import android.util.Log
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
@@ -17,12 +19,13 @@ import java.util.UUID
 
 class GameStompClient(
     private val stompClient: StompClient,
-    private val scope: CoroutineScope = CoroutineScope(Dispatchers.IO),
+    private val scope: CoroutineScope = CoroutineScope(Dispatchers.IO + SupervisorJob()),
     private val websocketUri: String = "ws://10.0.2.2:8080/ws"
 ) : GameService {
 
     private var session: StompSession? = null
     private var subscriptionJob: Job? = null
+    private var connectJob: Job? = null
     private var isConnecting = false
 
     private val _events = MutableSharedFlow<String>(replay = 0)
@@ -35,33 +38,80 @@ class GameStompClient(
     private val currentPlayerId: String = UUID.randomUUID().toString()
 
     override fun connect() {
-        if (session != null || isConnecting) return
+        if (session != null) {
+            Log.d("GameStomp", "Already connected (session=$session)")
+            return
+        }
+
+        if (isConnecting) {
+            Log.d("GameStomp", "Connection already in progress...")
+            return
+        }
 
         isConnecting = true
-        scope.launch {
+        connectJob = scope.launch {
             try {
+                Log.d("GameStomp", "Connecting to $websocketUri...")
                 session = stompClient.connect(websocketUri)
                 _status.emit("Connected ✓")
-            } catch (e: Exception) {
-                Log.e("GameStomp", "connect error", e)
-                _status.emit("Connection error: ${e.message}")
+                Log.d("GameStomp", "Connected successfully")
+            } catch (e: Throwable) {
+                if (isCancellation(e)) {
+                    Log.d("GameStomp", "Connection attempt cancelled")
+                } else {
+                    Log.e("GameStomp", "connect error", e)
+                    session = null
+                    _status.emit("Connection error: ${e.message}")
+                }
             } finally {
                 isConnecting = false
             }
         }
     }
 
+    override fun disconnect() {
+        connectJob?.cancel()
+        subscriptionJob?.cancel()
+        val currentSession = session
+        session = null
+        scope.launch {
+            try {
+                currentSession?.disconnect()
+                _status.emit("Disconnected")
+            } catch (e: Throwable) {
+                if (!isCancellation(e)) {
+                    Log.e("GameStomp", "disconnect error", e)
+                }
+            }
+        }
+    }
+
     override fun subscribeToGame(gameId: String) {
+        if (gameId == currentGameId && subscriptionJob?.isActive == true) {
+            Log.d("GameStomp", "Already subscribed to $gameId")
+            return
+        }
+        
         currentGameId = gameId
         subscriptionJob?.cancel()
         subscriptionJob = scope.launch {
             try {
-                session?.subscribeText("/topic/game/$gameId")?.collect { msg ->
+                val currentSession = session
+                if (currentSession == null) {
+                    Log.w("GameStomp", "Cannot subscribe: not connected")
+                    return@launch
+                }
+                Log.d("GameStomp", "Subscribing to /topic/game/$gameId")
+                currentSession.subscribeText("/topic/game/$gameId").collect { msg ->
                     _events.emit(msg)
                 }
-            } catch (e: Exception) {
-                Log.e("GameStomp", "subscription error", e)
-                _status.emit("Subscription error: ${e.message}")
+            } catch (e: Throwable) {
+                if (isCancellation(e)) {
+                    Log.d("GameStomp", "Subscription job cancelled for $gameId")
+                } else {
+                    Log.e("GameStomp", "subscription error", e)
+                    _status.emit("Subscription error: ${e.message}")
+                }
             }
         }
     }
@@ -111,10 +161,24 @@ class GameStompClient(
     private fun sendRaw(destination: String, json: String) {
         scope.launch {
             try {
-                session?.sendText(destination, json) ?: _status.emit("Not connected")
-            } catch (e: Exception) {
-                Log.e("GameStomp", "send error to $destination", e)
+                val currentSession = session
+                if (currentSession != null) {
+                    currentSession.sendText(destination, json)
+                } else {
+                    _status.emit("Not connected")
+                }
+            } catch (e: Throwable) {
+                if (!isCancellation(e)) {
+                    Log.e("GameStomp", "send error to $destination", e)
+                    _status.emit("Send error: ${e.message}")
+                }
             }
         }
+    }
+
+    private fun isCancellation(e: Throwable): Boolean {
+        return e is CancellationException || 
+               (e is IllegalStateException && e.message?.contains("cancelled", ignoreCase = true) == true) ||
+               (e.cause is CancellationException)
     }
 }

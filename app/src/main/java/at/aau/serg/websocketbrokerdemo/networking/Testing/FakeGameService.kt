@@ -31,6 +31,10 @@ class FakeGameService : GameService {
         connectCalled = true
     }
 
+    override fun disconnect() {
+        connectCalled = false
+    }
+
     override fun subscribeToGame(gameId: String) {
         lastSubscribedGameId = gameId
     }

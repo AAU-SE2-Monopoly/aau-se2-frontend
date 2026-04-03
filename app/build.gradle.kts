@@ -125,6 +125,7 @@ dependencies {
     testImplementation(libs.junit.jupiter.api)
     testRuntimeOnly(libs.junit.jupiter.engine)
     testRuntimeOnly(libs.junit.platform.launcher)
+    testImplementation("io.mockk:mockk:1.13.10")
 
     // UI Test Dependencies
     androidTestImplementation(libs.androidx.junit)

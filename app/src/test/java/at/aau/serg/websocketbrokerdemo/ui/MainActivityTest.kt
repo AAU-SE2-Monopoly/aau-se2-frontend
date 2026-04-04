@@ -1,4 +1,5 @@
-package at.aau.serg.websocketbrokerdemo
+package at.aau.serg.websocketbrokerdemo.at.aau.serg.websocketbrokerdemo.ui
+
 
 import androidx.test.core.app.ActivityScenario
 import androidx.test.espresso.Espresso.onView
@@ -7,27 +8,31 @@ import androidx.test.espresso.assertion.ViewAssertions.matches
 import androidx.test.espresso.matcher.ViewMatchers.isDisplayed
 import androidx.test.espresso.matcher.ViewMatchers.withId
 import androidx.test.espresso.matcher.ViewMatchers.withText
-import androidx.test.ext.junit.runners.AndroidJUnit4
+import at.aau.serg.websocketbrokerdemo.MainActivity
+import at.aau.serg.websocketbrokerdemo.ServiceLocator
 import com.example.myapplication.R
 import io.mockk.coEvery
 import io.mockk.mockk
 import io.mockk.coVerify
-
 import org.hildan.krossbow.stomp.StompClient
 import org.junit.After
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
+import org.robolectric.shadows.ShadowLooper
+import java.util.regex.Pattern.matches
 
-@RunWith(AndroidJUnit4::class)
+// 1. Robolectric Runner anstelle von AndroidJUnit4
+@RunWith(RobolectricTestRunner::class)
+@Config(sdk = [33])
 class MainActivityTest {
 
     private lateinit var mockStompClient: StompClient
 
     @Before
     fun setup() {
-        // relaxed = true sorgt dafür, dass Methodenrückgaben (wie die StompSession beim Connect)
-        // automatisch durch Mock-Objekte ersetzt werden und nicht null zurückliefern.
         mockStompClient = mockk(relaxed = true)
         ServiceLocator.injectStompClientForTest(mockStompClient)
     }
@@ -56,11 +61,6 @@ class MainActivityTest {
             onView(withId(R.id.hellobtn))
                 .check(matches(isDisplayed()))
                 .perform(click())
-
-            // Hinweis: Um hier coVerify für das eigentliche Senden auszuführen, müsste
-            // das zurückgegebene StompSession-Objekt aus dem Connect gemockt werden.
-            // Für einen reinen UI-Interaktionstest reicht es zu prüfen, ob der Button
-            // nicht abstürzt und die Methode im ViewModel fehlerfrei aufruft.
         }
     }
 
@@ -76,7 +76,6 @@ class MainActivityTest {
     @Test
     fun testResponseView_showsInitialText() {
         ActivityScenario.launch(MainActivity::class.java).use {
-            // Prüft, ob das Textfeld beim Start korrekt sichtbar ist und den Standardtext enthält
             onView(withId(R.id.response_view))
                 .check(matches(isDisplayed()))
                 .check(matches(withText("response")))
@@ -85,20 +84,13 @@ class MainActivityTest {
 
     @Test
     fun testObserveViewModel_updatesTextViewOnFlowEmission() {
-        // 1. Wir zwingen den gemockten StompClient zum Absturz
         coEvery { mockStompClient.connect(any(), any()) } throws RuntimeException("Simulierter Netzwerkfehler")
 
         ActivityScenario.launch(MainActivity::class.java).use {
-            // 2. Den Connect-Button klicken, was den gesamten Flow auslöst
             onView(withId(R.id.connectbtn)).perform(click())
 
-            // 3. Wichtig: Da dein MyStompManager "Dispatchers.IO" (einen Hintergrund-Thread)
-            // verwendet, weiß Espresso nicht automatisch, wann die Coroutine fertig ist.
-            // Ein kurzes Sleep ist in solchen Architektur-Fällen ein pragmatischer Workaround
-            // für UI-Tests, um Flakiness zu vermeiden.
-            Thread.sleep(300)
+            ShadowLooper.idleMainLooper()
 
-            // 4. Prüfen, ob die UI den Text aus dem Flow korrekt übernommen hat
             onView(withId(R.id.response_view)).check(matches(withText("Connection error")))
         }
     }

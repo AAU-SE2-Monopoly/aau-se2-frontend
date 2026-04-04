@@ -1,4 +1,5 @@
-package at.aau.serg.websocketbrokerdemo
+package at.aau.serg.websocketbrokerdemo.at.aau.serg.websocketbrokerdemo.ui
+
 
 import androidx.test.core.app.ActivityScenario
 import androidx.test.espresso.Espresso.onData
@@ -10,7 +11,9 @@ import androidx.test.espresso.assertion.ViewAssertions.matches
 import androidx.test.espresso.matcher.ViewMatchers.withId
 import androidx.test.espresso.matcher.ViewMatchers.withSpinnerText
 import androidx.test.espresso.matcher.ViewMatchers.withText
-import androidx.test.ext.junit.runners.AndroidJUnit4
+import at.aau.serg.websocketbrokerdemo.GameActivity
+import at.aau.serg.websocketbrokerdemo.ServiceLocator
+import at.aau.serg.websocketbrokerdemo.at.aau.serg.websocketbrokerdemo.FakeGameService
 import com.example.myapplication.R
 import junit.framework.TestCase.assertEquals
 import kotlinx.coroutines.runBlocking
@@ -22,8 +25,12 @@ import org.junit.After
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
+import org.robolectric.shadows.ShadowLooper
 
-@RunWith(AndroidJUnit4::class)
+@RunWith(RobolectricTestRunner::class)
+@Config(sdk = [33])
 class GameActivityTest {
 
     private lateinit var fakeService: FakeGameService
@@ -46,6 +53,7 @@ class GameActivityTest {
     fun test_clearButton_clearsEventLog_afterTextWasAdded() {
         runBlocking {
             fakeService.emitTestEvent("""{"event":"TEST_MESSAGE"}""")
+            ShadowLooper.idleMainLooper() // Wartet auf UI-Update durch den Flow
 
             onView(withId(R.id.tv_event_log))
                 .check(matches(withText(containsString("TEST_MESSAGE"))))
@@ -73,9 +81,9 @@ class GameActivityTest {
     fun clickConnectButton_showsConnectingInStatus_and_callsConnect() {
         onView(withId(R.id.et_player_name))
             .perform(typeText("Player1"), closeSoftKeyboard())
-        
+
         onView(withId(R.id.btn_connect)).perform(click())
-        
+
         onView(withId(R.id.tv_status))
             .check(matches(withText(containsString("Connecting"))))
         assertEquals(true, fakeService.connectCalled)
@@ -88,7 +96,7 @@ class GameActivityTest {
             .perform(click())
 
         onView(withId(R.id.btn_send)).perform(click())
-        
+
         onView(withId(R.id.tv_event_log))
             .check(matches(withText(containsString("CREATE_GAME"))))
         assertEquals(1, fakeService.createGameCalls)
@@ -103,8 +111,8 @@ class GameActivityTest {
             .perform(typeText("gameId"), closeSoftKeyboard())
         onView(withId(R.id.btn_send)).perform(click())
 
-       onView(withId(R.id.tv_event_log))
-           .check(matches(withText(containsString("JOIN_GAME"))))
+        onView(withId(R.id.tv_event_log))
+            .check(matches(withText(containsString("JOIN_GAME"))))
         assertEquals(1, fakeService.joinGameCalls)
     }
 
@@ -126,6 +134,7 @@ class GameActivityTest {
 
         runBlocking {
             fakeService.emitTestEvent(jsonEvent)
+            ShadowLooper.idleMainLooper()
         }
 
         onView(withId(R.id.et_game_id)).check(matches(withText(serverGameId)))
@@ -181,6 +190,7 @@ class GameActivityTest {
         runBlocking {
             fakeService.emitTestStatus("TEST-STATUS")
             fakeService.emitTestEvent("TestEvent")
+            ShadowLooper.idleMainLooper()
 
             onView(withId(R.id.tv_status))
                 .check(matches(withText(containsString("TEST-STATUS"))))
@@ -194,13 +204,14 @@ class GameActivityTest {
         runBlocking {
             val validJson = """{"event": "GAME_CREATED", "gameId": "NEW-LOBBY"}"""
             fakeService.emitTestEvent(validJson)
+            ShadowLooper.idleMainLooper()
 
             onView(withId(R.id.et_game_id))
                 .check(matches(withText("NEW-LOBBY")))
 
             onView(withId(R.id.tv_event_log))
                 .check(matches(withText(containsString("← GAME_CREATED"))))
-            
+
             onView(withId(R.id.tv_event_log))
                 .check(matches(withText(containsString("\"gameId\": \"NEW-LOBBY\""))))
         }
@@ -211,6 +222,8 @@ class GameActivityTest {
         runBlocking {
             val brokenJson = "Das ist einfach nur Text, kein JSON"
             fakeService.emitTestEvent(brokenJson)
+            ShadowLooper.idleMainLooper()
+
             onView(withId(R.id.tv_event_log))
                 .check(matches(withText(containsString("← EVENT"))))
 
@@ -222,8 +235,8 @@ class GameActivityTest {
     fun test_appendLog_withMultipleMessages_prependsNewText() {
         runBlocking {
             fakeService.emitTestEvent("""{"event":"ERSTE_NACHRICHT"}""")
-
             fakeService.emitTestEvent("""{"event":"ZWEITE_NACHRICHT"}""")
+            ShadowLooper.idleMainLooper()
 
             onView(withId(R.id.tv_event_log))
                 .check(matches(withText(containsString("ERSTE_NACHRICHT"))))

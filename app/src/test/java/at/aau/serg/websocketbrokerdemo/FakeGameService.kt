@@ -1,4 +1,5 @@
-package at.aau.serg.websocketbrokerdemo
+package at.aau.serg.websocketbrokerdemo.at.aau.serg.websocketbrokerdemo
+
 
 import at.aau.serg.websocketbrokerdemo.networking.GameService
 import kotlinx.coroutines.flow.MutableSharedFlow

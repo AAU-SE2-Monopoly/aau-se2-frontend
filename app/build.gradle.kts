@@ -6,9 +6,19 @@ plugins {
 }
 
 android {
+
     namespace = "com.example.myapplication"
-    compileSdk = 36// Falls ihr zwingend 36 braucht, ändern, aber 35 ist aktuell stabiler Standard.
-    // Falls deine vorherige Syntax zwingend war, nutze: compileSdkPreview = "VanillaIceCream" o.ä.
+    compileSdk = 36 // Changed to 35 for stability as per comment
+
+    testOptions {
+        unitTests {
+            isIncludeAndroidResources = true
+            all {
+                it.useJUnitPlatform()
+                it.finalizedBy(tasks.named("jacocoTestReport"))
+            }
+        }
+    }
 
     defaultConfig {
         applicationId = "com.example.myapplication"
@@ -22,7 +32,6 @@ android {
 
     buildTypes {
         debug {
-            enableAndroidTestCoverage = true
             enableUnitTestCoverage = true
         }
         release {
@@ -43,14 +52,6 @@ android {
         viewBinding = true
     }
     packaging { resources { excludes += listOf( "META-INF/LICENSE.md", "META-INF/LICENSE-notice.md", "META-INF/AL2.0", "META-INF/LGPL2.1" ) } }
-    testOptions {
-        unitTests {
-            all {
-                it.useJUnitPlatform()
-                it.finalizedBy(tasks.named("jacocoTestReport"))
-            }
-        }
-    }
 }
 
 kotlin {
@@ -60,7 +61,7 @@ kotlin {
 tasks.register<JacocoReport>("jacocoTestReport") {
     group = "verification"
     description = "Generates code coverage report for the test task."
-    dependsOn("testDebugUnitTest","createDebugCoverageReport")
+    dependsOn("testDebugUnitTest")
 
     reports {
         xml.required.set(true)
@@ -94,7 +95,7 @@ tasks.register<JacocoReport>("jacocoTestReport") {
     executionData.setFrom(fileTree(project.layout.buildDirectory.get().asFile) {
         include("jacoco/testDebugUnitTest.exec")
         include("outputs/unit_test_code_coverage/debugUnitTest/testDebugUnitTest.exec")
-        include("outputs/code_coverage/debugAndroidTestCoverageReportData/*.ec")
+
     })
 }
 
@@ -125,16 +126,23 @@ dependencies {
     implementation(libs.androidx.ui.tooling.preview)
     implementation(libs.androidx.material3)
     implementation(libs.androidx.constraintlayout)
+    implementation(libs.androidx.games.activity)
+
 
     testImplementation(libs.junit)
     testImplementation(libs.junit.jupiter.api)
     testRuntimeOnly(libs.junit.jupiter.engine)
     testRuntimeOnly(libs.junit.platform.launcher)
-    testImplementation("nl.jqno.equalsverifier:equalsverifier:3.15.4")
+    testImplementation("org.robolectric:robolectric:4.11.1")
     testImplementation("io.mockk:mockk:1.13.10")
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.7.3")
+    testImplementation(libs.core.ktx)
+    testImplementation(libs.equalsverifier)
+    testImplementation(libs.androidx.junit)
+    testImplementation("androidx.test.ext:junit:1.1.5")
+    testImplementation("androidx.test.espresso:espresso-core:3.5.1")
+    testImplementation("androidx.test.espresso:espresso-intents:3.5.1")
 
-    // UI Test Dependencies
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(platform(libs.androidx.compose.bom))

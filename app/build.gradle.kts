@@ -12,7 +12,6 @@ android {
 
     testOptions {
         unitTests {
-            isIncludeAndroidResources = true
             all {
                 it.useJUnitPlatform()
                 it.finalizedBy(tasks.named("jacocoTestReport"))

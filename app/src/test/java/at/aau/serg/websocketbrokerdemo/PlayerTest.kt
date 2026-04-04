@@ -1,6 +1,8 @@
-package at.aau.serg.websocketbrokerdemo.at.aau.serg.websocketbrokerdemo
+package at.aau.serg.websocketbrokerdemo
 
 import at.aau.serg.websocketdemoserver.model.Player
+import nl.jqno.equalsverifier.EqualsVerifier
+import nl.jqno.equalsverifier.Warning
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 
@@ -75,5 +77,21 @@ class PlayerTest {
         player.ownedPropertyIds.clear()
 
         assertTrue(player.isBankrupt())
+    }
+
+    @Test
+    fun `test copy method`() {
+        val player = Player(id = "1", name = "A")
+        val copy = player.copy(name = "B", money = 2000)
+
+        assertEquals("1", copy.id)
+        assertEquals("B", copy.name)
+        assertEquals(2000, copy.money)
+    }
+
+    @Test
+    fun `toString should not be null`() {
+        val player = Player(id = "1", name = "A")
+        assertNotNull(player.toString())
     }
 }

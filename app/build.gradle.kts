@@ -58,6 +58,12 @@ kotlin {
     jvmToolchain(17)
 }
 
+tasks.register("ciTest") {
+    group = "verification"
+    description = "Runs only unit tests for CI."
+    dependsOn("testDebugUnitTest")
+}
+
 tasks.register<JacocoReport>("jacocoTestReport") {
     group = "verification"
     description = "Generates code coverage report for the test task."

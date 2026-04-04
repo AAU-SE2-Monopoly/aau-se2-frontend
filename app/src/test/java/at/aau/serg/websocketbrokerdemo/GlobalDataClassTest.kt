@@ -23,10 +23,9 @@ import at.aau.serg.websocketdemoserver.model.field.PropertyField
 import at.aau.serg.websocketdemoserver.model.field.RailroadField
 import at.aau.serg.websocketdemoserver.model.field.TaxField
 import at.aau.serg.websocketdemoserver.model.field.UtilityField
-import junit.framework.TestCase.assertEquals
 import nl.jqno.equalsverifier.EqualsVerifier
 import nl.jqno.equalsverifier.Warning
-import org.junit.jupiter.api.Assertions
+import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.DynamicTest
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestFactory
@@ -45,6 +44,8 @@ abstract class Card(
 * */
 
 class GlobalDataClassTest {
+
+
     @Test
     fun test_Card_value_for_all_fields() {
         val card1 = object : Card(1, "desc", CardAction.MOVE_TO, 1, 2, 3) {}
@@ -153,12 +154,12 @@ class GlobalDataClassTest {
 
                     val baseCard = testCard as Card
 
-                    Assertions.assertNotNull(baseCard.id)
-                    Assertions.assertNotNull(baseCard.description)
-                    Assertions.assertNotNull(baseCard.action)
-                    Assertions.assertNotNull(baseCard.amount)
-                    Assertions.assertNotNull(baseCard.targetFieldId)
-                    Assertions.assertNotNull(baseCard.moveSpaces)
+                    assertNotNull(baseCard.id)
+                    assertNotNull(baseCard.description)
+                    assertNotNull(baseCard.action)
+                    assertNotNull(baseCard.amount)
+                    assertNotNull(baseCard.targetFieldId)
+                    assertNotNull(baseCard.moveSpaces)
                 }
             }
         }

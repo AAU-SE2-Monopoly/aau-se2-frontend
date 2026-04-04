@@ -15,7 +15,10 @@ import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.hildan.krossbow.stomp.StompClient
 import org.hildan.krossbow.stomp.StompSession
+import org.hildan.krossbow.stomp.frame.FrameBody
 import org.hildan.krossbow.stomp.frame.StompFrame
+import org.hildan.krossbow.stomp.headers.StompSendHeaders
+import org.hildan.krossbow.stomp.sendText
 import org.json.JSONObject
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -235,12 +238,12 @@ class MyStompManagerTest {
         delay(100)
 
         coEvery {
-            mockSession.send(any(), any())
+            mockSession.send(any<StompSendHeaders>(), any<FrameBody>())
         } throws RuntimeException("JSON crash")
 
         stompManager.sendJson()
 
-        delay(200)
+        advanceUntilIdle()
 
         // 5. Verification
         verify(exactly = 1) {

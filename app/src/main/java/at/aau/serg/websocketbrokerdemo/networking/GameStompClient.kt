@@ -40,11 +40,13 @@ class GameStompClient(
     override fun connect() {
         if (session != null) {
             Log.d("GameStomp", "Already connected (session=$session)")
+            _status.tryEmit("Already connected")
             return
         }
 
         if (isConnecting) {
             Log.d("GameStomp", "Connection already in progress...")
+            _status.tryEmit("Connection already in progress")
             return
         }
 

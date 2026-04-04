@@ -28,7 +28,7 @@ class GameStompClient(
     private var connectJob: Job? = null
     private var isConnecting = false
 
-    private val _events = MutableSharedFlow<String>(replay = 0)
+    private val _events = MutableSharedFlow<String>(replay = 1)
     override val events: SharedFlow<String> = _events.asSharedFlow()
 
     private val _status = MutableSharedFlow<String>(replay = 1)
@@ -89,7 +89,7 @@ class GameStompClient(
     }
 
     override fun subscribeToGame(gameId: String) {
-        if (gameId == currentGameId && subscriptionJob?.isActive == true) {
+        if (subscriptionJob?.isActive == true && gameId == currentGameId) {
             Log.d("GameStomp", "Already subscribed to $gameId")
             return
         }
@@ -119,22 +119,52 @@ class GameStompClient(
     }
 
     override fun createGame(playerName: String) {
+        scope.launch {
+            val currentSession = session
+            if (currentSession == null) {
+                Log.w("GameStomp", "Cannot create game: not connected")
+                _status.emit("Not connected")
+                return@launch
+            }
+            try {
+
+                currentGameId = currentPlayerId
+                subscriptionJob?.cancel()
+
+                Log.d("GameStomp", "Establishing subscription for createGame...")
         subscribeToGame(currentPlayerId)
-        val playerJson = JSONObject()
-            .put("id", currentPlayerId)
-            .put("name", playerName)
-            .put("position", 0)
-            .put("money", 1500)
-            .put("inJail", false)
-            .put("jailTurns", 0)
-            .put("getOutOfJailCards", 0)
-            .put("ownedPropertyIds", org.json.JSONArray())
-            .toString()
-        sendRaw("/app/game/create", playerJson)
+                val flow = currentSession.subscribeText("/topic/game/$currentPlayerId")
+
+
+                subscriptionJob = launch {
+                    flow.collect { msg ->
+                        _events.emit(msg)
+                    }
+                }
+
+                Log.d("GameStomp", "Subscription established! Now sending create command...")
+
+                val playerJson = JSONObject()
+                    .put("id", currentPlayerId)
+                    .put("name", playerName)
+                    .put("position", 0)
+                    .put("money", 1500)
+                    .put("inJail", false)
+                    .put("jailTurns", 0)
+                    .put("getOutOfJailCards", 0)
+                    .put("ownedPropertyIds", org.json.JSONArray())
+                    .toString()
+
+                currentSession.sendText("/app/game/create", playerJson)
+
+            } catch (e: Throwable) {
+                Log.e("GameStomp", "createGame error", e)
+            }
+        }
     }
 
     override fun joinGame(gameId: String, playerName: String) {
-        currentGameId = gameId
+
         subscribeToGame(gameId)
         sendRaw("/app/game/join", buildAction(extra = mapOf("name" to playerName)))
     }
@@ -145,7 +175,7 @@ class GameStompClient(
     override fun requestState() = sendRaw("/app/game/state", buildAction())
 
     override fun setGameId(gameId: String) {
-        currentGameId = gameId
+
         subscribeToGame(gameId)
     }
 

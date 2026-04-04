@@ -15,17 +15,17 @@ import org.json.JSONObject
 
 private const val WEBSOCKET_URI = "ws://10.0.2.2:8080/websocket-example-broker"
 
-class MyStompManager(private val stompClient: StompClient) {
+class MyStompManager(private val stompClient: StompClient,private val scope: CoroutineScope = CoroutineScope(Dispatchers.IO)) {
 
 
     private var topicJob: Job? = null
     private var jsonJob: Job? = null
 
-    private val _responses = MutableSharedFlow<String>(replay = 0)
+    private val _responses = MutableSharedFlow<String>(replay = 1)
     val responses: SharedFlow<String> = _responses.asSharedFlow()
     private var session: StompSession? = null
     private var isConnecting = false
-    private val scope: CoroutineScope = CoroutineScope(Dispatchers.IO)
+
 
     fun connect() {
 

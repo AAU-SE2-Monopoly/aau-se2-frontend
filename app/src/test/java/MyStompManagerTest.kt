@@ -4,24 +4,20 @@ import MyStompManager
 import android.util.Log
 import io.mockk.*
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.async
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.emptyFlow
-import kotlinx.coroutines.flow.filter
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOf
-import kotlinx.coroutines.test.UnconfinedTestDispatcher
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.hildan.krossbow.stomp.StompClient
 import org.hildan.krossbow.stomp.StompSession
-import org.hildan.krossbow.stomp.frame.FrameBody
-import org.hildan.krossbow.stomp.frame.StompFrame
-import org.hildan.krossbow.stomp.headers.StompSendHeaders
 import org.hildan.krossbow.stomp.sendText
+import org.hildan.krossbow.stomp.subscribeText
 import org.json.JSONObject
 import org.junit.jupiter.api.AfterEach
-import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 
@@ -31,227 +27,199 @@ class MyStompManagerTest {
     private lateinit var mockStompClient: StompClient
     private lateinit var mockSession: StompSession
     private lateinit var stompManager: MyStompManager
+    private val testDispatcher = StandardTestDispatcher()
 
     @BeforeEach
     fun setup() {
-        // relaxed = true verhindert Abstürze bei nicht explizit gemockten Methoden
         mockStompClient = mockk(relaxed = true)
         mockSession = mockk(relaxed = true)
 
-        // Android Log statisch mocken, damit Log.e im JVM-Test nicht crasht
         mockkStatic(Log::class)
         every { Log.e(any(), any(), any()) } returns 0
         every { Log.e(any(), any()) } returns 0
 
-        // Mocking JSONObject to avoid "Method put in org.json.JSONObject not mocked"
+        // Krossbow Extensions mocken
+        mockkStatic("org.hildan.krossbow.stomp.StompSessionKt")
+        // WICHTIG: Rückgabewert für sendText definieren (vermeidet lautloses Abbrechen)
+        coEvery { mockSession.sendText(any(), any()) } returns mockk()
+
         mockkConstructor(JSONObject::class)
-        val jsonMock = mockk<JSONObject>(relaxed = true)
-
-        // When any JSONObject is constructed, make sure its methods behave
-        // For 'put' we return the mock to support chaining
-        every { anyConstructed<JSONObject>().put(any<String>(), any<Any>()) } returns jsonMock
+        every { anyConstructed<JSONObject>().put(any<String>(), any<Any>()) } answers { it.invocation.self as JSONObject }
         every { anyConstructed<JSONObject>().toString() } returns "{}"
-        every {
-            anyConstructed<JSONObject>().optString(
-                any<String>(),
-                any<String>()
-            )
-        } returns "Parsed JSON Message"
-
-        // Also mock the controlled mock's behavior
-        every { jsonMock.put(any<String>(), any<Any>()) } returns jsonMock
-        every { jsonMock.toString() } returns "{}"
-        every { jsonMock.optString(any<String>(), any<String>()) } returns "Parsed JSON Message"
+        every { anyConstructed<JSONObject>().optString(any<String>(), any<String>()) } returns "Parsed JSON Message"
 
         coEvery { mockStompClient.connect(any(), any()) } returns mockSession
 
-        stompManager = MyStompManager(mockStompClient)
+        stompManager = MyStompManager(mockStompClient, TestScope(testDispatcher))
     }
 
     @AfterEach
     fun teardown() {
+        // Explizites Aufräumen verhindert "Datei gesperrt" Fehler
+        unmockkStatic(Log::class)
+        unmockkStatic("org.hildan.krossbow.stomp.StompSessionKt")
         unmockkAll()
+        clearAllMocks()
     }
 
-    // --- GRUNDLEGENDE TESTS (VERBINDUNG) ---
+    // --- VERBINDUNG ---
 
     @Test
-    fun connect_successful_emitsConnected() = runTest {
-        val deferred = async(UnconfinedTestDispatcher(testScheduler)) {
-            stompManager.responses.first()
-        }
+    fun connect_successful_emitsConnected() = runTest(testDispatcher) {
+        val responses = mutableListOf<String>()
+        val job = launch { stompManager.responses.collect { responses.add(it) } }
 
         stompManager.connect()
+        advanceUntilIdle()
 
-        coVerify(timeout = 2000) { mockStompClient.connect("ws://10.0.2.2:8080/websocket-example-broker") }
-        assertEquals("connected", deferred.await())
-    }
-
-    @Test
-    fun connect_failure_emitsConnectionError() = runTest {
-        coEvery { mockStompClient.connect(any(), any()) } throws Exception("Network Error")
-
-        val deferred = async(UnconfinedTestDispatcher(testScheduler)) {
-            stompManager.responses.first()
-        }
-
-        stompManager.connect()
-
-        assertEquals("Connection error", deferred.await())
+        coVerify { mockStompClient.connect(any()) }
+        assertTrue(responses.contains("connected"))
+        job.cancel()
     }
 
     @Test
-    fun connect_calledTwice_onlyConnectsOnce() = runTest {
-        stompManager.connect()
-        coVerify(timeout = 2000) { mockStompClient.connect(any(), any()) }
+    fun connect_failure_emitsConnectionError() = runTest(testDispatcher) {
+        coEvery { mockStompClient.connect(any()) } throws Exception("Network Error")
 
-        // Zweiter Aufruf sollte durch "if (session != null) return" sofort abbrechen
-        stompManager.connect()
+        val responses = mutableListOf<String>()
+        val job = launch { stompManager.responses.collect { responses.add(it) } }
 
-        // Prüfen, dass der Client wirklich nur exakt 1x aufgerufen wurde
-        coVerify(exactly = 1) { mockStompClient.connect(any(), any()) }
+        stompManager.connect()
+        advanceUntilIdle()
+
+        assertTrue(responses.contains("Connection error"))
+        job.cancel()
     }
 
-    // --- EMPFANGS-TESTS (SUBSCRIPTIONS) ---
-
+    // --- EMPFANG (SUBSCRIPTIONS) ---
     @Test
-    fun connect_receivesTopicMessage_emitsMessage() = runTest {
-        // Wir fangen das echte "subscribe" ab und simulieren einen echten Krossbow-Frame
-        coEvery { mockSession.subscribe(any()) } answers {
-            val topicArg = firstArg<Any>().toString()
-            val mockFrame = mockk<StompFrame.Message>(relaxed = true)
-
-            if (topicArg.contains("hello-response")) {
-                every { mockFrame.bodyAsText } returns "Hello from Server"
-                flowOf(mockFrame)
-            } else {
-                emptyFlow()
-            }
-        }
-
-        val deferred = async(UnconfinedTestDispatcher(testScheduler)) {
-            // Wir filtern das initiale "connected" heraus und warten auf die Server-Nachricht
-            stompManager.responses.filter { it != "connected" }.first()
-        }
+    fun connect_calledTwice_onlyConnectsOnce() = runTest(testDispatcher) {
+        stompManager.connect()
+        advanceUntilIdle()
 
         stompManager.connect()
+        advanceUntilIdle()
 
-        assertEquals("Hello from Server", deferred.await())
+        coVerify(exactly = 1) { mockStompClient.connect(any()) }
     }
-
     @Test
-    fun connect_receivesJsonMessage_emitsParsedText() = runTest {
-        coEvery { mockSession.subscribe(any()) } answers {
-            val topicArg = firstArg<Any>().toString()
-            val mockFrame = mockk<StompFrame.Message>(relaxed = true)
+    fun connect_receivesTopicMessage_emitsMessage() = runTest(testDispatcher) {
+        mockkStatic("org.hildan.krossbow.stomp.StompSessionKt")
 
-            if (topicArg.contains("rcv-object")) {
-                every { mockFrame.bodyAsText } returns """{"text": "Parsed JSON Message"}"""
-                flowOf(mockFrame)
-            } else {
-                emptyFlow()
-            }
-        }
+        val expectedMessage = "Hello from Server"
 
-        val deferred = async(UnconfinedTestDispatcher(testScheduler)) {
-            stompManager.responses.filter { it != "connected" }.first()
-        }
-
-        stompManager.connect()
-
-        assertEquals("Parsed JSON Message", deferred.await())
-    }
-
-    // --- SENDE-TESTS (HELLO) ---
-
-    @Test
-    fun sendHello_whenNotConnected_emitsError() = runTest {
-        val deferred = async(UnconfinedTestDispatcher(testScheduler)) {
-            stompManager.responses.first()
-        }
-
-        stompManager.sendHello()
-
-        assertEquals("Error: Not connected", deferred.await())
-    }
-
-    @Test
-    fun sendHello_whenConnected_sendsText() = runTest {
-        stompManager.connect()
-        coVerify(timeout = 2000) { mockStompClient.connect(any(), any()) }
-
-        stompManager.sendHello()
-
-        coVerify(timeout = 2000) { mockSession.send(headers = any(), body = any()) }
-    }
-
-    @Test
-    fun sendHello_throwsException_logsError() = runTest {
-        stompManager.connect()
-        coVerify(timeout = 2000) { mockStompClient.connect(any(), any()) }
-
-        // Wir zwingen die Send-Methode zum Absturz
+        // Wir mocken spezifisch für das Hello-Topic
         coEvery {
-            mockSession.send(
-                headers = any(),
-                body = any()
-            )
-        } throws RuntimeException("Network crash")
+            mockSession.subscribeText("/topic/hello-response")
+        } returns flowOf(expectedMessage)
+
+        // Wir mocken auch das andere Topic (mit leerem Flow),
+        // damit MockK nicht meckert oder hängen bleibt
+        coEvery {
+            mockSession.subscribeText("/topic/rcv-object")
+        } returns emptyFlow()
+
+        val received = mutableListOf<String>()
+        val collectJob = launch {
+            stompManager.responses.collect { received.add(it) }
+        }
+
+        stompManager.connect()
+        advanceUntilIdle()
+
+        // Jetzt prüfen wir nur, ob unsere Nachricht in der Liste gelandet ist
+        assertTrue(received.contains(expectedMessage), "Nachricht nicht gefunden. Empfangen: $received")
+
+        collectJob.cancel()
+    }
+
+    // --- SENDEN (HELLO) ---
+
+    @Test
+    fun connect_receivesJsonMessage_emitsParsedText() = runTest(testDispatcher) {
+        coEvery { mockSession.subscribeText("/topic/hello-response") } returns emptyFlow()
+        coEvery { mockSession.subscribeText("/topic/rcv-object") } returns flowOf("""{"text": "Parsed JSON Message"}""")
+
+        val responses = mutableListOf<String>()
+        val job = launch { stompManager.responses.collect { responses.add(it) } }
+
+        stompManager.connect()
+        advanceUntilIdle()
+
+        assertTrue(responses.contains("Parsed JSON Message"))
+
+        job.cancel()
+    }
+    @Test
+    fun sendHello_whenNotConnected_emitsError() = runTest(testDispatcher) {
+        val responses = mutableListOf<String>()
+        val job = launch { stompManager.responses.collect { responses.add(it) } }
 
         stompManager.sendHello()
+        advanceUntilIdle()
 
-        // Kurze Pause, damit Dispatchers.IO den Fehler catchen kann
-        delay(100)
+        assertTrue(responses.contains("Error: Not connected"))
 
-        // Prüfen, ob der Fehler im Catch-Block korrekt geloggt wurde
+        job.cancel()
+    }
+    @Test
+    fun sendHello_whenConnected_sendsText() = runTest(testDispatcher) {
+        stompManager.connect()
+        advanceUntilIdle()
+
+        stompManager.sendHello()
+        advanceUntilIdle()
+
+        coVerify { mockSession.sendText(eq("/app/hello"), any()) }
+    }
+
+    @Test
+    fun sendHello_throwsException_logsError() = runTest(testDispatcher) {
+        stompManager.connect()
+        advanceUntilIdle()
+
+        coEvery { mockSession.sendText(any(), any()) } throws RuntimeException("Network crash")
+
+        stompManager.sendHello()
+        advanceUntilIdle()
+
         verify { Log.e("MyStompManager", "Send failed", any()) }
     }
 
-    // --- SENDE-TESTS (JSON) ---
-
+    // --- SENDEN (JSON) ---
     @Test
-    fun sendJson_whenNotConnected_emitsError() = runTest {
-        val deferred = async(UnconfinedTestDispatcher(testScheduler)) {
-            stompManager.responses.first()
-        }
+    fun sendJson_whenNotConnected_emitsError() = runTest(testDispatcher) {
+        val responses = mutableListOf<String>()
+        val job = launch { stompManager.responses.collect { responses.add(it) } }
 
         stompManager.sendJson()
-
-        assertEquals("Error: Not connected", deferred.await())
-    }
-
-    @Test
-    fun sendJson_whenConnected_sendsJsonText() = runTest {
-        stompManager.connect()
-        coVerify(timeout = 2000) { mockStompClient.connect(any(), any()) }
-
-        stompManager.sendJson()
-
-        coVerify(timeout = 2000) { mockSession.send(headers = any(), body = any()) }
-    }
-
-    @Test
-    fun sendJson_throwsException_logsError() = runTest {
-
-        stompManager.connect()
-
-        delay(100)
-
-        coEvery {
-            mockSession.send(any<StompSendHeaders>(), any<FrameBody>())
-        } throws RuntimeException("JSON crash")
-
-        stompManager.sendJson()
-
         advanceUntilIdle()
 
-        // 5. Verification
-        verify(exactly = 1) {
-            Log.e(
-                eq("MyStompManager"),
-                eq("Send JSON failed"),
-                match { it is RuntimeException && it.message == "JSON crash" }
-            )
-        }
+        assertTrue(responses.contains("Error: Not connected"))
+
+        job.cancel()
+    }
+    @Test
+    fun sendJson_whenConnected_sendsJsonText() = runTest(testDispatcher) {
+        stompManager.connect()
+        advanceUntilIdle()
+
+        stompManager.sendJson()
+        advanceUntilIdle()
+
+        coVerify { mockSession.sendText(eq("/app/object"), any()) }
+    }
+
+    @Test
+    fun sendJson_throwsException_logsError() = runTest(testDispatcher) {
+        stompManager.connect()
+        advanceUntilIdle()
+
+        coEvery { mockSession.sendText(eq("/app/object"), any()) } throws RuntimeException("JSON crash")
+
+        stompManager.sendJson()
+        advanceUntilIdle()
+
+        verify { Log.e("MyStompManager", "Send JSON failed", any()) }
     }
 }

@@ -21,6 +21,10 @@ android {
     }
 
     buildTypes {
+        debug {
+            enableAndroidTestCoverage = true
+            enableUnitTestCoverage = true
+        }
         release {
             isMinifyEnabled = false
             proguardFiles(
@@ -56,7 +60,7 @@ kotlin {
 tasks.register<JacocoReport>("jacocoTestReport") {
     group = "verification"
     description = "Generates code coverage report for the test task."
-    dependsOn("testDebugUnitTest")
+    dependsOn("testDebugUnitTest","createDebugCoverageReport")
 
     reports {
         xml.required.set(true)
@@ -90,6 +94,7 @@ tasks.register<JacocoReport>("jacocoTestReport") {
     executionData.setFrom(fileTree(project.layout.buildDirectory.get().asFile) {
         include("jacoco/testDebugUnitTest.exec")
         include("outputs/unit_test_code_coverage/debugUnitTest/testDebugUnitTest.exec")
+        include("outputs/code_coverage/debugAndroidTestCoverageReportData/*.ec")
     })
 }
 

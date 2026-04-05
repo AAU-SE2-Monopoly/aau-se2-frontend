@@ -15,11 +15,16 @@ android {
             isIncludeAndroidResources = true
             all {
                 it.useJUnitPlatform()
+                it.jvmArgs("-noverify")
+                it.configure<JacocoTaskExtension> {
+                    isIncludeNoLocationClasses = true
+                    excludes = listOf("jdk.internal.*")
+                }
+
                 it.finalizedBy(tasks.named("jacocoTestReport"))
             }
         }
     }
-
     defaultConfig {
         applicationId = "com.example.myapplication"
         minSdk = 30

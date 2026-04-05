@@ -14,6 +14,13 @@ import com.example.myapplication.R
 import io.mockk.coEvery
 import io.mockk.mockk
 import io.mockk.coVerify
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.advanceUntilIdle
+import kotlinx.coroutines.test.resetMain
+import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.test.setMain
 import org.hildan.krossbow.stomp.StompClient
 import org.junit.After
 import org.junit.Before
@@ -30,16 +37,20 @@ import java.util.regex.Pattern.matches
 class MainActivityTest {
 
     private lateinit var mockStompClient: StompClient
-
+    private val testDispatcher= StandardTestDispatcher()
+    @OptIn(ExperimentalCoroutinesApi::class)
     @Before
     fun setup() {
+        Dispatchers.setMain(testDispatcher)
         mockStompClient = mockk(relaxed = true)
         ServiceLocator.injectStompClientForTest(mockStompClient)
     }
 
+    @OptIn(ExperimentalCoroutinesApi::class)
     @After
     fun tearDown() {
         ServiceLocator.resetForTests()
+        Dispatchers.resetMain()
     }
 
     @Test
@@ -82,16 +93,22 @@ class MainActivityTest {
         }
     }
 
+    @OptIn(ExperimentalCoroutinesApi::class)
     @Test
-    fun testObserveViewModel_updatesTextViewOnFlowEmission() {
-        coEvery { mockStompClient.connect(any(), any()) } throws RuntimeException("Simulierter Netzwerkfehler")
+    fun testObserveViewModel_updatesTextViewOnFlowEmission() = runTest(testDispatcher) {
+        coEvery {
+            mockStompClient.connect(
+                any(),
+                any()
+            )
+        } throws RuntimeException("Simulierter Netzwerkfehler")
 
         ActivityScenario.launch(MainActivity::class.java).use {
             onView(withId(R.id.connectbtn)).perform(click())
 
-            ShadowLooper.idleMainLooper()
+            advanceUntilIdle()
 
             onView(withId(R.id.response_view)).check(matches(withText("Connection error")))
         }
     }
-}
+    }

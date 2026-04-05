@@ -1,4 +1,4 @@
-package at.aau.serg.websocketbrokerdemo.at.aau.serg.websocketbrokerdemo.ui
+package at.aau.serg.websocketbrokerdemo.ui
 
 
 import androidx.test.core.app.ActivityScenario

@@ -1,6 +1,7 @@
-package at.aau.serg.websocketbrokerdemo.at.aau.serg.websocketbrokerdemo.ui
+package at.aau.serg.websocketbrokerdemo.ui
 
 
+import aau.serg.websocketbrokerdemo.FakeGameService
 import androidx.test.core.app.ActivityScenario
 import androidx.test.espresso.Espresso.onData
 import androidx.test.espresso.Espresso.onView
@@ -13,7 +14,7 @@ import androidx.test.espresso.matcher.ViewMatchers.withSpinnerText
 import androidx.test.espresso.matcher.ViewMatchers.withText
 import at.aau.serg.websocketbrokerdemo.GameActivity
 import at.aau.serg.websocketbrokerdemo.ServiceLocator
-import at.aau.serg.websocketbrokerdemo.at.aau.serg.websocketbrokerdemo.FakeGameService
+
 import com.example.myapplication.R
 import junit.framework.TestCase.assertEquals
 import kotlinx.coroutines.runBlocking

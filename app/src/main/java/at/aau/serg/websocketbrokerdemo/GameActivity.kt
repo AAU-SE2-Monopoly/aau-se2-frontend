@@ -9,13 +9,21 @@ import android.widget.Spinner
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.ComponentActivity
+import androidx.activity.viewModels
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
+import at.aau.serg.websocketbrokerdemo.ui.GameViewModel
 import com.example.myapplication.R
+import kotlinx.coroutines.launch
 import org.json.JSONException
 import org.json.JSONObject
 
-class GameActivity : ComponentActivity(), GameCallbacks {
+class GameActivity : ComponentActivity() {
 
-    private lateinit var stomp: GameStompClient
+    private val viewModel: GameViewModel by viewModels {
+        GameViewModel.Factory(ServiceLocator.provideGameService())
+    }
 
     private lateinit var tvStatus: TextView
     private lateinit var tvEventLog: TextView
@@ -27,7 +35,6 @@ class GameActivity : ComponentActivity(), GameCallbacks {
     private lateinit var btnClear: Button
     private lateinit var scrollEvents: ScrollView
 
-    /** Actions that map to STOMP destinations / GameAction.action values */
     enum class GameActionItem(val label: String) {
         CREATE_GAME("Create Game"),
         JOIN_GAME("Join Game"),
@@ -41,19 +48,25 @@ class GameActivity : ComponentActivity(), GameCallbacks {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_game)
 
-        stomp = GameStompClient(this)
+        initViews()
+        setupSpinner()
+        setupClickListeners()
+        observeViewModel()
+    }
 
-        tvStatus     = findViewById(R.id.tv_status)
-        tvEventLog   = findViewById(R.id.tv_event_log)
+    private fun initViews() {
+        tvStatus = findViewById(R.id.tv_status)
+        tvEventLog = findViewById(R.id.tv_event_log)
         etPlayerName = findViewById(R.id.et_player_name)
-        etGameId     = findViewById(R.id.et_game_id)
-        spinnerAction= findViewById(R.id.spinner_action)
-        btnSend      = findViewById(R.id.btn_send)
-        btnConnect   = findViewById(R.id.btn_connect)
-        btnClear     = findViewById(R.id.btn_clear)
+        etGameId = findViewById(R.id.et_game_id)
+        spinnerAction = findViewById(R.id.spinner_action)
+        btnSend = findViewById(R.id.btn_send)
+        btnConnect = findViewById(R.id.btn_connect)
+        btnClear = findViewById(R.id.btn_clear)
         scrollEvents = findViewById(R.id.scroll_events)
+    }
 
-        // Populate spinner
+    private fun setupSpinner() {
         val adapter = ArrayAdapter(
             this,
             android.R.layout.simple_spinner_item,
@@ -61,10 +74,12 @@ class GameActivity : ComponentActivity(), GameCallbacks {
         )
         adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
         spinnerAction.adapter = adapter
+    }
 
+    private fun setupClickListeners() {
         btnConnect.setOnClickListener {
             tvStatus.text = getString(R.string.status_connecting)
-            stomp.connect()
+            viewModel.connect()
         }
 
         btnClear.setOnClickListener { tvEventLog.text = "" }
@@ -76,61 +91,58 @@ class GameActivity : ComponentActivity(), GameCallbacks {
 
             when (selected) {
                 GameActionItem.CREATE_GAME -> {
-                    // Subscribe to a temp "wildcard" isn't possible with simple broker,
-                    // so we subscribe AFTER we receive the GAME_CREATED event via onGameEvent.
-                    stomp.createGame(playerName)
-                    appendLog("→ CREATE_GAME  player=$playerName")
+                    viewModel.createGame(playerName)
+                    appendLog("→ CREATE_GAME player=$playerName")
                 }
                 GameActionItem.JOIN_GAME -> {
                     if (gameId.isEmpty()) { toast(getString(R.string.error_enter_game_id)); return@setOnClickListener }
-                    stomp.joinGame(gameId, playerName)
-                    appendLog("→ JOIN_GAME  gameId=$gameId  player=$playerName")
+                    viewModel.joinGame(gameId, playerName)
+                    appendLog("→ JOIN_GAME gameId=$gameId player=$playerName")
                 }
-                GameActionItem.START_GAME -> {
+                else -> {
                     if (gameId.isEmpty()) { toast(getString(R.string.error_enter_game_id)); return@setOnClickListener }
-                    stomp.setGameId(gameId)
-                    stomp.startGame()
-                    appendLog("→ START_GAME  gameId=$gameId")
-                }
-                GameActionItem.ROLL_DICE -> {
-                    if (gameId.isEmpty()) { toast(getString(R.string.error_enter_game_id)); return@setOnClickListener }
-                    stomp.setGameId(gameId)
-                    stomp.rollDice()
-                    appendLog("→ ROLL_DICE  gameId=$gameId")
-                }
-                GameActionItem.END_TURN -> {
-                    if (gameId.isEmpty()) { toast(getString(R.string.error_enter_game_id)); return@setOnClickListener }
-                    stomp.setGameId(gameId)
-                    stomp.endTurn()
-                    appendLog("→ END_TURN  gameId=$gameId")
-                }
-                GameActionItem.GET_STATE -> {
-                    if (gameId.isEmpty()) { toast(getString(R.string.error_enter_game_id)); return@setOnClickListener }
-                    stomp.setGameId(gameId)
-                    stomp.requestState()
-                    appendLog("→ GET_STATE  gameId=$gameId")
+                    viewModel.setGameId(gameId)
+                    when (selected) {
+                        GameActionItem.START_GAME -> viewModel.startGame()
+                        GameActionItem.ROLL_DICE -> viewModel.rollDice()
+                        GameActionItem.END_TURN -> viewModel.endTurn()
+                        GameActionItem.GET_STATE -> viewModel.requestState()
+                       // else -> {}
+                    }
+                    appendLog("→ ${selected.name} gameId=$gameId")
                 }
             }
         }
     }
 
-    override fun onStatus(message: String) {
-        tvStatus.text = message
+    private fun observeViewModel() {
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                launch {
+                    viewModel.status.collect { message -> tvStatus.text = message }
+                }
+                launch {
+                    viewModel.events.collect { rawJson -> handleGameEvent(rawJson) }
+                }
+            }
+        }
     }
 
-    override fun onGameEvent(rawJson: String) {
-        // Auto-fill gameId from GAME_CREATED event and subscribe to the topic
+    private fun handleGameEvent(rawJson: String) {
         try {
             val obj = JSONObject(rawJson)
             val event = obj.optString("event")
             val gameId = obj.optString("gameId")
             if (event == "GAME_CREATED" && gameId.isNotEmpty()) {
                 etGameId.setText(gameId)
-                stomp.setGameId(gameId)
+                viewModel.setGameId(gameId)
             }
-        } catch (_: JSONException) { /* not JSON, skip */ }
+        } catch (e: JSONException) {
 
-        // Pretty-print JSON
+            appendLog("handeGameEvent exception: $e")
+
+        }
+
         val pretty = try {
             JSONObject(rawJson).toString(2)
         } catch (_: JSONException) { rawJson }
@@ -138,7 +150,6 @@ class GameActivity : ComponentActivity(), GameCallbacks {
         appendLog("← ${getEventTag(rawJson)}\n$pretty\n${"─".repeat(36)}")
     }
 
-    /** Extracts the "event" field for a concise header label. */
     private fun getEventTag(raw: String): String = try {
         JSONObject(raw).optString("event", "EVENT")
     } catch (_: JSONException) { "EVENT" }
@@ -151,4 +162,3 @@ class GameActivity : ComponentActivity(), GameCallbacks {
 
     private fun toast(msg: String) = Toast.makeText(this, msg, Toast.LENGTH_SHORT).show()
 }
-

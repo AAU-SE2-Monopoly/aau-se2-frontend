@@ -107,7 +107,7 @@ class GameActivity : ComponentActivity() {
                         GameActionItem.ROLL_DICE -> viewModel.rollDice()
                         GameActionItem.END_TURN -> viewModel.endTurn()
                         GameActionItem.GET_STATE -> viewModel.requestState()
-                        else -> {}
+                       // else -> {}
                     }
                     appendLog("→ ${selected.name} gameId=$gameId")
                 }
@@ -137,7 +137,11 @@ class GameActivity : ComponentActivity() {
                 etGameId.setText(gameId)
                 viewModel.setGameId(gameId)
             }
-        } catch (_: JSONException) { }
+        } catch (e: JSONException) {
+
+            appendLog("handeGameEvent exception: $e")
+
+        }
 
         val pretty = try {
             JSONObject(rawJson).toString(2)

@@ -106,6 +106,8 @@ class MainActivityTest {
         ActivityScenario.launch(MainActivity::class.java).use {
             onView(withId(R.id.connectbtn)).perform(click())
 
+            Thread.sleep(1000)
+
             // 1. Arbeitet alle ausstehenden Coroutines ab
             advanceUntilIdle()
 

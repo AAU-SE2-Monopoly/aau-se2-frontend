@@ -1,9 +1,10 @@
 package at.aau.monopoly.klagenfurt.ui
 
-
+import android.os.Looper
 import androidx.test.core.app.ActivityScenario
 import androidx.test.espresso.Espresso.onView
 import androidx.test.espresso.action.ViewActions.click
+import androidx.test.espresso.assertion.ViewAssertions.matches
 import androidx.test.espresso.matcher.ViewMatchers.isDisplayed
 import androidx.test.espresso.matcher.ViewMatchers.withId
 import androidx.test.espresso.matcher.ViewMatchers.withText
@@ -11,8 +12,8 @@ import at.aau.monopoly.klagenfurt.MainActivity
 import at.aau.monopoly.klagenfurt.ServiceLocator
 import com.example.myapplication.R
 import io.mockk.coEvery
-import io.mockk.mockk
 import io.mockk.coVerify
+import io.mockk.mockk
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -27,7 +28,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
-import androidx.test.espresso.assertion.ViewAssertions.matches
+import org.robolectric.shadows.ShadowLooper
 
 // 1. Robolectric Runner anstelle von AndroidJUnit4
 @RunWith(RobolectricTestRunner::class)
@@ -35,7 +36,8 @@ import androidx.test.espresso.assertion.ViewAssertions.matches
 class MainActivityTest {
 
     private lateinit var mockStompClient: StompClient
-    private val testDispatcher= StandardTestDispatcher()
+    private val testDispatcher = StandardTestDispatcher()
+
     @OptIn(ExperimentalCoroutinesApi::class)
     @Before
     fun setup() {
@@ -104,9 +106,13 @@ class MainActivityTest {
         ActivityScenario.launch(MainActivity::class.java).use {
             onView(withId(R.id.connectbtn)).perform(click())
 
+            // 1. Arbeitet alle ausstehenden Coroutines ab
             advanceUntilIdle()
+
+            // 2. Zwingt Robolectric, alle anstehenden UI-Updates (wie TextView.text = ...) sofort zu zeichnen
+            ShadowLooper.shadowMainLooper().idle()
 
             onView(withId(R.id.response_view)).check(matches(withText("Connection error")))
         }
     }
-    }
+}

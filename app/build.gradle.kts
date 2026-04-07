@@ -139,6 +139,7 @@ dependencies {
     implementation(libs.androidx.constraintlayout)
     implementation(libs.androidx.games.activity)
     implementation(libs.androidx.compose.ui.test.junit4)
+    implementation(libs.androidx.compose.material3)
 
 
     testImplementation(libs.junit)

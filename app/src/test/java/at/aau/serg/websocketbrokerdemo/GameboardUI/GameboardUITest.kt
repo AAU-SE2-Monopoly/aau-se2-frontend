@@ -1,13 +1,40 @@
 package at.aau.serg.websocketbrokerdemo.GameboardUI
 
+import androidx.compose.ui.Modifier
+import at.aau.serg.websocketbrokerdemo.GameboardUI.GameboardUI
 import at.aau.serg.websocketdemoserver.model.enums.PropertyColor
-import org.junit.jupiter.api.Assertions.*
-import org.junit.jupiter.api.Test
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onNodeWithText
+import androidx.test.ext.junit.runners.AndroidJUnit4
+import at.aau.serg.websocketdemoserver.model.field.Field
+import io.mockk.every
+import io.mockk.mockk
 
+import org.junit.Assert.*
+import org.junit.Test
+import org.junit.Rule
+import org.junit.runner.RunWith
+
+@RunWith(AndroidJUnit4::class)
 class GameboardUITest {
+
+    @get:Rule
+    val composeTestRule = createAndroidComposeRule<GameboardUI>()
+
+    @Test
+    fun `verify GameboardScreen is called in onCreate`() {
+        composeTestRule
+            .onNodeWithContentDescription("Klagenfurt-Map")
+            .assertExists()
+    }
+
 
     @Test
     fun testToComposeColor() {
@@ -106,3 +133,5 @@ class GameboardUITest {
         assertEquals(b1_large.width / 2f, b1_small.width, 0.1f)
     }
 }
+
+

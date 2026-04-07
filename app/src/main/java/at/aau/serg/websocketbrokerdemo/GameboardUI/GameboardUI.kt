@@ -48,11 +48,11 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import at.aau.serg.websocketbrokerdemo.model.BoardFactory
 import at.aau.serg.websocketdemoserver.model.enums.PropertyColor
 import at.aau.serg.websocketdemoserver.model.field.Field
 import at.aau.serg.websocketdemoserver.model.field.PropertyField
 import com.example.myapplication.R
+import kotlin.collections.listOf
 
 class GameboardUI : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -81,7 +81,7 @@ fun LockScreenOrientation(orientation: Int) {
 @Composable
 fun GameboardScreen(modifier: Modifier = Modifier) {
     LockScreenOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE)
-    val fields = remember { BoardFactory.createDefaultBoard() }
+    val fields = remember { listOf<Field>() }
     GameboardContent(fields, modifier)
 }
 

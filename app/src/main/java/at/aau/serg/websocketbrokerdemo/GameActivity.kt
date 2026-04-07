@@ -1,5 +1,6 @@
 package at.aau.serg.websocketbrokerdemo
 
+import android.content.Intent
 import android.os.Bundle
 import android.widget.ArrayAdapter
 import android.widget.Button
@@ -10,9 +11,11 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.viewModels
+import androidx.compose.ui.platform.ComposeView
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
+import at.aau.serg.websocketbrokerdemo.GameboardUI.GameboardUI
 import at.aau.serg.websocketbrokerdemo.ui.GameViewModel
 import com.example.myapplication.R
 import kotlinx.coroutines.launch
@@ -24,7 +27,7 @@ class GameActivity : ComponentActivity() {
     private val viewModel: GameViewModel by viewModels {
         GameViewModel.Factory(ServiceLocator.provideGameService())
     }
-
+    private lateinit var btnGameBoard: Button
     private lateinit var tvStatus: TextView
     private lateinit var tvEventLog: TextView
     private lateinit var etPlayerName: EditText
@@ -55,6 +58,7 @@ class GameActivity : ComponentActivity() {
     }
 
     private fun initViews() {
+        btnGameBoard = findViewById(R.id.button_gameboard)
         tvStatus = findViewById(R.id.tv_status)
         tvEventLog = findViewById(R.id.tv_event_log)
         etPlayerName = findViewById(R.id.et_player_name)
@@ -64,6 +68,7 @@ class GameActivity : ComponentActivity() {
         btnConnect = findViewById(R.id.btn_connect)
         btnClear = findViewById(R.id.btn_clear)
         scrollEvents = findViewById(R.id.scroll_events)
+
     }
 
     private fun setupSpinner() {
@@ -81,7 +86,10 @@ class GameActivity : ComponentActivity() {
             tvStatus.text = getString(R.string.status_connecting)
             viewModel.connect()
         }
-
+        btnGameBoard.setOnClickListener {
+            val intent = Intent(this, GameboardUI::class.java)
+            startActivity(intent)
+        }
         btnClear.setOnClickListener { tvEventLog.text = "" }
 
         btnSend.setOnClickListener {
@@ -93,6 +101,8 @@ class GameActivity : ComponentActivity() {
                 GameActionItem.CREATE_GAME -> {
                     viewModel.createGame(playerName)
                     appendLog("→ CREATE_GAME player=$playerName")
+                    btnGameBoard.isEnabled = true
+
                 }
                 GameActionItem.JOIN_GAME -> {
                     if (gameId.isEmpty()) { toast(getString(R.string.error_enter_game_id)); return@setOnClickListener }
@@ -121,6 +131,7 @@ class GameActivity : ComponentActivity() {
                 launch {
                     viewModel.status.collect { message -> tvStatus.text = message }
                 }
+
                 launch {
                     viewModel.events.collect { rawJson -> handleGameEvent(rawJson) }
                 }
@@ -162,3 +173,5 @@ class GameActivity : ComponentActivity() {
 
     private fun toast(msg: String) = Toast.makeText(this, msg, Toast.LENGTH_SHORT).show()
 }
+
+

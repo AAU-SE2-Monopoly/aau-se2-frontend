@@ -5,6 +5,7 @@ import android.content.pm.ActivityInfo
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.viewModels
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -23,6 +24,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -48,17 +50,24 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import at.aau.serg.websocketbrokerdemo.ServiceLocator
+import at.aau.serg.websocketbrokerdemo.ui.GameViewModel
 import at.aau.serg.websocketdemoserver.model.enums.PropertyColor
 import at.aau.serg.websocketdemoserver.model.field.Field
 import at.aau.serg.websocketdemoserver.model.field.PropertyField
 import com.example.myapplication.R
+import kotlin.collections.emptyList
 import kotlin.collections.listOf
+import kotlin.math.sqrt
 
 class GameboardUI : ComponentActivity() {
+    private val viewModel: GameViewModel by viewModels {
+        GameViewModel.Factory(ServiceLocator.provideGameService())
+    }
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
-            GameboardScreen()
+            GameboardScreen(viewModel=viewModel)
         }
     }
 }
@@ -79,10 +88,11 @@ fun LockScreenOrientation(orientation: Int) {
 }
 
 @Composable
-fun GameboardScreen(modifier: Modifier = Modifier) {
+fun GameboardScreen(modifier: Modifier = Modifier,viewModel: GameViewModel) {
+    val fields by viewModel.fields.collectAsState(initial = emptyList())
     LockScreenOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE)
-    val fields = remember { listOf<Field>() }
-    GameboardContent(fields, modifier)
+
+    GameboardContent(fields?:emptyList(), modifier)
 }
 
 class ZoomState(
@@ -232,7 +242,7 @@ fun calculateFieldBounds(index: Int, sw: Float, sh: Float): FieldBounds {
     } else {
         val dx = end.x - start.x
         val dy = end.y - start.y
-        val dist = Math.sqrt((dx * dx + dy * dy).toDouble()).toFloat()
+        val dist = sqrt((dx * dx + dy * dy).toDouble()).toFloat()
         val innerDist = dist - designCornerSize
         val fieldStep = innerDist / 9f
         val dirX = dx / dist

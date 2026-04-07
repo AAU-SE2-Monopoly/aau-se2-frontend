@@ -2,9 +2,9 @@
 <androidx.constraintlayout.widget.ConstraintLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
-    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:layout_marginStart="40dp"
     android:padding="12dp"
     android:background="#1A1A2E">
 
@@ -118,16 +118,18 @@
         app:layout_constraintEnd_toEndOf="parent"
         android:layout_marginTop="6dp" />
 
-    <androidx.compose.ui.platform.ComposeView
-        android:id="@+id/compose_view"
+
+    <Button
+        android:id="@+id/button_gameboard"
+        android:enabled="false"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:visibility="visible"
-        android:background="@android:color/transparent"
-        app:layout_constraintTop_toBottomOf="@id/btn_clear"
+        android:text="@string/gameboard"
+        android:backgroundTint="#E040FB"
+        app:layout_constraintTop_toBottomOf="@id/spinner_action"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        android:layout_marginTop="16dp" />
+        android:layout_marginTop="6dp" />
+
 
     <!-- ── Event log label ── -->
     <TextView
@@ -137,7 +139,7 @@
         android:text="@string/label_events"
         android:textColor="#CCCCCC"
         android:textSize="14sp"
-        app:layout_constraintTop_toBottomOf="@id/compose_view"
+        app:layout_constraintTop_toBottomOf="@id/button_gameboard"
         app:layout_constraintStart_toStartOf="parent"
         android:layout_marginTop="8dp" />
 

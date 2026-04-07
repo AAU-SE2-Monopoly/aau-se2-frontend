@@ -1,9 +1,9 @@
-package at.aau.serg.websocketbrokerdemo.at.aau.serg.websocketbrokerdemo
+package at.aau.monopoly.klagenfurt
 
-import at.aau.serg.websocketdemoserver.model.DiceRoll
-import at.aau.serg.websocketdemoserver.model.GameState
-import at.aau.serg.websocketdemoserver.model.Player
-import at.aau.serg.websocketdemoserver.model.enums.GamePhase
+import at.aau.monopoly.klagenfurt.model.DiceRoll
+import at.aau.monopoly.klagenfurt.model.GameState
+import at.aau.monopoly.klagenfurt.model.Player
+import at.aau.monopoly.klagenfurt.model.enums.GamePhase
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test

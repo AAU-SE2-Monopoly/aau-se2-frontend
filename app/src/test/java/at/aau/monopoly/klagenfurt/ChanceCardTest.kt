@@ -1,7 +1,7 @@
-package at.aau.serg.websocketbrokerdemo.at.aau.serg.websocketbrokerdemo
+package at.aau.monopoly.klagenfurt
 
-import at.aau.serg.websocketdemoserver.model.card.ChanceCard
-import at.aau.serg.websocketdemoserver.model.enums.CardAction
+import at.aau.monopoly.klagenfurt.model.card.ChanceCard
+import at.aau.monopoly.klagenfurt.model.enums.CardAction
 import org.junit.Test
 
 class ChanceCardTest {

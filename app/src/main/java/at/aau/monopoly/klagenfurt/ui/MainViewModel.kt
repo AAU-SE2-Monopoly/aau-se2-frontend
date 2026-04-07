@@ -1,4 +1,4 @@
-package at.aau.serg.websocketbrokerdemo.ui
+package at.aau.monopoly.klagenfurt.ui
 
 import MyStompManager
 import androidx.lifecycle.ViewModel

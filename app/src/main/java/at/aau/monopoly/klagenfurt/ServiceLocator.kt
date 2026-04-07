@@ -1,7 +1,7 @@
-package at.aau.serg.websocketbrokerdemo
+package at.aau.monopoly.klagenfurt
 
-import at.aau.serg.websocketbrokerdemo.networking.GameService
-import at.aau.serg.websocketbrokerdemo.networking.GameStompClient
+import at.aau.monopoly.klagenfurt.networking.GameService
+import at.aau.monopoly.klagenfurt.networking.GameStompClient
 import org.hildan.krossbow.stomp.StompClient
 import org.hildan.krossbow.websocket.okhttp.OkHttpWebSocketClient
 

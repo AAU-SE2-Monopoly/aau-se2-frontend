@@ -1,9 +1,8 @@
-package at.aau.serg.websocketbrokerdemo
+package at.aau.monopoly.klagenfurt
 
-import at.aau.serg.websocketdemoserver.model.card.ChanceCard
-import at.aau.serg.websocketdemoserver.model.card.CommunityChestCard
-import at.aau.serg.websocketdemoserver.model.enums.CardAction
-import nl.jqno.equalsverifier.EqualsVerifier
+import at.aau.monopoly.klagenfurt.model.card.ChanceCard
+import at.aau.monopoly.klagenfurt.model.card.CommunityChestCard
+import at.aau.monopoly.klagenfurt.model.enums.CardAction
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Test

@@ -6,12 +6,12 @@ import android.widget.Button
 import android.widget.TextView
 import androidx.activity.ComponentActivity
 import androidx.activity.enableEdgeToEdge
-<<<<<<< HEAD
+
 import androidx.activity.viewModels
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
-import at.aau.serg.websocketbrokerdemo.ui.MainViewModel
+import at.aau.monopoly.klagenfurt.ui.MainViewModel
 import com.example.myapplication.R
 import kotlinx.coroutines.launch
 
@@ -22,8 +22,7 @@ class MainActivity : ComponentActivity() {
     }
 
     private lateinit var response: TextView
-=======
->>>>>>> a31b100 (fix: resolve unresolved reference 'example' after package rename)
+
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)

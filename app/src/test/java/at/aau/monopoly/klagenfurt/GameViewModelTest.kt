@@ -1,13 +1,12 @@
-package at.aau.serg.websocketbrokerdemo
+package at.aau.monopoly.klagenfurt
 
-import at.aau.serg.websocketbrokerdemo.networking.GameService
-import at.aau.serg.websocketbrokerdemo.ui.GameViewModel
+import at.aau.monopoly.klagenfurt.networking.GameService
+import at.aau.monopoly.klagenfurt.ui.GameViewModel
 import org.junit.jupiter.api.BeforeEach
 import io.mockk.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.flow.SharedFlow
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.Assertions.assertEquals
 import kotlinx.coroutines.test.StandardTestDispatcher

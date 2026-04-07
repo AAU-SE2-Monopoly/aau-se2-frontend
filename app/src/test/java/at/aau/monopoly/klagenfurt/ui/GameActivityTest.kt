@@ -1,7 +1,7 @@
-package at.aau.serg.websocketbrokerdemo.ui
+package at.aau.monopoly.klagenfurt.ui
 
 
-import aau.serg.websocketbrokerdemo.FakeGameService
+import aau.monopoly.klagenfurt.FakeGameService
 import androidx.test.core.app.ActivityScenario
 import androidx.test.espresso.Espresso.onData
 import androidx.test.espresso.Espresso.onView
@@ -12,8 +12,8 @@ import androidx.test.espresso.assertion.ViewAssertions.matches
 import androidx.test.espresso.matcher.ViewMatchers.withId
 import androidx.test.espresso.matcher.ViewMatchers.withSpinnerText
 import androidx.test.espresso.matcher.ViewMatchers.withText
-import at.aau.serg.websocketbrokerdemo.GameActivity
-import at.aau.serg.websocketbrokerdemo.ServiceLocator
+import at.aau.monopoly.klagenfurt.GameActivity
+import at.aau.monopoly.klagenfurt.ServiceLocator
 
 import com.example.myapplication.R
 import junit.framework.TestCase.assertEquals

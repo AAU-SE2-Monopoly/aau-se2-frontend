@@ -1,7 +1,7 @@
-package aau.serg.websocketbrokerdemo
+package aau.monopoly.klagenfurt
 
 
-import at.aau.serg.websocketbrokerdemo.networking.GameService
+import at.aau.monopoly.klagenfurt.networking.GameService
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow

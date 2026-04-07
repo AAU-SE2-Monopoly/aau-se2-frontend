@@ -1,6 +1,6 @@
-package at.aau.serg.websocketbrokerdemo
+package at.aau.monopoly.klagenfurt
 
-import at.aau.serg.websocketbrokerdemo.networking.GameService
+import at.aau.monopoly.klagenfurt.networking.GameService
 import io.mockk.mockk
 import org.hildan.krossbow.stomp.StompClient
 import org.junit.jupiter.api.AfterEach

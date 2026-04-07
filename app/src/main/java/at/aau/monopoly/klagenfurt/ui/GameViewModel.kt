@@ -1,11 +1,9 @@
-package at.aau.serg.websocketbrokerdemo.ui
+package at.aau.monopoly.klagenfurt.ui
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
-import androidx.lifecycle.viewModelScope
-import at.aau.serg.websocketbrokerdemo.networking.GameService
+import at.aau.monopoly.klagenfurt.networking.GameService
 import kotlinx.coroutines.flow.SharedFlow
-import kotlinx.coroutines.launch
 
 class GameViewModel(private val gameService: GameService) : ViewModel() {
 

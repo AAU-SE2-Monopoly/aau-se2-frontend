@@ -1,4 +1,4 @@
-package at.aau.serg.websocketbrokerdemo.networking
+package at.aau.monopoly.klagenfurt.networking
 
 import kotlinx.coroutines.flow.SharedFlow
 

@@ -1,10 +1,9 @@
-package at.aau.serg.websocketbrokerdemo
+package at.aau.monopoly.klagenfurt
 
-import at.aau.serg.websocketbrokerdemo.messaging.GameAction
-import at.aau.serg.websocketbrokerdemo.messaging.GameEvent
+import at.aau.monopoly.klagenfurt.messaging.GameAction
+import at.aau.monopoly.klagenfurt.messaging.GameEvent
 import nl.jqno.equalsverifier.EqualsVerifier
 import org.junit.jupiter.api.Assertions.assertEquals
-import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Test
 
 class MessagingTest {

@@ -1,7 +1,7 @@
-package at.aau.serg.websocketbrokerdemo
+package at.aau.monopoly.klagenfurt
 
 import android.util.Log
-import at.aau.serg.websocketbrokerdemo.networking.GameStompClient
+import at.aau.monopoly.klagenfurt.networking.GameStompClient
 import io.mockk.*
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.ExperimentalCoroutinesApi

@@ -1,8 +1,6 @@
-package at.aau.serg.websocketbrokerdemo
+package at.aau.monopoly.klagenfurt
 
-import at.aau.serg.websocketdemoserver.model.Player
-import nl.jqno.equalsverifier.EqualsVerifier
-import nl.jqno.equalsverifier.Warning
+import at.aau.monopoly.klagenfurt.model.Player
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 

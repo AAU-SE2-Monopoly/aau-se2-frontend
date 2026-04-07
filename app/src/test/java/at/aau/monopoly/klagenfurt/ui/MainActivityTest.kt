@@ -1,15 +1,14 @@
-package at.aau.serg.websocketbrokerdemo.ui
+package at.aau.monopoly.klagenfurt.ui
 
 
 import androidx.test.core.app.ActivityScenario
 import androidx.test.espresso.Espresso.onView
 import androidx.test.espresso.action.ViewActions.click
-import androidx.test.espresso.assertion.ViewAssertions.matches
 import androidx.test.espresso.matcher.ViewMatchers.isDisplayed
 import androidx.test.espresso.matcher.ViewMatchers.withId
 import androidx.test.espresso.matcher.ViewMatchers.withText
-import at.aau.serg.websocketbrokerdemo.MainActivity
-import at.aau.serg.websocketbrokerdemo.ServiceLocator
+import at.aau.monopoly.klagenfurt.MainActivity
+import at.aau.monopoly.klagenfurt.ServiceLocator
 import com.example.myapplication.R
 import io.mockk.coEvery
 import io.mockk.mockk
@@ -28,8 +27,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
-import org.robolectric.shadows.ShadowLooper
-import java.util.regex.Pattern.matches
+import androidx.test.espresso.assertion.ViewAssertions.matches
 
 // 1. Robolectric Runner anstelle von AndroidJUnit4
 @RunWith(RobolectricTestRunner::class)

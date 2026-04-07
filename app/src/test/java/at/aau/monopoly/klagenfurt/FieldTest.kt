@@ -1,8 +1,7 @@
-package at.aau.serg.websocketbrokerdemo
+package at.aau.monopoly.klagenfurt
 
-import at.aau.serg.websocketdemoserver.model.enums.FieldType
-import at.aau.serg.websocketdemoserver.model.field.*
-import nl.jqno.equalsverifier.EqualsVerifier
+import at.aau.monopoly.klagenfurt.model.enums.FieldType
+import at.aau.monopoly.klagenfurt.model.field.*
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 

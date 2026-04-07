@@ -42,6 +42,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalInspectionMode
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -289,10 +290,10 @@ fun FieldItem(index: Int, field: Field, sw: Float, sh: Float) {
             val barSize = 35f
             val barColor = field.color.toComposeColor()
             val barMod = when (side) {
-                0 -> Modifier.fillMaxWidth().height(((barSize / 2160f) * sh).dp).align(Alignment.BottomCenter)
-                1 -> Modifier.fillMaxHeight().width(((barSize / 3840f) * sw).dp).align(Alignment.CenterStart)
-                2 -> Modifier.fillMaxWidth().height(((barSize / 2160f) * sh).dp).align(Alignment.TopCenter)
-                3 -> Modifier.fillMaxHeight().width(((barSize / 3840f) * sw).dp).align(Alignment.CenterEnd)
+                0 -> Modifier.fillMaxWidth().height(((barSize / 2160f) * sh).dp).align(Alignment.BottomCenter).testTag("Bottom-Bar")
+                1 -> Modifier.fillMaxHeight().width(((barSize / 3840f) * sw).dp).align(Alignment.CenterStart).testTag("Left-Bar")
+                2 -> Modifier.fillMaxWidth().height(((barSize / 2160f) * sh).dp).align(Alignment.TopCenter).testTag("Top-Bar")
+                3 -> Modifier.fillMaxHeight().width(((barSize / 3840f) * sw).dp).align(Alignment.CenterEnd).testTag("Right-Bar")
                 else -> Modifier
             }
             Box(modifier = barMod.background(barColor))

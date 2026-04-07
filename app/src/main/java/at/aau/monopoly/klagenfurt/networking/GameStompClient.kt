@@ -118,6 +118,7 @@ class GameStompClient(
         }
     }
 
+
     override fun createGame(playerName: String) {
         scope.launch {
             val currentSession = session
@@ -127,23 +128,11 @@ class GameStompClient(
                 return@launch
             }
             try {
-
-                currentGameId = currentPlayerId
-                subscriptionJob?.cancel()
-
+                // 1. Sicheres Abonnieren über die existierende Hilfsmethode
                 Log.d("GameStomp", "Establishing subscription for createGame...")
-        subscribeToGame(currentPlayerId)
-                val flow = currentSession.subscribeText("/topic/game/$currentPlayerId")
+                subscribeToGame(currentPlayerId)
 
-
-                subscriptionJob = launch {
-                    flow.collect { msg ->
-                        _events.emit(msg)
-                    }
-                }
-
-                Log.d("GameStomp", "Subscription established! Now sending create command...")
-
+                // 2. Payload bauen
                 val playerJson = JSONObject()
                     .put("id", currentPlayerId)
                     .put("name", playerName)
@@ -155,10 +144,13 @@ class GameStompClient(
                     .put("ownedPropertyIds", org.json.JSONArray())
                     .toString()
 
+                // 3. Request senden
+                Log.d("GameStomp", "Subscription established! Now sending create command...")
                 currentSession.sendText("/app/game/create", playerJson)
 
             } catch (e: Throwable) {
                 Log.e("GameStomp", "createGame error", e)
+                _status.emit("Create game error: ${e.message}") // Hinzugefügt für sauberes UI-Feedback
             }
         }
     }

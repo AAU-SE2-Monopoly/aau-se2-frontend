@@ -1,6 +1,6 @@
-package at.aau.serg.websocketdemoserver.model.card
+package at.aau.serg.websocketbrokerdemo.model.card
 
-import at.aau.serg.websocketdemoserver.model.enums.CardAction
+import at.aau.serg.websocketbrokerdemo.model.enums.CardAction
 
 data class CommunityChestCard(
     override val id: Int,

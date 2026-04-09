@@ -53,9 +53,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import at.aau.serg.websocketbrokerdemo.ServiceLocator
 import at.aau.serg.websocketbrokerdemo.ui.GameViewModel
-import at.aau.serg.websocketdemoserver.model.enums.PropertyColor
-import at.aau.serg.websocketdemoserver.model.field.Field
-import at.aau.serg.websocketdemoserver.model.field.PropertyField
+import at.aau.serg.websocketbrokerdemo.model.enums.PropertyColor
+import at.aau.serg.websocketbrokerdemo.model.field.Field
+import at.aau.serg.websocketbrokerdemo.model.field.PropertyField
 import com.example.myapplication.R
 import kotlin.collections.emptyList
 import kotlin.collections.listOf

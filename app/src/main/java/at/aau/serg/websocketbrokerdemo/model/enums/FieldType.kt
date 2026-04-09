@@ -1,4 +1,4 @@
-package at.aau.serg.websocketdemoserver.model.enums
+package at.aau.serg.websocketbrokerdemo.model.enums
 
 enum class FieldType {
     GO,

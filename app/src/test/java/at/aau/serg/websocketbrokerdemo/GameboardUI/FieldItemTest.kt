@@ -1,11 +1,15 @@
 package at.aau.serg.websocketbrokerdemo.GameboardUI
 
+import androidx.compose.foundation.layout.Column
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import at.aau.serg.websocketdemoserver.model.enums.FieldType
 import at.aau.serg.websocketdemoserver.model.enums.PropertyColor
+import at.aau.serg.websocketdemoserver.model.field.ChanceField
 import at.aau.serg.websocketdemoserver.model.field.GoField
 import at.aau.serg.websocketdemoserver.model.field.PropertyField
 import org.junit.Rule
@@ -52,6 +56,7 @@ class FieldItemTest {
         composeTestRule
             .onNodeWithTag("Left-Bar")
             .assertExists()
+
     }
 
     @Test
@@ -66,14 +71,39 @@ class FieldItemTest {
 
     @Test
     fun `verify FieldItem renders Right-Bar for Side 3`(){
+        val newProperty=myProperty.copy(color=PropertyColor.BROWN)
         composeTestRule.setContent {
-            FieldItem(index = 35, field = myProperty, sw = sw, sh = sh)
+            FieldItem(index = 35, field = newProperty, sw = sw, sh = sh)
         }
         composeTestRule
             .onNodeWithTag("Right-Bar")
             .assertExists()
     }
+    @Test
+    fun `verify FieldItem renders all colors`() {
+        val colors = listOf(
+            PropertyColor.BROWN, PropertyColor.LIGHT_BLUE, PropertyColor.PINK,
+            PropertyColor.ORANGE, PropertyColor.RED, PropertyColor.YELLOW,
+            PropertyColor.GREEN, PropertyColor.DARK_BLUE
+        )
 
+        composeTestRule.setContent {
+            Column {
+                colors.forEach { color ->
+                    FieldItem(
+                        index = 35,
+                        field = myProperty.copy(color = color),
+                        sw = sw,
+                        sh = sh
+                    )
+                }
+            }
+        }
+
+        composeTestRule
+            .onAllNodesWithTag("Right-Bar")
+            .assertCountEquals(8)
+    }
 
 
 
@@ -84,7 +114,7 @@ class FieldItemTest {
 
         val myGO = (GoField(name = "GO", id = 0, type = FieldType.GO))
         composeTestRule.setContent {
-            FieldItem(1, myGO, sw, sh)
+            FieldItem(0, myGO, sw, sh)
 
         }
         composeTestRule
@@ -93,12 +123,16 @@ class FieldItemTest {
 
     }
     @Test
-    fun `verify FieldItem renders  Chancefield text with index 1`(){
-        val myChance = (GoField(name = "Chance", id = 1, type = FieldType.CHANCE))
+    fun `verify FieldItem renders  Chancefield text with index 5`(){
+        val myChance = (ChanceField(
+            id = 1,
+            name ="Chance",
+            type = FieldType.CHANCE
+        ))
 
 
     composeTestRule.setContent {
-        FieldItem(2,myChance,sw,sh)
+        FieldItem(5,myChance,sw,sh)
 
     }
     composeTestRule

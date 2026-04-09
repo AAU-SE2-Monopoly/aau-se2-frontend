@@ -1,9 +1,9 @@
 package at.aau.serg.websocketbrokerdemo.at.aau.serg.websocketbrokerdemo
 
-import at.aau.serg.websocketdemoserver.model.DiceRoll
-import at.aau.serg.websocketdemoserver.model.GameState
-import at.aau.serg.websocketdemoserver.model.Player
-import at.aau.serg.websocketdemoserver.model.enums.GamePhase
+import at.aau.serg.websocketbrokerdemo.model.DiceRoll
+import at.aau.serg.websocketbrokerdemo.model.GameState
+import at.aau.serg.websocketbrokerdemo.model.Player
+import at.aau.serg.websocketbrokerdemo.model.enums.GamePhase
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test

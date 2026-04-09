@@ -7,11 +7,11 @@ import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import at.aau.serg.websocketdemoserver.model.enums.FieldType
-import at.aau.serg.websocketdemoserver.model.enums.PropertyColor
-import at.aau.serg.websocketdemoserver.model.field.ChanceField
-import at.aau.serg.websocketdemoserver.model.field.GoField
-import at.aau.serg.websocketdemoserver.model.field.PropertyField
+import at.aau.serg.websocketbrokerdemo.model.enums.FieldType
+import at.aau.serg.websocketbrokerdemo.model.enums.PropertyColor
+import at.aau.serg.websocketbrokerdemo.model.field.ChanceField
+import at.aau.serg.websocketbrokerdemo.model.field.GoField
+import at.aau.serg.websocketbrokerdemo.model.field.PropertyField
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith

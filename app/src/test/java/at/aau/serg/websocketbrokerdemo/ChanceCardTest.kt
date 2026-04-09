@@ -1,7 +1,7 @@
 package at.aau.serg.websocketbrokerdemo.at.aau.serg.websocketbrokerdemo
 
-import at.aau.serg.websocketdemoserver.model.card.ChanceCard
-import at.aau.serg.websocketdemoserver.model.enums.CardAction
+import at.aau.serg.websocketbrokerdemo.model.card.ChanceCard
+import at.aau.serg.websocketbrokerdemo.model.enums.CardAction
 import org.junit.Test
 
 class ChanceCardTest {

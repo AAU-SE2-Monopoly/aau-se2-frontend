@@ -1,9 +1,8 @@
 package at.aau.serg.websocketbrokerdemo
 
-import at.aau.serg.websocketdemoserver.model.enums.FieldType
-import at.aau.serg.websocketdemoserver.model.enums.PropertyColor
-import at.aau.serg.websocketdemoserver.model.field.PropertyField
-import nl.jqno.equalsverifier.EqualsVerifier
+import at.aau.serg.websocketbrokerdemo.model.enums.FieldType
+import at.aau.serg.websocketbrokerdemo.model.enums.PropertyColor
+import at.aau.serg.websocketbrokerdemo.model.field.PropertyField
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 

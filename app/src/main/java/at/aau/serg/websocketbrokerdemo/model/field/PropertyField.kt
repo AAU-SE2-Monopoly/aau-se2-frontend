@@ -1,7 +1,9 @@
-package at.aau.serg.websocketdemoserver.model.field
+package at.aau.serg.websocketbrokerdemo.model.field
 
-import at.aau.serg.websocketdemoserver.model.enums.FieldType
-import at.aau.serg.websocketdemoserver.model.enums.PropertyColor
+import at.aau.serg.websocketbrokerdemo.model.enums.FieldType
+import at.aau.serg.websocketbrokerdemo.model.enums.PropertyColor
+import org.json.JSONArray
+import org.json.JSONObject
 
 data class PropertyField(
     override val id: Int,
@@ -17,5 +19,27 @@ data class PropertyField(
     var houses: Int = 0,
     var hasHotel: Boolean = false,
     var isMortgaged: Boolean = false
-) : Field(id, name, type)
+) : Field(id, name, type) {
 
+    companion object {
+        fun fromJson(json: JSONObject): PropertyField {
+            val id = json.getInt("id")
+            val name = json.getString("name")
+            val type = FieldType.valueOf(json.getString("type"))
+            val color = PropertyColor.valueOf(json.getString("color"))
+            val price = json.getInt("price")
+            val rentArray = json.getJSONArray("rent")
+            val rent = mutableListOf<Int>()
+            for (i in 0 until rentArray.length()) {
+                rent.add(rentArray.getInt(i))
+            }
+            val houseCost = json.getInt("houseCost")
+            val hotelCost = json.getInt("hotelCost")
+            val ownerId = json.optString("ownerId", null).takeIf { it.isNotEmpty() }
+            val houses = json.optInt("houses", 0)
+            val hasHotel = json.optBoolean("hasHotel", false)
+            val isMortgaged = json.optBoolean("isMortgaged", false)
+            return PropertyField(id, name, type, color, price, rent, houseCost, hotelCost, ownerId, houses, hasHotel, isMortgaged)
+        }
+    }
+}

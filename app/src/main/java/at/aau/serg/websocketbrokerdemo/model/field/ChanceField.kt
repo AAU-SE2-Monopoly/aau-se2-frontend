@@ -1,10 +1,20 @@
-package at.aau.serg.websocketdemoserver.model.field
+package at.aau.serg.websocketbrokerdemo.model.field
 
-import at.aau.serg.websocketdemoserver.model.enums.FieldType
+import at.aau.serg.websocketbrokerdemo.model.enums.FieldType
+import org.json.JSONObject
 
 data class ChanceField(
     override val id: Int,
     override val name: String = "Chance",
     override val type: FieldType = FieldType.CHANCE
-) : Field(id, name, type)
+) : Field(id, name, type) {
 
+    companion object {
+        fun fromJson(json: JSONObject): ChanceField {
+            val id = json.getInt("id")
+            val name = json.optString("name", "Chance")
+            val type = FieldType.valueOf(json.getString("type"))
+            return ChanceField(id, name, type)
+        }
+    }
+}

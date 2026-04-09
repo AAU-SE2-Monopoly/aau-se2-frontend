@@ -1,8 +1,15 @@
 package at.aau.serg.websocketbrokerdemo
 
-import at.aau.serg.websocketdemoserver.model.enums.FieldType
-import at.aau.serg.websocketdemoserver.model.field.*
-import nl.jqno.equalsverifier.EqualsVerifier
+import at.aau.serg.websocketbrokerdemo.model.field.ChanceField
+import at.aau.serg.websocketbrokerdemo.model.field.CommunityChestField
+import at.aau.serg.websocketbrokerdemo.model.field.FreeParkingField
+import at.aau.serg.websocketbrokerdemo.model.field.GoField
+import at.aau.serg.websocketbrokerdemo.model.field.GoToJailField
+import at.aau.serg.websocketbrokerdemo.model.field.JailField
+import at.aau.serg.websocketbrokerdemo.model.field.TaxField
+import at.aau.serg.websocketbrokerdemo.model.field.UtilityField
+import at.aau.serg.websocketbrokerdemo.model.enums.FieldType
+import at.aau.serg.websocketbrokerdemo.model.field.*
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 

@@ -6,10 +6,8 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import at.aau.serg.websocketbrokerdemo.messaging.GameEvent
 import at.aau.serg.websocketbrokerdemo.networking.GameService
-import at.aau.serg.websocketdemoserver.model.GameState
-import at.aau.serg.websocketdemoserver.model.field.Field
-import com.google.gson.Gson
-import kotlinx.coroutines.flow.MutableSharedFlow
+import at.aau.serg.websocketbrokerdemo.model.GameState
+import at.aau.serg.websocketbrokerdemo.model.field.Field
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -17,11 +15,9 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.mapNotNull
 import kotlinx.coroutines.flow.shareIn
 import kotlinx.coroutines.flow.stateIn
-import kotlinx.coroutines.launch
 import org.json.JSONObject
 
 class GameViewModel(private val gameService: GameService) : ViewModel() {
-    private val gson = Gson()
 
     private val gameEventFlow: SharedFlow<GameEvent> = gameService.events
         .mapNotNull { json ->
@@ -29,12 +25,11 @@ class GameViewModel(private val gameService: GameService) : ViewModel() {
                 val jsonObj = JSONObject(json)
                 val eventType = jsonObj.optString("event")
                 val gameId = jsonObj.optString("gameId")
-                val message = jsonObj.optString("message", null)
+                val message = jsonObj.optString("message", "null")
 
                 val gameStateJson = jsonObj.optJSONObject("gameState")
                 val parsedState: GameState? = gameStateJson?.let {
-                    // Explicitly tell Gson to parse this part as GameState
-                    gson.fromJson(it.toString(), GameState::class.java)
+                    GameState.fromJson(it)
                 }
 
                 GameEvent(gameId, eventType, parsedState, message)

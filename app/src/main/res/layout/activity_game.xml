@@ -4,160 +4,177 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#1A1A2E"
-    android:padding="8dp">
+    android:layout_marginStart="40dp"
+    android:padding="12dp"
+    android:background="#1A1A2E">
 
-    <TextView
-        android:id="@+id/tv_title"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Game Lobby"
-        android:textColor="#FFFFFF"
-        android:textSize="20sp"
-        android:textStyle="bold"
-        app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintStart_toStartOf="parent" />
-
-    <Button
-        android:id="@+id/btn_connect"
-        android:layout_width="0dp"
-        android:layout_height="44dp"
-        android:layout_marginTop="4dp"
-        android:text="@string/btn_connect"
-        android:backgroundTint="#5C6BC0"
-        app:layout_constraintTop_toBottomOf="@id/tv_title"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent" />
-
+    <!-- ── Status bar ── -->
     <TextView
         android:id="@+id/tv_status"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:layout_marginTop="4dp"
         android:text="@string/status_not_connected"
         android:textColor="#E0E0E0"
+        android:textSize="13sp"
+        android:fontFamily="monospace"
         android:padding="6dp"
-        android:textSize="12sp"
-        android:background="#28293D"
-        app:layout_constraintTop_toBottomOf="@id/btn_connect"
+        android:background="#16213E"
+        app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent" />
 
+    <!-- ── Player name input ── -->
     <EditText
         android:id="@+id/et_player_name"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:hint="@string/hint_player_name"
-        android:text="Player1"
+        android:text="@string/default_player_name"
         android:textColor="#FFFFFF"
-        android:textColorHint="#A0A0A0"
-        android:textSize="14sp"
+        android:textColorHint="#888888"
         android:backgroundTint="#5C6BC0"
+        android:padding="8dp"
+        android:inputType="text"
+        android:autofillHints="username"
         app:layout_constraintTop_toBottomOf="@id/tv_status"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent" />
+        app:layout_constraintEnd_toStartOf="@id/btn_connect"
+        android:layout_marginTop="8dp"
+        android:layout_marginEnd="8dp" />
 
+    <!-- ── Connect button (Neue Farbe) ── -->
+    <Button
+        android:id="@+id/btn_connect"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="@string/btn_connect"
+        android:backgroundTint="#5C6BC0"
+        app:layout_constraintTop_toBottomOf="@id/tv_status"
+        app:layout_constraintEnd_toEndOf="parent"
+        android:layout_marginTop="8dp" />
+
+    <!-- ── Game ID input ── -->
     <EditText
         android:id="@+id/et_game_id"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:hint="@string/hint_game_id"
         android:textColor="#FFFFFF"
-        android:textColorHint="#A0A0A0"
-        android:textSize="14sp"
+        android:textColorHint="#888888"
         android:backgroundTint="#5C6BC0"
+        android:padding="8dp"
+        android:inputType="text"
+        android:autofillHints="no"
         app:layout_constraintTop_toBottomOf="@id/et_player_name"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent" />
+        app:layout_constraintEnd_toEndOf="parent"
+        android:layout_marginTop="8dp" />
 
-    <Button
-        android:id="@+id/button_gameboard"
-        android:enabled="false"
-        android:layout_width="0dp"
-        android:layout_height="44dp"
-        android:layout_marginTop="4dp"
-        android:text="@string/gameboard"
-        android:backgroundTint="#5C6BC0"
+    <!-- ── Action dropdown label ── -->
+    <TextView
+        android:id="@+id/tv_action_label"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="@string/label_action"
+        android:textColor="#CCCCCC"
+        android:textSize="14sp"
         app:layout_constraintTop_toBottomOf="@id/et_game_id"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent" />
+        android:layout_marginTop="12dp" />
 
+    <!-- HACK: Weißer Hintergrund für den Spinner-Text -->
     <View
         android:layout_width="0dp"
         android:layout_height="0dp"
-        android:background="#E0E0E0"
+        android:background="#FFFFFF"
         app:layout_constraintTop_toTopOf="@id/spinner_action"
         app:layout_constraintBottom_toBottomOf="@id/spinner_action"
         app:layout_constraintStart_toStartOf="@id/spinner_action"
         app:layout_constraintEnd_toEndOf="@id/spinner_action" />
 
+    <!-- ── Spinner (dropdown) ── -->
     <Spinner
         android:id="@+id/spinner_action"
         android:layout_width="0dp"
-        android:layout_height="44dp"
-        android:layout_marginTop="8dp"
-        android:popupBackground="#28293D"
-        android:theme="@android:style/ThemeOverlay.Material.Dark"
-        app:layout_constraintTop_toBottomOf="@id/button_gameboard"
+        android:layout_height="wrap_content"
+        android:backgroundTint="#5C6BC0"
+        android:popupBackground="#FFFFFF"
+        app:layout_constraintTop_toBottomOf="@id/tv_action_label"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toStartOf="@id/btn_send" />
+        app:layout_constraintEnd_toStartOf="@id/btn_send"
+        android:layout_marginTop="4dp"
+        android:layout_marginEnd="8dp" />
 
+    <!-- ── Send button (Neue Farbe) ── -->
     <Button
         android:id="@+id/btn_send"
         android:layout_width="wrap_content"
-        android:layout_height="44dp"
+        android:layout_height="wrap_content"
         android:text="@string/btn_send"
         android:backgroundTint="#5C6BC0"
-        app:layout_constraintTop_toTopOf="@id/spinner_action"
-        app:layout_constraintEnd_toEndOf="parent" />
+        app:layout_constraintTop_toBottomOf="@id/tv_action_label"
+        app:layout_constraintEnd_toEndOf="parent"
+        android:layout_marginTop="4dp" />
 
+    <!-- ── Clear button ── -->
+    <Button
+        android:id="@+id/btn_clear"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="@string/btn_clear"
+        android:textSize="12sp"
+        android:backgroundTint="#5C6BC0"
+        app:layout_constraintTop_toBottomOf="@id/spinner_action"
+        app:layout_constraintEnd_toEndOf="parent"
+        android:layout_marginTop="6dp" />
+
+    <!-- ── Gameboard Button ── -->
+    <Button
+        android:id="@+id/button_gameboard"
+        android:enabled="false"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="@string/gameboard"
+        android:backgroundTint="#5C6BC0"
+        app:layout_constraintTop_toBottomOf="@id/spinner_action"
+        app:layout_constraintStart_toStartOf="parent"
+        android:layout_marginTop="6dp" />
+
+
+    <!-- ── Event log label ── -->
     <TextView
         android:id="@+id/tv_event_label"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="@string/label_events"
         android:textColor="#CCCCCC"
-        android:textSize="12sp"
-        app:layout_constraintTop_toTopOf="@id/btn_clear"
-        app:layout_constraintBottom_toBottomOf="@id/btn_clear"
-        app:layout_constraintStart_toStartOf="parent" />
+        android:textSize="14sp"
+        app:layout_constraintTop_toBottomOf="@id/button_gameboard"
+        app:layout_constraintStart_toStartOf="parent"
+        android:layout_marginTop="8dp" />
 
-    <Button
-        android:id="@+id/btn_clear"
-        android:layout_width="wrap_content"
-        android:layout_height="36dp"
-        android:layout_marginTop="4dp"
-        android:text="@string/btn_clear"
-        android:textSize="11sp"
-        android:backgroundTint="#5C6BC0"
-        app:layout_constraintTop_toBottomOf="@id/spinner_action"
-        app:layout_constraintEnd_toEndOf="parent" />
-
-    <!-- Das FrameLayout nimmt jetzt einfach den REST des Bildschirms ein -->
-    <FrameLayout
+    <!-- ── Scrollable JSON output ── -->
+    <ScrollView
         android:id="@+id/scroll_events"
         android:layout_width="0dp"
         android:layout_height="0dp"
-        android:layout_marginTop="4dp"
         android:background="#0D0D1A"
-        app:layout_constraintTop_toBottomOf="@id/btn_clear"
+        android:padding="8dp"
+        app:layout_constraintTop_toBottomOf="@id/tv_event_label"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent">
+        app:layout_constraintEnd_toEndOf="parent"
+        android:layout_marginTop="4dp">
 
-        <!-- Das innere ScrollView darf wieder rein, wenn wir KEIN äußeres mehr haben -->
-        <ScrollView
+        <TextView
+            android:id="@+id/tv_event_log"
             android:layout_width="match_parent"
-            android:layout_height="match_parent">
-            <TextView
-                android:id="@+id/tv_event_log"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:textColor="#A8FF78"
-                android:textSize="10sp"
-                android:fontFamily="monospace"
-                android:padding="4dp" />
-        </ScrollView>
-    </FrameLayout>
+            android:layout_height="wrap_content"
+            android:text=""
+            android:textColor="#A8FF78"
+            android:textSize="12sp"
+            android:fontFamily="monospace"
+            android:lineSpacingMultiplier="1.3" />
+    </ScrollView>
 
 </androidx.constraintlayout.widget.ConstraintLayout>

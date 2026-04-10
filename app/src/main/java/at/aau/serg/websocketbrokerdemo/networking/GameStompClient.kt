@@ -20,9 +20,9 @@ import java.util.UUID
 class GameStompClient(
     private val stompClient: StompClient,
     private val scope: CoroutineScope = CoroutineScope(Dispatchers.IO + SupervisorJob()),
-   // private val websocketUri: String = "ws://10.0.2.2:8080/ws"
+    private val websocketUri: String = "ws://10.0.2.2:8080/ws"
     //IP for WSL use
-    private val websocketUri: String = "ws://localhost:8080/ws"
+    //private val websocketUri: String = "ws://localhost:8080/ws"
 ) : GameService {
 
     private var session: StompSession? = null

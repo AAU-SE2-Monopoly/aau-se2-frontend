@@ -13,9 +13,9 @@ import org.hildan.krossbow.stomp.sendText
 import org.hildan.krossbow.stomp.subscribeText
 import org.json.JSONObject
 
-//private const val WEBSOCKET_URI = "ws://10.0.2.2:8080/websocket-example-broker"
+private const val WEBSOCKET_URI = "ws://10.0.2.2:8080/websocket-example-broker"
 //ip for WSL use
-private const val WEBSOCKET_URI = "ws://localhost:8080/websocket-example-broker"
+//private const val WEBSOCKET_URI = "ws://localhost:8080/websocket-example-broker"
 class MyStompManager(private val stompClient: StompClient,private val scope: CoroutineScope = CoroutineScope(Dispatchers.IO)) {
 
 

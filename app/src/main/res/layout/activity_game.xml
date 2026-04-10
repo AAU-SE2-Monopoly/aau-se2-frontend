@@ -4,26 +4,63 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:layout_marginStart="40dp"
-    android:padding="12dp"
-    android:background="#1A1A2E">
+    android:background="#1A1A2E"
+    android:padding="12dp"> <!-- Padding halbiert für mehr Platz -->
+
+    <!-- ── Überschrift ── -->
+    <TextView
+        android:id="@+id/tv_title"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Game Lobby"
+        android:textColor="#FFFFFF"
+        android:textSize="22sp"
+        android:textStyle="bold"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintStart_toStartOf="parent" />
+
+    <!-- ── Connect button (Kleiner) ── -->
+    <Button
+        android:id="@+id/btn_connect"
+        android:layout_width="0dp"
+        android:layout_height="40dp"
+        android:layout_marginTop="8dp"
+        android:text="@string/btn_connect"
+        android:textSize="14sp"
+        android:textStyle="bold"
+        android:backgroundTint="#5C6BC0"
+        app:layout_constraintTop_toBottomOf="@id/tv_title"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent" />
 
     <!-- ── Status bar ── -->
     <TextView
         android:id="@+id/tv_status"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
         android:text="@string/status_not_connected"
         android:textColor="#E0E0E0"
-        android:textSize="13sp"
+        android:textSize="12sp"
         android:fontFamily="monospace"
-        android:padding="6dp"
-        android:background="#16213E"
-        app:layout_constraintTop_toTopOf="parent"
+        android:padding="8dp"
+        android:background="#28293D"
+        app:layout_constraintTop_toBottomOf="@id/btn_connect"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent" />
 
     <!-- ── Player name input ── -->
+    <TextView
+        android:id="@+id/tv_player_label"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Player Name"
+        android:textColor="#A0A0A0"
+        android:textSize="11sp"
+        android:layout_marginTop="8dp"
+        app:layout_constraintTop_toBottomOf="@id/tv_status"
+        app:layout_constraintStart_toStartOf="parent" />
+
     <EditText
         android:id="@+id/et_player_name"
         android:layout_width="0dp"
@@ -32,28 +69,28 @@
         android:text="@string/default_player_name"
         android:textColor="#FFFFFF"
         android:textColorHint="#888888"
-        android:backgroundTint="#E040FB"
-        android:padding="8dp"
+        android:backgroundTint="#5C6BC0"
+        android:paddingTop="4dp"
+        android:paddingBottom="8dp"
+        android:textSize="14sp"
         android:inputType="text"
         android:autofillHints="username"
-        app:layout_constraintTop_toBottomOf="@id/tv_status"
+        app:layout_constraintTop_toBottomOf="@id/tv_player_label"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toStartOf="@id/btn_connect"
-        android:layout_marginTop="8dp"
-        android:layout_marginEnd="8dp" />
-
-    <!-- ── Connect button ── -->
-    <Button
-        android:id="@+id/btn_connect"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="@string/btn_connect"
-        android:backgroundTint="#E040FB"
-        app:layout_constraintTop_toBottomOf="@id/tv_status"
-        app:layout_constraintEnd_toEndOf="parent"
-        android:layout_marginTop="8dp" />
+        app:layout_constraintEnd_toEndOf="parent" />
 
     <!-- ── Game ID input ── -->
+    <TextView
+        android:id="@+id/tv_game_id_label"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Game ID"
+        android:textColor="#A0A0A0"
+        android:textSize="11sp"
+        android:layout_marginTop="4dp"
+        app:layout_constraintTop_toBottomOf="@id/et_player_name"
+        app:layout_constraintStart_toStartOf="parent" />
+
     <EditText
         android:id="@+id/et_game_id"
         android:layout_width="0dp"
@@ -61,100 +98,124 @@
         android:hint="@string/hint_game_id"
         android:textColor="#FFFFFF"
         android:textColorHint="#888888"
-        android:backgroundTint="#E040FB"
-        android:padding="8dp"
+        android:backgroundTint="#5C6BC0"
+        android:paddingTop="4dp"
+        android:paddingBottom="8dp"
+        android:textSize="14sp"
         android:inputType="text"
         android:autofillHints="no"
-        app:layout_constraintTop_toBottomOf="@id/et_player_name"
+        app:layout_constraintTop_toBottomOf="@id/tv_game_id_label"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        android:layout_marginTop="8dp" />
+        app:layout_constraintEnd_toEndOf="parent" />
 
-    <!-- ── Action dropdown label ── -->
+    <!-- ── Gameboard Button ── -->
+    <Button
+        android:id="@+id/button_gameboard"
+        android:enabled="false"
+        android:layout_width="0dp"
+        android:layout_height="40dp"
+        android:text="@string/gameboard"
+        android:textSize="14sp"
+        android:backgroundTint="#5C6BC0"
+        android:layout_marginTop="8dp"
+        app:layout_constraintTop_toBottomOf="@id/et_game_id"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent" />
+
+    <!-- ── Trennlinie ── -->
+    <View
+        android:id="@+id/v_divider"
+        android:layout_width="0dp"
+        android:layout_height="1dp"
+        android:background="#333344"
+        android:layout_marginTop="8dp"
+        app:layout_constraintTop_toBottomOf="@id/button_gameboard"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent" />
+
+    <!-- ── Action Bereich ── -->
     <TextView
         android:id="@+id/tv_action_label"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="@string/label_action"
         android:textColor="#CCCCCC"
-        android:textSize="14sp"
-        app:layout_constraintTop_toBottomOf="@id/et_game_id"
-        app:layout_constraintStart_toStartOf="parent"
-        android:layout_marginTop="12dp" />
+        android:textSize="12sp"
+        android:layout_marginTop="8dp"
+        app:layout_constraintTop_toBottomOf="@id/v_divider"
+        app:layout_constraintStart_toStartOf="parent" />
 
-    <!-- ── Spinner (dropdown) ── -->
+    <!-- Grauer Hintergrund-Hack für die Vorschau -->
+    <View
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:background="#E0E0E0"
+        app:layout_constraintTop_toTopOf="@id/spinner_action"
+        app:layout_constraintBottom_toBottomOf="@id/spinner_action"
+        app:layout_constraintStart_toStartOf="@id/spinner_action"
+        app:layout_constraintEnd_toEndOf="@id/spinner_action" />
+
+    <!-- Spinner: Dunkles Popup, weißer Text, zwingend nach unten öffnend -->
     <Spinner
         android:id="@+id/spinner_action"
         android:layout_width="0dp"
-        android:layout_height="wrap_content"
-        android:backgroundTint="#E040FB"
-        android:popupBackground="#16213E"
+        android:layout_height="40dp"
+        android:popupBackground="#28293D"
+        android:theme="@android:style/ThemeOverlay.Material.Dark"
+        android:dropDownVerticalOffset="40dp"
+        android:layout_marginTop="4dp"
+        android:layout_marginEnd="8dp"
         app:layout_constraintTop_toBottomOf="@id/tv_action_label"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toStartOf="@id/btn_send"
-        android:layout_marginTop="4dp"
-        android:layout_marginEnd="8dp" />
+        app:layout_constraintEnd_toStartOf="@id/btn_send" />
 
-    <!-- ── Send button ── -->
+    <!-- ── Send Button ── -->
     <Button
         android:id="@+id/btn_send"
         android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
+        android:layout_height="40dp"
         android:text="@string/btn_send"
-        android:backgroundTint="#E040FB"
-        app:layout_constraintTop_toBottomOf="@id/tv_action_label"
-        app:layout_constraintEnd_toEndOf="parent"
-        android:layout_marginTop="4dp" />
+        android:textSize="14sp"
+        android:backgroundTint="#5C6BC0"
+        app:layout_constraintTop_toTopOf="@id/spinner_action"
+        app:layout_constraintBottom_toBottomOf="@id/spinner_action"
+        app:layout_constraintEnd_toEndOf="parent" />
 
-    <!-- ── Clear button ── -->
-    <Button
-        android:id="@+id/btn_clear"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="@string/btn_clear"
-        android:textSize="12sp"
-        android:backgroundTint="#444466"
-        app:layout_constraintTop_toBottomOf="@id/spinner_action"
-        app:layout_constraintEnd_toEndOf="parent"
-        android:layout_marginTop="6dp" />
-
-
-    <Button
-        android:id="@+id/button_gameboard"
-        android:enabled="false"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="@string/gameboard"
-        android:backgroundTint="#E040FB"
-        app:layout_constraintTop_toBottomOf="@id/spinner_action"
-        app:layout_constraintStart_toStartOf="parent"
-        android:layout_marginTop="6dp" />
-
-
-    <!-- ── Event log label ── -->
+    <!-- ── Event log Label (Auf gleicher Höhe wie Clear Button zentriert) ── -->
     <TextView
         android:id="@+id/tv_event_label"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="@string/label_events"
         android:textColor="#CCCCCC"
-        android:textSize="14sp"
-        app:layout_constraintTop_toBottomOf="@id/button_gameboard"
-        app:layout_constraintStart_toStartOf="parent"
-        android:layout_marginTop="8dp" />
+        android:textSize="12sp"
+        app:layout_constraintTop_toTopOf="@id/btn_clear"
+        app:layout_constraintBottom_toBottomOf="@id/btn_clear"
+        app:layout_constraintStart_toStartOf="parent" />
 
-    <!-- ── Scrollable JSON output ── -->
+    <!-- ── Clear Button ── -->
+    <Button
+        android:id="@+id/btn_clear"
+        android:layout_width="wrap_content"
+        android:layout_height="40dp"
+        android:text="@string/btn_clear"
+        android:textSize="12sp"
+        android:backgroundTint="#5C6BC0"
+        android:layout_marginTop="8dp"
+        app:layout_constraintTop_toBottomOf="@id/spinner_action"
+        app:layout_constraintEnd_toEndOf="parent" />
+
+    <!-- ── MAXIMALES JSON LOG ── -->
     <ScrollView
         android:id="@+id/scroll_events"
         android:layout_width="0dp"
         android:layout_height="0dp"
         android:background="#0D0D1A"
-        android:padding="8dp"
-        app:layout_constraintTop_toBottomOf="@id/tv_event_label"
+        android:layout_marginTop="8dp"
+        app:layout_constraintTop_toBottomOf="@id/btn_clear"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        android:layout_marginTop="4dp">
+        app:layout_constraintEnd_toEndOf="parent">
 
         <TextView
             android:id="@+id/tv_event_log"
@@ -162,9 +223,10 @@
             android:layout_height="wrap_content"
             android:text=""
             android:textColor="#A8FF78"
-            android:textSize="12sp"
+            android:textSize="11sp"
             android:fontFamily="monospace"
-            android:lineSpacingMultiplier="1.3" />
+            android:padding="8dp"
+            android:lineSpacingMultiplier="1.2" />
     </ScrollView>
 
 </androidx.constraintlayout.widget.ConstraintLayout>

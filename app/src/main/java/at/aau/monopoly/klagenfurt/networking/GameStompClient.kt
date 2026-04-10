@@ -59,6 +59,8 @@ class GameStompClient(
                 session = stompClient.connect(websocketUri)
                 _status.emit("Connected ✓")
                 Log.d("GameStomp", "Connected successfully")
+
+                subscribeToGame(currentPlayerId)
             } catch (e: Throwable) {
                 if (isCancellation(e)) {
                     Log.d("GameStomp", "Connection attempt cancelled")
@@ -122,44 +124,25 @@ class GameStompClient(
 
 
     override fun createGame(playerName: String) {
-        scope.launch {
-            val currentSession = session
-            if (currentSession == null) {
-                Log.w("GameStomp", "Cannot create game: not connected")
-                _status.emit("Not connected")
-                return@launch
-            }
-            try {
-                // 1. Sicheres Abonnieren über die existierende Hilfsmethode
-                Log.d("GameStomp", "Establishing subscription for createGame...")
-                subscribeToGame(currentPlayerId)
+        val playerJson = JSONObject()
+            .put("id", currentPlayerId)
+            .put("name", playerName)
+            .put("position", 0)
+            .put("money", 1500)
+            .put("inJail", false)
+            .put("jailTurns", 0)
+            .put("getOutOfJailCards", 0)
+            .put("ownedPropertyIds", org.json.JSONArray())
+            .toString()
 
-                // 2. Payload bauen
-                val playerJson = JSONObject()
-                    .put("id", currentPlayerId)
-                    .put("name", playerName)
-                    .put("position", 0)
-                    .put("money", 1500)
-                    .put("inJail", false)
-                    .put("jailTurns", 0)
-                    .put("getOutOfJailCards", 0)
-                    .put("ownedPropertyIds", org.json.JSONArray())
-                    .toString()
-
-                // 3. Request senden
-                Log.d("GameStomp", "Subscription established! Now sending create command...")
-                currentSession.sendText("/app/game/create", playerJson)
-
-            } catch (e: Throwable) {
-                Log.e("GameStomp", "createGame error", e)
-                _status.emit("Create game error: ${e.message}") // Hinzugefügt für sauberes UI-Feedback
-            }
-        }
+        Log.d("GameStomp", "Sending create command for player: $playerName")
+        sendRaw("/app/game/create", playerJson)
     }
 
     override fun joinGame(gameId: String, playerName: String) {
-
-        subscribeToGame(gameId)
+        // Update local ID state so buildAction uses the correct destination ID
+        currentGameId = gameId
+        Log.d("GameStomp", "Sending join command for game: $gameId")
         sendRaw("/app/game/join", buildAction(extra = mapOf("name" to playerName)))
     }
 

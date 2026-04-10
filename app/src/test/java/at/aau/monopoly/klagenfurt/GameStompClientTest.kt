@@ -104,13 +104,16 @@ class GameStompClientTest {
     }
 
     @Test
-    fun connect_success() = runTest(testDispatcher) {
+    fun connect_success_starts_personal_subscription() = runTest(testDispatcher) {
         coEvery { stompClient.connect(any<String>()) } returns stompSession
+        coEvery { stompSession.subscribeText(any<String>()) } returns flowOf()
 
         gameStompClient.connect()
         advanceUntilIdle()
 
         coVerify { stompClient.connect(any<String>()) }
+        // Verify that we automatically subscribe to our personal topic upon connection
+        coVerify { stompSession.subscribeText(match { it.startsWith("/topic/game/") }) }
         verify { Log.d("GameStomp", "Connected successfully") }
     }
 
@@ -125,6 +128,7 @@ class GameStompClientTest {
     @Test
     fun connect_already_connected_when_session_exists() = runTest(testDispatcher) {
         coEvery { stompClient.connect(any<String>()) } returns stompSession
+        coEvery { stompSession.subscribeText(any<String>()) } returns flowOf()
 
         gameStompClient.connect()
         advanceUntilIdle()
@@ -139,11 +143,13 @@ class GameStompClientTest {
     @Test
     fun subscribeToGame_handles_cancellation_exception() = runTest(testDispatcher) {
         coEvery { stompClient.connect(any<String>()) } returns stompSession
-
-        coEvery { stompSession.subscribeText(any<String>()) } throws CancellationException("Cancelled by test")
+        coEvery { stompSession.subscribeText(any<String>()) } returns flowOf()
 
         gameStompClient.connect()
         advanceUntilIdle()
+
+        // Mock a specific cancellation for the SECOND subscription
+        coEvery { stompSession.subscribeText("/topic/game/test-id") } throws CancellationException("Cancelled by test")
 
         gameStompClient.subscribeToGame("test-id")
         advanceUntilIdle()
@@ -157,6 +163,7 @@ class GameStompClientTest {
             delay(1000)
             stompSession
         }
+        coEvery { stompSession.subscribeText(any<String>()) } returns flowOf()
 
         gameStompClient.connect()
         gameStompClient.connect()
@@ -194,6 +201,7 @@ class GameStompClientTest {
     @Test
     fun disconnect_cancels_jobs_and_disconnects() = runTest(testDispatcher) {
         coEvery { stompClient.connect(any<String>()) } returns stompSession
+        coEvery { stompSession.subscribeText(any<String>()) } returns flowOf()
 
         val statuses = mutableListOf<String>()
         val job = launch { gameStompClient.status.collect { statuses.add(it) } }
@@ -212,6 +220,7 @@ class GameStompClientTest {
     @Test
     fun disconnect_error_handling() = runTest(testDispatcher) {
         coEvery { stompClient.connect(any<String>()) } returns stompSession
+        coEvery { stompSession.subscribeText(any<String>()) } returns flowOf()
         coEvery { stompSession.disconnect() } throws Exception("Disconnect error")
 
         gameStompClient.connect()
@@ -226,9 +235,7 @@ class GameStompClientTest {
     @Test
     fun subscribeToGame_sends_events() = runTest(testDispatcher) {
         coEvery { stompClient.connect(any<String>()) } returns stompSession
-
         val eventFlow = MutableSharedFlow<String>()
-        // subscribeText is a suspend extension function
         coEvery { stompSession.subscribeText(any<String>()) } returns eventFlow
 
         val receivedEvents = mutableListOf<String>()
@@ -247,14 +254,13 @@ class GameStompClientTest {
         eventFlow.emit("Test Message")
         advanceUntilIdle()
 
-        assertEquals("Test Message", receivedEvents.first())
+        assertEquals("Test Message", receivedEvents.last())
         collectJob.cancel()
     }
 
     @Test
     fun subscribeToGame_already_subscribed() = runTest(testDispatcher) {
         coEvery { stompClient.connect(any<String>()) } returns stompSession
-        // Return a flow that doesn't complete so the job stays active
         val activeFlow = MutableSharedFlow<String>()
         coEvery { stompSession.subscribeText(any<String>()) } returns activeFlow
 
@@ -273,13 +279,15 @@ class GameStompClientTest {
     @Test
     fun subscribeToGame_error() = runTest(testDispatcher) {
         coEvery { stompClient.connect(any<String>()) } returns stompSession
-        coEvery { stompSession.subscribeText(any<String>()) } throws Exception("Subscribe Error")
+        coEvery { stompSession.subscribeText(any<String>()) } returns flowOf()
+        
+        gameStompClient.connect()
+        advanceUntilIdle()
+
+        coEvery { stompSession.subscribeText("/topic/game/test-id") } throws Exception("Subscribe Error")
 
         val statuses = mutableListOf<String>()
         val job = launch { gameStompClient.status.collect { statuses.add(it) } }
-
-        gameStompClient.connect()
-        advanceUntilIdle()
 
         gameStompClient.subscribeToGame("test-id")
         advanceUntilIdle()
@@ -290,7 +298,7 @@ class GameStompClientTest {
     }
 
     @Test
-    fun createGame_calls_subscribe_and_send() = runTest(testDispatcher) {
+    fun createGame_sends_command_without_re_subscribing() = runTest(testDispatcher) {
         coEvery { stompClient.connect(any<String>()) } returns stompSession
         coEvery { stompSession.subscribeText(any<String>()) } returns flowOf()
         coEvery { stompSession.sendText(any<String>(), any<String>()) } returns mockk()
@@ -301,7 +309,7 @@ class GameStompClientTest {
         gameStompClient.createGame("Player1")
         advanceUntilIdle()
 
-        coVerify { stompSession.sendText(any<String>(), any<String>()) }
+        coVerify { stompSession.sendText("/app/game/create", any<String>()) }
     }
 
     @Test
@@ -319,6 +327,7 @@ class GameStompClientTest {
     @Test
     fun sendRaw_error() = runTest(testDispatcher) {
         coEvery { stompClient.connect(any<String>()) } returns stompSession
+        coEvery { stompSession.subscribeText(any<String>()) } returns flowOf()
         coEvery { stompSession.sendText(any<String>(), any<String>()) } throws Exception("Send Error")
 
         val statuses = mutableListOf<String>()
@@ -358,7 +367,6 @@ class GameStompClientTest {
     //branches for isCancellation
     @Test
     fun connect_cancellation_via_illegal_state_message() = runTest(testDispatcher) {
-        //  e is IllegalStateException && e.message "cancelled" (True)
         coEvery { stompClient.connect(any<String>()) } throws IllegalStateException("Job was CANCELLED by system")
 
         gameStompClient.connect()
@@ -370,7 +378,6 @@ class GameStompClientTest {
 
     @Test
     fun connect_cancellation_via_cause() = runTest(testDispatcher) {
-        //: e.cause is CancellationException (True)
         val cause = CancellationException("Internal coroutine cancellation")
         coEvery { stompClient.connect(any<String>()) } throws Exception("Wrapper Exception", cause)
 
@@ -382,7 +389,6 @@ class GameStompClientTest {
 
     @Test
     fun connect_error_illegal_state_other_message() = runTest(testDispatcher) {
-        //  e is IllegalStateException && message not "cancelled" (False)
         coEvery { stompClient.connect(any<String>()) } throws IllegalStateException("Invalid state detected")
 
         gameStompClient.connect()
@@ -394,7 +400,6 @@ class GameStompClientTest {
 
     @Test
     fun connect_error_illegal_state_null_message() = runTest(testDispatcher) {
-        //e is IllegalStateException && message is NULL
         val exceptionWithNullMessage = IllegalStateException(null as String?)
         coEvery { stompClient.connect(any<String>()) } throws exceptionWithNullMessage
 

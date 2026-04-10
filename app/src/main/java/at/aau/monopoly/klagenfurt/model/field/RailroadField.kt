@@ -17,7 +17,7 @@ data class RailroadField(
             val name = json.getString("name")
             val type = FieldType.valueOf(json.getString("type"))
             val price = json.optInt("price", 200)
-            val ownerId = json.optString("ownerId", null).takeIf { it.isNotEmpty() }
+            val ownerId = json.optString("ownerId").takeIf { it.isNotEmpty() }
             val isMortgaged = json.optBoolean("isMortgaged", false)
             return RailroadField(id, name, type, price, ownerId, isMortgaged)
         }

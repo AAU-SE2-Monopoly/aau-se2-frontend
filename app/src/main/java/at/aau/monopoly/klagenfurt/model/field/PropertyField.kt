@@ -33,7 +33,7 @@ data class PropertyField(
             }
             val houseCost = json.getInt("houseCost")
             val hotelCost = json.getInt("hotelCost")
-            val ownerId = json.optString("ownerId", null).takeIf { it.isNotEmpty() }
+            val ownerId = json.optString("ownerId").takeIf { it.isNotEmpty() }
             val houses = json.optInt("houses", 0)
             val hasHotel = json.optBoolean("hasHotel", false)
             val isMortgaged = json.optBoolean("isMortgaged", false)

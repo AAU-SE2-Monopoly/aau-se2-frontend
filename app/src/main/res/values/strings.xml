@@ -17,4 +17,6 @@
     <string name="btn_clear">Clear</string>
     <string name="label_events">Game Events (JSON):</string>
     <string name="gameboard">Gameboard</string>
+    <string name="player_name">Player Name</string>
+    <string name="game_id">Game ID</string>
 </resources>

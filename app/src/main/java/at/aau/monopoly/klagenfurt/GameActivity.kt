@@ -37,7 +37,7 @@ class GameActivity : ComponentActivity() {
     private lateinit var btnSend: Button
     private lateinit var btnConnect: Button
     private lateinit var btnClear: Button
-    private lateinit var scrollEvents: ScrollView
+    private lateinit var scrollEvents: android.widget.FrameLayout
 
     enum class GameActionItem(val label: String) {
         CREATE_GAME("Create Game"),
@@ -68,7 +68,7 @@ class GameActivity : ComponentActivity() {
         btnSend = findViewById(R.id.btn_send)
         btnConnect = findViewById(R.id.btn_connect)
         btnClear = findViewById(R.id.btn_clear)
-        scrollEvents = findViewById(R.id.scroll_events)
+        scrollEvents = findViewById<android.widget.FrameLayout>(R.id.scroll_events)
 
     }
 
@@ -174,7 +174,6 @@ class GameActivity : ComponentActivity() {
     private fun appendLog(text: String) {
         val current = tvEventLog.text.toString()
         tvEventLog.text = if (current.isEmpty()) text else "$text\n\n$current"
-        scrollEvents.post { scrollEvents.fullScroll(ScrollView.FOCUS_UP) }
     }
 
     private fun toast(msg: String) = Toast.makeText(this, msg, Toast.LENGTH_SHORT).show()

@@ -13,6 +13,7 @@ android {
     testOptions {
         unitTests {
             isIncludeAndroidResources = true
+            isReturnDefaultValues = true
             all {
                 it.useJUnitPlatform()
                 it.jvmArgs("-noverify")
@@ -141,7 +142,7 @@ dependencies {
     implementation(libs.androidx.compose.ui.test.junit4)
     implementation(libs.androidx.compose.material3)
 
-
+    // -- UNIT TESTS --
     testImplementation(libs.junit)
     testImplementation(libs.junit.jupiter.api)
     testRuntimeOnly(libs.junit.jupiter.engine)
@@ -152,18 +153,21 @@ dependencies {
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.7.3")
     testImplementation(libs.core.ktx)
     testImplementation(libs.equalsverifier)
-    testImplementation(libs.androidx.junit)
-    testImplementation(libs.androidx.junit.ktx)
-    testImplementation(libs.androidx.espresso.core)
-    testImplementation(libs.androidx.espresso.intents)
-    testImplementation("org.json:json:20240303")
+    testImplementation("org.json:json:20231013")
+    // Harte Versionen für Unit Tests (verhindert Konflikte)
+    testImplementation("androidx.test.ext:junit:1.1.5")
+    testImplementation("androidx.test.espresso:espresso-core:3.5.0")
+    testImplementation("androidx.test.espresso:espresso-intents:3.5.0")
 
-    androidTestImplementation(libs.androidx.junit)
-    androidTestImplementation(libs.androidx.espresso.core)
+    // -- ANDROID TESTS (Hier lag der Fehler!) --
+
+    // Wir werfen libs.androidx.junit und espresso.core raus und erzwingen die Compose-Versionen
+    androidTestImplementation("androidx.test.ext:junit:1.1.5")
+    androidTestImplementation("androidx.test.espresso:espresso-core:3.5.0")
     androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.androidx.ui.test.junit4)
 
-    // HIER IST MOCKK FÜR DIE ANDROID-TESTS
+    // MockK für die Android-Tests
     androidTestImplementation("io.mockk:mockk-android:1.13.8")
 
     debugImplementation(libs.androidx.ui.tooling)

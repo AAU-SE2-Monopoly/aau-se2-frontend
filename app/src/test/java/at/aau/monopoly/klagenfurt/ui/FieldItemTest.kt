@@ -1,8 +1,9 @@
 package at.aau.monopoly.klagenfurt.ui
 
+import androidx.activity.ComponentActivity
 import androidx.compose.foundation.layout.Column
 import androidx.compose.ui.test.assertCountEquals
-import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -34,8 +35,9 @@ class FieldItemTest {
         hasHotel = true,
         isMortgaged = true
     )
+    
     @get:Rule
-    val composeTestRule = createComposeRule()
+    val composeTestRule = createAndroidComposeRule<ComponentActivity>()
 
     /**Property Fields different index**/
     @Test
@@ -123,7 +125,7 @@ class FieldItemTest {
 
     }
     @Test
-    fun `verify FieldItem renders  Chancefield text with index 5`(){
+    fun `verify FieldItem renders Chancefield text with index 5`(){
         val myChance = (ChanceField(
             id = 1,
             name = "Chance",
@@ -131,13 +133,12 @@ class FieldItemTest {
         ))
 
 
-    composeTestRule.setContent {
-        FieldItem(5,myChance,sw,sh)
+        composeTestRule.setContent {
+            FieldItem(5,myChance,sw,sh)
 
+        }
+        composeTestRule
+            .onNodeWithText("Chance")
+            .assertExists()
     }
-    composeTestRule
-        .onNodeWithText("Chance")
-        .assertExists()
-    }
-    }
-
+}

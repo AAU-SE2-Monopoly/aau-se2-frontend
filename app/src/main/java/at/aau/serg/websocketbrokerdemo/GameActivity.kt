@@ -101,7 +101,7 @@ class GameActivity : ComponentActivity() {
                 GameActionItem.CREATE_GAME -> {
                     viewModel.createGame(playerName)
                     appendLog("→ CREATE_GAME player=$playerName")
-                    btnGameBoard.isEnabled = true
+
 
                 }
                 GameActionItem.JOIN_GAME -> {
@@ -134,6 +134,11 @@ class GameActivity : ComponentActivity() {
 
                 launch {
                     viewModel.events.collect { rawJson -> handleGameEvent(rawJson) }
+                }
+                launch {
+                    viewModel.isGameReady.collect { isGameReady ->
+                        btnGameBoard.isEnabled = isGameReady
+                    }
                 }
             }
         }

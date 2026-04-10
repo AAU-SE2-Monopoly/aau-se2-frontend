@@ -20,35 +20,28 @@ import org.json.JSONObject
 class GameViewModel(private val gameService: GameService) : ViewModel() {
 
     private val gameEventFlow: SharedFlow<GameEvent> = gameService.events
-        .mapNotNull { json ->
+        .mapNotNull { jsonString ->
             try {
-                val jsonObj = JSONObject(json)
-                val eventType = jsonObj.optString("event")
-                val gameId = jsonObj.optString("gameId")
-                val message = jsonObj.optString("message", "null")
-
-                val gameStateJson = jsonObj.optJSONObject("gameState")
-                val parsedState: GameState? = gameStateJson?.let {
-                    GameState.fromJson(it)
-                }
-
-                GameEvent(gameId, eventType, parsedState, message)
+                val json = JSONObject(jsonString)
+                GameEvent.fromJson(json)
             } catch (e: Exception) {
-                Log.e("GameViewModel", "Fehler beim Parsen: ${e.message}", e)
-                null // Return null so mapNotNull skips this event
+                Log.e("GameViewModel", "Parsing Error: ${e.message}", e)
+                null
             }
         }
         .shareIn(viewModelScope, SharingStarted.WhileSubscribed(5000))
 
+    val isGameReady: StateFlow<Boolean> = gameEventFlow
+        .map { event -> event.gameState != null }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+
     val gameState: StateFlow<GameState?> = gameEventFlow
-        .map { it.gameState as? GameState }
+        .map { it.gameState }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
 
     val fields: StateFlow<List<Field>?> = gameState
         .map { it?.fields }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
-
-
 
     val events: SharedFlow<String> = gameService.events
     val status: SharedFlow<String> = gameService.status
@@ -67,13 +60,12 @@ class GameViewModel(private val gameService: GameService) : ViewModel() {
     
     fun requestState() = gameService.requestState()
 
-
-    
     fun setGameId(gameId: String) = gameService.setGameId(gameId)
 
     // Factory to create ViewModel with dependencies
     class Factory(private val gameService: GameService) : ViewModelProvider.Factory {
         override fun <T : ViewModel> create(modelClass: Class<T>): T {
+            @Suppress("UNCHECKED_CAST")
             return GameViewModel(gameService) as T
         }
     }

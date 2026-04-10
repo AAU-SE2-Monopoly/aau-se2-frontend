@@ -88,13 +88,13 @@ fun LockScreenOrientation(orientation: Int) {
     }
 }
 
-@Composable
-fun GameboardScreen(modifier: Modifier = Modifier,viewModel: GameViewModel) {
-    val fields by viewModel.fields.collectAsState(initial = emptyList())
-    LockScreenOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE)
+    @Composable
+    fun GameboardScreen(modifier: Modifier = Modifier,viewModel: GameViewModel) {
+        val fields by viewModel.fields.collectAsState(initial = emptyList())
+        LockScreenOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE)
 
-    GameboardContent(fields?:emptyList(), modifier)
-}
+        GameboardContent(fields?:emptyList(), modifier)
+    }
 
 class ZoomState(
     initialScale: Float = 1f,

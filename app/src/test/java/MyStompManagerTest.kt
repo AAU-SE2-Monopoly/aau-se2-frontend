@@ -1,4 +1,4 @@
-package at.aau.serg.websocketbrokerdemo
+package at.aau.monopoly.klagenfurt
 
 import MyStompManager
 import android.util.Log

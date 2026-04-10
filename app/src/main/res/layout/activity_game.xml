@@ -4,21 +4,19 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:layout_marginStart="40dp"
     android:padding="12dp"
     android:background="#1A1A2E">
 
-    <!-- ── Status bar ── -->
+    <!-- ── Überschrift ── -->
     <TextView
-        android:id="@+id/tv_status"
-        android:layout_width="0dp"
+        android:id="@+id/tv_title"
+        android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="@string/status_not_connected"
-        android:textColor="#E0E0E0"
-        android:textSize="13sp"
-        android:fontFamily="monospace"
-        android:padding="6dp"
-        android:background="#16213E"
+        android:text="Monopoly Lobby"
+        android:textColor="#FFFFFF"
+        android:textSize="24sp"
+        android:textStyle="bold"
+        android:layout_marginBottom="16dp"
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent" />
@@ -36,22 +34,22 @@
         android:padding="8dp"
         android:inputType="text"
         android:autofillHints="username"
-        app:layout_constraintTop_toBottomOf="@id/tv_status"
+        app:layout_constraintTop_toBottomOf="@id/tv_title"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toStartOf="@id/btn_connect"
-        android:layout_marginTop="8dp"
+        android:layout_marginTop="16dp"
         android:layout_marginEnd="8dp" />
 
-    <!-- ── Connect button (Neue Farbe) ── -->
+    <!-- ── Connect button ── -->
     <Button
         android:id="@+id/btn_connect"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="@string/btn_connect"
         android:backgroundTint="#5C6BC0"
-        app:layout_constraintTop_toBottomOf="@id/tv_status"
-        app:layout_constraintEnd_toEndOf="parent"
-        android:layout_marginTop="8dp" />
+        app:layout_constraintTop_toTopOf="@id/et_player_name"
+        app:layout_constraintBottom_toBottomOf="@id/et_player_name"
+        app:layout_constraintEnd_toEndOf="parent" />
 
     <!-- ── Game ID input ── -->
     <EditText
@@ -70,6 +68,22 @@
         app:layout_constraintEnd_toEndOf="parent"
         android:layout_marginTop="8dp" />
 
+    <!-- ── Status bar (jetzt unter Game ID) ── -->
+    <TextView
+        android:id="@+id/tv_status"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:text="@string/status_not_connected"
+        android:textColor="#E0E0E0"
+        android:textSize="13sp"
+        android:fontFamily="monospace"
+        android:padding="6dp"
+        android:background="#16213E"
+        android:layout_marginTop="8dp"
+        app:layout_constraintTop_toBottomOf="@id/et_game_id"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent" />
+
     <!-- ── Action dropdown label ── -->
     <TextView
         android:id="@+id/tv_action_label"
@@ -78,7 +92,7 @@
         android:text="@string/label_action"
         android:textColor="#CCCCCC"
         android:textSize="14sp"
-        app:layout_constraintTop_toBottomOf="@id/et_game_id"
+        app:layout_constraintTop_toBottomOf="@id/tv_status"
         app:layout_constraintStart_toStartOf="parent"
         android:layout_marginTop="12dp" />
 
@@ -92,7 +106,6 @@
         app:layout_constraintStart_toStartOf="@id/spinner_action"
         app:layout_constraintEnd_toEndOf="@id/spinner_action" />
 
-    <!-- ── Spinner (dropdown) ── -->
     <Spinner
         android:id="@+id/spinner_action"
         android:layout_width="0dp"
@@ -105,18 +118,16 @@
         android:layout_marginTop="4dp"
         android:layout_marginEnd="8dp" />
 
-    <!-- ── Send button (Neue Farbe) ── -->
     <Button
         android:id="@+id/btn_send"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="@string/btn_send"
         android:backgroundTint="#5C6BC0"
-        app:layout_constraintTop_toBottomOf="@id/tv_action_label"
-        app:layout_constraintEnd_toEndOf="parent"
-        android:layout_marginTop="4dp" />
+        app:layout_constraintTop_toTopOf="@id/spinner_action"
+        app:layout_constraintBottom_toBottomOf="@id/spinner_action"
+        app:layout_constraintEnd_toEndOf="parent" />
 
-    <!-- ── Clear button ── -->
     <Button
         android:id="@+id/btn_clear"
         android:layout_width="wrap_content"
@@ -128,7 +139,6 @@
         app:layout_constraintEnd_toEndOf="parent"
         android:layout_marginTop="6dp" />
 
-    <!-- ── Gameboard Button ── -->
     <Button
         android:id="@+id/button_gameboard"
         android:enabled="false"
@@ -140,8 +150,6 @@
         app:layout_constraintStart_toStartOf="parent"
         android:layout_marginTop="6dp" />
 
-
-    <!-- ── Event log label ── -->
     <TextView
         android:id="@+id/tv_event_label"
         android:layout_width="wrap_content"
@@ -153,7 +161,6 @@
         app:layout_constraintStart_toStartOf="parent"
         android:layout_marginTop="8dp" />
 
-    <!-- ── Scrollable JSON output ── -->
     <ScrollView
         android:id="@+id/scroll_events"
         android:layout_width="0dp"

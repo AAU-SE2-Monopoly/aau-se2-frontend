@@ -153,7 +153,7 @@ dependencies {
     testImplementation(libs.core.ktx)
     testImplementation(libs.equalsverifier)
     testImplementation(libs.androidx.junit)
-    testImplementation("androidx.test.ext:junit:1.1.5")
+    testImplementation("androidx.test.ext:junit:1.3.0")
     testImplementation("androidx.test.espresso:espresso-core:3.5.1")
     testImplementation("androidx.test.espresso:espresso-intents:3.5.1")
     testImplementation("org.json:json:20240303")

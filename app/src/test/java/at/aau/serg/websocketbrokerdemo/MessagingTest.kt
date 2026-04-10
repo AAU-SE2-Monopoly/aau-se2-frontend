@@ -2,6 +2,8 @@ package at.aau.serg.websocketbrokerdemo
 
 import at.aau.serg.websocketbrokerdemo.messaging.GameAction
 import at.aau.serg.websocketbrokerdemo.messaging.GameEvent
+import at.aau.serg.websocketbrokerdemo.model.GameState
+import io.mockk.mockk
 import nl.jqno.equalsverifier.EqualsVerifier
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
@@ -26,16 +28,17 @@ class MessagingTest {
 
     @Test
     fun `verify GameEvent properties`() {
+        val gameState= mockk<GameState>()
         val event = GameEvent(
             gameId = "g1",
             event = "DICE_ROLLED",
-            gameState = "someState",
+            gameState = gameState,
             message = "Success"
         )
 
         assertEquals("g1", event.gameId)
         assertEquals("DICE_ROLLED", event.event)
-        assertEquals("someState", event.gameState)
+        assertEquals(gameState, event.gameState)
         assertEquals("Success", event.message)
     }
 

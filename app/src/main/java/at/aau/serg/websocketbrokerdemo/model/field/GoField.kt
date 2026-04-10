@@ -13,7 +13,7 @@ data class GoField(
     companion object {
         fun fromJson(json: JSONObject): GoField {
             val id = json.getInt("id")
-            val name = json.getString("name")
+            val name = json.optString("name", "Go")
             val type = FieldType.valueOf(json.getString("type"))
             val salary = json.optInt("salary", 200)
             return GoField(id, name, type, salary)

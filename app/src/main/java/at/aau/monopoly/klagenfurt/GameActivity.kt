@@ -1,5 +1,6 @@
 package at.aau.monopoly.klagenfurt
 
+import android.content.Intent
 import android.os.Bundle
 import android.widget.ArrayAdapter
 import android.widget.Button
@@ -15,6 +16,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import at.aau.monopoly.klagenfurt.ui.GameViewModel
+import at.aau.monopoly.klagenfurt.ui.GameboardUI
 import com.example.myapplication.R
 import kotlinx.coroutines.launch
 
@@ -26,7 +28,7 @@ class GameActivity : ComponentActivity() {
     private val viewModel: GameViewModel by viewModels {
         GameViewModel.Factory(ServiceLocator.provideGameService())
     }
-
+    private lateinit var btnGameBoard: Button
     private lateinit var tvStatus: TextView
     private lateinit var tvEventLog: TextView
     private lateinit var etPlayerName: EditText
@@ -35,7 +37,7 @@ class GameActivity : ComponentActivity() {
     private lateinit var btnSend: Button
     private lateinit var btnConnect: Button
     private lateinit var btnClear: Button
-    private lateinit var scrollEvents: ScrollView
+    private lateinit var scrollEvents: android.widget.FrameLayout
 
     enum class GameActionItem(val label: String) {
         CREATE_GAME("Create Game"),
@@ -57,6 +59,7 @@ class GameActivity : ComponentActivity() {
     }
 
     private fun initViews() {
+        btnGameBoard = findViewById(R.id.button_gameboard)
         tvStatus = findViewById(R.id.tv_status)
         tvEventLog = findViewById(R.id.tv_event_log)
         etPlayerName = findViewById(R.id.et_player_name)
@@ -65,7 +68,8 @@ class GameActivity : ComponentActivity() {
         btnSend = findViewById(R.id.btn_send)
         btnConnect = findViewById(R.id.btn_connect)
         btnClear = findViewById(R.id.btn_clear)
-        scrollEvents = findViewById(R.id.scroll_events)
+        scrollEvents = findViewById<android.widget.FrameLayout>(R.id.scroll_events)
+
     }
 
     private fun setupSpinner() {
@@ -83,7 +87,10 @@ class GameActivity : ComponentActivity() {
             tvStatus.text = getString(R.string.status_connecting)
             viewModel.connect()
         }
-
+        btnGameBoard.setOnClickListener {
+            val intent = Intent(this, GameboardUI::class.java)
+            startActivity(intent)
+        }
         btnClear.setOnClickListener { tvEventLog.text = "" }
 
         btnSend.setOnClickListener {
@@ -95,6 +102,8 @@ class GameActivity : ComponentActivity() {
                 GameActionItem.CREATE_GAME -> {
                     viewModel.createGame(playerName)
                     appendLog("→ CREATE_GAME player=$playerName")
+
+
                 }
                 GameActionItem.JOIN_GAME -> {
                     if (gameId.isEmpty()) { toast(getString(R.string.error_enter_game_id)); return@setOnClickListener }
@@ -123,8 +132,14 @@ class GameActivity : ComponentActivity() {
                 launch {
                     viewModel.status.collect { message -> tvStatus.text = message }
                 }
+
                 launch {
                     viewModel.events.collect { rawJson -> handleGameEvent(rawJson) }
+                }
+                launch {
+                    viewModel.isGameReady.collect { isGameReady ->
+                        btnGameBoard.isEnabled = isGameReady
+                    }
                 }
             }
         }
@@ -159,8 +174,9 @@ class GameActivity : ComponentActivity() {
     private fun appendLog(text: String) {
         val current = tvEventLog.text.toString()
         tvEventLog.text = if (current.isEmpty()) text else "$text\n\n$current"
-        scrollEvents.post { scrollEvents.fullScroll(ScrollView.FOCUS_UP) }
     }
 
     private fun toast(msg: String) = Toast.makeText(this, msg, Toast.LENGTH_SHORT).show()
 }
+
+

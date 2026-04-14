@@ -1,3 +1,4 @@
+
 package at.aau.monopoly.klagenfurt.model.enums
 
 enum class GamePhase {

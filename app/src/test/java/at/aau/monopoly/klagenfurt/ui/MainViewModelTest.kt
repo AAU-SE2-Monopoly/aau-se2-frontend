@@ -1,6 +1,6 @@
 package at.aau.monopoly.klagenfurt.ui
 
-import MyStompManager
+import at.aau.monopoly.klagenfurt.networking.MyStompManager
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify

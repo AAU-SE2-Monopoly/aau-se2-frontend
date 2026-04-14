@@ -1,5 +1,4 @@
 package at.aau.monopoly.klagenfurt
-
 import at.aau.monopoly.klagenfurt.model.card.ChanceCard
 import at.aau.monopoly.klagenfurt.model.enums.CardAction
 import org.junit.Test

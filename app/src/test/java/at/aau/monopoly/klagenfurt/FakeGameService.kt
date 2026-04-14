@@ -1,4 +1,4 @@
-package aau.monopoly.klagenfurt
+package at.aau.monopoly.klagenfurt
 
 
 import at.aau.monopoly.klagenfurt.networking.GameService

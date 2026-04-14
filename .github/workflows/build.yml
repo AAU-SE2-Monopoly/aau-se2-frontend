@@ -1,4 +1,5 @@
 name: SonarQube
+
 on:
   push:
     branches:
@@ -6,32 +7,48 @@ on:
       - chore/setup-sonar-frontend
   pull_request:
     types: [opened, synchronize, reopened]
+
 jobs:
   build:
-    name: Build and analyze
+    name: Build, Test and Analyze
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - name: Checkout Repository
+        uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # Shallow clones should be disabled for a better relevancy of analysis
+          fetch-depth: 0  # Zwingend erforderlich für korrekte SonarQube Blame-Informationen
+
       - name: Set up JDK 17
-        uses: actions/setup-java@v5
+        uses: actions/setup-java@v4
         with:
           java-version: 17
-          distribution: 'zulu' # Alternative distribution options are available
+          distribution: 'zulu'
+
       - name: Cache SonarQube packages
-        uses: actions/cache@v5
+        uses: actions/cache@v4
         with:
           path: ~/.sonar/cache
           key: ${{ runner.os }}-sonar
           restore-keys: ${{ runner.os }}-sonar
-      - name: Cache Gradle packages
-        uses: actions/cache@v5
-        with:
-          path: ~/.gradle/caches
-          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle') }}
-          restore-keys: ${{ runner.os }}-gradle
-      - name: Build and analyze
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v3
+        # Dies ersetzt das manuelle Caching. Es ist die offizielle Best Practice,
+        # um Gradle-Dependencies und Build-Caches optimal und fehlerfrei zu verwalten.
+
+      - name: Make gradlew executable
+        run: chmod +x ./gradlew
+
+      - name: Compile Application
+        # Prüft zuerst, ob der Code überhaupt fehlerfrei kompiliert, bevor Tests laufen.
+        run: ./gradlew assembleDebug
+
+      - name: Run Unit Tests & Coverage
+        # Führt nur die Debug-Tests aus und generiert das XML-Coverage-File.
+        run: ./gradlew ciTest jacocoTestReport
+
+      - name: Run SonarQube Analysis
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-        run: ./gradlew build sonar --info
+        # Übermittelt die generierten Daten an SonarCloud.
+        run: ./gradlew sonar --info

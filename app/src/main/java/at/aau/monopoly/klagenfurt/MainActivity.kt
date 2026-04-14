@@ -1,6 +1,4 @@
 package at.aau.monopoly.klagenfurt
-
-import MyStompManager
 import android.os.Bundle
 import android.widget.Button
 import android.widget.TextView
@@ -10,6 +8,7 @@ import androidx.activity.viewModels
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
+import at.aau.monopoly.klagenfurt.networking.MyStompManager
 import at.aau.monopoly.klagenfurt.ui.MainViewModel
 import com.example.myapplication.R
 import kotlinx.coroutines.Dispatchers

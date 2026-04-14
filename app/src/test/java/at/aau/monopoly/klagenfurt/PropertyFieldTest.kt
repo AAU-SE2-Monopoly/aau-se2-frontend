@@ -1,5 +1,4 @@
 package at.aau.monopoly.klagenfurt
-
 import at.aau.monopoly.klagenfurt.model.enums.FieldType
 import at.aau.monopoly.klagenfurt.model.enums.PropertyColor
 import at.aau.monopoly.klagenfurt.model.field.PropertyField

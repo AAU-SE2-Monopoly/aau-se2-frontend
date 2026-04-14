@@ -1,3 +1,4 @@
+
 package at.aau.monopoly.klagenfurt.model.card
 
 import at.aau.monopoly.klagenfurt.model.enums.CardAction

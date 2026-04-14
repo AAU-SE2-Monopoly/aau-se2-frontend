@@ -2,6 +2,7 @@ package at.aau.monopoly.klagenfurt.model.card
 
 import at.aau.monopoly.klagenfurt.model.enums.CardAction
 
+
 abstract class Card(
     open val id: Int,
     open val description: String,

@@ -1,5 +1,4 @@
 package at.aau.monopoly.klagenfurt
-
 import at.aau.monopoly.klagenfurt.model.DiceRoll
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test

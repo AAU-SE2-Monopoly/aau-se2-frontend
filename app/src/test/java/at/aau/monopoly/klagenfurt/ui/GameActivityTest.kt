@@ -1,7 +1,6 @@
 package at.aau.monopoly.klagenfurt.ui
-
-
-import aau.monopoly.klagenfurt.FakeGameService
+import android.widget.Button
+import at.aau.monopoly.klagenfurt.FakeGameService
 import androidx.test.core.app.ActivityScenario
 import androidx.test.espresso.Espresso.onData
 import androidx.test.espresso.Espresso.onView
@@ -9,6 +8,9 @@ import androidx.test.espresso.action.ViewActions.click
 import androidx.test.espresso.action.ViewActions.closeSoftKeyboard
 import androidx.test.espresso.action.ViewActions.typeText
 import androidx.test.espresso.assertion.ViewAssertions.matches
+import androidx.test.espresso.intent.Intents
+import androidx.test.espresso.intent.Intents.intended
+import androidx.test.espresso.intent.matcher.IntentMatchers.hasComponent
 import androidx.test.espresso.matcher.ViewMatchers.withId
 import androidx.test.espresso.matcher.ViewMatchers.withSpinnerText
 import androidx.test.espresso.matcher.ViewMatchers.withText
@@ -232,6 +234,7 @@ class GameActivityTest {
                 .check(matches(withText(containsString(brokenJson))))
         }
     }
+
     @Test
     fun test_appendLog_withMultipleMessages_prependsNewText() {
         runBlocking {
@@ -244,6 +247,22 @@ class GameActivityTest {
 
             onView(withId(R.id.tv_event_log))
                 .check(matches(withText(containsString("ZWEITE_NACHRICHT"))))
+        }
+    }
+
+    @Test
+    fun `test btn_gameboard calls intent to GameboardUI`() {
+        Intents.init()
+        try {
+            scenario.onActivity { activity ->
+                activity.findViewById<Button>(R.id.button_gameboard).isEnabled = true
+            }
+
+            onView(withId(R.id.button_gameboard)).perform(click())
+
+            intended(hasComponent(GameboardUI::class.java.name))
+        } finally {
+            Intents.release()
         }
     }
 }

@@ -1,8 +1,9 @@
 package at.aau.monopoly.klagenfurt.ui
 
-import MyStompManager
+
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
+import at.aau.monopoly.klagenfurt.networking.MyStompManager
 import kotlinx.coroutines.flow.SharedFlow
 
 class MainViewModel(private val stompManager: MyStompManager) : ViewModel() {

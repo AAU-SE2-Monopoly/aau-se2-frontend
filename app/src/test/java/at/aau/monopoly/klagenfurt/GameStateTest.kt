@@ -4,10 +4,15 @@ import at.aau.monopoly.klagenfurt.model.DiceRoll
 import at.aau.monopoly.klagenfurt.model.GameState
 import at.aau.monopoly.klagenfurt.model.Player
 import at.aau.monopoly.klagenfurt.model.enums.GamePhase
+import org.json.JSONArray
+import org.json.JSONException
+import org.json.JSONObject
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertNull
+import org.junit.jupiter.api.assertThrows
+import kotlin.collections.emptyList
 
 class GameStateTest {
     private lateinit var player1: Player
@@ -85,4 +90,41 @@ class GameStateTest {
         state1.lastDiceRoll = DiceRoll(3, 4)
         assertNotNull(state1.lastDiceRoll)
     }
+    /** GameState Companion fromJson Tests**/
+
+
+    @Test
+    fun `test GameState fromJson with valid JSON`() {
+        val json = JSONObject()
+            .put("gameId", "1")
+            .put("phase", "ROLLING")
+            .put("freeParkingMoney", 1000)
+            .put("currentPlayerIndex", 1)
+            .put("lastDiceRoll", JSONObject().put("die1", 3).put("die2", 4))
+            .put("players", JSONArray().apply {
+                put(JSONObject().put("id", "p1").put("name", "Alice").put("money", 1500).put("position", 0).put("properties", JSONArray()))
+                put(JSONObject().put("id", "p2").put("name", "Bob").put("money", 1500).put("position", 0).put("properties", JSONArray()))
+            })
+            .put("fields", JSONArray())
+        val state = GameState.fromJson(json)
+        assertEquals("1", state.gameId)
+        assertEquals(GamePhase.ROLLING, state.phase)
+        assertEquals(1000, state.freeParkingMoney)
+        assertEquals(1, state.currentPlayerIndex)
+        assertNotNull(state.lastDiceRoll)
+        assertEquals(2, state.players.size)
+        assertNotNull(state.fields)
+    }
+    @Test
+    fun `test GameState fromJson with missing required fields`() {
+        val json = JSONObject()
+            .put("phase", "ROLLING")
+         assertThrows< JSONException> {
+            GameState.fromJson(json)
+        }
+    }
+
 }
+
+
+

@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="384dp"
+    android:height="216dp"
+    android:viewportWidth="3840"
+    android:viewportHeight="2160">
+
+    <!-- Cartoon-Outline: Erzeugt den typischen Comic-Rand -->
+    <path
+        android:pathData="m 1574.7242,885.01382 32.382,81.96775 10.7942,43.95373 -2.3987,51.0813 1.1991,70.0883 9.5947,39.202 23.9867,40.3899 14.3919,105.7265 31.1828,30.8863 154.7139,-16.6311 267.4515,11.8794 -23.987,-61.7728 -7.1957,-150.8681 -4.7976,-52.2693 11.9933,-51.0813 -17.9899,-19.007 -17.9901,-106.91443 -135.5244,-11.8794 -53.97,-1.18794 -76.7575,2.37588 -140.3218,-5.93969 z"
+        android:strokeColor="#FF2B2B2B"
+        android:strokeWidth="32"
+        android:strokeLineJoin="round"
+        android:strokeLineCap="round"
+        android:fillColor="#00000000" />
+
+    <!-- Leuchtender Innenpfad: Fokus auf Kontrast und Sättigung -->
+    <path
+        android:pathData="m 1574.7242,885.01382 32.382,81.96775 10.7942,43.95373 -2.3987,51.0813 1.1991,70.0883 9.5947,39.202 23.9867,40.3899 14.3919,105.7265 31.1828,30.8863 154.7139,-16.6311 267.4515,11.8794 -23.987,-61.7728 -7.1957,-150.8681 -4.7976,-52.2693 11.9933,-51.0813 -17.9899,-19.007 -17.9901,-106.91443 -135.5244,-11.8794 -53.97,-1.18794 -76.7575,2.37588 -140.3218,-5.93969 z"
+        android:strokeWidth="16"
+        android:strokeLineJoin="round"
+        android:strokeLineCap="round"
+        android:fillColor="#00000000">
+        <aapt:attr name="android:strokeColor">
+            <gradient
+                android:startX="1574"
+                android:startY="885"
+                android:endX="2200"
+                android:endY="1250"
+                android:type="linear">
+                <item android:offset="0.0" android:color="#FFFF8C00" /> <!-- Kräftiges Orange -->
+                <item android:offset="0.5" android:color="#FFFFF200" /> <!-- Knalliges Gelb -->
+                <item android:offset="1.0" android:color="#FFFF8C00" /> <!-- Zurück zu Orange -->
+            </gradient>
+        </aapt:attr>
+    </path>
+</vector>

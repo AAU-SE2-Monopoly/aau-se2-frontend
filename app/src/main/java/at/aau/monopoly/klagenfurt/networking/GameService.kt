@@ -5,7 +5,10 @@ import kotlinx.coroutines.flow.SharedFlow
 interface GameService {
     val events: SharedFlow<String>
     val status: SharedFlow<String>
-    
+    fun getCurrentUserId(): String
+    fun getCurrentPlayerName(): String
+    fun getGameId(): String
+
     fun connect()
     fun disconnect()
     fun subscribeToGame(gameId: String)

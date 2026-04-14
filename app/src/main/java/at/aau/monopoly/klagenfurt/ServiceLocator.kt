@@ -34,7 +34,7 @@ object ServiceLocator {
     }
     fun provideChatService(): ChatService{
         return chatService?: synchronized(this){
-            chatService?: ChatClient(provideStompClient()).also{chatService=it}
+            chatService?: ChatClient().also{chatService=it}
         }
     }
 
@@ -63,5 +63,6 @@ object ServiceLocator {
     fun resetForTests() {
         stompClient = null
         gameService = null
+        chatService = null
     }
 }

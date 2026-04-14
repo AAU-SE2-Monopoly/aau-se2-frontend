@@ -1,6 +1,8 @@
 package at.aau.monopoly.klagenfurt.networking
 
 import android.util.Log
+import at.aau.monopoly.klagenfurt.ServiceLocator
+import at.aau.monopoly.klagenfurt.ui.chat.ChatClient
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -29,7 +31,7 @@ class GameStompClient(
     private var subscriptionJob: Job? = null
     private var connectJob: Job? = null
     private var isConnecting = false
-
+    private var currentPlayerName:String=""
     private val _events = MutableSharedFlow<String>(replay = 1)
     override val events: SharedFlow<String> = _events.asSharedFlow()
 
@@ -60,7 +62,11 @@ class GameStompClient(
                 _status.emit("Connected ✓")
                 Log.d("GameStomp", "Connected successfully")
 
+                val chatService = ServiceLocator.provideChatService()
+                chatService.setSession(session!!)
                 subscribeToGame(currentPlayerId)
+                Log.d("GameStomp","ChatService injected")
+
             } catch (e: Throwable) {
                 if (isCancellation(e)) {
                     Log.d("GameStomp", "Connection attempt cancelled")
@@ -137,6 +143,8 @@ class GameStompClient(
 
         Log.d("GameStomp", "Sending create command for player: $playerName")
         sendRaw("/app/game/create", playerJson)
+        currentPlayerName = playerName
+        Log.d("GameStomp", "Player name set to: $currentPlayerName")
     }
 
     override fun joinGame(gameId: String, playerName: String) {
@@ -189,5 +197,15 @@ class GameStompClient(
         return e is CancellationException || 
                (e is IllegalStateException && e.message?.contains("cancelled", ignoreCase = true) == true) ||
                (e.cause is CancellationException)
+    }
+    override fun getCurrentUserId(): String {
+        return currentPlayerId
+    }
+    override fun getCurrentPlayerName(): String {
+        return currentPlayerName
+    }
+
+    override fun getGameId(): String {
+        return currentGameId
     }
 }

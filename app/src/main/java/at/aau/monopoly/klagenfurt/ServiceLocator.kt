@@ -2,6 +2,8 @@ package at.aau.monopoly.klagenfurt
 
 import at.aau.monopoly.klagenfurt.networking.GameService
 import at.aau.monopoly.klagenfurt.networking.GameStompClient
+import at.aau.monopoly.klagenfurt.ui.chat.ChatClient
+import at.aau.monopoly.klagenfurt.ui.chat.ChatService
 import org.hildan.krossbow.stomp.StompClient
 import org.hildan.krossbow.websocket.okhttp.OkHttpWebSocketClient
 
@@ -15,6 +17,9 @@ object ServiceLocator {
     @Volatile
     private var gameService: GameService? = null
 
+    @Volatile
+    private var chatService: ChatService? = null
+
     fun provideStompClient(): StompClient {
         // Double-Checked Locking für Thread-Sicherheit (falls es parallel aufgerufen wird)
         return stompClient ?: synchronized(this) {
@@ -25,6 +30,11 @@ object ServiceLocator {
     fun provideGameService(): GameService {
         return gameService ?: synchronized(this) {
             gameService ?: GameStompClient(provideStompClient()).also { gameService = it }
+        }
+    }
+    fun provideChatService(): ChatService{
+        return chatService?: synchronized(this){
+            chatService?: ChatClient(provideStompClient()).also{chatService=it}
         }
     }
 

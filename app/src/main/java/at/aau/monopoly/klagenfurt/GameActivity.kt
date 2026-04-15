@@ -10,6 +10,7 @@ import android.widget.Spinner
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.ComponentActivity
+import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 
 import androidx.activity.viewModels
 import androidx.lifecycle.Lifecycle
@@ -50,6 +51,7 @@ class GameActivity : ComponentActivity() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        installSplashScreen()
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_game)
 

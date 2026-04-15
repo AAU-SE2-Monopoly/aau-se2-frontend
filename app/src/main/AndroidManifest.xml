@@ -28,7 +28,7 @@
             android:name="at.aau.monopoly.klagenfurt.GameActivity"
             android:exported="true"
             android:label="Monopoly Debug"
-            android:theme="@style/Theme.MyApplication">
+            android:theme="@style/Theme.MyApplication.Splash">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
 

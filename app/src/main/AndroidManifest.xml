@@ -47,6 +47,20 @@
             android:label="Monopoly Debug"
             android:screenOrientation="landscape"
             android:theme="@style/Theme.MyApplication" />
+
+        <!-- Lobby – game browser -->
+        <activity
+            android:name="at.aau.monopoly.klagenfurt.LobbyActivity"
+            android:exported="false"
+            android:screenOrientation="landscape"
+            android:theme="@style/Theme.MyApplication" />
+
+        <!-- Join – name & icon picker -->
+        <activity
+            android:name="at.aau.monopoly.klagenfurt.JoinActivity"
+            android:exported="false"
+            android:screenOrientation="landscape"
+            android:theme="@style/Theme.MyApplication" />
     </application>
 
 </manifest>

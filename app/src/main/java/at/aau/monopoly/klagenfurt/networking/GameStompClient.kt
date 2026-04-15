@@ -28,6 +28,7 @@ class GameStompClient(
 
     private var session: StompSession? = null
     private var subscriptionJob: Job? = null
+    private var lobbySubscriptionJob: Job? = null
     private var connectJob: Job? = null
     private var isConnecting = false
 
@@ -37,8 +38,11 @@ class GameStompClient(
     private val _status = MutableSharedFlow<String>(replay = 1)
     override val status: SharedFlow<String> = _status.asSharedFlow()
 
+    private val _lobbyEvents = MutableSharedFlow<String>(replay = 1)
+    override val lobbyEvents: SharedFlow<String> = _lobbyEvents.asSharedFlow()
+
     private var currentGameId: String = ""
-    private val currentPlayerId: String = UUID.randomUUID().toString()
+    override val currentPlayerId: String = UUID.randomUUID().toString()
 
     override fun connect() {
         if (session != null) {
@@ -121,6 +125,45 @@ class GameStompClient(
                 }
             }
         }
+    }
+
+
+    override fun subscribeToLobby() {
+        if (lobbySubscriptionJob?.isActive == true) {
+            Log.d("GameStomp", "Already subscribed to lobby")
+            return
+        }
+        lobbySubscriptionJob = scope.launch {
+            try {
+                val currentSession = session
+                if (currentSession == null) {
+                    Log.w("GameStomp", "Cannot subscribe to lobby: not connected")
+                    return@launch
+                }
+                Log.d("GameStomp", "Subscribing to /topic/lobby")
+                currentSession.subscribeText("/topic/lobby").collect { msg ->
+                    _lobbyEvents.emit(msg)
+                }
+            } catch (e: Throwable) {
+                if (isCancellation(e)) {
+                    Log.d("GameStomp", "Lobby subscription cancelled")
+                } else {
+                    Log.e("GameStomp", "lobby subscription error", e)
+                    _status.emit("Lobby subscription error: ${e.message}")
+                }
+            }
+        }
+    }
+
+    override fun requestGameList() {
+        sendRaw("/app/game/list", buildAction())
+    }
+
+    override fun closeGame(gameId: String) {
+        val savedGameId = currentGameId
+        currentGameId = gameId
+        sendRaw("/app/game/close", buildAction())
+        currentGameId = savedGameId
     }
 
 

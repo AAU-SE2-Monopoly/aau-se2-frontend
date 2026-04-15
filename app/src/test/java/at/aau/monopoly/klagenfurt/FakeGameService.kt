@@ -14,6 +14,11 @@ class FakeGameService : GameService {
     private val _status = MutableSharedFlow<String>(replay = 1)
     override val status: SharedFlow<String> = _status.asSharedFlow()
 
+    private val _lobbyEvents = MutableSharedFlow<String>(replay = 1)
+    override val lobbyEvents: SharedFlow<String> = _lobbyEvents.asSharedFlow()
+
+    override val currentPlayerId: String = "test-player-id"
+
     var connectCalled = false
     var lastSubscribedGameId: String? = null
     var lastCreatedPlayerName: String? = null
@@ -27,6 +32,10 @@ class FakeGameService : GameService {
     var rollDiceCalled = false
     var endTurnCalled = false
     var requestStateCalled = false
+    var subscribeToLobbyCalled = false
+    var requestGameListCalled = false
+    var lastClosedGameId: String? = null
+    var closeGameCalls = 0
 
     override fun connect() {
         connectCalled = true
@@ -71,11 +80,28 @@ class FakeGameService : GameService {
         lastSubscribedGameId = gameId
     }
 
+    override fun subscribeToLobby() {
+        subscribeToLobbyCalled = true
+    }
+
+    override fun requestGameList() {
+        requestGameListCalled = true
+    }
+
+    override fun closeGame(gameId: String) {
+        closeGameCalls++
+        lastClosedGameId = gameId
+    }
+
     suspend fun emitTestEvent(jsonMessage: String) {
         _events.emit(jsonMessage)
     }
 
     suspend fun emitTestStatus(statusMessage: String) {
         _status.emit(statusMessage)
+    }
+
+    suspend fun emitTestLobbyEvent(jsonMessage: String) {
+        _lobbyEvents.emit(jsonMessage)
     }
 }

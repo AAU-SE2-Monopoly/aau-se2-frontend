@@ -54,7 +54,7 @@ class MainMenuActivity : ComponentActivity() {
             MyApplicationTheme(dynamicColor = false) {
                 MainMenuScreen(
                     onPlayClicked = {
-                        startActivity(Intent(this, GameActivity::class.java))
+                        startActivity(Intent(this, LobbyActivity::class.java))
                     },
                     onCreditsClicked = {
                         startActivity(Intent(this, CreditsActivity::class.java))

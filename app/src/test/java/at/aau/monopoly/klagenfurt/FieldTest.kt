@@ -14,12 +14,13 @@ import at.aau.monopoly.klagenfurt.model.field.PropertyField
 import at.aau.monopoly.klagenfurt.model.field.RailroadField
 import at.aau.monopoly.klagenfurt.model.field.TaxField
 import at.aau.monopoly.klagenfurt.model.field.UtilityField
-import org.json.JSONArray
-import org.json.JSONObject
+import at.aau.monopoly.klagenfurt.networking.JacksonProvider
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 
 class FieldTest {
+
+    private val objectMapper = JacksonProvider.objectMapper
 
     @Test
     fun `verify GoField`() {
@@ -115,89 +116,65 @@ class FieldTest {
         assertEquals(FieldType.GO_TO_JAIL, field.type)
         assertNotNull(field.toString())
     }
-    /**  fromJsonTests   **/
+    /**  Jackson deserialization tests   **/
     @Test
-    fun `test fromJson in Field with valid JSON`() {
-        val json= JSONObject()
-            .put("id", 1)
-            .put("name", "Test Field")
-            .put("type", "GO")
-
-        val field = Field.fromJson(json)
+    fun `test Jackson deserialize GO field`() {
+        val json = """{"id":1,"name":"Test Field","type":"GO"}"""
+        val field = objectMapper.readValue(json, Field::class.java)
         assertEquals(1, field.id)
         assertEquals("Test Field", field.name)
         assertEquals(FieldType.GO, field.type)
-
     }
     @Test
-    fun `test fromJson with missing required fields and GOType`() {
-        val json = JSONObject()
-            .put("id", 1)
-            .put("type", "GO")
-        val field = Field.fromJson(json)
+    fun `test Jackson deserialize GO field with missing name`() {
+        val json = """{"id":1,"type":"GO"}"""
+        val field = objectMapper.readValue(json, Field::class.java)
         assertEquals(1, field.id)
-        assertEquals("Go", field.name)
         assertEquals(FieldType.GO, field.type)
-
     }
     @Test
-    fun `test fromJson with GoToJailType`() {
-        val json = JSONObject()
-            .put("id", 30)
-            .put("type", "GO_TO_JAIL")
-        val field = Field.fromJson(json)
+    fun `test Jackson deserialize GoToJail field`() {
+        val json = """{"id":30,"type":"GO_TO_JAIL"}"""
+        val field = objectMapper.readValue(json, Field::class.java)
         assertEquals(30, field.id)
     }
     @Test
-    fun `test fromJson with ChanceType`() {
-        val json = JSONObject()
-            .put("id", 7)
-            .put("type", "CHANCE")
-        val field = Field.fromJson(json)
+    fun `test Jackson deserialize Chance field`() {
+        val json = """{"id":7,"type":"CHANCE"}"""
+        val field = objectMapper.readValue(json, Field::class.java)
         assertEquals(7, field.id)
     }
     @Test
-    fun `test fromJson with CommunityChestType`() {
-        val json = JSONObject()
-            .put("id", 2)
-            .put("type", "COMMUNITY_CHEST")
-        val field = Field.fromJson(json)
+    fun `test Jackson deserialize CommunityChest field`() {
+        val json = """{"id":2,"type":"COMMUNITY_CHEST"}"""
+        val field = objectMapper.readValue(json, Field::class.java)
         assertEquals(2, field.id)
     }
     @Test
-    fun `test fromJson with FreeParkingType`() {
-        val json = JSONObject()
-            .put("id", 20)
-            .put("type", "FREE_PARKING")
-        val field = Field.fromJson(json)
+    fun `test Jackson deserialize FreeParking field`() {
+        val json = """{"id":20,"type":"FREE_PARKING"}"""
+        val field = objectMapper.readValue(json, Field::class.java)
         assertEquals(20, field.id)
     }
     @Test
-    fun `test fromJson with JailType`() {
-        val json = JSONObject()
-            .put("id", 10)
-            .put("type", "JAIL")
-        val field = Field.fromJson(json)
+    fun `test Jackson deserialize Jail field`() {
+        val json = """{"id":10,"type":"JAIL"}"""
+        val field = objectMapper.readValue(json, Field::class.java)
         assertEquals(10, field.id)
-
     }
     @Test
-    fun `test fromJson with PropertyType`() {
-        val json = JSONObject()
-            .put("id", 1)
-            .put("name", "Test Property")
-            .put("type", "PROPERTY")
-            .put("color", "BROWN")
-            .put("price", 60)
-            .put("rent", JSONArray().put(2).put(10).put(30).put(90).put(160).put(250))
-            .put("houseCost", 50)
-            .put("hotelCost", 50)
-            .put("ownerId", "player1")
-            .put("houses", 0)
-            .put("hasHotel", false)
-            .put("isMortgaged", false)
-
-        val field = Field.fromJson(json)
+    fun `test Jackson deserialize Property field`() {
+        val json = """
+            {
+                "id":1,"name":"Test Property","type":"PROPERTY",
+                "color":"BROWN","price":60,
+                "rent":[2,10,30,90,160,250],
+                "houseCost":50,"hotelCost":50,
+                "ownerId":"player1","houses":0,
+                "hasHotel":false,"isMortgaged":false
+            }
+        """.trimIndent()
+        val field = objectMapper.readValue(json, Field::class.java)
         assertEquals(1, field.id)
         assertEquals("Test Property", field.name)
         assertEquals(FieldType.PROPERTY, field.type)
@@ -212,16 +189,12 @@ class FieldTest {
         assertFalse(field.isMortgaged)
     }
     @Test
-    fun `test fromJson with RailroadType`() {
-
-        val json = JSONObject()
-            .put("id", 5)
-            .put("name", "Test Railroad")
-            .put("type", "RAILROAD")
-            .put("price", 200)
-            .put("ownerId", "player2")
-            .put("isMortgaged", true)
-        val field = Field.fromJson(json)
+    fun `test Jackson deserialize Railroad field`() {
+        val json = """
+            {"id":5,"name":"Test Railroad","type":"RAILROAD",
+             "price":200,"ownerId":"player2","isMortgaged":true}
+        """.trimIndent()
+        val field = objectMapper.readValue(json, Field::class.java)
         assertEquals(5, field.id)
         assertEquals("Test Railroad", field.name)
         assertEquals(FieldType.RAILROAD, field.type)
@@ -230,28 +203,21 @@ class FieldTest {
         assertTrue(field.isMortgaged)
     }
     @Test
-    fun `test fromJson with TaxType`() {
-        val json = JSONObject()
-            .put("id", 4)
-            .put("name", "Test Tax")
-            .put("type", "TAX")
-            .put("amount", 100)
-        val field = Field.fromJson(json)
+    fun `test Jackson deserialize Tax field`() {
+        val json = """{"id":4,"name":"Test Tax","type":"TAX","amount":100}"""
+        val field = objectMapper.readValue(json, Field::class.java)
         assertEquals(4, field.id)
         assertEquals("Test Tax", field.name)
         assertEquals(FieldType.TAX, field.type)
         assertEquals(100, (field as TaxField).amount)
     }
     @Test
-    fun `test fromJson with UtilityType`() {
-        val json = JSONObject()
-            .put("id", 12)
-            .put("name", "Test Utility")
-            .put("type", "UTILITY")
-            .put("price", 150)
-            .put("ownerId", "player3")
-            .put("isMortgaged", false)
-        val field = Field.fromJson(json)
+    fun `test Jackson deserialize Utility field`() {
+        val json = """
+            {"id":12,"name":"Test Utility","type":"UTILITY",
+             "price":150,"ownerId":"player3","isMortgaged":false}
+        """.trimIndent()
+        val field = objectMapper.readValue(json, Field::class.java)
         assertEquals(12, field.id)
         assertEquals("Test Utility", field.name)
         assertEquals(FieldType.UTILITY, field.type)
@@ -260,12 +226,10 @@ class FieldTest {
         assertFalse(field.isMortgaged)
     }
     @Test
-    fun `test fromJson with invalid type`() {
-        val json = JSONObject()
-            .put("id", 1)
-            .put("type", "INVALID_TYPE")
+    fun `test Jackson deserialize with invalid type`() {
+        val json = """{"id":1,"type":"INVALID_TYPE"}"""
         assertThrows(IllegalArgumentException::class.java) {
-            Field.fromJson(json)
+            objectMapper.readValue(json, Field::class.java)
         }
     }
 

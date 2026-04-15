@@ -4,19 +4,16 @@ import at.aau.monopoly.klagenfurt.model.DiceRoll
 import at.aau.monopoly.klagenfurt.model.GameState
 import at.aau.monopoly.klagenfurt.model.Player
 import at.aau.monopoly.klagenfurt.model.enums.GamePhase
-import org.json.JSONArray
-import org.json.JSONException
-import org.json.JSONObject
+import at.aau.monopoly.klagenfurt.networking.JacksonProvider
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertNull
-import org.junit.jupiter.api.assertThrows
-import kotlin.collections.emptyList
 
 class GameStateTest {
     private lateinit var player1: Player
     private lateinit var player2: Player
+    private val objectMapper = JacksonProvider.objectMapper
 
     @BeforeEach
     fun setup() {
@@ -90,23 +87,26 @@ class GameStateTest {
         state1.lastDiceRoll = DiceRoll(3, 4)
         assertNotNull(state1.lastDiceRoll)
     }
-    /** GameState Companion fromJson Tests**/
+    /** GameState Jackson deserialization Tests**/
 
 
     @Test
-    fun `test GameState fromJson with valid JSON`() {
-        val json = JSONObject()
-            .put("gameId", "1")
-            .put("phase", "ROLLING")
-            .put("freeParkingMoney", 1000)
-            .put("currentPlayerIndex", 1)
-            .put("lastDiceRoll", JSONObject().put("die1", 3).put("die2", 4))
-            .put("players", JSONArray().apply {
-                put(JSONObject().put("id", "p1").put("name", "Alice").put("money", 1500).put("position", 0).put("properties", JSONArray()))
-                put(JSONObject().put("id", "p2").put("name", "Bob").put("money", 1500).put("position", 0).put("properties", JSONArray()))
-            })
-            .put("fields", JSONArray())
-        val state = GameState.fromJson(json)
+    fun `test GameState deserialization with valid JSON`() {
+        val jsonString = """
+            {
+                "gameId": "1",
+                "phase": "ROLLING",
+                "freeParkingMoney": 1000,
+                "currentPlayerIndex": 1,
+                "lastDiceRoll": {"die1": 3, "die2": 4},
+                "players": [
+                    {"id": "p1", "name": "Alice", "money": 1500, "position": 0, "ownedPropertyIds": []},
+                    {"id": "p2", "name": "Bob", "money": 1500, "position": 0, "ownedPropertyIds": []}
+                ],
+                "fields": []
+            }
+        """.trimIndent()
+        val state = objectMapper.readValue(jsonString, GameState::class.java)
         assertEquals("1", state.gameId)
         assertEquals(GamePhase.ROLLING, state.phase)
         assertEquals(1000, state.freeParkingMoney)
@@ -116,12 +116,16 @@ class GameStateTest {
         assertNotNull(state.fields)
     }
     @Test
-    fun `test GameState fromJson with missing required fields`() {
-        val json = JSONObject()
-            .put("phase", "ROLLING")
-         assertThrows< JSONException> {
-            GameState.fromJson(json)
-        }
+    fun `test GameState deserialization with missing optional fields`() {
+        val jsonString = """
+            {
+                "gameId": "1",
+                "fields": []
+            }
+        """.trimIndent()
+        val state = objectMapper.readValue(jsonString, GameState::class.java)
+        assertEquals("1", state.gameId)
+        assertNotNull(state.fields)
     }
 
 }

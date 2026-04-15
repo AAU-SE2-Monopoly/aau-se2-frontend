@@ -7,6 +7,7 @@ import at.aau.monopoly.klagenfurt.ServiceLocator
 import at.aau.monopoly.klagenfurt.messaging.ChatMessage
 import at.aau.monopoly.klagenfurt.networking.GameService
 import at.aau.monopoly.klagenfurt.networking.GameStompClient
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
@@ -18,7 +19,7 @@ class ChatViewModel(private val chatService: ChatService,
     private val playerName= gameService.getCurrentPlayerName()
    val messageFlow: StateFlow<ChatMessage> =chatService.messageFlow
        .map { ChatMessage(playerName,it) }
-       .stateIn(viewModelScope, kotlinx.coroutines.flow.SharingStarted.WhileSubscribed(5000), ChatMessage(playerName,""))
+       .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), ChatMessage(playerName,""))
 
 
     class ChatViewModelFactory(private val chatService: ChatService,private val gameService: GameService) : ViewModelProvider.Factory {

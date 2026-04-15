@@ -9,8 +9,11 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import org.hildan.krossbow.stomp.StompClient
 import org.hildan.krossbow.stomp.StompSession
@@ -38,6 +41,10 @@ class GameStompClient(
     private val _status = MutableSharedFlow<String>(replay = 1)
     override val status: SharedFlow<String> = _status.asSharedFlow()
 
+
+    private val _sessionFlow = MutableStateFlow<StompSession?>(null)
+    override val sessionFlow: StateFlow<StompSession?> = _sessionFlow.asStateFlow()
+
     private var currentGameId: String = ""
     private val currentPlayerId: String = UUID.randomUUID().toString()
 
@@ -58,12 +65,12 @@ class GameStompClient(
         connectJob = scope.launch {
             try {
                 Log.d("GameStomp", "Connecting to $websocketUri...")
-                session = stompClient.connect(websocketUri)
+                val newSession = stompClient.connect(websocketUri)
+                session = newSession
+                _sessionFlow.emit(newSession)
                 _status.emit("Connected ✓")
                 Log.d("GameStomp", "Connected successfully")
 
-                val chatService = ServiceLocator.provideChatService()
-                chatService.setSession(session!!)
                 subscribeToGame(currentPlayerId)
                 Log.d("GameStomp","ChatService injected")
 
@@ -73,6 +80,7 @@ class GameStompClient(
                 } else {
                     Log.e("GameStomp", "connect error", e)
                     session = null
+                    _sessionFlow.emit(null)
                     _status.emit("Connection error: ${e.message}")
                 }
             } finally {
@@ -86,6 +94,7 @@ class GameStompClient(
         subscriptionJob?.cancel()
         val currentSession = session
         session = null
+        _sessionFlow.value = null
         scope.launch {
             try {
                 currentSession?.disconnect()

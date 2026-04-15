@@ -1,6 +1,8 @@
 package at.aau.monopoly.klagenfurt.networking
 
 import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.StateFlow
+import org.hildan.krossbow.stomp.StompSession
 
 interface GameService {
     val events: SharedFlow<String>
@@ -19,4 +21,5 @@ interface GameService {
     fun endTurn()
     fun requestState()
     fun setGameId(gameId: String)
+    val sessionFlow: StateFlow<StompSession?>
 }

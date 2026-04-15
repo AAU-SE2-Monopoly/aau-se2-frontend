@@ -1,77 +1,95 @@
 package at.aau.monopoly.klagenfurt.ui.chat
 
 import android.util.Log
+import at.aau.monopoly.klagenfurt.messaging.ChatMessage
+import at.aau.monopoly.klagenfurt.networking.GameService
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
-import org.hildan.krossbow.stomp.StompSession
 import org.hildan.krossbow.stomp.sendText
 import org.hildan.krossbow.stomp.subscribeText
 import org.json.JSONObject
 
+class ChatClient(
+    private val gameService: GameService,
+    private val scope: CoroutineScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+) : ChatService {
 
-class ChatClient(private val scope: CoroutineScope = CoroutineScope(Dispatchers.IO+SupervisorJob())): ChatService {
+    private val _messageFlow = MutableSharedFlow<ChatMessage>(replay = 10)
+    override val messageFlow = _messageFlow.asSharedFlow()
+    
+    private var subscriptionJob: Job? = null
+    private val _hasJoinedFlow = MutableStateFlow<Boolean>(false)
+    val hasJoinedFlow = _hasJoinedFlow.asStateFlow()
 
-
-    private var session: StompSession? = null
-    private val _messageFlow= MutableSharedFlow<String>()
-
-    override val messageFlow=_messageFlow.asSharedFlow()
-
-
-
-    override fun setSession(session: StompSession) {
-        this.session = session
-        Log.i("ChatClient", "Session injected!")
-    }
-
-    override fun subscribeToChat(gameId: String,playerName:String) {
-        val currentSession = session
-        scope.launch {
-            try {
-
-                    currentSession?.subscribeText("/topic/chat/$gameId")
-                    ?.collect {
-                        _messageFlow.emit(it)
-                    }
+    override fun subscribeToChat(gameId: String) {
+        subscriptionJob?.cancel()
+        subscriptionJob = scope.launch {
+            // Use collectLatest to ensure that when a new session is established (reconnect),
+            // the previous session's collection and logic are automatically cancelled.
+            gameService.sessionFlow.collectLatest { session ->
+                if (session != null) {
                     try {
-                        sendRaw("/app/chat/first",playerName)
-                    }
-                    catch (e: Throwable) {
-                        Log.e("GameStomp", "send error to /app/chat/first: playerName not set", e)
-                    }
+                        Log.d("ChatClient", "Session available, subscribing to chat: $gameId")
+                        
+                        // Subscribe to incoming chat messages
+                        launch {
+                            session.subscribeText("/topic/chat/$gameId").collect { msg ->
+                                try {
+                                    val chatMsg = ChatMessage.fromJson(JSONObject(msg))
+                                    _messageFlow.emit(chatMsg)
+                                } catch (e: Exception) {
+                                    Log.e("ChatClient", "Error parsing chat message: $msg", e)
+                                }
+                            }
+                        }
 
-
+                        val playerName = gameService.getCurrentPlayerName()
+                        session.sendText("/app/chat/first", playerName)
+                        _hasJoinedFlow.value = true
+                    } catch (e: Exception) {
+                        Log.e("ChatClient", "Error in chat subscription", e)
+                        _hasJoinedFlow.value = false
+                    }
+                } else {
+                    _hasJoinedFlow.value = false
                 }
-            catch (e: Throwable) {
-                Log.e("GameStomp", "subscription to chat error", e)
-
-
             }
         }
+    }
 
-    }
     override fun sendMessage(message: String) {
-        val messageJson=JSONObject()
-            .put("message",message).toString()
-        sendRaw("/app/chat/send",message)
-    }
-    fun sendRaw(destination: String, json: String) {
+        val session = gameService.sessionFlow.value
+        val gameId = gameService.getGameId()
+        
+        if (session == null) {
+            Log.w("ChatClient", "Cannot send message: not connected")
+            return
+        }
+
         scope.launch {
             try {
-                val currentSession = session
-                if (currentSession != null) {
-                    currentSession.sendText(destination, json)
-                } else {
-                    Log.w("GameStomp", "Cannot send message: not connected")
-                }
-            } catch (e: Throwable) {
-                Log.e("GameStomp", "send error to $destination", e)
-
-                }
+                val messageJson = JSONObject()
+                    .put("gameId", gameId)
+                    .put("playerId", gameService.getCurrentUserId())
+                    .put("message", message)
+                    .toString()
+                session.sendText("/app/chat/send", messageJson)
+            } catch (e: Exception) {
+                Log.e("ChatClient", "Error sending message", e)
+            }
         }
+    }
+
+    override fun disconnectChatroom() {
+        subscriptionJob?.cancel()
+        _hasJoinedFlow.value = false
     }
 }

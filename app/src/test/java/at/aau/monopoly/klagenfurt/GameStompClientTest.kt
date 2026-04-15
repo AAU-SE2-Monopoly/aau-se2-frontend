@@ -18,8 +18,6 @@ import org.hildan.krossbow.stomp.StompClient
 import org.hildan.krossbow.stomp.StompSession
 import org.hildan.krossbow.stomp.sendText
 import org.hildan.krossbow.stomp.subscribeText
-import org.json.JSONArray
-import org.json.JSONObject
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -44,21 +42,6 @@ class GameStompClientTest {
         // Mocking extension functions requires mockkStatic
         mockkStatic("org.hildan.krossbow.stomp.StompSessionKt")
 
-
-        mockkConstructor(JSONObject::class)
-
-        val jsonMock = mockk<JSONObject>(relaxed = true)
-
-        every { anyConstructed<JSONObject>().put(any<String>(), any<Any>()) } returns jsonMock
-        every { anyConstructed<JSONObject>().toString() } returns "{}"
-
-        every { jsonMock.put(any<String>(), any<Any>()) } returns jsonMock
-        every { jsonMock.toString() } returns "{}"
-
-        mockkConstructor(JSONArray::class)
-        val arrayMock = mockk<JSONArray>(relaxed = true)
-        every { anyConstructed<JSONArray>().put(any<Any>()) } returns arrayMock
-        every { arrayMock.put(any<Any>()) } returns arrayMock
 
         stompClient = mockk()
         stompSession = mockk(relaxed = true)

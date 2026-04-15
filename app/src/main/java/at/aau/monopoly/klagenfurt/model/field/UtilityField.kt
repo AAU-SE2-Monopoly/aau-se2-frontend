@@ -1,5 +1,5 @@
 package at.aau.monopoly.klagenfurt.model.field
-import org.json.JSONObject
+
 import at.aau.monopoly.klagenfurt.model.enums.FieldType
 
 data class UtilityField(
@@ -9,17 +9,4 @@ data class UtilityField(
     val price: Int = 150,
     var ownerId: String? = null,
     var isMortgaged: Boolean = false
-) : Field(id, name, type) {
-
-    companion object {
-        fun fromJson(json: JSONObject): UtilityField {
-            val id = json.getInt("id")
-            val name = json.getString("name")
-            val type = FieldType.valueOf(json.getString("type"))
-            val price = json.optInt("price", 150)
-            val ownerId = json.optString("ownerId").takeIf { it.isNotEmpty() }
-            val isMortgaged = json.optBoolean("isMortgaged", false)
-            return UtilityField(id, name, type, price, ownerId, isMortgaged)
-        }
-    }
-}
+) : Field(id, name, type)

@@ -1,6 +1,8 @@
 package at.aau.monopoly.klagenfurt.networking
 
 import android.util.Log
+import at.aau.monopoly.klagenfurt.messaging.GameAction
+import at.aau.monopoly.klagenfurt.model.Player
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -14,7 +16,6 @@ import org.hildan.krossbow.stomp.StompClient
 import org.hildan.krossbow.stomp.StompSession
 import org.hildan.krossbow.stomp.sendText
 import org.hildan.krossbow.stomp.subscribeText
-import org.json.JSONObject
 import java.util.UUID
 
 class GameStompClient(
@@ -123,17 +124,14 @@ class GameStompClient(
     }
 
 
+    private val objectMapper = JacksonProvider.objectMapper
+
     override fun createGame(playerName: String) {
-        val playerJson = JSONObject()
-            .put("id", currentPlayerId)
-            .put("name", playerName)
-            .put("position", 0)
-            .put("money", 1500)
-            .put("inJail", false)
-            .put("jailTurns", 0)
-            .put("getOutOfJailCards", 0)
-            .put("ownedPropertyIds", org.json.JSONArray())
-            .toString()
+        val player = Player(
+            id = currentPlayerId,
+            name = playerName
+        )
+        val playerJson = objectMapper.writeValueAsString(player)
 
         Log.d("GameStomp", "Sending create command for player: $playerName")
         sendRaw("/app/game/create", playerJson)
@@ -157,14 +155,13 @@ class GameStompClient(
     }
 
     private fun buildAction(action: String = "", extra: Map<String, String> = emptyMap()): String {
-        val payload = JSONObject()
-        extra.forEach { (k, v) -> payload.put(k, v) }
-        return JSONObject()
-            .put("gameId", currentGameId)
-            .put("playerId", currentPlayerId)
-            .put("action", action)
-            .put("payload", payload)
-            .toString()
+        val gameAction = GameAction(
+            gameId = currentGameId,
+            playerId = currentPlayerId,
+            action = action,
+            payload = extra
+        )
+        return objectMapper.writeValueAsString(gameAction)
     }
 
     private fun sendRaw(destination: String, json: String) {

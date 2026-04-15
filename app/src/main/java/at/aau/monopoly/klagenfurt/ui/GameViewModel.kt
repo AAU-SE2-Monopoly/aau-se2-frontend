@@ -8,22 +8,23 @@ import at.aau.monopoly.klagenfurt.messaging.GameEvent
 import at.aau.monopoly.klagenfurt.model.GameState
 import at.aau.monopoly.klagenfurt.model.field.Field
 import at.aau.monopoly.klagenfurt.networking.GameService
+import at.aau.monopoly.klagenfurt.networking.JacksonProvider
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.mapNotNull
 import kotlinx.coroutines.flow.shareIn
 import kotlinx.coroutines.flow.stateIn
-import org.json.JSONObject
 import kotlinx.coroutines.flow.SharedFlow
 
 class GameViewModel(private val gameService: GameService) : ViewModel() {
 
+    private val objectMapper = JacksonProvider.objectMapper
+
     private val gameEventFlow: SharedFlow<GameEvent> = gameService.events
         .mapNotNull { jsonString ->
             try {
-                val json = JSONObject(jsonString)
-                GameEvent.fromJson(json)
+                objectMapper.readValue(jsonString, GameEvent::class.java)
             } catch (e: Exception) {
                 Log.e("GameViewModel", "Parsing Error: ${e.message}", e)
                 null

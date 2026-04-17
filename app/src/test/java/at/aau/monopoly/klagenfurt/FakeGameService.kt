@@ -18,6 +18,8 @@ class FakeGameService : GameService {
     override val lobbyEvents: SharedFlow<String> = _lobbyEvents.asSharedFlow()
 
     override val currentPlayerId: String = "test-player-id"
+    override var currentPlayerName: String = "test-player-name"
+    override var currentGameId: String = "test-game-id"
 
     var connectCalled = false
     var lastSubscribedGameId: String? = null
@@ -78,6 +80,7 @@ class FakeGameService : GameService {
 
     override fun setGameId(gameId: String) {
         lastSubscribedGameId = gameId
+        currentGameId = gameId
     }
 
     override fun subscribeToLobby() {

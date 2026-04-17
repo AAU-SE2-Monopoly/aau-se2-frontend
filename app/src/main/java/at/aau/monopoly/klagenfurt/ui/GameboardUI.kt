@@ -39,6 +39,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
@@ -285,39 +286,55 @@ fun FieldItem(index: Int, field: Field, sw: Float, sh: Float) {
             .offset(x = bounds.x.dp, y = bounds.y.dp)
             .size(bounds.width.dp, bounds.height.dp)
             .clip(RectangleShape)
-            .border(if (bounds.isCorner) 1.dp else 0.5.dp, Color.White.copy(alpha = if (bounds.isCorner) 0.3f else 0.2f))
-            .background(if (bounds.isCorner) Color.Red.copy(alpha = 0.1f) else Color.Black.copy(alpha = 0.1f)),
-        contentAlignment = Alignment.Center
-    ) { if(imageMap != null) {
-        val imagePadding = if (bounds.isCorner) 6.dp else 4.dp
-        val imageShape = RoundedCornerShape(if (bounds.isCorner) 12.dp else 8.dp)
-        val borderwidth = if (bounds.isCorner) 3.dp else 2.dp
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(imagePadding)
-                .rotate(bounds.rotation)
-                .clip(imageShape)
-                .border(borderwidth, Color.White.copy(alpha = 0.3f), imageShape)
-        )
-        {
-            Image(
-                painter = painterResource(id = imageMap),
-                contentDescription = field.name,
-                modifier = Modifier
-                    .fillMaxSize(),
-                contentScale = ContentScale.Crop
+            .border(
+                if (bounds.isCorner) 1.dp else 0.5.dp,
+                Color.White.copy(alpha = if (bounds.isCorner) 0.3f else 0.2f)
             )
+            .background(
+                if (bounds.isCorner) Color.Red.copy(alpha = 0.1f) else Color.Black.copy(
+                    alpha = 0.1f
+                )
+            ),
+        contentAlignment = Alignment.Center
+    ) {
+        if (imageMap != null) {
+            val imagePadding = if (bounds.isCorner) 6.dp else 4.dp
+            val imageShape = RoundedCornerShape(if (bounds.isCorner) 12.dp else 8.dp)
+            val borderwidth = if (bounds.isCorner) 3.dp else 2.dp
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(imagePadding)
+                    .rotate(bounds.rotation)
+                    .clip(imageShape)
+                    .border(borderwidth, Color.White.copy(alpha = 0.3f), imageShape)
+            )
+            {
+                Image(
+                    painter = painterResource(id = imageMap),
+                    contentDescription = field.name,
+                    modifier = Modifier
+                        .fillMaxSize(),
+                    contentScale = ContentScale.Crop
+                )
+            }
         }
-    }
         if (!bounds.isCorner && field is PropertyField) {
             val barSize = 35f
             val barColor = field.color.toComposeColor()
             val barMod = when (side) {
-                0 -> Modifier.fillMaxWidth().height(((barSize / 2160f) * sh).dp).align(Alignment.BottomCenter).testTag("Bottom-Bar")
-                1 -> Modifier.fillMaxHeight().width(((barSize / 3840f) * sw).dp).align(Alignment.CenterStart).testTag("Left-Bar")
-                2 -> Modifier.fillMaxWidth().height(((barSize / 2160f) * sh).dp).align(Alignment.TopCenter).testTag("Top-Bar")
-                3 -> Modifier.fillMaxHeight().width(((barSize / 3840f) * sw).dp).align(Alignment.CenterEnd).testTag("Right-Bar")
+                0 -> Modifier.fillMaxWidth().height(((barSize / 2160f) * sh).dp)
+                    .align(Alignment.BottomCenter).testTag("Bottom-Bar")
+
+                1 -> Modifier.fillMaxHeight().width(((barSize / 3840f) * sw).dp)
+                    .align(Alignment.CenterStart).testTag("Left-Bar")
+
+                2 -> Modifier.fillMaxWidth().height(((barSize / 2160f) * sh).dp)
+                    .align(Alignment.TopCenter).testTag("Top-Bar")
+
+                3 -> Modifier.fillMaxHeight().width(((barSize / 3840f) * sw).dp)
+                    .align(Alignment.CenterEnd).testTag("Right-Bar")
+
                 else -> Modifier
             }
             Box(modifier = barMod.background(barColor))
@@ -332,8 +349,15 @@ fun FieldItem(index: Int, field: Field, sw: Float, sh: Float) {
             fontSize = if (bounds.isCorner) 6.sp else 4.sp,
             fontWeight = FontWeight.Bold,
             textAlign = TextAlign.Center,
-            style = TextStyle(hyphens = Hyphens.Auto),
-            overflow = TextOverflow.Clip
+            overflow = TextOverflow.Clip,
+            style = TextStyle(
+                hyphens = Hyphens.Auto,
+                shadow = Shadow(
+                    color = Color.Black.copy(alpha = 0.85f),
+                    offset = Offset(2f, 2f),
+                    blurRadius = 4f
+                )
+            )
         )
     }
 }
@@ -386,5 +410,5 @@ fun getFieldImageMapping(fieldName: String): Int? {
         "Botanischer Garten" -> R.drawable.botanischer_garten
         "Kreuzbergl" -> R.drawable.kreuzbergl
         else -> null
+        }
     }
-}

@@ -227,7 +227,7 @@ fun calculateFieldBounds(index: Int, sw: Float, sh: Float): FieldBounds {
             30 -> 225f
             else -> 0f
         }
-        // Factor 0.7f ensures that the diagonal of the text fits into the square box
+
         val innerScale = 0.7f
         val tW = scaleX(designCornerSize) * innerScale
         val tH = scaleY(designCornerSize) * innerScale
@@ -339,25 +339,34 @@ fun FieldItem(index: Int, field: Field, sw: Float, sh: Float) {
             Box(modifier = barMod.background(barColor))
         }
 
-        Text(
-            text = field.name,
+
+        Box(
             modifier = Modifier
-                .requiredSize(width = bounds.textWidth.dp, height = bounds.textHeight.dp)
-                .rotate(bounds.rotation),
-            color = Color.White,
-            fontSize = if (bounds.isCorner) 6.sp else 4.sp,
-            fontWeight = FontWeight.Bold,
-            textAlign = TextAlign.Center,
-            overflow = TextOverflow.Clip,
-            style = TextStyle(
-                hyphens = Hyphens.Auto,
-                shadow = Shadow(
-                    color = Color.Black.copy(alpha = 0.85f),
-                    offset = Offset(2f, 2f),
-                    blurRadius = 4f
+               // .requiredSize(width = bounds.textWidth.dp, height = bounds.textHeight.dp)
+                .fillMaxSize()
+                .rotate(bounds.rotation)
+                .padding(if (bounds.isCorner) 2.dp else 4.dp),
+            contentAlignment = if (bounds.isCorner) Alignment.Center else Alignment.TopCenter
+        ) {
+            Box(
+                modifier = Modifier
+                    .background(Color.Black.copy(alpha = 0.4f), RoundedCornerShape(2.dp))
+                    .padding(horizontal = 2.dp, vertical = 1.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = field.name,
+                    color = Color.White,
+                    fontSize = if (bounds.isCorner) 3.75.sp else 2.75.sp,
+                    lineHeight = if (bounds.isCorner) 4.75.sp else 3.75.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    textAlign = TextAlign.Center,
+                    overflow = TextOverflow.Ellipsis,
+                    maxLines = 3,
+                    style = TextStyle(hyphens = Hyphens.Auto)
                 )
-            )
-        )
+            }
+        }
     }
 }
 

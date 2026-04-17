@@ -290,7 +290,7 @@ fun FieldItem(index: Int, field: Field, sw: Float, sh: Float) {
             painter = painterResource(id = imageMap),
             contentDescription = field.name,
             modifier = Modifier.fillMaxSize(),
-            contentScale = ContentScale.FillBounds
+            contentScale = ContentScale.Crop
         )
     }
         if (!bounds.isCorner && field is PropertyField) {

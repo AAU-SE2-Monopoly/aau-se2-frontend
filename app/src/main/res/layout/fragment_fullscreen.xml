@@ -5,9 +5,8 @@
     android:id="@+id/frameLayout2"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="?attr/fullscreenBackgroundColor"
-    android:theme="@style/ThemeOverlay.MyApplication.FullscreenContainer"
-    tools:context=".FullscreenFragment">
+    android:background="@android:color/white"
+    tools:context="at.aau.monopoly.klagenfurt.MainActivity">
 
     <Button
         android:id="@+id/connectbtn"

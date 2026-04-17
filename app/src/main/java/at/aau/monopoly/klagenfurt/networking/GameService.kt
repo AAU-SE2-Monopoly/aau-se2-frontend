@@ -7,6 +7,8 @@ interface GameService {
     val status: SharedFlow<String>
     val lobbyEvents: SharedFlow<String>
     val currentPlayerId: String
+    val currentPlayerName: String
+    val currentGameId: String
 
     fun connect()
     fun disconnect()

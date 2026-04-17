@@ -16,6 +16,7 @@ import kotlinx.coroutines.flow.mapNotNull
 import kotlinx.coroutines.flow.shareIn
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.filter
 
 class GameViewModel(private val gameService: GameService) : ViewModel() {
 
@@ -32,17 +33,26 @@ class GameViewModel(private val gameService: GameService) : ViewModel() {
         }
         .shareIn(viewModelScope, SharingStarted.WhileSubscribed(5000))
 
-    val isGameReady: StateFlow<Boolean> = gameEventFlow
-        .map { event -> event.gameState != null }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
-
     val gameState: StateFlow<GameState?> = gameEventFlow
         .map { it.gameState }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = null
+        )
 
-    val fields: StateFlow<List<Field>?> = gameState
-        .map { it?.fields }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+    val fields: StateFlow<List<Field>> = gameState
+        .mapNotNull { it?.fields }
+        .filter { it.isNotEmpty() }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = emptyList()
+        )
+
+    val isGameReady: StateFlow<Boolean> = gameState
+        .map { it != null }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
     val events: SharedFlow<String> = gameService.events
     val status: SharedFlow<String> = gameService.status

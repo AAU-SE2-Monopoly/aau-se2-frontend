@@ -41,7 +41,12 @@ class GameStompClient(
     private val _lobbyEvents = MutableSharedFlow<String>(replay = 1)
     override val lobbyEvents: SharedFlow<String> = _lobbyEvents.asSharedFlow()
 
-    private var currentGameId: String = ""
+    private var _currentGameId: String = ""
+    override val currentGameId: String get() = _currentGameId
+
+    private var _currentPlayerName: String = ""
+    override val currentPlayerName: String get() = _currentPlayerName
+
     override val currentPlayerId: String = UUID.randomUUID().toString()
 
     override fun connect() {
@@ -98,12 +103,12 @@ class GameStompClient(
     }
 
     override fun subscribeToGame(gameId: String) {
-        if (subscriptionJob?.isActive == true && gameId == currentGameId) {
+        if (subscriptionJob?.isActive == true && gameId == _currentGameId) {
             Log.d("GameStomp", "Already subscribed to $gameId")
             return
         }
         
-        currentGameId = gameId
+        _currentGameId = gameId
         subscriptionJob?.cancel()
         subscriptionJob = scope.launch {
             try {
@@ -160,16 +165,17 @@ class GameStompClient(
     }
 
     override fun closeGame(gameId: String) {
-        val savedGameId = currentGameId
-        currentGameId = gameId
+        val savedGameId = _currentGameId
+        _currentGameId = gameId
         sendRaw("/app/game/close", buildAction())
-        currentGameId = savedGameId
+        _currentGameId = savedGameId
     }
 
 
     private val objectMapper = JacksonProvider.objectMapper
 
     override fun createGame(playerName: String) {
+        _currentPlayerName = playerName
         val player = Player(
             id = currentPlayerId,
             name = playerName
@@ -181,8 +187,9 @@ class GameStompClient(
     }
 
     override fun joinGame(gameId: String, playerName: String) {
-        // Update local ID state so buildAction uses the correct destination ID
-        currentGameId = gameId
+        _currentPlayerName = playerName
+        subscribeToGame(gameId)
+        
         Log.d("GameStomp", "Sending join command for game: $gameId")
         sendRaw("/app/game/join", buildAction(extra = mapOf("name" to playerName)))
     }
@@ -193,13 +200,12 @@ class GameStompClient(
     override fun requestState() = sendRaw("/app/game/state", buildAction())
 
     override fun setGameId(gameId: String) {
-
         subscribeToGame(gameId)
     }
 
     private fun buildAction(action: String = "", extra: Map<String, String> = emptyMap()): String {
         val gameAction = GameAction(
-            gameId = currentGameId,
+            gameId = _currentGameId,
             playerId = currentPlayerId,
             action = action,
             payload = extra

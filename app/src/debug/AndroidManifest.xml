@@ -1,9 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <application>
+        <!-- Debug launcher now correctly points to MainMenuActivity -->
         <activity
-            android:name="androidx.activity.ComponentActivity"
-            android:exported="true">
+            android:name="at.aau.monopoly.klagenfurt.MainMenuActivity"
+            android:exported="true"
+            android:screenOrientation="landscape"
+            android:theme="@style/Theme.MyApplication.Splash">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />

@@ -282,6 +282,7 @@ fun FieldItem(index: Int, field: Field, sw: Float, sh: Float) {
         modifier = Modifier
             .offset(x = bounds.x.dp, y = bounds.y.dp)
             .size(bounds.width.dp, bounds.height.dp)
+            .clip(RectangleShape)
             .border(if (bounds.isCorner) 1.dp else 0.5.dp, Color.White.copy(alpha = if (bounds.isCorner) 0.3f else 0.2f))
             .background(if (bounds.isCorner) Color.Red.copy(alpha = 0.1f) else Color.Black.copy(alpha = 0.1f)),
         contentAlignment = Alignment.Center
@@ -289,7 +290,9 @@ fun FieldItem(index: Int, field: Field, sw: Float, sh: Float) {
         Image(
             painter = painterResource(id = imageMap),
             contentDescription = field.name,
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier
+                .requiredSize(width = bounds.textWidth.dp, height = bounds.textHeight.dp)
+                .rotate(bounds.rotation),
             contentScale = ContentScale.Crop
         )
     }
@@ -358,7 +361,8 @@ fun getFieldImageMapping(fieldName: String): Int? {
         "McMullens" -> R.drawable.mc_mullens
         "Westbahnhof" -> R.drawable.west_bahnhof
         "Mensa" -> R.drawable.mensa
-        "Universität" -> R.drawable.universitaet
+        "Universität Klagenfurt" -> R.drawable.universitaet
+        "Stadtwerke Klagenfurt" -> R.drawable.stadtwerke
         "Lakeside" -> R.drawable.lakeside
         "Go To Jail" -> R.drawable.go_to_jail
         "Strandbad" -> R.drawable.strandbad

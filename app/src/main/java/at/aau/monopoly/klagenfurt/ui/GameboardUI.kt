@@ -303,7 +303,7 @@ fun FieldItem(index: Int, field: Field, sw: Float, sh: Float) {
             val borderwidth = if (bounds.isCorner) 2.dp else 1.dp
             Box(
                 modifier = Modifier
-                    .fillMaxSize()
+                    .requiredSize(width = bounds.textWidth.dp, height = bounds.textHeight.dp)
                     .padding(imagePadding)
                     .rotate(bounds.rotation)
                     .clip(imageShape)
@@ -313,8 +313,7 @@ fun FieldItem(index: Int, field: Field, sw: Float, sh: Float) {
                 Image(
                     painter = painterResource(id = imageMap),
                     contentDescription = field.name,
-                    modifier = Modifier
-                        .fillMaxSize(),
+                    modifier = Modifier.fillMaxSize(),
                     contentScale = ContentScale.Crop
                 )
             }
@@ -409,6 +408,7 @@ fun getFieldImageMapping(fieldName: String): Int? {
         "Lendbahnhof" -> R.drawable.lendbahnhof
         "Botanischer Garten" -> R.drawable.botanischer_garten
         "Kreuzbergl" -> R.drawable.kreuzbergl
+        "Heiligengeistplatz" -> R.drawable.heiligengeistplatz
         else -> null
         }
     }

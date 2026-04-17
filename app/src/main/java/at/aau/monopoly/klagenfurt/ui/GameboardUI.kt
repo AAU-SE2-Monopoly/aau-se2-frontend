@@ -18,9 +18,11 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -286,15 +288,27 @@ fun FieldItem(index: Int, field: Field, sw: Float, sh: Float) {
             .border(if (bounds.isCorner) 1.dp else 0.5.dp, Color.White.copy(alpha = if (bounds.isCorner) 0.3f else 0.2f))
             .background(if (bounds.isCorner) Color.Red.copy(alpha = 0.1f) else Color.Black.copy(alpha = 0.1f)),
         contentAlignment = Alignment.Center
-    ) { if(imageMap != null){
-        Image(
-            painter = painterResource(id = imageMap),
-            contentDescription = field.name,
+    ) { if(imageMap != null) {
+        val imagePadding = if (bounds.isCorner) 6.dp else 4.dp
+        val imageShape = RoundedCornerShape(if (bounds.isCorner) 12.dp else 8.dp)
+        val borderwidth = if (bounds.isCorner) 3.dp else 2.dp
+        Box(
             modifier = Modifier
                 .fillMaxSize()
-                .rotate(bounds.rotation),
-            contentScale = ContentScale.Crop
+                .padding(imagePadding)
+                .rotate(bounds.rotation)
+                .clip(imageShape)
+                .border(borderwidth, Color.White.copy(alpha = 0.3f), imageShape)
         )
+        {
+            Image(
+                painter = painterResource(id = imageMap),
+                contentDescription = field.name,
+                modifier = Modifier
+                    .fillMaxSize(),
+                contentScale = ContentScale.Crop
+            )
+        }
     }
         if (!bounds.isCorner && field is PropertyField) {
             val barSize = 35f
@@ -372,5 +386,5 @@ fun getFieldImageMapping(fieldName: String): Int? {
         "Botanischer Garten" -> R.drawable.botanischer_garten
         "Kreuzbergl" -> R.drawable.kreuzbergl
         else -> null
-        }
     }
+}

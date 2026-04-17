@@ -291,7 +291,7 @@ fun FieldItem(index: Int, field: Field, sw: Float, sh: Float) {
             painter = painterResource(id = imageMap),
             contentDescription = field.name,
             modifier = Modifier
-                .requiredSize(width = bounds.textWidth.dp, height = bounds.textHeight.dp)
+                .fillMaxSize()
                 .rotate(bounds.rotation),
             contentScale = ContentScale.Crop
         )
@@ -337,38 +337,38 @@ fun PropertyColor.toComposeColor(): Color = when (this) {
 
 fun getFieldImageMapping(fieldName: String): Int? {
     return when (fieldName.trim()) {
-        "Go" -> R.drawable.loibl_pass
+        "Go" -> R.drawable.mono_go
         "Herrengasse" -> R.drawable.herrengasse
         "Community Chest" -> R.drawable.community_chest
-        "Reichensteuer" -> R.drawable.tax_field
-        "Hauptbahnhof" -> R.drawable.haupt_bahnhof
+        "Reichensteuer" -> R.drawable.tax
+        "Hauptbahnhof" -> R.drawable.hauptbahnhof
         "Neuer Platz" -> R.drawable.neuer_platz
-        "Chance" -> R.drawable.chance_field
+        "Chance" -> R.drawable.chance
         "Alter Platz" -> R.drawable.alter_platz
-        "Benediktiner Platz" -> R.drawable.benediktiner_platz
-        "Jail / Just Visiting" -> R.drawable.justiz_anstalt
+        "Benediktiner Platz" -> R.drawable.bene_platz
+        "Jail / Just Visiting" -> R.drawable.mono_jail
         "Cine City" -> R.drawable.cine_city
         "Kelag Klagenfurt" -> R.drawable.kelag
-        "McDonalds" -> R.drawable.mc_donalds
-        "Ruthar" -> R.drawable.rutar
-        "Ostbahnhof" -> R.drawable.ost_bahnhof
+        "McDonalds" -> R.drawable.mcdonalds
+        "Ruthar" -> R.drawable.ruthar
+        "Ostbahnhof" -> R.drawable.ostbahnhof
         "Wohnzimmer" -> R.drawable.wohnzimmer
         "Hafenstadt" -> R.drawable.hafenstadt
         "Lendcafe" -> R.drawable.lendcafe
-        "Free Parking" -> R.drawable.free_parking
+        "Free Parking" -> R.drawable.mono_free_parking
         "City Arkaden" -> R.drawable.city_arkaden
-        "Le Burger" -> R.drawable.le_burger
-        "McMullens" -> R.drawable.mc_mullens
-        "Westbahnhof" -> R.drawable.west_bahnhof
+        "Le Burger" -> R.drawable.leburger_v2
+        "McMullens" -> R.drawable.mcmullens
+        "Westbahnhof" -> R.drawable.westbahnhof
         "Mensa" -> R.drawable.mensa
         "Universität Klagenfurt" -> R.drawable.universitaet
         "Stadtwerke Klagenfurt" -> R.drawable.stadtwerke
         "Lakeside" -> R.drawable.lakeside
-        "Go To Jail" -> R.drawable.go_to_jail
+        "Go To Jail" -> R.drawable.mono_go_to_jail
         "Strandbad" -> R.drawable.strandbad
         "Loretto" -> R.drawable.loretto
         "Villa Lido" -> R.drawable.villa_lido
-        "Lendbahnhof" -> R.drawable.lend_bahnhof
+        "Lendbahnhof" -> R.drawable.lendbahnhof
         "Botanischer Garten" -> R.drawable.botanischer_garten
         "Kreuzbergl" -> R.drawable.kreuzbergl
         else -> null

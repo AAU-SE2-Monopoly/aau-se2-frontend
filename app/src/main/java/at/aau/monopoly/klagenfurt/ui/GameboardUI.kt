@@ -276,6 +276,7 @@ fun calculateFieldBounds(index: Int, sw: Float, sh: Float): FieldBounds {
 fun FieldItem(index: Int, field: Field, sw: Float, sh: Float) {
     val bounds = remember(index, sw, sh) { calculateFieldBounds(index, sw, sh) }
     val side = (index / 10) % 4
+    val imageMap = getFieldImageMapping(field.name)
 
     Box(
         modifier = Modifier
@@ -284,7 +285,14 @@ fun FieldItem(index: Int, field: Field, sw: Float, sh: Float) {
             .border(if (bounds.isCorner) 1.dp else 0.5.dp, Color.White.copy(alpha = if (bounds.isCorner) 0.3f else 0.2f))
             .background(if (bounds.isCorner) Color.Red.copy(alpha = 0.1f) else Color.Black.copy(alpha = 0.1f)),
         contentAlignment = Alignment.Center
-    ) {
+    ) { if(imageMap != null){
+        Image(
+            painter = painterResource(id = imageMap),
+            contentDescription = field.name,
+            modifier = Modifier.fillMaxSize(),
+            contentScale = ContentScale.FillBounds
+        )
+    }
         if (!bounds.isCorner && field is PropertyField) {
             val barSize = 35f
             val barColor = field.color.toComposeColor()
@@ -323,3 +331,42 @@ fun PropertyColor.toComposeColor(): Color = when (this) {
     PropertyColor.GREEN -> Color(0xFF1FB25A)
     PropertyColor.DARK_BLUE -> Color(0xFF0072BB)
 }
+
+fun getFieldImageMapping(fieldName: String): Int? {
+    return when (fieldName.trim()) {
+        "Go" -> R.drawable.loibl_pass
+        "Herrengasse" -> R.drawable.herrengasse
+        "Community Chest" -> R.drawable.community_chest
+        "Reichensteuer" -> R.drawable.tax_field
+        "Hauptbahnhof" -> R.drawable.haupt_bahnhof
+        "Neuer Platz" -> R.drawable.neuer_platz
+        "Chance" -> R.drawable.chance_field
+        "Alter Platz" -> R.drawable.alter_platz
+        "Benediktiner Platz" -> R.drawable.benediktiner_platz
+        "Jail / Just Visiting" -> R.drawable.justiz_anstalt
+        "Cine City" -> R.drawable.cine_city
+        "Kelag Klagenfurt" -> R.drawable.kelag
+        "McDonalds" -> R.drawable.mc_donalds
+        "Ruthar" -> R.drawable.rutar
+        "Ostbahnhof" -> R.drawable.ost_bahnhof
+        "Wohnzimmer" -> R.drawable.wohnzimmer
+        "Hafenstadt" -> R.drawable.hafenstadt
+        "Lendcafe" -> R.drawable.lendcafe
+        "Free Parking" -> R.drawable.free_parking
+        "City Arkaden" -> R.drawable.city_arkaden
+        "Le Burger" -> R.drawable.le_burger
+        "McMullens" -> R.drawable.mc_mullens
+        "Westbahnhof" -> R.drawable.west_bahnhof
+        "Mensa" -> R.drawable.mensa
+        "Universität" -> R.drawable.universitaet
+        "Lakeside" -> R.drawable.lakeside
+        "Go To Jail" -> R.drawable.go_to_jail
+        "Strandbad" -> R.drawable.strandbad
+        "Loretto" -> R.drawable.loretto
+        "Villa Lido" -> R.drawable.villa_lido
+        "Lendbahnhof" -> R.drawable.lend_bahnhof
+        "Botanischer Garten" -> R.drawable.botanischer_garten
+        "Kreuzbergl" -> R.drawable.kreuzbergl
+        else -> null
+        }
+    }

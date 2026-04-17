@@ -298,16 +298,16 @@ fun FieldItem(index: Int, field: Field, sw: Float, sh: Float) {
         contentAlignment = Alignment.Center
     ) {
         if (imageMap != null) {
-            val imagePadding = if (bounds.isCorner) 6.dp else 4.dp
-            val imageShape = RoundedCornerShape(if (bounds.isCorner) 12.dp else 8.dp)
-            val borderwidth = if (bounds.isCorner) 3.dp else 2.dp
+            val imagePadding = if (bounds.isCorner) 2.dp else 1.dp
+            val imageShape = RoundedCornerShape(2.dp)
+            val borderwidth = if (bounds.isCorner) 2.dp else 1.dp
             Box(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(imagePadding)
                     .rotate(bounds.rotation)
                     .clip(imageShape)
-                    .border(borderwidth, Color.White.copy(alpha = 0.3f), imageShape)
+                    .border(borderwidth, Color.White, imageShape)
             )
             {
                 Image(

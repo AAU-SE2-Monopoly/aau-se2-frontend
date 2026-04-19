@@ -195,20 +195,27 @@ fun GameboardContent(
                 players.forEachIndexed { index, player ->
                     val bounds = calculateFieldBounds(player.position, sw, sh)
                     
-                    val offsetX = (index % 2) * 12f
-                    val offsetY = (index / 2) * 12f
+                    val columns = 3
+                    val column = index % columns
+                    val row = index / columns
+
+                    val itemSize = 18f
+                    val spacing = 2f
+
+                    val offsetX = column * (itemSize + spacing)
+                    val offsetY = row * (itemSize + spacing)
 
                     Image(
                         painter = painterResource(id = getPlayerTokenResource(player.iconId)),
                         contentDescription = player.name,
                         modifier = Modifier
                             .offset(
-                                x = (bounds.x + offsetX + 5f).dp, 
-                                y = (bounds.y + offsetY + 5f).dp
+                                x = (bounds.x + offsetX + 4f).dp,
+                                y = (bounds.y + offsetY + 4f).dp
                             )
-                            .size(24.dp)
-                            .clip(RoundedCornerShape(4.dp))
-                            .border(1.dp, Color.White, RoundedCornerShape(4.dp))
+                            .size(itemSize.dp)
+                            .clip(RoundedCornerShape(2.dp))
+                            .border(1.dp, Color.White, RoundedCornerShape(2.dp))
                     )
                 }
             }

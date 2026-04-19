@@ -11,6 +11,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -285,48 +286,19 @@ fun FieldItem(index: Int, field: Field, sw: Float, sh: Float) {
         modifier = fieldItemContainerMod(bounds),
         contentAlignment = Alignment.Center
     ) {
-        if (imageMap != null) {
-            val imagePadding = if (bounds.isCorner) 2.dp else 1.dp
-            val imageShape = RoundedCornerShape(2.dp)
-            val borderwidth = if (bounds.isCorner) 2.dp else 1.dp
-            Box(
-                modifier = Modifier
-                    .requiredSize(width = bounds.textWidth.dp, height = bounds.textHeight.dp)
-                    .padding(imagePadding)
-                    .rotate(bounds.rotation)
-                    .clip(imageShape)
-                    .border(borderwidth, Color.White, imageShape)
+        FieldImage(
+            imageRes = imageMap,
+            fieldName = field.name,
+            bounds = bounds
+        )
+        if (shouldShowPropertyBar(bounds, field) && field is PropertyField) {
+            PropertyColorBar(
+                side = side,
+                sw = sw,
+                sh = sh,
+                color = field.color.toComposeColor()
             )
-            {
-                Image(
-                    painter = painterResource(id = imageMap),
-                    contentDescription = field.name,
-                    modifier = Modifier.fillMaxSize(),
-                    contentScale = ContentScale.Crop
-                )
-            }
         }
-        if (!bounds.isCorner && field is PropertyField) {
-            val barSize = 35f
-            val barColor = field.color.toComposeColor()
-            val barMod = when (side) {
-                0 -> Modifier.fillMaxWidth().height(((barSize / 2160f) * sh).dp)
-                    .align(Alignment.BottomCenter).testTag("Bottom-Bar")
-
-                1 -> Modifier.fillMaxHeight().width(((barSize / 3840f) * sw).dp)
-                    .align(Alignment.CenterStart).testTag("Left-Bar")
-
-                2 -> Modifier.fillMaxWidth().height(((barSize / 2160f) * sh).dp)
-                    .align(Alignment.TopCenter).testTag("Top-Bar")
-
-                3 -> Modifier.fillMaxHeight().width(((barSize / 3840f) * sw).dp)
-                    .align(Alignment.CenterEnd).testTag("Right-Bar")
-
-                else -> Modifier
-            }
-            Box(modifier = barMod.background(barColor))
-        }
-
 
         Box(
             modifier = Modifier
@@ -427,4 +399,77 @@ private fun fieldItemContainerMod(bounds: FieldBounds): Modifier {
         .background(backgroundColor)
 }
 
+@Composable
+private fun FieldImage(
+    imageRes: Int?,
+    fieldName: String,
+    bounds: FieldBounds
+) {
+    if (imageRes == null) return
 
+    val imagePadding = if (bounds.isCorner) 2.dp else 1.dp
+    val imageShape = RoundedCornerShape(2.dp)
+    val borderWidth = if (bounds.isCorner) 2.dp else 1.dp
+
+    Box(
+        modifier = Modifier
+            .requiredSize(width = bounds.textWidth.dp, height = bounds.textHeight.dp)
+            .padding(imagePadding)
+            .rotate(bounds.rotation)
+            .clip(imageShape)
+            .border(borderWidth, Color.White, imageShape)
+    ) {
+        Image(
+            painter = painterResource(id = imageRes),
+            contentDescription = fieldName,
+            modifier = Modifier.fillMaxSize(),
+            contentScale = ContentScale.Crop
+        )
+    }
+}
+
+private fun shouldShowPropertyBar(bounds: FieldBounds, field: Field): Boolean {
+    return !bounds.isCorner && field is PropertyField
+}
+
+
+@Composable
+private fun BoxScope.PropertyColorBar(
+    side: Int,
+    sw: Float,
+    sh: Float,
+    color: Color
+) {
+    val barSize = 35f
+    val barModifier = when (side) {
+        0 -> Modifier
+            .fillMaxWidth()
+            .height(((barSize / 2160f) * sh).dp)
+            .align(Alignment.BottomCenter)
+            .testTag("Bottom-Bar")
+
+        1 -> Modifier
+            .fillMaxHeight()
+            .width(((barSize / 3840f) * sw).dp)
+            .align(Alignment.CenterStart)
+            .testTag("Left-Bar")
+
+        2 -> Modifier
+            .fillMaxWidth()
+            .height(((barSize / 2160f) * sh).dp)
+            .align(Alignment.TopCenter)
+            .testTag("Top-Bar")
+
+        3 -> Modifier
+            .fillMaxHeight()
+            .width(((barSize / 3840f) * sw).dp)
+            .align(Alignment.CenterEnd)
+            .testTag("Right-Bar")
+
+        else -> Modifier
+    }
+
+    Box(
+        modifier = barModifier.background(color)
+    )
+}

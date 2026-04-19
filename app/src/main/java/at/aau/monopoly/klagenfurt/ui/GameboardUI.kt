@@ -406,7 +406,7 @@ fun getFieldImageMapping(fieldName: String): Int? {
 }
 
 private fun fieldItemContainerMod(bounds: FieldBounds): Modifier {
-    val borderWidth = if (bounds.isCorner) 1.dp else 0.5.dp
+    val borderWidth = if (bounds.isCorner) 0.5.dp else 0.25.dp
     val borderAlpha = if (bounds.isCorner) 0.3f else 0.2f
     val backgroundColor = if (bounds.isCorner) {
         Color.Red.copy(alpha = 0.1f)
@@ -430,9 +430,9 @@ private fun FieldImage(
 ) {
     if (imageRes == null) return
 
-    val imagePadding = if (bounds.isCorner) 2.dp else 1.dp
+    val imagePadding = 0.dp
     val imageShape = RoundedCornerShape(2.dp)
-    val borderWidth = if (bounds.isCorner) 2.dp else 1.dp
+    val borderWidth = if (bounds.isCorner) 1.dp else 0.5.dp
 
     Box(
         modifier = Modifier
@@ -446,7 +446,7 @@ private fun FieldImage(
             painter = painterResource(id = imageRes),
             contentDescription = fieldName,
             modifier = Modifier.fillMaxSize(),
-            contentScale = ContentScale.Crop
+            contentScale = ContentScale.FillBounds
         )
     }
 }

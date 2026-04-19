@@ -73,21 +73,21 @@ class GameboardUITest {
         // Corner 0 (Go)
         val b0 = calculateFieldBounds(0, sw, sh)
         assertTrue(b0.isCorner)
-        assertEquals(-45f, b0.rotation)
+        assertEquals(0f, b0.rotation)
         assertEquals(2445f - 120f, b0.x, 0.1f)
         assertEquals(1720f - 120f, b0.y, 0.1f)
 
         // Corner 10 (Jail)
         val b10 = calculateFieldBounds(10, sw, sh)
-        assertEquals(45f, b10.rotation)
+        assertEquals(0f, b10.rotation)
 
         // Corner 20 (Free Parking)
         val b20 = calculateFieldBounds(20, sw, sh)
-        assertEquals(135f, b20.rotation)
+        assertEquals(0f, b20.rotation)
 
         // Corner 30 (Go To Jail)
         val b30 = calculateFieldBounds(30, sw, sh)
-        assertEquals(225f, b30.rotation)
+        assertEquals(0f, b30.rotation)
     }
 
     @Test

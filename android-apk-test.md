@@ -20,6 +20,5 @@ Android Version 15
 -the games disappear if the player leaves the game.
 
 ## Keys
-- SHA1: 05:EB:CD:64:D5:BF:C1:F5:B0:21:88:32:E4:D0:90:4F:57:4C:43:94
-  SHA256: 48:CA:7A:E7:4C:F8:45:6D:93:5C:D5:A0:20:6A:7B:B7:22:09:DB:DD:0A:88:5E:53:5A:46:10:9D:41:E5:8C:7A
+- SHA256: 48:CA:7A:E7:4C:F8:45:6D:93:5C:D5:A0:20:6A:7B:B7:22:09:DB:DD:0A:88:5E:53:5A:46:10:9D:41:E5:8C:7A
 - Private key will not be commited to the frontend repository for security reasons

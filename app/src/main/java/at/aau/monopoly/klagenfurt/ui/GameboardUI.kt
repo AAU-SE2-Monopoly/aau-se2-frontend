@@ -272,15 +272,9 @@ fun calculateFieldBounds(index: Int, sw: Float, sh: Float): FieldBounds {
     fun scaleY(y: Float) = (y / 2160f) * sh
 
     if (isCorner) {
-        val textRotation = when (index) {
-            0 -> -45f
-            10 -> 45f
-            20 -> 135f
-            30 -> 225f
-            else -> 0f
-        }
+        val textRotation = 0f
 
-        val innerScale = 0.7f
+        val innerScale = 1.0f
         val tW = scaleX(designCornerSize) * innerScale
         val tH = scaleY(designCornerSize) * innerScale
         

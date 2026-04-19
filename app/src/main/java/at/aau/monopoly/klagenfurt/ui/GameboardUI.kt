@@ -282,19 +282,7 @@ fun FieldItem(index: Int, field: Field, sw: Float, sh: Float) {
     val imageMap = getFieldImageMapping(field.name)
 
     Box(
-        modifier = Modifier
-            .offset(x = bounds.x.dp, y = bounds.y.dp)
-            .size(bounds.width.dp, bounds.height.dp)
-            .clip(RectangleShape)
-            .border(
-                if (bounds.isCorner) 1.dp else 0.5.dp,
-                Color.White.copy(alpha = if (bounds.isCorner) 0.3f else 0.2f)
-            )
-            .background(
-                if (bounds.isCorner) Color.Red.copy(alpha = 0.1f) else Color.Black.copy(
-                    alpha = 0.1f
-                )
-            ),
+        modifier = fieldItemContainerMod(bounds),
         contentAlignment = Alignment.Center
     ) {
         if (imageMap != null) {
@@ -421,3 +409,22 @@ fun getFieldImageMapping(fieldName: String): Int? {
         else -> null
         }
     }
+
+private fun fieldItemContainerMod(bounds: FieldBounds): Modifier {
+    val borderWidth = if (bounds.isCorner) 1.dp else 0.5.dp
+    val borderAlpha = if (bounds.isCorner) 0.3f else 0.2f
+    val backgroundColor = if (bounds.isCorner) {
+        Color.Red.copy(alpha = 0.1f)
+    } else {
+        Color.Black.copy(alpha = 0.1f)
+    }
+
+    return Modifier
+        .offset(x = bounds.x.dp, y = bounds.y.dp)
+        .size(bounds.width.dp, bounds.height.dp)
+        .clip(RectangleShape)
+        .border(borderWidth, Color.White.copy(alpha = borderAlpha))
+        .background(backgroundColor)
+}
+
+

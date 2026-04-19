@@ -77,9 +77,8 @@ class JoinActivity : ComponentActivity() {
                             // Create a new game – the backend will respond with GAME_CREATED
                             gameService.createGame(playerName, iconId)
                         } else {
-                            // Join existing game
+                            // Join existing game - subscribeToGame is handled inside joinGame
                             gameService.joinGame(gameId, playerName, iconId)
-                            gameService.setGameId(gameId)
                         }
                         // Navigate to the game board
                         startActivity(

@@ -194,7 +194,7 @@ fun GameboardContent(
 
                 players.forEachIndexed { index, player ->
                     val bounds = calculateFieldBounds(player.position, sw, sh)
-                    
+
                     val columns = 3
                     val column = index % columns
                     val row = index / columns

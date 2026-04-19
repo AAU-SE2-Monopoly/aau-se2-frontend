@@ -41,6 +41,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import com.example.myapplication.R
 import androidx.compose.foundation.Image
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -139,7 +140,8 @@ fun JoinScreen(
                 fontSize = 28.sp,
                 fontWeight = FontWeight.ExtraBold,
                 letterSpacing = 4.sp,
-                textAlign = TextAlign.Center
+                textAlign = TextAlign.Center,
+                modifier = Modifier.testTag("ScreenTitle")
             )
 
             if (!isNewGame && gameId.isNotEmpty()) {
@@ -196,7 +198,7 @@ fun JoinScreen(
                 onValueChange = { playerName = it },
                 label = { Text("Player Name") },
                 singleLine = true,
-                modifier = Modifier.fillMaxWidth(0.5f),
+                modifier = Modifier.fillMaxWidth(0.5f).testTag("PlayerNameInput"),
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = PrimaryBlueLight,
                     unfocusedBorderColor = Color.White.copy(alpha = 0.3f),
@@ -219,7 +221,8 @@ fun JoinScreen(
                 },
                 modifier = Modifier
                     .fillMaxWidth(0.5f)
-                    .height(56.dp),
+                    .height(56.dp)
+                    .testTag("ActionButton"),
                 shape = RoundedCornerShape(16.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = PrimaryBlue),
                 elevation = ButtonDefaults.buttonElevation(defaultElevation = 8.dp)

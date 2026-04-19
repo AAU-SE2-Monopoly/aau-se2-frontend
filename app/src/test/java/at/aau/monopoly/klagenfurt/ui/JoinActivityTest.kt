@@ -1,7 +1,11 @@
 package at.aau.monopoly.klagenfurt.ui
 
 import android.content.Intent
+import androidx.compose.ui.test.hasTestTag
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createEmptyComposeRule
+import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextInput
@@ -47,13 +51,18 @@ class JoinActivityTest {
         }
         
         ActivityScenario.launch<JoinActivity>(intent).use {
-            composeTestRule.onNodeWithText("JOIN GAME").assertExists()
+            composeTestRule.waitForIdle()
+
+            // Check title via Tag AND Text to be unique
+            composeTestRule.onNode(hasTestTag("ScreenTitle") and hasText("JOIN GAME")).assertExists()
             
             // Input name
-            composeTestRule.onNodeWithText("Player Name").performTextInput("Alice")
+            composeTestRule.onNodeWithTag("PlayerNameInput").performTextInput("Alice")
             
-            // Click join
-            composeTestRule.onNodeWithText("JOIN GAME").performClick()
+            composeTestRule.waitForIdle()
+
+            // Specifically click the ActionButton
+            composeTestRule.onNodeWithTag("ActionButton").assertExists().performClick()
             
             // Verify service calls
             assertEquals(1, fakeService.joinGameCalls)
@@ -69,13 +78,14 @@ class JoinActivityTest {
         }
         
         ActivityScenario.launch<JoinActivity>(intent).use {
-            composeTestRule.onNodeWithText("CREATE GAME").assertExists()
+            composeTestRule.waitForIdle()
+            composeTestRule.onNodeWithTag("ScreenTitle").assertExists()
             
             // Input name
-            composeTestRule.onNodeWithText("Player Name").performTextInput("Bob")
+            composeTestRule.onNodeWithTag("PlayerNameInput").performTextInput("Bob")
             
-            // Click create
-            composeTestRule.onNodeWithText("CREATE & JOIN").performClick()
+            // Click create via tag
+            composeTestRule.onNodeWithTag("ActionButton").performClick()
             
             // Verify service calls
             assertEquals(1, fakeService.createGameCalls)

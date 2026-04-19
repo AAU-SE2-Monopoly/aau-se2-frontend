@@ -300,33 +300,10 @@ fun FieldItem(index: Int, field: Field, sw: Float, sh: Float) {
             )
         }
 
-        Box(
-            modifier = Modifier
-               // .requiredSize(width = bounds.textWidth.dp, height = bounds.textHeight.dp)
-                .fillMaxSize()
-                .rotate(bounds.rotation)
-                .padding(if (bounds.isCorner) 2.dp else 4.dp),
-            contentAlignment = if (bounds.isCorner) Alignment.Center else Alignment.TopCenter
-        ) {
-            Box(
-                modifier = Modifier
-                    .background(Color.Black.copy(alpha = 0.4f), RoundedCornerShape(2.dp))
-                    .padding(horizontal = 2.dp, vertical = 1.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = field.name,
-                    color = Color.White,
-                    fontSize = if (bounds.isCorner) 3.75.sp else 2.75.sp,
-                    lineHeight = if (bounds.isCorner) 4.75.sp else 3.75.sp,
-                    fontWeight = FontWeight.ExtraBold,
-                    textAlign = TextAlign.Center,
-                    overflow = TextOverflow.Ellipsis,
-                    maxLines = 3,
-                    style = TextStyle(hyphens = Hyphens.Auto)
-                )
-            }
-        }
+        FieldTitle(
+            text = field.name,
+            bounds = bounds
+        )
     }
 }
 
@@ -472,4 +449,37 @@ private fun BoxScope.PropertyColorBar(
     Box(
         modifier = barModifier.background(color)
     )
+}
+
+@Composable
+private fun FieldTitle(
+    text: String,
+    bounds: FieldBounds
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .rotate(bounds.rotation)
+            .padding(if (bounds.isCorner) 2.dp else 4.dp),
+        contentAlignment = if (bounds.isCorner) Alignment.Center else Alignment.TopCenter
+    ) {
+        Box(
+            modifier = Modifier
+                .background(Color.Black.copy(alpha = 0.4f), RoundedCornerShape(2.dp))
+                .padding(horizontal = 2.dp, vertical = 1.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = text,
+                color = Color.White,
+                fontSize = if (bounds.isCorner) 3.75.sp else 2.75.sp,
+                lineHeight = if (bounds.isCorner) 4.75.sp else 3.75.sp,
+                fontWeight = FontWeight.ExtraBold,
+                textAlign = TextAlign.Center,
+                overflow = TextOverflow.Ellipsis,
+                maxLines = 3,
+                style = TextStyle(hyphens = Hyphens.Auto)
+            )
+        }
+    }
 }

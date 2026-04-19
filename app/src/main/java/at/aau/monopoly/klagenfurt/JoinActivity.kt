@@ -167,7 +167,9 @@ fun JoinScreen(
                 contentPadding = PaddingValues(0.dp)
             ) {
                 Box(
-                    modifier = Modifier.fillMaxSize(),
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(Color.White),
                     contentAlignment = Alignment.Center
                 ) {
                     Image(

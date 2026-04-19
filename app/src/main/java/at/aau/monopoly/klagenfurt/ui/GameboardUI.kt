@@ -223,6 +223,7 @@ fun GameboardContent(
                             )
                             .size(tokenSize.dp)
                             .clip(RoundedCornerShape(2.dp))
+                            .background(Color.White)
                     )
                 }
             }

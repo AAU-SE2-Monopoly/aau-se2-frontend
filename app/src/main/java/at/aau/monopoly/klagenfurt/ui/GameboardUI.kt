@@ -56,6 +56,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import at.aau.monopoly.klagenfurt.ServiceLocator
+import at.aau.monopoly.klagenfurt.model.Player
 import at.aau.monopoly.klagenfurt.model.enums.PropertyColor
 import at.aau.monopoly.klagenfurt.model.field.Field
 import at.aau.monopoly.klagenfurt.model.field.PropertyField
@@ -92,11 +93,14 @@ fun LockScreenOrientation(orientation: Int) {
 }
 
     @Composable
-    fun GameboardScreen(modifier: Modifier = Modifier,viewModel: GameViewModel) {
+    fun GameboardScreen(modifier: Modifier = Modifier, viewModel: GameViewModel) {
         val fields by viewModel.fields.collectAsState(initial = emptyList())
+        val gameState by viewModel.gameState.collectAsState()
+        val players = gameState?.players ?: emptyList()
+
         LockScreenOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE)
 
-        GameboardContent(fields?:emptyList(), modifier)
+        GameboardContent(fields ?: emptyList(), players, modifier)
     }
 
 class ZoomState(
@@ -157,6 +161,7 @@ fun ZoomableWrapper(modifier: Modifier = Modifier, content: @Composable () -> Un
 @Composable
 fun GameboardContent(
     fields: List<Field>,
+    players: List<Player> = emptyList(),
     modifier: Modifier = Modifier
 ) {
     ZoomableWrapper(modifier = modifier.fillMaxSize()) {
@@ -185,8 +190,40 @@ fun GameboardContent(
                 fields.forEachIndexed { index, field ->
                     FieldItem(index, field, sw, sh)
                 }
+
+
+                players.forEachIndexed { index, player ->
+                    val bounds = calculateFieldBounds(player.position, sw, sh)
+                    
+                    val offsetX = (index % 2) * 12f
+                    val offsetY = (index / 2) * 12f
+
+                    Image(
+                        painter = painterResource(id = getPlayerTokenResource(player.iconId)),
+                        contentDescription = player.name,
+                        modifier = Modifier
+                            .offset(
+                                x = (bounds.x + offsetX + 5f).dp, 
+                                y = (bounds.y + offsetY + 5f).dp
+                            )
+                            .size(24.dp)
+                            .clip(RoundedCornerShape(4.dp))
+                            .border(1.dp, Color.White, RoundedCornerShape(4.dp))
+                    )
+                }
             }
         }
+    }
+}
+
+fun getPlayerTokenResource(iconId: String): Int {
+    return when (iconId.lowercase()) {
+        "lindwurm" -> R.drawable.lindwurm
+        "woerthersee" -> R.drawable.woertherseemandl
+        "gti" -> R.drawable.gti
+        "ironman" -> R.drawable.ironman
+        "josef" -> R.drawable.josef
+        else -> R.drawable.lindwurm
     }
 }
 

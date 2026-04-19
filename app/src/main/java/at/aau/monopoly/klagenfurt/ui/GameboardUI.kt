@@ -318,46 +318,47 @@ fun PropertyColor.toComposeColor(): Color = when (this) {
     PropertyColor.DARK_BLUE -> Color(0xFF0072BB)
 }
 
+private val fieldImageMappings = mapOf(
+    "Go" to R.drawable.mono_go,
+    "Herrengasse" to R.drawable.herrengasse,
+    "Community Chest" to R.drawable.community_chest,
+    "Reichensteuer" to R.drawable.tax,
+    "Hauptbahnhof" to R.drawable.hauptbahnhof,
+    "Neuer Platz" to R.drawable.neuer_platz,
+    "Chance" to R.drawable.chance,
+    "Alter Platz" to R.drawable.alter_platz,
+    "Benediktiner Platz" to R.drawable.bene_platz,
+    "Jail / Just Visiting" to R.drawable.mono_jail,
+    "Cine City" to R.drawable.cine_city,
+    "Kelag Klagenfurt" to R.drawable.kelag,
+    "McDonalds" to R.drawable.mcdonalds,
+    "Ruthar" to R.drawable.ruthar,
+    "Ostbahnhof" to R.drawable.ostbahnhof,
+    "Wohnzimmer" to R.drawable.wohnzimmer,
+    "Hafenstadt" to R.drawable.hafenstadt,
+    "Lendcafe" to R.drawable.lendcafe,
+    "Free Parking" to R.drawable.mono_free_parking,
+    "City Arkaden" to R.drawable.city_arkaden,
+    "Le Burger" to R.drawable.leburger_v2,
+    "McMullens" to R.drawable.mcmullens,
+    "Westbahnhof" to R.drawable.westbahnhof,
+    "Mensa" to R.drawable.mensa,
+    "Universität Klagenfurt" to R.drawable.universitaet,
+    "Stadtwerke Klagenfurt" to R.drawable.stadtwerke,
+    "Lakeside" to R.drawable.lakeside,
+    "Go To Jail" to R.drawable.mono_go_to_jail,
+    "Strandbad" to R.drawable.strandbad,
+    "Loretto" to R.drawable.loretto,
+    "Villa Lido" to R.drawable.villa_lido,
+    "Lendbahnhof" to R.drawable.lendbahnhof,
+    "Botanischer Garten" to R.drawable.botanischer_garten,
+    "Kreuzbergl" to R.drawable.kreuzbergl,
+    "Heiligengeistplatz" to R.drawable.heiligengeistplatz
+)
+
 fun getFieldImageMapping(fieldName: String): Int? {
-    return when (fieldName.trim()) {
-        "Go" -> R.drawable.mono_go
-        "Herrengasse" -> R.drawable.herrengasse
-        "Community Chest" -> R.drawable.community_chest
-        "Reichensteuer" -> R.drawable.tax
-        "Hauptbahnhof" -> R.drawable.hauptbahnhof
-        "Neuer Platz" -> R.drawable.neuer_platz
-        "Chance" -> R.drawable.chance
-        "Alter Platz" -> R.drawable.alter_platz
-        "Benediktiner Platz" -> R.drawable.bene_platz
-        "Jail / Just Visiting" -> R.drawable.mono_jail
-        "Cine City" -> R.drawable.cine_city
-        "Kelag Klagenfurt" -> R.drawable.kelag
-        "McDonalds" -> R.drawable.mcdonalds
-        "Ruthar" -> R.drawable.ruthar
-        "Ostbahnhof" -> R.drawable.ostbahnhof
-        "Wohnzimmer" -> R.drawable.wohnzimmer
-        "Hafenstadt" -> R.drawable.hafenstadt
-        "Lendcafe" -> R.drawable.lendcafe
-        "Free Parking" -> R.drawable.mono_free_parking
-        "City Arkaden" -> R.drawable.city_arkaden
-        "Le Burger" -> R.drawable.leburger_v2
-        "McMullens" -> R.drawable.mcmullens
-        "Westbahnhof" -> R.drawable.westbahnhof
-        "Mensa" -> R.drawable.mensa
-        "Universität Klagenfurt" -> R.drawable.universitaet
-        "Stadtwerke Klagenfurt" -> R.drawable.stadtwerke
-        "Lakeside" -> R.drawable.lakeside
-        "Go To Jail" -> R.drawable.mono_go_to_jail
-        "Strandbad" -> R.drawable.strandbad
-        "Loretto" -> R.drawable.loretto
-        "Villa Lido" -> R.drawable.villa_lido
-        "Lendbahnhof" -> R.drawable.lendbahnhof
-        "Botanischer Garten" -> R.drawable.botanischer_garten
-        "Kreuzbergl" -> R.drawable.kreuzbergl
-        "Heiligengeistplatz" -> R.drawable.heiligengeistplatz
-        else -> null
-        }
-    }
+    return fieldImageMappings[fieldName.trim()]
+}
 
 private fun fieldItemContainerMod(bounds: FieldBounds): Modifier {
     val borderWidth = if (bounds.isCorner) 1.dp else 0.5.dp

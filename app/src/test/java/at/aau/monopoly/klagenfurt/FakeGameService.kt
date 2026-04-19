@@ -51,12 +51,12 @@ class FakeGameService : GameService {
         lastSubscribedGameId = gameId
     }
 
-    override fun createGame(playerName: String) {
+    override fun createGame(playerName: String, iconId: String) {
         createGameCalls++
         lastCreatedPlayerName = playerName
     }
 
-    override fun joinGame(gameId: String, playerName: String) {
+    override fun joinGame(gameId: String, playerName: String, iconId: String) {
         joinGameCalls++
         lastJoinedGameId = gameId
         lastJoinedPlayerName = playerName

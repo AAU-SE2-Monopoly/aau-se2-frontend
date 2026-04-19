@@ -195,27 +195,34 @@ fun GameboardContent(
                 players.forEachIndexed { index, player ->
                     val bounds = calculateFieldBounds(player.position, sw, sh)
 
-                    val columns = 3
-                    val column = index % columns
-                    val row = index / columns
+                    val maxCols = 3
+                    val maxRows = 2
+                    
+                    val tokenSizeX = (bounds.width / maxCols) * 0.8f
+                    val tokenSizeY = (bounds.height / maxRows) * 0.8f
+                    val tokenSize = minOf(tokenSizeX, tokenSizeY).coerceAtMost(16f)
 
-                    val itemSize = 18f
-                    val spacing = 2f
+                    val column = index % maxCols
+                    val row = index / maxCols
 
-                    val offsetX = column * (itemSize + spacing)
-                    val offsetY = row * (itemSize + spacing)
+                    val gridWidth = maxCols * tokenSize
+                    val gridHeight = maxRows * tokenSize
+                    val startX = (bounds.width - gridWidth) / 2
+                    val startY = (bounds.height - gridHeight) / 2
+
+                    val offsetX = startX + (column * tokenSize)
+                    val offsetY = startY + (row * tokenSize)
 
                     Image(
                         painter = painterResource(id = getPlayerTokenResource(player.iconId)),
                         contentDescription = player.name,
                         modifier = Modifier
                             .offset(
-                                x = (bounds.x + offsetX + 4f).dp,
-                                y = (bounds.y + offsetY + 4f).dp
+                                x = (bounds.x + offsetX).dp,
+                                y = (bounds.y + offsetY).dp
                             )
-                            .size(itemSize.dp)
+                            .size(tokenSize.dp)
                             .clip(RoundedCornerShape(2.dp))
-                            .border(1.dp, Color.White, RoundedCornerShape(2.dp))
                     )
                 }
             }

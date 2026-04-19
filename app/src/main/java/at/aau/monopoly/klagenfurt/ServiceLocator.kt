@@ -34,7 +34,9 @@ object ServiceLocator {
     }
     fun provideChatService(): ChatService{
         return chatService?: synchronized(this){
-            chatService?: ChatClient().also{chatService=it}
+            chatService?: ChatClient(
+                gameService = provideGameService(),
+            ).also{chatService=it}
         }
     }
 

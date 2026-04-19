@@ -38,7 +38,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.foundation.Image
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import at.aau.monopoly.klagenfurt.ui.theme.MyApplicationTheme
@@ -62,12 +63,20 @@ class JoinActivity : ComponentActivity() {
                     onBackClicked = { finish() },
                     onJoin = { playerName, iconIndex ->
                         val gameService = ServiceLocator.provideGameService()
+                        val iconId = when (iconIndex) {
+                            0 -> "lindwurm"
+                            1 -> "woerthersee"
+                            2 -> "gti"
+                            3 -> "ironman"
+                            4 -> "josef"
+                            else -> "lindwurm"
+                        }
                         if (isNewGame) {
                             // Create a new game – the backend will respond with GAME_CREATED
-                            gameService.createGame(playerName)
+                            gameService.createGame(playerName, iconId)
                         } else {
                             // Join existing game
-                            gameService.joinGame(gameId, playerName)
+                            gameService.joinGame(gameId, playerName, iconId)
                             gameService.setGameId(gameId)
                         }
                         // Navigate to the game board
@@ -91,7 +100,13 @@ fun JoinScreen(
 ) {
     val darkBackground = Color(0xFF0A0A2E)
 
-    val playerIcons = listOf("🎩", "🚗", "🐕", "👢", "🚂", "⛵", "🎲", "💎")
+    val playerIcons = listOf(
+        R.drawable.lindwurm,
+        R.drawable.woertherseemandl,
+        R.drawable.gti,
+        R.drawable.ironman,
+        R.drawable.josef
+    )
 
     var playerName by rememberSaveable { mutableStateOf("") }
     var selectedIconIndex by rememberSaveable { mutableIntStateOf(0) }
@@ -154,10 +169,10 @@ fun JoinScreen(
                     modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text(
-                        text = playerIcons[selectedIconIndex],
-                        fontSize = 48.sp,
-                        textAlign = TextAlign.Center
+                    Image(
+                        painter = painterResource(id = playerIcons[selectedIconIndex]),
+                        contentDescription = "Selected Icon",
+                        modifier = Modifier.size(64.dp)
                     )
                 }
             }

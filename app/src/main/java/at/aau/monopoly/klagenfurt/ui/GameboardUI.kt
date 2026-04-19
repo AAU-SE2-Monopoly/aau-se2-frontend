@@ -11,6 +11,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -18,9 +19,11 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -37,6 +40,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
@@ -224,7 +228,7 @@ fun calculateFieldBounds(index: Int, sw: Float, sh: Float): FieldBounds {
             30 -> 225f
             else -> 0f
         }
-        // Factor 0.7f ensures that the diagonal of the text fits into the square box
+
         val innerScale = 0.7f
         val tW = scaleX(designCornerSize) * innerScale
         val tH = scaleY(designCornerSize) * innerScale
@@ -276,39 +280,29 @@ fun calculateFieldBounds(index: Int, sw: Float, sh: Float): FieldBounds {
 fun FieldItem(index: Int, field: Field, sw: Float, sh: Float) {
     val bounds = remember(index, sw, sh) { calculateFieldBounds(index, sw, sh) }
     val side = (index / 10) % 4
+    val imageMap = getFieldImageMapping(field.name)
 
     Box(
-        modifier = Modifier
-            .offset(x = bounds.x.dp, y = bounds.y.dp)
-            .size(bounds.width.dp, bounds.height.dp)
-            .border(if (bounds.isCorner) 1.dp else 0.5.dp, Color.White.copy(alpha = if (bounds.isCorner) 0.3f else 0.2f))
-            .background(if (bounds.isCorner) Color.Red.copy(alpha = 0.1f) else Color.Black.copy(alpha = 0.1f)),
+        modifier = fieldItemContainerMod(bounds),
         contentAlignment = Alignment.Center
     ) {
-        if (!bounds.isCorner && field is PropertyField) {
-            val barSize = 35f
-            val barColor = field.color.toComposeColor()
-            val barMod = when (side) {
-                0 -> Modifier.fillMaxWidth().height(((barSize / 2160f) * sh).dp).align(Alignment.BottomCenter).testTag("Bottom-Bar")
-                1 -> Modifier.fillMaxHeight().width(((barSize / 3840f) * sw).dp).align(Alignment.CenterStart).testTag("Left-Bar")
-                2 -> Modifier.fillMaxWidth().height(((barSize / 2160f) * sh).dp).align(Alignment.TopCenter).testTag("Top-Bar")
-                3 -> Modifier.fillMaxHeight().width(((barSize / 3840f) * sw).dp).align(Alignment.CenterEnd).testTag("Right-Bar")
-                else -> Modifier
-            }
-            Box(modifier = barMod.background(barColor))
+        FieldImage(
+            imageRes = imageMap,
+            fieldName = field.name,
+            bounds = bounds
+        )
+        if (shouldShowPropertyBar(bounds, field) && field is PropertyField) {
+            PropertyColorBar(
+                side = side,
+                sw = sw,
+                sh = sh,
+                color = field.color.toComposeColor()
+            )
         }
 
-        Text(
+        FieldTitle(
             text = field.name,
-            modifier = Modifier
-                .requiredSize(width = bounds.textWidth.dp, height = bounds.textHeight.dp)
-                .rotate(bounds.rotation),
-            color = Color.White,
-            fontSize = if (bounds.isCorner) 6.sp else 4.sp,
-            fontWeight = FontWeight.Bold,
-            textAlign = TextAlign.Center,
-            style = TextStyle(hyphens = Hyphens.Auto),
-            overflow = TextOverflow.Clip
+            bounds = bounds
         )
     }
 }
@@ -322,4 +316,171 @@ fun PropertyColor.toComposeColor(): Color = when (this) {
     PropertyColor.YELLOW -> Color(0xFFFEF200)
     PropertyColor.GREEN -> Color(0xFF1FB25A)
     PropertyColor.DARK_BLUE -> Color(0xFF0072BB)
+}
+
+private val fieldImageMappings = mapOf(
+    "Go" to R.drawable.mono_go,
+    "Herrengasse" to R.drawable.herrengasse,
+    "Community Chest" to R.drawable.community_chest,
+    "Reichensteuer" to R.drawable.tax,
+    "Hauptbahnhof" to R.drawable.hauptbahnhof,
+    "Neuer Platz" to R.drawable.neuer_platz,
+    "Chance" to R.drawable.chance,
+    "Alter Platz" to R.drawable.alter_platz,
+    "Benediktiner Platz" to R.drawable.bene_platz,
+    "Jail / Just Visiting" to R.drawable.mono_jail,
+    "Cine City" to R.drawable.cine_city,
+    "Kelag Klagenfurt" to R.drawable.kelag,
+    "McDonalds" to R.drawable.mcdonalds,
+    "Ruthar" to R.drawable.ruthar,
+    "Ostbahnhof" to R.drawable.ostbahnhof,
+    "Wohnzimmer" to R.drawable.wohnzimmer,
+    "Hafenstadt" to R.drawable.hafenstadt,
+    "Lendcafe" to R.drawable.lendcafe,
+    "Free Parking" to R.drawable.mono_free_parking,
+    "City Arkaden" to R.drawable.city_arkaden,
+    "Le Burger" to R.drawable.leburger_v2,
+    "McMullens" to R.drawable.mcmullens,
+    "Westbahnhof" to R.drawable.westbahnhof,
+    "Mensa" to R.drawable.mensa,
+    "Universität Klagenfurt" to R.drawable.universitaet,
+    "Stadtwerke Klagenfurt" to R.drawable.stadtwerke,
+    "Lakeside" to R.drawable.lakeside,
+    "Go To Jail" to R.drawable.mono_go_to_jail,
+    "Strandbad" to R.drawable.strandbad,
+    "Loretto" to R.drawable.loretto,
+    "Villa Lido" to R.drawable.villa_lido,
+    "Lendbahnhof" to R.drawable.lendbahnhof,
+    "Botanischer Garten" to R.drawable.botanischer_garten,
+    "Kreuzbergl" to R.drawable.kreuzbergl,
+    "Heiligengeistplatz" to R.drawable.heiligengeistplatz
+)
+
+fun getFieldImageMapping(fieldName: String): Int? {
+    return fieldImageMappings[fieldName.trim()]
+}
+
+private fun fieldItemContainerMod(bounds: FieldBounds): Modifier {
+    val borderWidth = if (bounds.isCorner) 1.dp else 0.5.dp
+    val borderAlpha = if (bounds.isCorner) 0.3f else 0.2f
+    val backgroundColor = if (bounds.isCorner) {
+        Color.Red.copy(alpha = 0.1f)
+    } else {
+        Color.Black.copy(alpha = 0.1f)
+    }
+
+    return Modifier
+        .offset(x = bounds.x.dp, y = bounds.y.dp)
+        .size(bounds.width.dp, bounds.height.dp)
+        .clip(RectangleShape)
+        .border(borderWidth, Color.White.copy(alpha = borderAlpha))
+        .background(backgroundColor)
+}
+
+@Composable
+private fun FieldImage(
+    imageRes: Int?,
+    fieldName: String,
+    bounds: FieldBounds
+) {
+    if (imageRes == null) return
+
+    val imagePadding = if (bounds.isCorner) 2.dp else 1.dp
+    val imageShape = RoundedCornerShape(2.dp)
+    val borderWidth = if (bounds.isCorner) 2.dp else 1.dp
+
+    Box(
+        modifier = Modifier
+            .requiredSize(width = bounds.textWidth.dp, height = bounds.textHeight.dp)
+            .padding(imagePadding)
+            .rotate(bounds.rotation)
+            .clip(imageShape)
+            .border(borderWidth, Color.White, imageShape)
+    ) {
+        Image(
+            painter = painterResource(id = imageRes),
+            contentDescription = fieldName,
+            modifier = Modifier.fillMaxSize(),
+            contentScale = ContentScale.Crop
+        )
+    }
+}
+
+private fun shouldShowPropertyBar(bounds: FieldBounds, field: Field): Boolean {
+    return !bounds.isCorner && field is PropertyField
+}
+
+
+@Composable
+private fun BoxScope.PropertyColorBar(
+    side: Int,
+    sw: Float,
+    sh: Float,
+    color: Color
+) {
+    val barSize = 35f
+    val barModifier = when (side) {
+        0 -> Modifier
+            .fillMaxWidth()
+            .height(((barSize / 2160f) * sh).dp)
+            .align(Alignment.BottomCenter)
+            .testTag("Bottom-Bar")
+
+        1 -> Modifier
+            .fillMaxHeight()
+            .width(((barSize / 3840f) * sw).dp)
+            .align(Alignment.CenterStart)
+            .testTag("Left-Bar")
+
+        2 -> Modifier
+            .fillMaxWidth()
+            .height(((barSize / 2160f) * sh).dp)
+            .align(Alignment.TopCenter)
+            .testTag("Top-Bar")
+
+        3 -> Modifier
+            .fillMaxHeight()
+            .width(((barSize / 3840f) * sw).dp)
+            .align(Alignment.CenterEnd)
+            .testTag("Right-Bar")
+
+        else -> Modifier
+    }
+
+    Box(
+        modifier = barModifier.background(color)
+    )
+}
+
+@Composable
+private fun FieldTitle(
+    text: String,
+    bounds: FieldBounds
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .rotate(bounds.rotation)
+            .padding(if (bounds.isCorner) 2.dp else 4.dp),
+        contentAlignment = if (bounds.isCorner) Alignment.Center else Alignment.TopCenter
+    ) {
+        Box(
+            modifier = Modifier
+                .background(Color.Black.copy(alpha = 0.4f), RoundedCornerShape(2.dp))
+                .padding(horizontal = 2.dp, vertical = 1.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = text,
+                color = Color.White,
+                fontSize = if (bounds.isCorner) 3.75.sp else 2.75.sp,
+                lineHeight = if (bounds.isCorner) 4.75.sp else 3.75.sp,
+                fontWeight = FontWeight.ExtraBold,
+                textAlign = TextAlign.Center,
+                overflow = TextOverflow.Ellipsis,
+                maxLines = 3,
+                style = TextStyle(hyphens = Hyphens.Auto)
+            )
+        }
+    }
 }

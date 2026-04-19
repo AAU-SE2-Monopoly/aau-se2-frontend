@@ -174,24 +174,25 @@ class GameStompClient(
 
     private val objectMapper = JacksonProvider.objectMapper
 
-    override fun createGame(playerName: String) {
+    override fun createGame(playerName: String, iconId: String) {
         _currentPlayerName = playerName
         val player = Player(
             id = currentPlayerId,
-            name = playerName
+            name = playerName,
+            iconId = iconId
         )
         val playerJson = objectMapper.writeValueAsString(player)
 
-        Log.d("GameStomp", "Sending create command for player: $playerName")
+        Log.d("GameStomp", "Sending create command for player: $playerName with icon: $iconId")
         sendRaw("/app/game/create", playerJson)
     }
 
-    override fun joinGame(gameId: String, playerName: String) {
+    override fun joinGame(gameId: String, playerName: String, iconId: String) {
         _currentPlayerName = playerName
         subscribeToGame(gameId)
         
-        Log.d("GameStomp", "Sending join command for game: $gameId")
-        sendRaw("/app/game/join", buildAction(extra = mapOf("name" to playerName)))
+        Log.d("GameStomp", "Sending join command for game: $gameId with icon: $iconId")
+        sendRaw("/app/game/join", buildAction(extra = mapOf("name" to playerName, "iconId" to iconId)))
     }
 
     override fun startGame() = sendRaw("/app/game/start", buildAction())

@@ -7,6 +7,10 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import at.aau.monopoly.klagenfurt.model.enums.PropertyColor
 
+import at.aau.monopoly.klagenfurt.model.field.GoField
+import at.aau.monopoly.klagenfurt.model.field.PropertyField
+import at.aau.monopoly.klagenfurt.model.field.RailroadField
+import at.aau.monopoly.klagenfurt.model.field.TaxField
 import org.junit.Assert.*
 import org.junit.Test
 import org.junit.Rule
@@ -121,6 +125,48 @@ class GameboardUITest {
 
         assertEquals(b1_large.x / 2f, b1_small.x, 0.1f)
         assertEquals(b1_large.width / 2f, b1_small.width, 0.1f)
+    }
+
+    @Test
+    fun testGetFieldImageMapping() {
+        assertEquals(com.example.myapplication.R.drawable.mono_go, getFieldImageMapping("Go"))
+        assertEquals(com.example.myapplication.R.drawable.herrengasse, getFieldImageMapping("Herrengasse"))
+        assertEquals(com.example.myapplication.R.drawable.tax, getFieldImageMapping("Reichensteuer"))
+        assertNull(getFieldImageMapping("NonExistentField"))
+        // Test trim
+        assertEquals(com.example.myapplication.R.drawable.mono_go, getFieldImageMapping(" Go "))
+    }
+
+    @Test
+    fun testGetPlayerTokenResource() {
+        assertEquals(com.example.myapplication.R.drawable.lindwurm, getPlayerTokenResource("lindwurm"))
+        assertEquals(com.example.myapplication.R.drawable.woertherseemandl, getPlayerTokenResource("woerthersee"))
+        assertEquals(com.example.myapplication.R.drawable.gti, getPlayerTokenResource("gti"))
+        assertEquals(com.example.myapplication.R.drawable.ironman, getPlayerTokenResource("ironman"))
+        assertEquals(com.example.myapplication.R.drawable.josef, getPlayerTokenResource("josef"))
+        assertEquals(com.example.myapplication.R.drawable.lindwurm, getPlayerTokenResource("unknown"))
+    }
+
+    @Test
+    fun testCalculateFieldBoundsAllSides() {
+        val sw = 3840f
+        val sh = 2160f
+        
+        // Bottom side (0-9)
+        val b5 = calculateFieldBounds(5, sw, sh)
+        assertEquals(0f, b5.rotation)
+        
+        // Left side (10-19)
+        val b15 = calculateFieldBounds(15, sw, sh)
+        assertEquals(90f, b15.rotation)
+        
+        // Top side (20-29)
+        val b25 = calculateFieldBounds(25, sw, sh)
+        assertEquals(180f, b25.rotation)
+        
+        // Right side (30-39)
+        val b35 = calculateFieldBounds(35, sw, sh)
+        assertEquals(270f, b35.rotation)
     }
 }
 

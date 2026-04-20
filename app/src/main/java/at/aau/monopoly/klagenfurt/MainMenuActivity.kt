@@ -58,6 +58,9 @@ class MainMenuActivity : ComponentActivity() {
                     },
                     onCreditsClicked = {
                         startActivity(Intent(this, CreditsActivity::class.java))
+                    },
+                    onSettingsClicked = {
+                        startActivity(Intent(this, SettingsActivity::class.java))
                     }
                 )
             }
@@ -68,7 +71,8 @@ class MainMenuActivity : ComponentActivity() {
 @Composable
 fun MainMenuScreen(
     onPlayClicked: () -> Unit,
-    onCreditsClicked: () -> Unit
+    onCreditsClicked: () -> Unit,
+    onSettingsClicked: () -> Unit
 ) {
     val darkBackground = Color(0xFF0A0A2E)
     val accentBlue = PrimaryBlue
@@ -167,21 +171,40 @@ fun MainMenuScreen(
 
                 Spacer(modifier = Modifier.height(20.dp))
 
-                // Credits button
-                TextButton(
-                    onClick = onCreditsClicked,
-                    modifier = Modifier
-                        .fillMaxWidth(0.5f)
-                        .height(44.dp),
-                    shape = RoundedCornerShape(12.dp)
+                // Credits & Settings buttons
+                Row(
+                    modifier = Modifier.fillMaxWidth(0.5f),
+                    horizontalArrangement = Arrangement.Center
                 ) {
-                    Text(
-                        text = "Credits",
-                        fontSize = 15.sp,
-                        fontWeight = FontWeight.Normal,
-                        color = Color.White.copy(alpha = 0.6f),
-                        letterSpacing = 2.sp
-                    )
+                    TextButton(
+                        onClick = onCreditsClicked,
+                        modifier = Modifier
+                            .height(44.dp),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Text(
+                            text = "Credits",
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.Normal,
+                            color = Color.White.copy(alpha = 0.6f),
+                            letterSpacing = 2.sp
+                        )
+                    }
+
+                    TextButton(
+                        onClick = onSettingsClicked,
+                        modifier = Modifier
+                            .height(44.dp),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Text(
+                            text = "Settings",
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.Normal,
+                            color = Color.White.copy(alpha = 0.6f),
+                            letterSpacing = 2.sp
+                        )
+                    }
                 }
             }
         }

@@ -42,6 +42,13 @@
             android:screenOrientation="landscape"
             android:theme="@style/Theme.MyApplication" />
 
+        <!-- Settings -->
+        <activity
+            android:name="at.aau.monopoly.klagenfurt.SettingsActivity"
+            android:exported="false"
+            android:screenOrientation="landscape"
+            android:theme="@style/Theme.MyApplication" />
+
         <activity
             android:name="at.aau.monopoly.klagenfurt.ui.GameboardUI"
             android:exported="false"

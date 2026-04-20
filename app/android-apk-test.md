@@ -1,5 +1,5 @@
 # Android APK Build and Test
-The goal was to biuld the android apk, install it on a private phone and test the application
+The goal was to build the android apk, install it on a private phone and test the application
 
 ## Build
 The APK was built using Android Studio via: ./gradlew assembleDebug

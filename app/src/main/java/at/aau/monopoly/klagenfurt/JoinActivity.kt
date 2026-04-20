@@ -66,14 +66,10 @@ class JoinActivity : ComponentActivity() {
                     onBackClicked = { finish() },
                     onJoin = { playerName, iconIndex ->
                         val gameService = ServiceLocator.provideGameService()
-                        val iconId = when (iconIndex) {
-                            0 -> "lindwurm"
-                            1 -> "woerthersee"
-                            2 -> "gti"
-                            3 -> "ironman"
-                            4 -> "josef"
-                            else -> "lindwurm"
-                        }
+
+                        // Aufruf der ausgelagerten Funktion
+                        val iconId = mapIndexToIconId(iconIndex)
+
                         if (isNewGame) {
                             // Create a new game – the backend will respond with GAME_CREATED
                             gameService.createGame(playerName, iconId)
@@ -88,6 +84,19 @@ class JoinActivity : ComponentActivity() {
                         finish()
                     }
                 )
+            }
+        }
+    }
+
+    companion object {
+        fun mapIndexToIconId(iconIndex: Int): String {
+            return when (iconIndex) {
+                0 -> "lindwurm"
+                1 -> "woerthersee"
+                2 -> "gti"
+                3 -> "ironman"
+                4 -> "josef"
+                else -> "lindwurm"
             }
         }
     }
@@ -264,4 +273,3 @@ fun JoinScreen(
         }
     }
 }
-

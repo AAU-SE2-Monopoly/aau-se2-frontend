@@ -56,6 +56,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import at.aau.monopoly.klagenfurt.ServiceLocator
+import at.aau.monopoly.klagenfurt.model.Player
 import at.aau.monopoly.klagenfurt.model.enums.PropertyColor
 import at.aau.monopoly.klagenfurt.model.field.Field
 import at.aau.monopoly.klagenfurt.model.field.PropertyField
@@ -92,11 +93,14 @@ fun LockScreenOrientation(orientation: Int) {
 }
 
     @Composable
-    fun GameboardScreen(modifier: Modifier = Modifier,viewModel: GameViewModel) {
+    fun GameboardScreen(modifier: Modifier = Modifier, viewModel: GameViewModel) {
         val fields by viewModel.fields.collectAsState(initial = emptyList())
+        val gameState by viewModel.gameState.collectAsState()
+        val players = gameState?.players ?: emptyList()
+
         LockScreenOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE)
 
-        GameboardContent(fields?:emptyList(), modifier)
+        GameboardContent(fields ?: emptyList(), players, modifier)
     }
 
 class ZoomState(
@@ -157,6 +161,7 @@ fun ZoomableWrapper(modifier: Modifier = Modifier, content: @Composable () -> Un
 @Composable
 fun GameboardContent(
     fields: List<Field>,
+    players: List<Player> = emptyList(),
     modifier: Modifier = Modifier
 ) {
     ZoomableWrapper(modifier = modifier.fillMaxSize()) {
@@ -185,8 +190,55 @@ fun GameboardContent(
                 fields.forEachIndexed { index, field ->
                     FieldItem(index, field, sw, sh)
                 }
+
+
+                players.forEachIndexed { index, player ->
+                    val bounds = calculateFieldBounds(player.position, sw, sh)
+
+                    val maxCols = 3
+                    val maxRows = 2
+                    
+                    val tokenSizeX = (bounds.width / maxCols) * 0.8f
+                    val tokenSizeY = (bounds.height / maxRows) * 0.8f
+                    val tokenSize = minOf(tokenSizeX, tokenSizeY).coerceAtMost(16f)
+
+                    val column = index % maxCols
+                    val row = index / maxCols
+
+                    val gridWidth = maxCols * tokenSize
+                    val gridHeight = maxRows * tokenSize
+                    val startX = (bounds.width - gridWidth) / 2
+                    val startY = (bounds.height - gridHeight) / 2
+
+                    val offsetX = startX + (column * tokenSize)
+                    val offsetY = startY + (row * tokenSize)
+
+                    Image(
+                        painter = painterResource(id = getPlayerTokenResource(player.iconId)),
+                        contentDescription = player.name,
+                        modifier = Modifier
+                            .offset(
+                                x = (bounds.x + offsetX).dp,
+                                y = (bounds.y + offsetY).dp
+                            )
+                            .size(tokenSize.dp)
+                            .clip(RoundedCornerShape(2.dp))
+                            .background(Color.White)
+                    )
+                }
             }
         }
+    }
+}
+
+fun getPlayerTokenResource(iconId: String): Int {
+    return when (iconId.lowercase()) {
+        "lindwurm" -> R.drawable.lindwurm
+        "woerthersee" -> R.drawable.woertherseemandl
+        "gti" -> R.drawable.gti
+        "ironman" -> R.drawable.ironman
+        "josef" -> R.drawable.josef
+        else -> R.drawable.lindwurm
     }
 }
 
@@ -221,15 +273,9 @@ fun calculateFieldBounds(index: Int, sw: Float, sh: Float): FieldBounds {
     fun scaleY(y: Float) = (y / 2160f) * sh
 
     if (isCorner) {
-        val textRotation = when (index) {
-            0 -> -45f
-            10 -> 45f
-            20 -> 135f
-            30 -> 225f
-            else -> 0f
-        }
+        val textRotation = 0f
 
-        val innerScale = 0.7f
+        val innerScale = 1.0f
         val tW = scaleX(designCornerSize) * innerScale
         val tH = scaleY(designCornerSize) * innerScale
         
@@ -361,7 +407,7 @@ fun getFieldImageMapping(fieldName: String): Int? {
 }
 
 private fun fieldItemContainerMod(bounds: FieldBounds): Modifier {
-    val borderWidth = if (bounds.isCorner) 1.dp else 0.5.dp
+    val borderWidth = if (bounds.isCorner) 0.5.dp else 0.25.dp
     val borderAlpha = if (bounds.isCorner) 0.3f else 0.2f
     val backgroundColor = if (bounds.isCorner) {
         Color.Red.copy(alpha = 0.1f)
@@ -385,9 +431,9 @@ private fun FieldImage(
 ) {
     if (imageRes == null) return
 
-    val imagePadding = if (bounds.isCorner) 2.dp else 1.dp
+    val imagePadding = 0.dp
     val imageShape = RoundedCornerShape(2.dp)
-    val borderWidth = if (bounds.isCorner) 2.dp else 1.dp
+    val borderWidth = if (bounds.isCorner) 1.dp else 0.5.dp
 
     Box(
         modifier = Modifier
@@ -401,7 +447,7 @@ private fun FieldImage(
             painter = painterResource(id = imageRes),
             contentDescription = fieldName,
             modifier = Modifier.fillMaxSize(),
-            contentScale = ContentScale.Crop
+            contentScale = ContentScale.FillBounds
         )
     }
 }

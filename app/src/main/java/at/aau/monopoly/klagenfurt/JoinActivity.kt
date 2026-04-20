@@ -39,6 +39,10 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import com.example.myapplication.R
+import androidx.compose.foundation.Image
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import at.aau.monopoly.klagenfurt.ui.theme.MyApplicationTheme
@@ -62,13 +66,16 @@ class JoinActivity : ComponentActivity() {
                     onBackClicked = { finish() },
                     onJoin = { playerName, iconIndex ->
                         val gameService = ServiceLocator.provideGameService()
+
+                        // Aufruf der ausgelagerten Funktion
+                        val iconId = mapIndexToIconId(iconIndex)
+
                         if (isNewGame) {
                             // Create a new game – the backend will respond with GAME_CREATED
-                            gameService.createGame(playerName)
+                            gameService.createGame(playerName, iconId)
                         } else {
-                            // Join existing game
-                            gameService.joinGame(gameId, playerName)
-                            gameService.setGameId(gameId)
+                            // Join existing game - subscribeToGame is handled inside joinGame
+                            gameService.joinGame(gameId, playerName, iconId)
                         }
                         // Navigate to the game board
                         startActivity(
@@ -77,6 +84,19 @@ class JoinActivity : ComponentActivity() {
                         finish()
                     }
                 )
+            }
+        }
+    }
+
+    companion object {
+        fun mapIndexToIconId(iconIndex: Int): String {
+            return when (iconIndex) {
+                0 -> "lindwurm"
+                1 -> "woerthersee"
+                2 -> "gti"
+                3 -> "ironman"
+                4 -> "josef"
+                else -> "lindwurm"
             }
         }
     }
@@ -91,7 +111,13 @@ fun JoinScreen(
 ) {
     val darkBackground = Color(0xFF0A0A2E)
 
-    val playerIcons = listOf("🎩", "🚗", "🐕", "👢", "🚂", "⛵", "🎲", "💎")
+    val playerIcons = listOf(
+        R.drawable.lindwurm,
+        R.drawable.woertherseemandl,
+        R.drawable.gti,
+        R.drawable.ironman,
+        R.drawable.josef
+    )
 
     var playerName by rememberSaveable { mutableStateOf("") }
     var selectedIconIndex by rememberSaveable { mutableIntStateOf(0) }
@@ -123,7 +149,8 @@ fun JoinScreen(
                 fontSize = 28.sp,
                 fontWeight = FontWeight.ExtraBold,
                 letterSpacing = 4.sp,
-                textAlign = TextAlign.Center
+                textAlign = TextAlign.Center,
+                modifier = Modifier.testTag("ScreenTitle")
             )
 
             if (!isNewGame && gameId.isNotEmpty()) {
@@ -151,13 +178,15 @@ fun JoinScreen(
                 contentPadding = PaddingValues(0.dp)
             ) {
                 Box(
-                    modifier = Modifier.fillMaxSize(),
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(Color.White),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text(
-                        text = playerIcons[selectedIconIndex],
-                        fontSize = 48.sp,
-                        textAlign = TextAlign.Center
+                    Image(
+                        painter = painterResource(id = playerIcons[selectedIconIndex]),
+                        contentDescription = "Selected Icon",
+                        modifier = Modifier.size(64.dp)
                     )
                 }
             }
@@ -178,7 +207,7 @@ fun JoinScreen(
                 onValueChange = { playerName = it },
                 label = { Text("Player Name") },
                 singleLine = true,
-                modifier = Modifier.fillMaxWidth(0.5f),
+                modifier = Modifier.fillMaxWidth(0.5f).testTag("PlayerNameInput"),
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = PrimaryBlueLight,
                     unfocusedBorderColor = Color.White.copy(alpha = 0.3f),
@@ -201,7 +230,8 @@ fun JoinScreen(
                 },
                 modifier = Modifier
                     .fillMaxWidth(0.5f)
-                    .height(56.dp),
+                    .height(56.dp)
+                    .testTag("ActionButton"),
                 shape = RoundedCornerShape(16.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = PrimaryBlue),
                 elevation = ButtonDefaults.buttonElevation(defaultElevation = 8.dp)
@@ -243,4 +273,3 @@ fun JoinScreen(
         }
     }
 }
-

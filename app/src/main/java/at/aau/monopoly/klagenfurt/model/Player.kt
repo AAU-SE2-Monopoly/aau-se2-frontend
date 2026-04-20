@@ -5,6 +5,7 @@ data class Player(
     var name: String,
     var position: Int = 0,
     var money: Int = 1500,
+    var iconId: String = "lindwurm",
     var inJail: Boolean = false,
     var jailTurns: Int = 0,
     var getOutOfJailCards: Int = 0,

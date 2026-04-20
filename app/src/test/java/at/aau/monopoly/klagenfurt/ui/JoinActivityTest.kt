@@ -163,4 +163,39 @@ class JoinActivityTest {
             assertEquals("ironman", fakeService.lastJoinedIconId)
         }
     }
+
+    @Test
+    fun testAllIconMappings_coverage() {
+        val expectedIcons = listOf("lindwurm", "woerthersee", "gti", "ironman", "josef")
+
+        expectedIcons.forEachIndexed { index, expectedIconId ->
+            val intent = Intent(ApplicationProvider.getApplicationContext(), JoinActivity::class.java).apply {
+                putExtra("isNewGame", true)
+            }
+
+            ActivityScenario.launch<JoinActivity>(intent).use {
+                composeTestRule.waitForIdle()
+
+                // Klicke entsprechend dem aktuellen Index (0 bis 4 mal) auf das Icon
+                val iconButton = composeTestRule.onNodeWithContentDescription("Selected Icon")
+                for (click in 0 until index) {
+                    iconButton.performClick()
+                }
+
+                // Button klicken, um das onJoin Lambda auszulösen
+                composeTestRule.onNodeWithTag("ActionButton").performClick()
+
+                // Verifizieren, ob die richtige ID an den Service übergeben wurde
+                assertEquals(expectedIconId, fakeService.lastCreatedIconId)
+            }
+        }
+    }
+
+    @Test
+    fun testIconMapping_elseBranch_coverage() {
+        // Testet explizit den unerreichbaren else-Zweig für SonarQube.
+        // Setzt voraus, dass JoinActivity.mapIndexToIconId existiert.
+        val fallbackIcon = JoinActivity.mapIndexToIconId(99)
+        assertEquals("lindwurm", fallbackIcon)
+    }
 }

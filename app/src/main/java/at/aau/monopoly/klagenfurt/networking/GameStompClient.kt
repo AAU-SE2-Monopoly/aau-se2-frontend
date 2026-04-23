@@ -28,6 +28,7 @@ class GameStompClient(
 
     private var session: StompSession? = null
     private var subscriptionJob: Job? = null
+    private var personalSubscriptionJob: Job? = null
     private var lobbySubscriptionJob: Job? = null
     private var connectJob: Job? = null
     private var isConnecting = false
@@ -69,8 +70,9 @@ class GameStompClient(
                 session = stompClient.connect(websocketUri)
                 _status.emit("Connected ✓")
                 Log.d("GameStomp", "Connected successfully")
+                
+                subscribeToPersonalTopic()
 
-                subscribeToGame(currentPlayerId)
             } catch (e: Throwable) {
                 if (isCancellation(e)) {
                     Log.d("GameStomp", "Connection attempt cancelled")
@@ -85,9 +87,27 @@ class GameStompClient(
         }
     }
 
+    private fun subscribeToPersonalTopic() {
+        personalSubscriptionJob?.cancel()
+        personalSubscriptionJob = scope.launch {
+            try {
+                val currentSession = session ?: return@launch
+                Log.d("GameStomp", "Subscribing to personal topic: /topic/game/$currentPlayerId")
+                currentSession.subscribeText("/topic/game/$currentPlayerId").collect { msg ->
+                    _events.emit(msg)
+                }
+            } catch (e: Throwable) {
+                if (!isCancellation(e)) {
+                    Log.e("GameStomp", "personal subscription error", e)
+                }
+            }
+        }
+    }
+
     override fun disconnect() {
         connectJob?.cancel()
         subscriptionJob?.cancel()
+        personalSubscriptionJob?.cancel()
         val currentSession = session
         session = null
         scope.launch {
@@ -118,9 +138,19 @@ class GameStompClient(
                     return@launch
                 }
                 Log.d("GameStomp", "Subscribing to /topic/game/$gameId")
-                currentSession.subscribeText("/topic/game/$gameId").collect { msg ->
-                    _events.emit(msg)
+                
+                val subscription = currentSession.subscribeText("/topic/game/$gameId")
+                
+                // Launch collection in a child coroutine
+                launch {
+                    subscription.collect { msg ->
+                        _events.emit(msg)
+                    }
                 }
+                
+                // Request state immediately after subscribing
+                sendRawInternal("/app/game/state", buildAction())
+
             } catch (e: Throwable) {
                 if (isCancellation(e)) {
                     Log.d("GameStomp", "Subscription job cancelled for $gameId")
@@ -189,6 +219,7 @@ class GameStompClient(
 
     override fun joinGame(gameId: String, playerName: String, iconId: String) {
         _currentPlayerName = playerName
+        // We must subscribe first, then send join. 
         subscribeToGame(gameId)
         
         Log.d("GameStomp", "Sending join command for game: $gameId with icon: $iconId")
@@ -214,21 +245,25 @@ class GameStompClient(
         return objectMapper.writeValueAsString(gameAction)
     }
 
+    private suspend fun sendRawInternal(destination: String, json: String) {
+        try {
+            val currentSession = session
+            if (currentSession != null) {
+                currentSession.sendText(destination, json)
+            } else {
+                _status.emit("Not connected")
+            }
+        } catch (e: Throwable) {
+            if (!isCancellation(e)) {
+                Log.e("GameStomp", "send error to $destination", e)
+                _status.emit("Send error: ${e.message}")
+            }
+        }
+    }
+
     private fun sendRaw(destination: String, json: String) {
         scope.launch {
-            try {
-                val currentSession = session
-                if (currentSession != null) {
-                    currentSession.sendText(destination, json)
-                } else {
-                    _status.emit("Not connected")
-                }
-            } catch (e: Throwable) {
-                if (!isCancellation(e)) {
-                    Log.e("GameStomp", "send error to $destination", e)
-                    _status.emit("Send error: ${e.message}")
-                }
-            }
+            sendRawInternal(destination, json)
         }
     }
 

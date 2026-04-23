@@ -28,6 +28,11 @@ class GameViewModel(private val gameService: GameService) : ViewModel() {
         val timestampMs: Long = System.currentTimeMillis()
     )
 
+    private data class LogAccumulator(
+        val gameId: String,
+        val entries: List<LogEntry>
+    )
+
     private val objectMapper = JacksonProvider.objectMapper
 
     private val gameEventFlow: SharedFlow<GameEvent> = gameService.events
@@ -60,7 +65,20 @@ class GameViewModel(private val gameService: GameService) : ViewModel() {
     }
 
     val gameState: StateFlow<GameState?> = gameEventFlow
-        .mapNotNull { it.gameState }
+        .runningFold<GameEvent, GameState?>(null) { lastState, event ->
+            val eventGameId = event.gameId
+            
+
+            val isDifferentGame = eventGameId.isNotBlank() && 
+                                 gameService.currentGameId.isNotBlank() && 
+                                 eventGameId != gameService.currentGameId
+
+            if (isDifferentGame) {
+                lastState
+            } else {
+                event.gameState ?: lastState
+            }
+        }
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5000),
@@ -80,16 +98,44 @@ class GameViewModel(private val gameService: GameService) : ViewModel() {
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
     val eventLog: StateFlow<List<LogEntry>> = gameEventFlow
-        .map { event ->
-            LogEntry(
-                text = event.message?.takeIf { it.isNotBlank() }
-                    ?: humanReadableEvent(event.event, event.gameId),
-                eventType = event.event.ifBlank { "UNKNOWN" }
-            )
+        .runningFold(LogAccumulator(gameId = "", entries = emptyList())) { acc, event ->
+            val eventGameId = event.gameId
+            val incomingGameId = if (eventGameId.isNotBlank()) eventGameId else acc.gameId
+
+            val isGameSwitch = incomingGameId.isNotBlank() &&
+                acc.gameId.isNotBlank() &&
+                incomingGameId != acc.gameId
+
+            val baseEntries = if (isGameSwitch || event.event == "GAME_CREATED") emptyList() else acc.entries
+
+            val shouldIgnore =
+                incomingGameId.isNotBlank() &&
+                    gameService.currentGameId.isNotBlank() &&
+                    incomingGameId != gameService.currentGameId
+
+            if (shouldIgnore) {
+                LogAccumulator(gameId = incomingGameId, entries = baseEntries)
+            } else {
+                val entryText = event.message?.takeIf { 
+                    it.isNotBlank() && !it.contains("snapshot", ignoreCase = true) 
+                } ?: humanReadableEvent(event.event, event.gameId)
+
+                if (entryText.isBlank()) {
+                    // Skip technical/empty events in the chat log
+                    LogAccumulator(gameId = incomingGameId, entries = baseEntries)
+                } else {
+                    val entry = LogEntry(
+                        text = entryText,
+                        eventType = event.event.ifBlank { "UNKNOWN" }
+                    )
+                    LogAccumulator(
+                        gameId = incomingGameId,
+                        entries = (baseEntries + entry).takeLast(MAX_LOG_ENTRIES)
+                    )
+                }
+            }
         }
-        .runningFold(emptyList<LogEntry>()) { acc, entry ->
-            (acc + entry).takeLast(MAX_LOG_ENTRIES)
-        }
+        .map { it.entries }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     val events: SharedFlow<String> = gameService.events
@@ -114,12 +160,12 @@ class GameViewModel(private val gameService: GameService) : ViewModel() {
     private fun humanReadableEvent(eventType: String, gameId: String): String {
         return when (eventType) {
             "GAME_CREATED" -> "Game created: $gameId"
-            "PLAYER_JOINED" -> "A player joined the game"
-            "GAME_STARTED" -> "Game started"
+            "PLAYER_JOINED" -> "A new player joined"
+            "GAME_STARTED" -> "Game started!"
             "DICE_ROLLED" -> "Dice rolled"
             "TURN_ENDED" -> "Turn ended"
-            "STATE_UPDATED" -> "Game state updated"
-            else -> eventType.ifBlank { "Unknown game event" }
+            "STATE_UPDATED", "STATE_SNAPSHOT" -> "" // Hide technical sync events
+            else -> eventType.replace("_", " ").lowercase().replaceFirstChar { it.uppercase() }
         }
     }
 

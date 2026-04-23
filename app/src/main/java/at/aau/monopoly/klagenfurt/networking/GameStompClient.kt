@@ -33,7 +33,8 @@ class GameStompClient(
     private var connectJob: Job? = null
     private var isConnecting = false
 
-    private val _events = MutableSharedFlow<String>(replay = 1)
+
+    private val _events = MutableSharedFlow<String>(replay = 64)
     override val events: SharedFlow<String> = _events.asSharedFlow()
 
     private val _status = MutableSharedFlow<String>(replay = 1)
@@ -263,7 +264,19 @@ class GameStompClient(
 
     private fun sendRaw(destination: String, json: String) {
         scope.launch {
-            sendRawInternal(destination, json)
+            try {
+                val currentSession = session
+                if (currentSession != null) {
+                    currentSession.sendText(destination, json)
+                } else {
+                    _status.emit("Not connected")
+                }
+            } catch (e: Throwable) {
+                if (!isCancellation(e)) {
+                    Log.e("GameStomp", "send error to $destination", e)
+                    _status.emit("Send error: ${e.message}")
+                }
+            }
         }
     }
 

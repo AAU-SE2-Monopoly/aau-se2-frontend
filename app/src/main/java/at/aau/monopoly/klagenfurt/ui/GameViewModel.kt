@@ -25,6 +25,7 @@ class GameViewModel(private val gameService: GameService) : ViewModel() {
     data class LogEntry(
         val text: String,
         val eventType: String,
+        val isTechnical: Boolean = false,
         val timestampMs: Long = System.currentTimeMillis()
     )
 
@@ -34,6 +35,7 @@ class GameViewModel(private val gameService: GameService) : ViewModel() {
     )
 
     private val objectMapper = JacksonProvider.objectMapper
+
 
     private val gameEventFlow: SharedFlow<GameEvent> = gameService.events
         .mapNotNull { jsonString ->
@@ -47,7 +49,7 @@ class GameViewModel(private val gameService: GameService) : ViewModel() {
         .shareIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5000),
-            replay = 1
+            replay = 64
         )
 
     init {
@@ -67,9 +69,8 @@ class GameViewModel(private val gameService: GameService) : ViewModel() {
     val gameState: StateFlow<GameState?> = gameEventFlow
         .runningFold<GameEvent, GameState?>(null) { lastState, event ->
             val eventGameId = event.gameId
-            
 
-            val isDifferentGame = eventGameId.isNotBlank() && 
+            val isDifferentGame = eventGameId.isNotBlank() &&
                                  gameService.currentGameId.isNotBlank() && 
                                  eventGameId != gameService.currentGameId
 
@@ -116,17 +117,17 @@ class GameViewModel(private val gameService: GameService) : ViewModel() {
             if (shouldIgnore) {
                 LogAccumulator(gameId = incomingGameId, entries = baseEntries)
             } else {
-                val entryText = event.message?.takeIf { 
-                    it.isNotBlank() && !it.contains("snapshot", ignoreCase = true) 
-                } ?: humanReadableEvent(event.event, event.gameId)
+                val isTechnical = event.event == "STATE_SNAPSHOT" || event.event == "STATE_UPDATED"
+                val entryText = event.message?.takeIf { it.isNotBlank() } 
+                    ?: humanReadableEvent(event.event, event.gameId)
 
                 if (entryText.isBlank()) {
-                    // Skip technical/empty events in the chat log
                     LogAccumulator(gameId = incomingGameId, entries = baseEntries)
                 } else {
                     val entry = LogEntry(
                         text = entryText,
-                        eventType = event.event.ifBlank { "UNKNOWN" }
+                        eventType = event.event.ifBlank { "UNKNOWN" },
+                        isTechnical = isTechnical
                     )
                     LogAccumulator(
                         gameId = incomingGameId,
@@ -164,7 +165,8 @@ class GameViewModel(private val gameService: GameService) : ViewModel() {
             "GAME_STARTED" -> "Game started!"
             "DICE_ROLLED" -> "Dice rolled"
             "TURN_ENDED" -> "Turn ended"
-            "STATE_UPDATED", "STATE_SNAPSHOT" -> "" // Hide technical sync events
+            "STATE_UPDATED" -> "Game state updated"
+            "STATE_SNAPSHOT" -> "State snapshot synced"
             else -> eventType.replace("_", " ").lowercase().replaceFirstChar { it.uppercase() }
         }
     }

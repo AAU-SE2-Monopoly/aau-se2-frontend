@@ -15,26 +15,59 @@
         android:theme="@style/Theme.MyApplication"
         android:usesCleartextTraffic="true"
         tools:targetApi="31">
+
+        <!-- Legacy Demo Activity -->
         <activity
             android:name="at.aau.monopoly.klagenfurt.MainActivity"
             android:exported="false"
             android:theme="@style/Theme.MyApplication" />
+
+        <!-- Main Menu – launcher -->
+        <activity
+            android:name="at.aau.monopoly.klagenfurt.MainMenuActivity"
+            android:exported="true"
+            android:label="Monopoly Klagenfurt"
+            android:screenOrientation="landscape"
+            android:theme="@style/Theme.MyApplication.Splash">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <!-- Credits -->
+        <activity
+            android:name="at.aau.monopoly.klagenfurt.CreditsActivity"
+            android:exported="false"
+            android:screenOrientation="landscape"
+            android:theme="@style/Theme.MyApplication" />
+
         <activity
             android:name="at.aau.monopoly.klagenfurt.ui.GameboardUI"
             android:exported="false"
+            android:screenOrientation="landscape"
             android:theme="@style/Theme.MyApplication" />
 
         <activity
             android:name="at.aau.monopoly.klagenfurt.GameActivity"
-            android:exported="true"
+            android:exported="false"
             android:label="Monopoly Debug"
-            android:theme="@style/Theme.MyApplication">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
+            android:screenOrientation="landscape"
+            android:theme="@style/Theme.MyApplication" />
 
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity>
+        <!-- Lobby – game browser -->
+        <activity
+            android:name="at.aau.monopoly.klagenfurt.LobbyActivity"
+            android:exported="false"
+            android:screenOrientation="landscape"
+            android:theme="@style/Theme.MyApplication" />
+
+        <!-- Join – name & icon picker -->
+        <activity
+            android:name="at.aau.monopoly.klagenfurt.JoinActivity"
+            android:exported="false"
+            android:screenOrientation="landscape"
+            android:theme="@style/Theme.MyApplication" />
     </application>
 
 </manifest>

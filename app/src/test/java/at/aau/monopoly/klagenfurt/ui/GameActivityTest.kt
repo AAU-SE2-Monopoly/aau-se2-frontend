@@ -216,7 +216,7 @@ class GameActivityTest {
                 .check(matches(withText(containsString("← GAME_CREATED"))))
 
             onView(withId(R.id.tv_event_log))
-                .check(matches(withText(containsString("\"gameId\": \"NEW-LOBBY\""))))
+                .check(matches(withText(containsString("\"gameId\" : \"NEW-LOBBY\""))))
         }
     }
 

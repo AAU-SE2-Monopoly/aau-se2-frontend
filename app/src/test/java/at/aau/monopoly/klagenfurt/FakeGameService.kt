@@ -14,11 +14,21 @@ class FakeGameService : GameService {
     private val _status = MutableSharedFlow<String>(replay = 1)
     override val status: SharedFlow<String> = _status.asSharedFlow()
 
+    private val _lobbyEvents = MutableSharedFlow<String>(replay = 1)
+    override val lobbyEvents: SharedFlow<String> = _lobbyEvents.asSharedFlow()
+
+    override val currentPlayerId: String = "test-player-id"
+    override var currentPlayerName: String = "test-player-name"
+    override var currentGameId: String = "test-game-id"
+
     var connectCalled = false
     var lastSubscribedGameId: String? = null
     var lastCreatedPlayerName: String? = null
     var lastJoinedGameId: String? = null
     var lastJoinedPlayerName: String? = null
+
+    var lastCreatedIconId: String? = null
+    var lastJoinedIconId: String? = null
 
     // Call counters
     var joinGameCalls = 0
@@ -27,6 +37,10 @@ class FakeGameService : GameService {
     var rollDiceCalled = false
     var endTurnCalled = false
     var requestStateCalled = false
+    var subscribeToLobbyCalled = false
+    var requestGameListCalled = false
+    var lastClosedGameId: String? = null
+    var closeGameCalls = 0
 
     override fun connect() {
         connectCalled = true
@@ -40,15 +54,17 @@ class FakeGameService : GameService {
         lastSubscribedGameId = gameId
     }
 
-    override fun createGame(playerName: String) {
+    override fun createGame(playerName: String, iconId: String) {
         createGameCalls++
         lastCreatedPlayerName = playerName
+        lastCreatedIconId = iconId
     }
 
-    override fun joinGame(gameId: String, playerName: String) {
+    override fun joinGame(gameId: String, playerName: String, iconId: String) {
         joinGameCalls++
         lastJoinedGameId = gameId
         lastJoinedPlayerName = playerName
+        lastJoinedIconId = iconId
     }
 
     override fun startGame() {
@@ -69,6 +85,20 @@ class FakeGameService : GameService {
 
     override fun setGameId(gameId: String) {
         lastSubscribedGameId = gameId
+        currentGameId = gameId
+    }
+
+    override fun subscribeToLobby() {
+        subscribeToLobbyCalled = true
+    }
+
+    override fun requestGameList() {
+        requestGameListCalled = true
+    }
+
+    override fun closeGame(gameId: String) {
+        closeGameCalls++
+        lastClosedGameId = gameId
     }
 
     suspend fun emitTestEvent(jsonMessage: String) {
@@ -77,5 +107,9 @@ class FakeGameService : GameService {
 
     suspend fun emitTestStatus(statusMessage: String) {
         _status.emit(statusMessage)
+    }
+
+    suspend fun emitTestLobbyEvent(jsonMessage: String) {
+        _lobbyEvents.emit(jsonMessage)
     }
 }

@@ -1,25 +1,21 @@
 package at.aau.monopoly.klagenfurt.networking
 
 import android.util.Log
-import at.aau.monopoly.klagenfurt.ServiceLocator
-import at.aau.monopoly.klagenfurt.ui.chat.ChatClient
+import at.aau.monopoly.klagenfurt.messaging.GameAction
+import at.aau.monopoly.klagenfurt.model.Player
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
-import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
-import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import org.hildan.krossbow.stomp.StompClient
 import org.hildan.krossbow.stomp.StompSession
 import org.hildan.krossbow.stomp.sendText
 import org.hildan.krossbow.stomp.subscribeText
-import org.json.JSONObject
 import java.util.UUID
 
 class GameStompClient(
@@ -32,21 +28,26 @@ class GameStompClient(
 
     private var session: StompSession? = null
     private var subscriptionJob: Job? = null
+    private var lobbySubscriptionJob: Job? = null
     private var connectJob: Job? = null
     private var isConnecting = false
-    private var currentPlayerName:String=""
+
     private val _events = MutableSharedFlow<String>(replay = 1)
     override val events: SharedFlow<String> = _events.asSharedFlow()
 
     private val _status = MutableSharedFlow<String>(replay = 1)
     override val status: SharedFlow<String> = _status.asSharedFlow()
 
+    private val _lobbyEvents = MutableSharedFlow<String>(replay = 1)
+    override val lobbyEvents: SharedFlow<String> = _lobbyEvents.asSharedFlow()
 
-    private val _sessionFlow = MutableStateFlow<StompSession?>(null)
-    override val sessionFlow: StateFlow<StompSession?> = _sessionFlow.asStateFlow()
+    private var _currentGameId: String = ""
+    override val currentGameId: String get() = _currentGameId
 
-    private var currentGameId: String = ""
-    private val currentPlayerId: String = UUID.randomUUID().toString()
+    private var _currentPlayerName: String = ""
+    override val currentPlayerName: String get() = _currentPlayerName
+
+    override val currentPlayerId: String = UUID.randomUUID().toString()
 
     override fun connect() {
         if (session != null) {
@@ -65,22 +66,17 @@ class GameStompClient(
         connectJob = scope.launch {
             try {
                 Log.d("GameStomp", "Connecting to $websocketUri...")
-                val newSession = stompClient.connect(websocketUri)
-                session = newSession
-                _sessionFlow.emit(newSession)
+                session = stompClient.connect(websocketUri)
                 _status.emit("Connected ✓")
                 Log.d("GameStomp", "Connected successfully")
 
                 subscribeToGame(currentPlayerId)
-                Log.d("GameStomp","ChatService injected")
-
             } catch (e: Throwable) {
                 if (isCancellation(e)) {
                     Log.d("GameStomp", "Connection attempt cancelled")
                 } else {
                     Log.e("GameStomp", "connect error", e)
                     session = null
-                    _sessionFlow.emit(null)
                     _status.emit("Connection error: ${e.message}")
                 }
             } finally {
@@ -94,7 +90,6 @@ class GameStompClient(
         subscriptionJob?.cancel()
         val currentSession = session
         session = null
-        _sessionFlow.value = null
         scope.launch {
             try {
                 currentSession?.disconnect()
@@ -108,12 +103,12 @@ class GameStompClient(
     }
 
     override fun subscribeToGame(gameId: String) {
-        if (subscriptionJob?.isActive == true && gameId == currentGameId) {
+        if (subscriptionJob?.isActive == true && gameId == _currentGameId) {
             Log.d("GameStomp", "Already subscribed to $gameId")
             return
         }
         
-        currentGameId = gameId
+        _currentGameId = gameId
         subscriptionJob?.cancel()
         subscriptionJob = scope.launch {
             try {
@@ -138,29 +133,66 @@ class GameStompClient(
     }
 
 
-    override fun createGame(playerName: String) {
-        val playerJson = JSONObject()
-            .put("id", currentPlayerId)
-            .put("name", playerName)
-            .put("position", 0)
-            .put("money", 1500)
-            .put("inJail", false)
-            .put("jailTurns", 0)
-            .put("getOutOfJailCards", 0)
-            .put("ownedPropertyIds", org.json.JSONArray())
-            .toString()
-
-        Log.d("GameStomp", "Sending create command for player: $playerName")
-        sendRaw("/app/game/create", playerJson)
-        currentPlayerName = playerName
-        Log.d("GameStomp", "Player name set to: $currentPlayerName")
+    override fun subscribeToLobby() {
+        if (lobbySubscriptionJob?.isActive == true) {
+            Log.d("GameStomp", "Already subscribed to lobby")
+            return
+        }
+        lobbySubscriptionJob = scope.launch {
+            try {
+                val currentSession = session
+                if (currentSession == null) {
+                    Log.w("GameStomp", "Cannot subscribe to lobby: not connected")
+                    return@launch
+                }
+                Log.d("GameStomp", "Subscribing to /topic/lobby")
+                currentSession.subscribeText("/topic/lobby").collect { msg ->
+                    _lobbyEvents.emit(msg)
+                }
+            } catch (e: Throwable) {
+                if (isCancellation(e)) {
+                    Log.d("GameStomp", "Lobby subscription cancelled")
+                } else {
+                    Log.e("GameStomp", "lobby subscription error", e)
+                    _status.emit("Lobby subscription error: ${e.message}")
+                }
+            }
+        }
     }
 
-    override fun joinGame(gameId: String, playerName: String) {
-        // Update local ID state so buildAction uses the correct destination ID
-        currentGameId = gameId
-        Log.d("GameStomp", "Sending join command for game: $gameId")
-        sendRaw("/app/game/join", buildAction(extra = mapOf("name" to playerName)))
+    override fun requestGameList() {
+        sendRaw("/app/game/list", buildAction())
+    }
+
+    override fun closeGame(gameId: String) {
+        val savedGameId = _currentGameId
+        _currentGameId = gameId
+        sendRaw("/app/game/close", buildAction())
+        _currentGameId = savedGameId
+    }
+
+
+    private val objectMapper = JacksonProvider.objectMapper
+
+    override fun createGame(playerName: String, iconId: String) {
+        _currentPlayerName = playerName
+        val player = Player(
+            id = currentPlayerId,
+            name = playerName,
+            iconId = iconId
+        )
+        val playerJson = objectMapper.writeValueAsString(player)
+
+        Log.d("GameStomp", "Sending create command for player: $playerName with icon: $iconId")
+        sendRaw("/app/game/create", playerJson)
+    }
+
+    override fun joinGame(gameId: String, playerName: String, iconId: String) {
+        _currentPlayerName = playerName
+        subscribeToGame(gameId)
+        
+        Log.d("GameStomp", "Sending join command for game: $gameId with icon: $iconId")
+        sendRaw("/app/game/join", buildAction(extra = mapOf("name" to playerName, "iconId" to iconId)))
     }
 
     override fun startGame() = sendRaw("/app/game/start", buildAction())
@@ -169,19 +201,17 @@ class GameStompClient(
     override fun requestState() = sendRaw("/app/game/state", buildAction())
 
     override fun setGameId(gameId: String) {
-
         subscribeToGame(gameId)
     }
 
     private fun buildAction(action: String = "", extra: Map<String, String> = emptyMap()): String {
-        val payload = JSONObject()
-        extra.forEach { (k, v) -> payload.put(k, v) }
-        return JSONObject()
-            .put("gameId", currentGameId)
-            .put("playerId", currentPlayerId)
-            .put("action", action)
-            .put("payload", payload)
-            .toString()
+        val gameAction = GameAction(
+            gameId = _currentGameId,
+            playerId = currentPlayerId,
+            action = action,
+            payload = extra
+        )
+        return objectMapper.writeValueAsString(gameAction)
     }
 
     private fun sendRaw(destination: String, json: String) {
@@ -206,15 +236,5 @@ class GameStompClient(
         return e is CancellationException || 
                (e is IllegalStateException && e.message?.contains("cancelled", ignoreCase = true) == true) ||
                (e.cause is CancellationException)
-    }
-    override fun getCurrentUserId(): String {
-        return currentPlayerId
-    }
-    override fun getCurrentPlayerName(): String {
-        return currentPlayerName
-    }
-
-    override fun getGameId(): String {
-        return currentGameId
     }
 }

@@ -10,6 +10,7 @@ import android.widget.Spinner
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.ComponentActivity
+import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 
 import androidx.activity.viewModels
 import androidx.lifecycle.Lifecycle
@@ -18,10 +19,11 @@ import androidx.lifecycle.repeatOnLifecycle
 import at.aau.monopoly.klagenfurt.ui.GameViewModel
 import at.aau.monopoly.klagenfurt.ui.GameboardUI
 import com.example.myapplication.R
+import com.fasterxml.jackson.databind.JsonNode
+import com.fasterxml.jackson.databind.SerializationFeature
+import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import kotlinx.coroutines.launch
 
-import org.json.JSONException
-import org.json.JSONObject
 
 class GameActivity : ComponentActivity() {
 
@@ -49,6 +51,7 @@ class GameActivity : ComponentActivity() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        installSplashScreen()
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_game)
 
@@ -145,31 +148,32 @@ class GameActivity : ComponentActivity() {
         }
     }
 
+    private val prettyMapper = jacksonObjectMapper().enable(SerializationFeature.INDENT_OUTPUT)
+
     private fun handleGameEvent(rawJson: String) {
         try {
-            val obj = JSONObject(rawJson)
-            val event = obj.optString("event")
-            val gameId = obj.optString("gameId")
+            val node: JsonNode = prettyMapper.readTree(rawJson)
+            val event = node.get("event")?.asText() ?: ""
+            val gameId = node.get("gameId")?.asText() ?: ""
             if (event == "GAME_CREATED" && gameId.isNotEmpty()) {
                 etGameId.setText(gameId)
                 viewModel.setGameId(gameId)
             }
-        } catch (e: JSONException) {
-
-            appendLog("handeGameEvent exception: $e")
-
+        } catch (e: Exception) {
+            appendLog("handleGameEvent exception: $e")
         }
 
         val pretty = try {
-            JSONObject(rawJson).toString(2)
-        } catch (_: JSONException) { rawJson }
+            val node = prettyMapper.readTree(rawJson)
+            prettyMapper.writeValueAsString(node)
+        } catch (_: Exception) { rawJson }
 
         appendLog("← ${getEventTag(rawJson)}\n$pretty\n${"─".repeat(36)}")
     }
 
     private fun getEventTag(raw: String): String = try {
-        JSONObject(raw).optString("event", "EVENT")
-    } catch (_: JSONException) { "EVENT" }
+        prettyMapper.readTree(raw).get("event")?.asText() ?: "EVENT"
+    } catch (_: Exception) { "EVENT" }
 
     private fun appendLog(text: String) {
         val current = tvEventLog.text.toString()

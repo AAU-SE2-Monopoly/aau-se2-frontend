@@ -25,6 +25,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -56,13 +57,15 @@ fun EventLogOverlay(
     modifier: Modifier = Modifier
 ) {
     var isExpanded by remember { mutableStateOf(false) }
-    
+    val overlayStateTag = if (isExpanded) "ingame_chat_expanded" else "ingame_chat_collapsed"
+
     // Collapsed view shows only relevant game events
     val collapsedEntries = entries.filter { !it.isTechnical }
     val lastEntry = if (isExpanded) entries.lastOrNull() else collapsedEntries.lastOrNull()
 
     Column(
         modifier = modifier
+            .testTag(overlayStateTag)
             .fillMaxWidth(if (isExpanded) 0.65f else 0.35f)
             .pointerInput(Unit) {
                 detectTapGestures(
@@ -118,7 +121,9 @@ fun EventLogOverlay(
             ) {
                 LazyColumn(
                     state = listState,
-                    modifier = Modifier.fillMaxSize()
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .testTag("ingame_chat_lines")
                 ) {
                     items(entries) { entry ->
                         Text(

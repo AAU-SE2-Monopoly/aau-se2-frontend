@@ -85,7 +85,6 @@ class GameStompClientTest {
 
         coVerify { stompSession.disconnect() }
     }
-/*
     @Test
     fun connect_success_starts_personal_subscription() = runTest(testDispatcher) {
         coEvery { stompClient.connect(any<String>()) } returns stompSession
@@ -99,7 +98,7 @@ class GameStompClientTest {
         coVerify { stompSession.subscribeText(match { it.startsWith("/topic/game/") }) }
         verify { Log.d("GameStomp", "Connected successfully") }
     }
-*/
+
     @Test
     fun test_subscribeToGame_when_not_connected() = runTest(testDispatcher) {
         gameStompClient.subscribeToGame("some-id")
@@ -293,6 +292,25 @@ class GameStompClientTest {
         advanceUntilIdle()
 
         coVerify { stompSession.sendText("/app/game/create", any<String>()) }
+    }
+
+    @Test
+    fun joinGame_subscribes_then_requests_state_then_sends_join() = runTest(testDispatcher) {
+        coEvery { stompClient.connect(any<String>()) } returns stompSession
+        coEvery { stompSession.subscribeText(any<String>()) } returns flowOf()
+        coEvery { stompSession.sendText(any<String>(), any<String>()) } returns mockk()
+
+        gameStompClient.connect()
+        advanceUntilIdle()
+
+        gameStompClient.joinGame("game-123", "Alice", "gti")
+        advanceUntilIdle()
+
+        coVerifyOrder {
+            stompSession.subscribeText("/topic/game/game-123")
+            stompSession.sendText("/app/game/state", any<String>())
+            stompSession.sendText("/app/game/join", any<String>())
+        }
     }
 
     @Test

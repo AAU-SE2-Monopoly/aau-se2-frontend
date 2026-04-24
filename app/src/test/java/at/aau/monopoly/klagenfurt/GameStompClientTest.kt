@@ -12,7 +12,9 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
+import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.advanceUntilIdle
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.hildan.krossbow.stomp.StompClient
 import org.hildan.krossbow.stomp.StompSession
@@ -311,6 +313,53 @@ class GameStompClientTest {
             stompSession.sendText("/app/game/state", any<String>())
             stompSession.sendText("/app/game/join", any<String>())
         }
+    }
+
+    @Test
+    fun joinGame_does_not_send_join_before_subscription_and_state_request_complete() = runTest(testDispatcher) {
+        coEvery { stompClient.connect(any<String>()) } returns stompSession
+        coEvery { stompSession.subscribeText(match { it.startsWith("/topic/game/") && it != "/topic/game/game-123" }) } returns flowOf()
+        coEvery { stompSession.subscribeText("/topic/game/game-123") } coAnswers {
+            delay(1000)
+            flowOf()
+        }
+        coEvery { stompSession.sendText(any<String>(), any<String>()) } returns mockk()
+
+        gameStompClient.connect()
+        advanceUntilIdle()
+
+        gameStompClient.joinGame("game-123", "Alice", "gti")
+        runCurrent()
+        advanceTimeBy(500)
+        runCurrent()
+
+        coVerify(exactly = 0) { stompSession.sendText("/app/game/join", any<String>()) }
+
+        advanceTimeBy(1000)
+        advanceUntilIdle()
+
+        coVerifyOrder {
+            stompSession.subscribeText("/topic/game/game-123")
+            stompSession.sendText("/app/game/state", any<String>())
+            stompSession.sendText("/app/game/join", any<String>())
+        }
+    }
+
+    @Test
+    fun joinGame_does_not_send_join_when_subscription_fails() = runTest(testDispatcher) {
+        coEvery { stompClient.connect(any<String>()) } returns stompSession
+        coEvery { stompSession.subscribeText(match { it.startsWith("/topic/game/") && it != "/topic/game/game-123" }) } returns flowOf()
+        coEvery { stompSession.subscribeText("/topic/game/game-123") } throws Exception("Subscribe failed")
+        coEvery { stompSession.sendText(any<String>(), any<String>()) } returns mockk()
+
+        gameStompClient.connect()
+        advanceUntilIdle()
+
+        gameStompClient.joinGame("game-123", "Alice", "gti")
+        advanceUntilIdle()
+
+        coVerify(exactly = 0) { stompSession.sendText("/app/game/join", any<String>()) }
+        verify { Log.e("GameStomp", "subscription error", any()) }
     }
 
     @Test

@@ -124,42 +124,8 @@ class GameStompClient(
     }
 
     override fun subscribeToGame(gameId: String) {
-        if (subscriptionJob?.isActive == true && gameId == _currentGameId) {
-            Log.d("GameStomp", "Already subscribed to $gameId")
-            return
-        }
-        
-        _currentGameId = gameId
-        subscriptionJob?.cancel()
-        subscriptionJob = scope.launch {
-            try {
-                val currentSession = session
-                if (currentSession == null) {
-                    Log.w("GameStomp", "Cannot subscribe: not connected")
-                    return@launch
-                }
-                Log.d("GameStomp", "Subscribing to /topic/game/$gameId")
-                
-                val subscription = currentSession.subscribeText("/topic/game/$gameId")
-                
-                // Launch collection in a child coroutine
-                launch {
-                    subscription.collect { msg ->
-                        _events.emit(msg)
-                    }
-                }
-                
-                // Request state immediately after subscribing
-                sendRawInternal("/app/game/state", buildAction())
-
-            } catch (e: Throwable) {
-                if (isCancellation(e)) {
-                    Log.d("GameStomp", "Subscription job cancelled for $gameId")
-                } else {
-                    Log.e("GameStomp", "subscription error", e)
-                    _status.emit("Subscription error: ${e.message}")
-                }
-            }
+        scope.launch {
+            subscribeToGameInternal(gameId = gameId, requestStateAfterSubscribe = true)
         }
     }
 
@@ -220,11 +186,16 @@ class GameStompClient(
 
     override fun joinGame(gameId: String, playerName: String, iconId: String) {
         _currentPlayerName = playerName
-        // We must subscribe first, then send join. 
-        subscribeToGame(gameId)
-        
-        Log.d("GameStomp", "Sending join command for game: $gameId with icon: $iconId")
-        sendRaw("/app/game/join", buildAction(extra = mapOf("name" to playerName, "iconId" to iconId)))
+        scope.launch {
+            val subscribed = subscribeToGameInternal(gameId = gameId, requestStateAfterSubscribe = true)
+            if (!subscribed) return@launch
+
+            Log.d("GameStomp", "Sending join command for game: $gameId with icon: $iconId")
+            sendRawInternal(
+                "/app/game/join",
+                buildAction(extra = mapOf("name" to playerName, "iconId" to iconId))
+            )
+        }
     }
 
     override fun startGame() = sendRaw("/app/game/start", buildAction())
@@ -244,6 +215,53 @@ class GameStompClient(
             payload = extra
         )
         return objectMapper.writeValueAsString(gameAction)
+    }
+
+    private suspend fun subscribeToGameInternal(
+        gameId: String,
+        requestStateAfterSubscribe: Boolean
+    ): Boolean {
+        if (subscriptionJob?.isActive == true && gameId == _currentGameId) {
+            Log.d("GameStomp", "Already subscribed to $gameId")
+            if (requestStateAfterSubscribe) {
+                sendRawInternal("/app/game/state", buildAction())
+            }
+            return true
+        }
+
+        _currentGameId = gameId
+        subscriptionJob?.cancel()
+
+        return try {
+            val currentSession = session
+            if (currentSession == null) {
+                Log.w("GameStomp", "Cannot subscribe: not connected")
+                return false
+            }
+
+            Log.d("GameStomp", "Subscribing to /topic/game/$gameId")
+            val subscription = currentSession.subscribeText("/topic/game/$gameId")
+
+            subscriptionJob = scope.launch {
+                subscription.collect { msg ->
+                    _events.emit(msg)
+                }
+            }
+
+            if (requestStateAfterSubscribe) {
+                sendRawInternal("/app/game/state", buildAction())
+            }
+
+            true
+        } catch (e: Throwable) {
+            if (isCancellation(e)) {
+                Log.d("GameStomp", "Subscription job cancelled for $gameId")
+            } else {
+                Log.e("GameStomp", "subscription error", e)
+                _status.emit("Subscription error: ${e.message}")
+            }
+            false
+        }
     }
 
     private suspend fun sendRawInternal(destination: String, json: String) {

@@ -197,5 +197,46 @@ class GameViewModelTest {
         collector.cancel()
     }
 
+    @OptIn(ExperimentalCoroutinesApi::class)
+    @Test
+    fun eventLog_maps_known_event_types_to_human_readable_text() = runTest(testDispatcher) {
+        val collector = launch { viewModel.eventLog.collect { } }
+        advanceUntilIdle()
+
+        mockEvents.emit(jsonEvent(GameEvent(gameId = "g1", event = "GAME_CREATED", message = null)))
+        mockEvents.emit(jsonEvent(GameEvent(gameId = "g1", event = "PLAYER_JOINED", message = null)))
+        mockEvents.emit(jsonEvent(GameEvent(gameId = "g1", event = "GAME_STARTED", message = null)))
+        mockEvents.emit(jsonEvent(GameEvent(gameId = "g1", event = "DICE_ROLLED", message = null)))
+        mockEvents.emit(jsonEvent(GameEvent(gameId = "g1", event = "TURN_ENDED", message = null)))
+        mockEvents.emit(jsonEvent(GameEvent(gameId = "g1", event = "STATE_UPDATED", message = null)))
+        mockEvents.emit(jsonEvent(GameEvent(gameId = "g1", event = "STATE_SNAPSHOT", message = null)))
+        advanceUntilIdle()
+
+        val texts = viewModel.eventLog.value.map { it.text }
+        assertTrue(texts.contains("Game created: g1"))
+        assertTrue(texts.contains("A new player joined"))
+        assertTrue(texts.contains("Game started!"))
+        assertTrue(texts.contains("Dice rolled"))
+        assertTrue(texts.contains("Turn ended"))
+        assertTrue(texts.contains("Game state updated"))
+        assertTrue(texts.contains("State snapshot synced"))
+
+        collector.cancel()
+    }
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    @Test
+    fun eventLog_maps_unknown_event_type_to_title_case() = runTest(testDispatcher) {
+        val collector = launch { viewModel.eventLog.collect { } }
+        advanceUntilIdle()
+
+        mockEvents.emit(jsonEvent(GameEvent(gameId = "g1", event = "PLAYER_WENT_BANKRUPT", message = null)))
+        advanceUntilIdle()
+
+        assertEquals("Player went bankrupt", viewModel.eventLog.value.last().text)
+
+        collector.cancel()
+    }
+
     private fun jsonEvent(event: GameEvent): String = objectMapper.writeValueAsString(event)
 }

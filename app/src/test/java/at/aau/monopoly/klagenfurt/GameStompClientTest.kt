@@ -314,6 +314,134 @@ class GameStompClientTest {
     }
 
     @Test
+    fun subscribeToLobby_when_not_connected_logs_warning() = runTest(testDispatcher) {
+        gameStompClient.subscribeToLobby()
+        advanceUntilIdle()
+
+        verify { Log.w("GameStomp", "Cannot subscribe to lobby: not connected") }
+    }
+
+    @Test
+    fun subscribeToLobby_success_emits_lobby_events() = runTest(testDispatcher) {
+        coEvery { stompClient.connect(any<String>()) } returns stompSession
+        val lobbyFlow = MutableSharedFlow<String>()
+        coEvery { stompSession.subscribeText(any<String>()) } returns flowOf()
+        coEvery { stompSession.subscribeText("/topic/lobby") } returns lobbyFlow
+
+        val receivedLobbyEvents = mutableListOf<String>()
+        val collectJob = launch { gameStompClient.lobbyEvents.collect { receivedLobbyEvents.add(it) } }
+
+        gameStompClient.connect()
+        advanceUntilIdle()
+
+        gameStompClient.subscribeToLobby()
+        advanceUntilIdle()
+
+        coVerify { stompSession.subscribeText("/topic/lobby") }
+        verify { Log.d("GameStomp", "Subscribing to /topic/lobby") }
+
+        lobbyFlow.emit("LOBBY_UPDATE")
+        advanceUntilIdle()
+
+        assertEquals("LOBBY_UPDATE", receivedLobbyEvents.last())
+        collectJob.cancel()
+    }
+
+    @Test
+    fun subscribeToLobby_already_subscribed_logs_and_returns() = runTest(testDispatcher) {
+        coEvery { stompClient.connect(any<String>()) } returns stompSession
+        val neverEndingLobbyFlow = MutableSharedFlow<String>()
+        coEvery { stompSession.subscribeText(any<String>()) } returns flowOf()
+        coEvery { stompSession.subscribeText("/topic/lobby") } returns neverEndingLobbyFlow
+
+        gameStompClient.connect()
+        advanceUntilIdle()
+
+        gameStompClient.subscribeToLobby()
+        advanceUntilIdle()
+
+        gameStompClient.subscribeToLobby()
+        advanceUntilIdle()
+
+        verify { Log.d("GameStomp", "Already subscribed to lobby") }
+    }
+
+    @Test
+    fun subscribeToLobby_error_emits_status_message() = runTest(testDispatcher) {
+        coEvery { stompClient.connect(any<String>()) } returns stompSession
+        coEvery { stompSession.subscribeText(any<String>()) } returns flowOf()
+        coEvery { stompSession.subscribeText("/topic/lobby") } throws Exception("Lobby failed")
+
+        val statuses = mutableListOf<String>()
+        val collectJob = launch { gameStompClient.status.collect { statuses.add(it) } }
+
+        gameStompClient.connect()
+        advanceUntilIdle()
+
+        gameStompClient.subscribeToLobby()
+        advanceUntilIdle()
+
+        verify { Log.e("GameStomp", "lobby subscription error", any()) }
+        assertTrue(statuses.contains("Lobby subscription error: Lobby failed"))
+        collectJob.cancel()
+    }
+
+    @Test
+    fun subscribeToLobby_cancellation_logs_cancelled() = runTest(testDispatcher) {
+        coEvery { stompClient.connect(any<String>()) } returns stompSession
+        coEvery { stompSession.subscribeText(any<String>()) } returns flowOf()
+        coEvery { stompSession.subscribeText("/topic/lobby") } throws CancellationException("cancel")
+
+        gameStompClient.connect()
+        advanceUntilIdle()
+
+        gameStompClient.subscribeToLobby()
+        advanceUntilIdle()
+
+        verify { Log.d("GameStomp", "Lobby subscription cancelled") }
+    }
+
+    @Test
+    fun requestGameList_sends_to_game_list_endpoint() = runTest(testDispatcher) {
+        coEvery { stompClient.connect(any<String>()) } returns stompSession
+        coEvery { stompSession.subscribeText(any<String>()) } returns flowOf()
+        coEvery { stompSession.sendText(any<String>(), any<String>()) } returns mockk()
+
+        gameStompClient.connect()
+        advanceUntilIdle()
+
+        gameStompClient.requestGameList()
+        advanceUntilIdle()
+
+        coVerify { stompSession.sendText("/app/game/list", any<String>()) }
+    }
+
+    @Test
+    fun closeGame_uses_given_id_and_restores_previous_current_game_id() = runTest(testDispatcher) {
+        coEvery { stompClient.connect(any<String>()) } returns stompSession
+        coEvery { stompSession.subscribeText(any<String>()) } returns flowOf()
+        coEvery { stompSession.sendText(any<String>(), any<String>()) } returns mockk()
+
+        gameStompClient.connect()
+        advanceUntilIdle()
+
+        gameStompClient.setGameId("original-game")
+        advanceUntilIdle()
+        assertEquals("original-game", gameStompClient.currentGameId)
+
+        gameStompClient.closeGame("close-this-game")
+        advanceUntilIdle()
+
+        coVerify {
+            stompSession.sendText(
+                "/app/game/close",
+                match { it.contains("\"gameId\":\"close-this-game\"") }
+            )
+        }
+        assertEquals("original-game", gameStompClient.currentGameId)
+    }
+
+    @Test
     fun sendRaw_handles_not_connected_state() = runTest(testDispatcher) {
         val statuses = mutableListOf<String>()
         val job = launch { gameStompClient.status.collect { statuses.add(it) } }

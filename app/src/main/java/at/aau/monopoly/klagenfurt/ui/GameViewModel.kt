@@ -98,6 +98,11 @@ class GameViewModel(private val gameService: GameService) : ViewModel() {
         .map { it != null }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
+    /**
+    eventLog displays events like join, create game, dice rolled etc.
+    The Log ignores State Snapshots-> Technical Logs will be displayed on DoubleClick on ChatBar in an expanded window.
+     **/
+
     val eventLog: StateFlow<List<LogEntry>> = gameEventFlow
         .runningFold(LogAccumulator(gameId = "", entries = emptyList())) { acc, event ->
             val eventGameId = event.gameId

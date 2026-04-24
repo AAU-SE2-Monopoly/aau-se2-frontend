@@ -107,7 +107,7 @@ fun GameboardScreen(modifier: Modifier = Modifier, viewModel: GameViewModel) {
         GameboardOverlayLayer(eventLog = eventLog)
     }
 }
-
+/**This function creates the overlay layer for the gameboard. Call components that should not be zoomable here**/
 @Composable
 private fun BoxScope.GameboardOverlayLayer(eventLog: List<GameViewModel.LogEntry>) {
     ChatOverlay(

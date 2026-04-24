@@ -43,6 +43,10 @@ private val TaperedTopBarShape = GenericShape { size, _ ->
     close()
 }
 
+private const val CHAT_COLLAPSED_TAG = "ingame_chat_collapsed"
+private const val CHAT_EXPANDED_TAG = "ingame_chat_expanded"
+private const val CHAT_LINES_TAG = "ingame_chat_lines"
+
 @Composable
 fun ChatOverlay(
     entries: List<GameViewModel.LogEntry>,
@@ -57,11 +61,8 @@ fun EventLogOverlay(
     modifier: Modifier = Modifier
 ) {
     var isExpanded by remember { mutableStateOf(false) }
-    val overlayStateTag = if (isExpanded) "ingame_chat_expanded" else "ingame_chat_collapsed"
-
-    // Collapsed view shows only relevant game events
-    val collapsedEntries = entries.filter { !it.isTechnical }
-    val lastEntry = if (isExpanded) entries.lastOrNull() else collapsedEntries.lastOrNull()
+    val overlayStateTag = if (isExpanded) CHAT_EXPANDED_TAG else CHAT_COLLAPSED_TAG
+    val lastEntry = getLastVisibleEntry(entries = entries, isExpanded = isExpanded)
 
     Column(
         modifier = modifier
@@ -74,68 +75,86 @@ fun EventLogOverlay(
             },
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // Status Bar (Top)
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .heightIn(min = 28.dp, max = 36.dp)
-                .background(
-                    color = Color.Black.copy(alpha = 0.8f),
-                    shape = TaperedTopBarShape
-                )
-                .padding(horizontal = 24.dp),
-            contentAlignment = Alignment.Center
-        ) {
-            Text(
-                text = lastEntry?.text ?: "Waiting for events...",
-                color = if (lastEntry?.isTechnical == true) Color.LightGray else Color.White,
-                fontSize = if (isExpanded) 13.sp else 10.sp,
-                fontWeight = FontWeight.Bold,
-                fontStyle = FontStyle.Italic,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                textAlign = TextAlign.Center
-            )
-        }
-
+        EventLogStatusBar(lastEntry = lastEntry, isExpanded = isExpanded)
 
         if (isExpanded) {
-            val listState = rememberLazyListState()
+            ExpandedEventLogList(entries = entries)
+        }
+    }
+}
 
+private fun getLastVisibleEntry(
+    entries: List<GameViewModel.LogEntry>,
+    isExpanded: Boolean
+): GameViewModel.LogEntry? {
+    if (isExpanded) return entries.lastOrNull()
+    return entries.lastOrNull { !it.isTechnical }
+}
 
-            LaunchedEffect(entries.size) {
-                if (entries.isNotEmpty()) {
-                    listState.animateScrollToItem(entries.size - 1)
-                }
-            }
+@Composable
+private fun EventLogStatusBar(
+    lastEntry: GameViewModel.LogEntry?,
+    isExpanded: Boolean
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = 28.dp, max = 36.dp)
+            .background(
+                color = Color.Black.copy(alpha = 0.8f),
+                shape = TaperedTopBarShape
+            )
+            .padding(horizontal = 24.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = lastEntry?.text ?: "Waiting for events...",
+            color = if (lastEntry?.isTechnical == true) Color.LightGray else Color.White,
+            fontSize = if (isExpanded) 13.sp else 10.sp,
+            fontWeight = FontWeight.Bold,
+            fontStyle = FontStyle.Italic,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            textAlign = TextAlign.Center
+        )
+    }
+}
 
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(200.dp)
-                    .background(
-                        color = Color.Black.copy(alpha = 0.7f),
-                        shape = RoundedCornerShape(bottomStart = 12.dp, bottomEnd = 12.dp)
-                    )
-                    .padding(12.dp)
-            ) {
-                LazyColumn(
-                    state = listState,
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .testTag("ingame_chat_lines")
-                ) {
-                    items(entries) { entry ->
-                        Text(
-                            text = "• ${entry.text}",
-                            color = if (entry.isTechnical) Color.Gray.copy(alpha = 0.8f) else Color.White,
-                            fontSize = 14.sp,
-                            lineHeight = 18.sp,
-                            fontWeight = if (entry.isTechnical) FontWeight.Normal else FontWeight.Medium,
-                            modifier = Modifier.padding(vertical = 3.dp)
-                        )
-                    }
-                }
+@Composable
+private fun ExpandedEventLogList(entries: List<GameViewModel.LogEntry>) {
+    val listState = rememberLazyListState()
+
+    LaunchedEffect(entries.size) {
+        if (entries.isNotEmpty()) {
+            listState.animateScrollToItem(entries.size - 1)
+        }
+    }
+
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(200.dp)
+            .background(
+                color = Color.Black.copy(alpha = 0.7f),
+                shape = RoundedCornerShape(bottomStart = 12.dp, bottomEnd = 12.dp)
+            )
+            .padding(12.dp)
+    ) {
+        LazyColumn(
+            state = listState,
+            modifier = Modifier
+                .fillMaxSize()
+                .testTag(CHAT_LINES_TAG)
+        ) {
+            items(entries) { entry ->
+                Text(
+                    text = "• ${entry.text}",
+                    color = if (entry.isTechnical) Color.Gray.copy(alpha = 0.8f) else Color.White,
+                    fontSize = 14.sp,
+                    lineHeight = 18.sp,
+                    fontWeight = if (entry.isTechnical) FontWeight.Normal else FontWeight.Medium,
+                    modifier = Modifier.padding(vertical = 3.dp)
+                )
             }
         }
     }

@@ -94,9 +94,23 @@ fun LockScreenOrientation(orientation: Int) {
     @Composable
     fun GameboardScreen(modifier: Modifier = Modifier,viewModel: GameViewModel) {
         val fields by viewModel.fields.collectAsState(initial = emptyList())
-        LockScreenOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE)
+        val selectedPlayer by viewModel.selectedPlayerForOverlay.collectAsState()
+        Box(modifier = Modifier.fillMaxSize()) {
+            // Das eigentliche Spielfeld
+            GameboardContent(fields = fields ?: emptyList(), modifier = modifier)
 
-        GameboardContent(fields?:emptyList(), modifier)
+            // --- Hier kommt später das UI-Element hin, um Spieler anzuklicken ---
+            // z.B. PlayerList(players = ..., onClick = { viewModel.showPlayerOverlay(it) })
+
+            // Overlay einblenden, wenn ein Spieler ausgewählt ist
+            selectedPlayer?.let { player ->
+                PlayerPropertyOverlay(
+                    player = player,
+                    allFields = fields,
+                    onDismiss = { viewModel.hidePlayerOverlay() }
+                )
+            }
+        }
     }
 
 class ZoomState(

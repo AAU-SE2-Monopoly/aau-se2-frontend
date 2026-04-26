@@ -73,6 +73,17 @@ class GameViewModel(private val gameService: GameService) : ViewModel() {
 
     fun setGameId(gameId: String) = gameService.setGameId(gameId)
 
+    private val _selectedPlayerForOverlay = kotlinx.coroutines.flow.MutableStateFlow<at.aau.monopoly.klagenfurt.model.Player?>(null)
+    val selectedPlayerForOverlay: StateFlow<at.aau.monopoly.klagenfurt.model.Player?> = _selectedPlayerForOverlay
+
+    fun showPlayerOverlay(player: at.aau.monopoly.klagenfurt.model.Player) {
+        _selectedPlayerForOverlay.value = player
+    }
+
+    fun hidePlayerOverlay() {
+        _selectedPlayerForOverlay.value = null
+    }
+
     // Factory to create ViewModel with dependencies
     class Factory(private val gameService: GameService) : ViewModelProvider.Factory {
         override fun <T : ViewModel> create(modelClass: Class<T>): T {

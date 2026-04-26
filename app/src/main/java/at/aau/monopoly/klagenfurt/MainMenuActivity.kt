@@ -4,8 +4,14 @@ import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -24,12 +30,18 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -38,6 +50,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.activity.enableEdgeToEdge
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
+import at.aau.monopoly.klagenfurt.ui.components.DarkGradientBackground
+import at.aau.monopoly.klagenfurt.ui.components.GradientDirection
 import at.aau.monopoly.klagenfurt.ui.theme.MyApplicationTheme
 import at.aau.monopoly.klagenfurt.ui.theme.PrimaryBlue
 import at.aau.monopoly.klagenfurt.ui.theme.PrimaryBlueLight
@@ -58,6 +72,9 @@ class MainMenuActivity : ComponentActivity() {
                     },
                     onCreditsClicked = {
                         startActivity(Intent(this, CreditsActivity::class.java))
+                    },
+                    onSettingsClicked = {
+                        startActivity(Intent(this, SettingsActivity::class.java))
                     }
                 )
             }
@@ -68,25 +85,59 @@ class MainMenuActivity : ComponentActivity() {
 @Composable
 fun MainMenuScreen(
     onPlayClicked: () -> Unit,
-    onCreditsClicked: () -> Unit
+    onCreditsClicked: () -> Unit,
+    onSettingsClicked: () -> Unit
 ) {
-    val darkBackground = Color(0xFF0A0A2E)
     val accentBlue = PrimaryBlue
     val primaryBlue = PrimaryBlueLight
 
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(
-                Brush.horizontalGradient(
-                    colors = listOf(
-                        darkBackground,
-                        Color(0xFF16213E),
-                        darkBackground
-                    )
-                )
-            )
-    ) {
+    // Slide-in animations
+    var visible by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) { visible = true }
+
+    val imageOffsetX by animateFloatAsState(
+        targetValue = if (visible) 0f else -800f,
+        animationSpec = tween(durationMillis = 800, easing = FastOutSlowInEasing),
+        label = "imageSlide"
+    )
+    val imageAlpha by animateFloatAsState(
+        targetValue = if (visible) 1f else 0f,
+        animationSpec = tween(durationMillis = 800),
+        label = "imageAlpha"
+    )
+    val buttonsOffsetX by animateFloatAsState(
+        targetValue = if (visible) 0f else 800f,
+        animationSpec = tween(durationMillis = 800, delayMillis = 200, easing = FastOutSlowInEasing),
+        label = "buttonsSlide"
+    )
+    val buttonsAlpha by animateFloatAsState(
+        targetValue = if (visible) 1f else 0f,
+        animationSpec = tween(durationMillis = 800, delayMillis = 200),
+        label = "buttonsAlpha"
+    )
+
+    // Play button pulse
+    val infiniteTransition = rememberInfiniteTransition(label = "playPulse")
+    val playScale by infiniteTransition.animateFloat(
+        initialValue = 1f,
+        targetValue = 1.08f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(600, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "playScale"
+    )
+    val playGlow by infiniteTransition.animateFloat(
+        initialValue = 8f,
+        targetValue = 20f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(600, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "playGlow"
+    )
+
+    DarkGradientBackground(gradientDirection = GradientDirection.HORIZONTAL) {
         Row(
             modifier = Modifier
                 .fillMaxSize()
@@ -98,7 +149,11 @@ fun MainMenuScreen(
             Box(
                 modifier = Modifier
                     .weight(1f)
-                    .fillMaxHeight(),
+                    .fillMaxHeight()
+                    .graphicsLayer {
+                        translationX = imageOffsetX
+                        alpha = imageAlpha
+                    },
                 contentAlignment = Alignment.Center
             ) {
                 Image(
@@ -118,7 +173,11 @@ fun MainMenuScreen(
             Column(
                 modifier = Modifier
                     .weight(1f)
-                    .fillMaxHeight(),
+                    .fillMaxHeight()
+                    .graphicsLayer {
+                        translationX = buttonsOffsetX
+                        alpha = buttonsAlpha
+                    },
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
             ) {
@@ -147,7 +206,9 @@ fun MainMenuScreen(
                     onClick = onPlayClicked,
                     modifier = Modifier
                         .fillMaxWidth(0.7f)
-                        .height(64.dp),
+                        .height(64.dp)
+                        .scale(playScale)
+                        .shadow(playGlow.dp, RoundedCornerShape(16.dp)),
                     shape = RoundedCornerShape(16.dp),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = accentBlue
@@ -167,21 +228,40 @@ fun MainMenuScreen(
 
                 Spacer(modifier = Modifier.height(20.dp))
 
-                // Credits button
-                TextButton(
-                    onClick = onCreditsClicked,
-                    modifier = Modifier
-                        .fillMaxWidth(0.5f)
-                        .height(44.dp),
-                    shape = RoundedCornerShape(12.dp)
+                // Credits & Settings buttons
+                Row(
+                    modifier = Modifier.fillMaxWidth(0.5f),
+                    horizontalArrangement = Arrangement.Center
                 ) {
-                    Text(
-                        text = "Credits",
-                        fontSize = 15.sp,
-                        fontWeight = FontWeight.Normal,
-                        color = Color.White.copy(alpha = 0.6f),
-                        letterSpacing = 2.sp
-                    )
+                    TextButton(
+                        onClick = onCreditsClicked,
+                        modifier = Modifier
+                            .height(44.dp),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Text(
+                            text = "Credits",
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.Normal,
+                            color = Color.White.copy(alpha = 0.6f),
+                            letterSpacing = 2.sp
+                        )
+                    }
+
+                    TextButton(
+                        onClick = onSettingsClicked,
+                        modifier = Modifier
+                            .height(44.dp),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Text(
+                            text = "Settings",
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.Normal,
+                            color = Color.White.copy(alpha = 0.6f),
+                            letterSpacing = 2.sp
+                        )
+                    }
                 }
             }
         }

@@ -91,7 +91,18 @@ class GameActivity : ComponentActivity() {
             viewModel.connect()
         }
         btnGameBoard.setOnClickListener {
-            val intent = Intent(this, GameboardUI::class.java)
+            val gameId = etGameId.text.toString().trim()
+
+            if (gameId.isEmpty()) {
+                toast(getString(R.string.error_enter_game_id))
+                return@setOnClickListener
+            }
+
+            viewModel.setGameId(gameId)
+
+            val intent = Intent(this, GameboardUI::class.java).apply {
+                putExtra("GAME_ID", gameId)
+            }
             startActivity(intent)
         }
         btnClear.setOnClickListener { tvEventLog.text = "" }

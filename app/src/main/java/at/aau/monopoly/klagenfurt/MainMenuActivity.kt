@@ -12,7 +12,6 @@ import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -41,7 +40,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
@@ -52,6 +50,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.activity.enableEdgeToEdge
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
+import at.aau.monopoly.klagenfurt.ui.components.DarkGradientBackground
+import at.aau.monopoly.klagenfurt.ui.components.GradientDirection
 import at.aau.monopoly.klagenfurt.ui.theme.MyApplicationTheme
 import at.aau.monopoly.klagenfurt.ui.theme.PrimaryBlue
 import at.aau.monopoly.klagenfurt.ui.theme.PrimaryBlueLight
@@ -88,7 +88,6 @@ fun MainMenuScreen(
     onCreditsClicked: () -> Unit,
     onSettingsClicked: () -> Unit
 ) {
-    val darkBackground = Color(0xFF0A0A2E)
     val accentBlue = PrimaryBlue
     val primaryBlue = PrimaryBlueLight
 
@@ -138,19 +137,7 @@ fun MainMenuScreen(
         label = "playGlow"
     )
 
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(
-                Brush.horizontalGradient(
-                    colors = listOf(
-                        darkBackground,
-                        Color(0xFF16213E),
-                        darkBackground
-                    )
-                )
-            )
-    ) {
+    DarkGradientBackground(gradientDirection = GradientDirection.HORIZONTAL) {
         Row(
             modifier = Modifier
                 .fillMaxSize()

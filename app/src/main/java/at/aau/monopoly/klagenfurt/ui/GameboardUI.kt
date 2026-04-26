@@ -64,6 +64,8 @@ import com.example.myapplication.R
 import kotlin.collections.emptyList
 import kotlin.collections.listOf
 import kotlin.math.sqrt
+import androidx.compose.material3.Button
+
 
 class GameboardUI : ComponentActivity() {
     private val viewModel: GameViewModel by viewModels {
@@ -96,16 +98,38 @@ fun LockScreenOrientation(orientation: Int) {
     }
 }
 
-    @Composable
-    fun GameboardScreen(modifier: Modifier = Modifier, viewModel: GameViewModel) {
-        val fields by viewModel.fields.collectAsState(initial = emptyList())
-        val gameState by viewModel.gameState.collectAsState()
-        val players = gameState?.players ?: emptyList()
+@Composable
+fun GameboardScreen(
+    modifier: Modifier = Modifier,
+    viewModel: GameViewModel
+) {
+    val fields by viewModel.fields.collectAsState(initial = emptyList())
+    val gameState by viewModel.gameState.collectAsState()
+    val players = gameState?.players ?: emptyList()
 
-        LockScreenOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE)
+    LockScreenOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE)
 
-        GameboardContent(fields ?: emptyList(), players, modifier)
+    Box(modifier = modifier.fillMaxSize()) {
+
+        GameboardContent(
+            fields = fields,
+            players = players,
+            modifier = Modifier.fillMaxSize()
+        )
+
+        // 🎲 Button on the lower right side
+        Button(
+            onClick = {
+                viewModel.rollDice()
+            },
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(20.dp)
+        ) {
+            Text("🎲 Würfeln")
+        }
     }
+}
 
 class ZoomState(
     initialScale: Float = 1f,

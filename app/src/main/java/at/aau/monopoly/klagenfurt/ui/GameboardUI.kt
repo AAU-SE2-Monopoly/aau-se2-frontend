@@ -71,6 +71,10 @@ class GameboardUI : ComponentActivity() {
     }
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        val gameId = intent.getStringExtra("GAME_ID")
+        if (!gameId.isNullOrBlank()) {
+            viewModel.setGameId(gameId)
+        }
         setContent {
             GameboardScreen(viewModel=viewModel)
         }

@@ -24,6 +24,7 @@ class GameStompClient(
     private val websocketUri: String = "ws://10.0.2.2:8080/ws"
     //ip for working with WSL
     //private val websocketUri: String = "ws://localhost:8080/ws"
+
 ) : GameService {
 
     private var session: StompSession? = null
@@ -31,6 +32,8 @@ class GameStompClient(
     private var lobbySubscriptionJob: Job? = null
     private var connectJob: Job? = null
     private var isConnecting = false
+
+    private var temporarySubscriptionJob: Job? = null
 
     private val _events = MutableSharedFlow<String>(replay = 1)
     override val events: SharedFlow<String> = _events.asSharedFlow()
@@ -70,7 +73,7 @@ class GameStompClient(
                 _status.emit("Connected ✓")
                 Log.d("GameStomp", "Connected successfully")
 
-                subscribeToGame(currentPlayerId)
+                subscribeToTemporaryPlayerTopic()
             } catch (e: Throwable) {
                 if (isCancellation(e)) {
                     Log.d("GameStomp", "Connection attempt cancelled")
@@ -88,6 +91,7 @@ class GameStompClient(
     override fun disconnect() {
         connectJob?.cancel()
         subscriptionJob?.cancel()
+        temporarySubscriptionJob?.cancel()
         val currentSession = session
         session = null
         scope.launch {
@@ -97,6 +101,33 @@ class GameStompClient(
             } catch (e: Throwable) {
                 if (!isCancellation(e)) {
                     Log.e("GameStomp", "disconnect error", e)
+                }
+            }
+        }
+    }
+
+    private fun subscribeToTemporaryPlayerTopic() {
+        temporarySubscriptionJob?.cancel()
+
+        temporarySubscriptionJob = scope.launch {
+            try {
+                val currentSession = session
+                if (currentSession == null) {
+                    Log.w("GameStomp", "Cannot subscribe to temporary topic: not connected")
+                    return@launch
+                }
+
+                Log.d("GameStomp", "Subscribing to temporary topic /topic/game/$currentPlayerId")
+
+                currentSession.subscribeText("/topic/game/$currentPlayerId").collect { msg ->
+                    _events.emit(msg)
+                }
+            } catch (e: Throwable) {
+                if (isCancellation(e)) {
+                    Log.d("GameStomp", "Temporary subscription cancelled")
+                } else {
+                    Log.e("GameStomp", "temporary subscription error", e)
+                    _status.emit("Temporary subscription error: ${e.message}")
                 }
             }
         }

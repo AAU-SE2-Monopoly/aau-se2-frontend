@@ -24,9 +24,11 @@ import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Button
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -48,6 +50,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
+import at.aau.monopoly.klagenfurt.sensors.ShakeDetector
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.Hyphens
@@ -106,6 +109,36 @@ fun GameboardScreen(
     val fields by viewModel.fields.collectAsState(initial = emptyList())
     val gameState by viewModel.gameState.collectAsState()
     val players = gameState?.players ?: emptyList()
+    val lastDiceRoll by viewModel.lastDiceRoll.collectAsState()
+    val showDiceOverlay by viewModel.showDiceOverlay.collectAsState()
+    val isRolling by viewModel.isRolling.collectAsState()
+    val context = LocalContext.current
+
+    // ShakeDetector setup
+    val shakeDetector = remember {
+        ShakeDetector(context) {
+            // On shake detected, roll the dice
+            if (showDiceOverlay && isRolling) {
+                viewModel.onDiceRollComplete()
+            }
+        }
+    }
+
+    // Start listening for shake when overlay is visible and rolling
+    LaunchedEffect(showDiceOverlay, isRolling) {
+        if (showDiceOverlay && isRolling) {
+            shakeDetector.startListening()
+        } else {
+            shakeDetector.stopListening()
+        }
+    }
+
+    // Stop listening when composable is disposed
+    DisposableEffect(Unit) {
+        onDispose {
+            shakeDetector.stopListening()
+        }
+    }
 
     LockScreenOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE)
 
@@ -128,6 +161,14 @@ fun GameboardScreen(
         ) {
             Text("🎲 Würfeln")
         }
+
+        // 🎲 Dice Roll Overlay
+        DiceRollOverlay(
+            isVisible = showDiceOverlay,
+            diceResult = if (lastDiceRoll != null) Pair(lastDiceRoll!!.die1, lastDiceRoll!!.die2) else null,
+            isRolling = isRolling,
+            onClose = { viewModel.closeDiceOverlay() }
+        )
     }
 }
 

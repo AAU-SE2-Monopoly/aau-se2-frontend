@@ -5,12 +5,15 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import at.aau.monopoly.klagenfurt.messaging.GameEvent
+import at.aau.monopoly.klagenfurt.model.DiceRoll
 import at.aau.monopoly.klagenfurt.model.GameState
 import at.aau.monopoly.klagenfurt.model.field.Field
 import at.aau.monopoly.klagenfurt.networking.GameService
 import at.aau.monopoly.klagenfurt.networking.JacksonProvider
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.mapNotNull
 import kotlinx.coroutines.flow.shareIn
@@ -54,6 +57,17 @@ class GameViewModel(private val gameService: GameService) : ViewModel() {
         .map { it != null }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
+    // 🎲 Dice Roll states
+    val lastDiceRoll: StateFlow<DiceRoll?> = gameState
+        .map { it?.lastDiceRoll }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+
+    private val _showDiceOverlay = MutableStateFlow(false)
+    val showDiceOverlay: StateFlow<Boolean> = _showDiceOverlay.asStateFlow()
+
+    private val _isRolling = MutableStateFlow(false)
+    val isRolling: StateFlow<Boolean> = _isRolling.asStateFlow()
+
     val events: SharedFlow<String> = gameService.events
     val status: SharedFlow<String> = gameService.status
 
@@ -65,8 +79,27 @@ class GameViewModel(private val gameService: GameService) : ViewModel() {
     
     fun startGame() = gameService.startGame()
     
-    fun rollDice() = gameService.rollDice()
-    
+    fun rollDice() {
+        // Show overlay and set rolling state
+        _showDiceOverlay.value = true
+        _isRolling.value = true
+
+        Log.d("DiceRoll", "rollDice triggered - overlay shown, rolling started")
+
+        // Send the roll action to the server
+        gameService.rollDice()
+    }
+
+    fun onDiceRollComplete() {
+        _isRolling.value = false
+        Log.d("DiceRoll", "onDiceRollComplete - rolling finished")
+    }
+
+    fun closeDiceOverlay() {
+        _showDiceOverlay.value = false
+        Log.d("DiceRoll", "closeDiceOverlay - overlay hidden")
+    }
+
     fun endTurn() = gameService.endTurn()
     
     fun requestState() = gameService.requestState()

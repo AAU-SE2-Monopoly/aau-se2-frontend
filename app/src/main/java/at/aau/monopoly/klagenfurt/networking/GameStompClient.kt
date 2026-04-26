@@ -196,7 +196,11 @@ class GameStompClient(
     }
 
     override fun startGame() = sendRaw("/app/game/start", buildAction())
-    override fun rollDice() = sendRaw("/app/game/action", buildAction("ROLL_DICE"))
+    override fun rollDice() {
+        val payload = buildAction("ROLL_DICE")
+        Log.d("DiceDebug", "rollDice gameId=$_currentGameId playerId=$currentPlayerId payload=$payload")
+        sendRaw("/app/game/action", payload)
+    }
     override fun endTurn() = sendRaw("/app/game/action", buildAction("END_TURN"))
     override fun requestState() = sendRaw("/app/game/state", buildAction())
 
@@ -215,6 +219,7 @@ class GameStompClient(
     }
 
     private fun sendRaw(destination: String, json: String) {
+        Log.d("DiceDebug", "sendRaw destination=$destination json=$json sessionExists=${session != null}")
         scope.launch {
             try {
                 val currentSession = session

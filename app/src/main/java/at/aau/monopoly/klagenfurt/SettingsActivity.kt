@@ -28,6 +28,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import at.aau.monopoly.klagenfurt.ui.components.BackButton
 import at.aau.monopoly.klagenfurt.ui.components.DarkGradientBackground
+import at.aau.monopoly.klagenfurt.networking.ServerConfig
 import at.aau.monopoly.klagenfurt.ui.theme.MyApplicationTheme
 import at.aau.monopoly.klagenfurt.ui.theme.PrimaryBlue
 import at.aau.monopoly.klagenfurt.ui.theme.PrimaryBlueLight
@@ -79,6 +80,18 @@ fun SettingsScreen(onBackClicked: () -> Unit) {
             )
 
             Spacer(modifier = Modifier.height(24.dp))
+
+            // Server toggle (Local / Global)
+            SettingsToggleRow(
+                label = "Server: ${ServerConfig.displayLabel}",
+                checked = ServerConfig.isGlobal,
+                onCheckedChange = {
+                    ServerConfig.isGlobal = it
+                    ServiceLocator.resetGameService()
+                }
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
 
             // Sound toggle
             SettingsToggleRow(

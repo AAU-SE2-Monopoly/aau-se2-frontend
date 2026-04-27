@@ -40,6 +40,7 @@ class GameViewModelTest {
         mockStatus = MutableSharedFlow()
 
         every { gameService.events } returns mockEvents
+        every { gameService.logEvents } returns mockEvents
         every { gameService.status } returns mockStatus
         every { gameService.currentGameId } returns ""
 
@@ -153,6 +154,23 @@ class GameViewModelTest {
         advanceUntilIdle()
         assertEquals(1, viewModel.eventLog.value.size)
         assertEquals("Alice joined", viewModel.eventLog.value.last().text)
+
+        collector.cancel()
+    }
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    @Test
+    fun eventLog_does_not_ignore_game_created_from_other_game() = runTest(testDispatcher) {
+        every { gameService.currentGameId } returns "game-1"
+        viewModel = GameViewModel(gameService)
+        val collector = launch { viewModel.eventLog.collect { } }
+        advanceUntilIdle()
+
+        mockEvents.emit(jsonEvent(GameEvent(gameId = "game-2", event = "GAME_CREATED", message = "Game created: game-2")))
+        advanceUntilIdle()
+
+        assertEquals(1, viewModel.eventLog.value.size)
+        assertEquals("Game created: game-2", viewModel.eventLog.value.last().text)
 
         collector.cancel()
     }

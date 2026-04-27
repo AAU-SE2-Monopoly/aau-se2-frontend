@@ -62,9 +62,7 @@ import androidx.compose.ui.unit.sp
 import at.aau.monopoly.klagenfurt.ServiceLocator
 import at.aau.monopoly.klagenfurt.model.Player
 import at.aau.monopoly.klagenfurt.model.card.Card
-import at.aau.monopoly.klagenfurt.model.card.ChanceCard
-import at.aau.monopoly.klagenfurt.model.card.CommunityChestCard
-import at.aau.monopoly.klagenfurt.model.enums.CardAction
+
 import at.aau.monopoly.klagenfurt.model.enums.FieldType
 import at.aau.monopoly.klagenfurt.model.enums.PropertyColor
 import at.aau.monopoly.klagenfurt.model.field.Field
@@ -223,27 +221,7 @@ fun GameboardContent(
         }
     }
 
-    val testCardsPerPlayer: Map<String, List<Card>> = remember(players) {
-        val allTestCards = listOf(
-            ChanceCard(1, "Advance to Go. Collect \$200.", CardAction.COLLECT_MONEY, amount = 200),
-            ChanceCard(2, "Go directly to Jail.", CardAction.GO_TO_JAIL),
-            ChanceCard(3, "Bank pays you \$50 dividend.", CardAction.COLLECT_MONEY, amount = 50),
-            ChanceCard(4, "Go back 3 spaces.", CardAction.MOVE_FORWARD, moveSpaces = -3),
-            ChanceCard(5, "Pay poor tax of \$15.", CardAction.PAY_MONEY, amount = 15),
-            ChanceCard(6, "Get Out of Jail Free.", CardAction.GET_OUT_OF_JAIL),
-            CommunityChestCard(7, "Doctor's fee. Pay \$50.", CardAction.PAY_MONEY, amount = 50),
-            CommunityChestCard(8, "Collect \$100 from insurance.", CardAction.COLLECT_MONEY, amount = 100),
-            CommunityChestCard(9, "Pay hospital \$100.", CardAction.PAY_MONEY, amount = 100),
-            CommunityChestCard(10, "You win \$10 in a contest.", CardAction.COLLECT_MONEY, amount = 10),
-            CommunityChestCard(11, "It's your birthday! Collect \$10 from each player.", CardAction.COLLECT_FROM_EACH, amount = 10),
-            CommunityChestCard(12, "Get Out of Jail Free.", CardAction.GET_OUT_OF_JAIL),
-        )
-        val shuffled = allTestCards.shuffled()
-        players.associate { player ->
-            val count = (1..3).random()
-            player.id to shuffled.shuffled().take(count)
-        }
-    }
+    val testCardsPerPlayer: Map<String, List<Card>> = emptyMap()
 
     val currentField = currentTurnPlayer?.let { p ->
         testFields.getOrNull(p.position)

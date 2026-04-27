@@ -2,6 +2,7 @@ package at.aau.monopoly.klagenfurt
 
 import android.content.Intent
 import android.os.Bundle
+import android.util.Log
 import android.widget.ArrayAdapter
 import android.widget.Button
 import android.widget.EditText
@@ -103,6 +104,7 @@ class GameActivity : ComponentActivity() {
             val intent = Intent(this, GameboardUI::class.java).apply {
                 putExtra("GAME_ID", gameId)
             }
+            Log.d("DiceDebug", "Opening GameboardUI with GAME_ID=$gameId")
             startActivity(intent)
         }
         btnClear.setOnClickListener { tvEventLog.text = "" }
@@ -124,8 +126,7 @@ class GameActivity : ComponentActivity() {
                     viewModel.setGameId(gameId)  // ✨ Set gameId immediately
                     viewModel.joinGame(gameId, playerName)
                     appendLog("→ JOIN_GAME gameId=$gameId player=$playerName")
-                    // Auto-navigate to GameboardUI
-                    navigateToGameBoard(gameId)
+
                 }
                 else -> {
                     if (gameId.isEmpty()) { 
@@ -176,8 +177,6 @@ class GameActivity : ComponentActivity() {
             if (event == "GAME_CREATED" && gameId.isNotEmpty()) {
                 etGameId.setText(gameId)
                 viewModel.setGameId(gameId)
-                // ✨ Automatically navigate to GameboardUI after game is created
-                navigateToGameBoard(gameId)
             }
         } catch (e: Exception) {
             appendLog("handleGameEvent exception: $e")

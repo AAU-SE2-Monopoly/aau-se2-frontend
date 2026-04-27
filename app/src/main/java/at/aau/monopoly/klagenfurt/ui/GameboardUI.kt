@@ -3,6 +3,7 @@ package at.aau.monopoly.klagenfurt.ui
 import android.app.Activity
 import android.content.pm.ActivityInfo
 import android.os.Bundle
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.viewModels
@@ -77,6 +78,7 @@ class GameboardUI : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val gameId = intent.getStringExtra("GAME_ID")
+        Log.d("DiceDebug", "GameboardUI received GAME_ID=$gameId")
         if (!gameId.isNullOrBlank()) {
             viewModel.setGameId(gameId)
         }

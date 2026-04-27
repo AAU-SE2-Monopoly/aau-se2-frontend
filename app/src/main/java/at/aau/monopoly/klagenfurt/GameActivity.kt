@@ -121,11 +121,18 @@ class GameActivity : ComponentActivity() {
                 }
                 GameActionItem.JOIN_GAME -> {
                     if (gameId.isEmpty()) { toast(getString(R.string.error_enter_game_id)); return@setOnClickListener }
+                    viewModel.setGameId(gameId)  // ✨ Set gameId immediately
                     viewModel.joinGame(gameId, playerName)
                     appendLog("→ JOIN_GAME gameId=$gameId player=$playerName")
+                    // Auto-navigate to GameboardUI
+                    navigateToGameBoard(gameId)
                 }
                 else -> {
-                    if (gameId.isEmpty()) { toast(getString(R.string.error_enter_game_id)); return@setOnClickListener }
+                    if (gameId.isEmpty()) { 
+                        toast(getString(R.string.error_enter_game_id))
+                        appendLog("❌ Cannot execute ${selected.name} - please join a game first or click 'GameBoard'")
+                        return@setOnClickListener 
+                    }
                     viewModel.setGameId(gameId)
                     when (selected) {
                         GameActionItem.START_GAME -> viewModel.startGame()
@@ -169,6 +176,8 @@ class GameActivity : ComponentActivity() {
             if (event == "GAME_CREATED" && gameId.isNotEmpty()) {
                 etGameId.setText(gameId)
                 viewModel.setGameId(gameId)
+                // ✨ Automatically navigate to GameboardUI after game is created
+                navigateToGameBoard(gameId)
             }
         } catch (e: Exception) {
             appendLog("handleGameEvent exception: $e")
@@ -192,6 +201,11 @@ class GameActivity : ComponentActivity() {
     }
 
     private fun toast(msg: String) = Toast.makeText(this, msg, Toast.LENGTH_SHORT).show()
+
+    private fun navigateToGameBoard(gameId: String) {
+        val intent = Intent(this, GameboardUI::class.java).apply {
+            putExtra("GAME_ID", gameId)
+        }
+        startActivity(intent)
+    }
 }
-
-

@@ -14,6 +14,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 class LobbyViewModel(private val gameService: GameService) : ViewModel() {
@@ -34,9 +35,13 @@ class LobbyViewModel(private val gameService: GameService) : ViewModel() {
     val createdGameId: StateFlow<String?> = _createdGameId.asStateFlow()
 
     init {
-        gameService.connect()
         observeLobbyEvents()
         observeGameEvents()
+        // Defer connection to avoid blocking UI with OkHttp/Okio class verification
+        viewModelScope.launch {
+            delay(100) // let first frame render
+            gameService.connect()
+        }
     }
 
     private fun observeLobbyEvents() {

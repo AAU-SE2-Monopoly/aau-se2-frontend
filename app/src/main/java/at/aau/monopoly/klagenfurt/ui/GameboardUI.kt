@@ -31,11 +31,15 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import kotlinx.coroutines.delay
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -245,7 +249,7 @@ fun GameboardContent(
                     val sh = this.maxHeight.value
 
                     Image(
-                        painter = painterResource(id = R.drawable.inskapedownscalewebp),
+                        painter = painterResource(id = R.drawable.background),
                         contentDescription = "Klagenfurt-Map",
                         modifier = Modifier.fillMaxSize(),
                         contentScale = ContentScale.FillBounds
@@ -256,12 +260,32 @@ fun GameboardContent(
                         modifier = Modifier.fillMaxSize(),
                         contentScale = ContentScale.FillBounds
                     )
-                    testFields.forEachIndexed { index, field ->
-                        FieldItem(index, field, sw, sh)
+                    // Stagger field rendering to avoid decoding all images on first frame
+                    var visibleFieldCount by remember { mutableIntStateOf(0) }
+                    LaunchedEffect(testFields.size) {
+                        if (testFields.isNotEmpty() && visibleFieldCount < testFields.size) {
+                            // Render in batches to spread image decoding across frames
+                            val batchSize = 5
+                            var count = 0
+                            while (count < testFields.size) {
+                                count = (count + batchSize).coerceAtMost(testFields.size)
+                                visibleFieldCount = count
+                                delay(32) // ~2 frames between batches
+                            }
+                        }
+                    }
+
+                    testFields.take(visibleFieldCount).forEachIndexed { index, field ->
+                        key(field.id) {
+                            FieldItem(index, field, sw, sh)
+                        }
                     }
 
                     players.forEachIndexed { index, player ->
-                        val bounds = calculateFieldBounds(player.position, sw, sh)
+                        key(player.id) {
+                        val bounds = remember(player.position, sw, sh) {
+                            calculateFieldBounds(player.position, sw, sh)
+                        }
 
                         val maxCols = 3
                         val maxRows = 2
@@ -293,9 +317,9 @@ fun GameboardContent(
                                 .clip(RoundedCornerShape(2.dp))
                                 .background(Color.White)
                         )
+                        }
                     }
-                }
-            }
+                }            }
         }
 
         // Overlay: Left panel – other players
@@ -449,10 +473,12 @@ fun calculateFieldBounds(index: Int, sw: Float, sh: Float): FieldBounds {
 fun FieldItem(index: Int, field: Field, sw: Float, sh: Float) {
     val bounds = remember(index, sw, sh) { calculateFieldBounds(index, sw, sh) }
     val side = (index / 10) % 4
-    val imageMap = getFieldImageMapping(field.name)
+    val imageMap = remember(field.name) { getFieldImageMapping(field.name) }
+
+    val containerMod = remember(bounds) { fieldItemContainerMod(bounds) }
 
     Box(
-        modifier = fieldItemContainerMod(bounds),
+        modifier = containerMod,
         contentAlignment = Alignment.Center
     ) {
         FieldImage(

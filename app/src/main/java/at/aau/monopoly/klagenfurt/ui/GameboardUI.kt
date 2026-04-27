@@ -118,19 +118,19 @@ fun LockScreenOrientation(orientation: Int) {
         val players = gameState?.players ?: emptyList()
         val currentPlayerId = viewModel.currentPlayerId
         val currentTurnPlayer = gameState?.currentPlayer
+        val eventLog by viewModel.eventLog.collectAsState()
 
     LockScreenOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE)
 
     Box(modifier = modifier.fillMaxSize()) {
-        GameboardContent(fields, players, Modifier.fillMaxSize())
-        GameboardOverlayLayer(eventLog = eventLog)
         GameboardContent(
-            fields = fields ?: emptyList(),
+            fields = fields,
             players = players,
             currentPlayerId = currentPlayerId,
             currentTurnPlayer = currentTurnPlayer,
-            modifier = modifier
+            modifier = Modifier.fillMaxSize()
         )
+        GameboardOverlayLayer(eventLog = eventLog)
     }
 }
 

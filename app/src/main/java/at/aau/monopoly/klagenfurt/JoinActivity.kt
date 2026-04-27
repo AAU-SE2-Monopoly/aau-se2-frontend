@@ -78,10 +78,14 @@ class JoinActivity : ComponentActivity() {
                             gameService.joinGame(gameId, playerName, iconId)
                         }
                         // Navigate to the game board
-                        startActivity(
-                            Intent(this, GameboardUI::class.java)
-                        )
-                        finish()
+                        if (!isNewGame && gameId.isNotBlank()) {
+                            startActivity(
+                                Intent(this, GameboardUI::class.java).apply {
+                                    putExtra("GAME_ID", gameId)
+                                }
+                            )
+                            finish()
+                        }
                     }
                 )
             }

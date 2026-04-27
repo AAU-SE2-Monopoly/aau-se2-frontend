@@ -27,6 +27,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -95,6 +96,11 @@ fun LockScreenOrientation(orientation: Int) {
 
 @Composable
 fun GameboardScreen(modifier: Modifier = Modifier, viewModel: GameViewModel) {
+    // Request state sync when entering the screen to ensure fresh data
+    LaunchedEffect(Unit) {
+        viewModel.syncGameboardEntryState()
+    }
+
     val fields by viewModel.fields.collectAsState(initial = emptyList())
     val gameState by viewModel.gameState.collectAsState()
     val eventLog by viewModel.eventLog.collectAsState()
@@ -107,7 +113,14 @@ fun GameboardScreen(modifier: Modifier = Modifier, viewModel: GameViewModel) {
         GameboardOverlayLayer(eventLog = eventLog)
     }
 }
-/**This function creates the overlay layer for the gameboard. Call components that should not be zoomable here**/
+
+/**
+ * Creates the overlay layer for the gameboard. 
+ * Place components here that should remain fixed (not zoomable), such as UI controls or HUD.
+ * 
+ * eventLog displays events like join, create game, dice rolled etc.
+ * The Log ignores State Snapshots -> Technical Logs will be displayed on DoubleClick on ChatBar in an expanded window.
+ */
 @Composable
 private fun BoxScope.GameboardOverlayLayer(eventLog: List<GameViewModel.LogEntry>) {
     ChatOverlay(

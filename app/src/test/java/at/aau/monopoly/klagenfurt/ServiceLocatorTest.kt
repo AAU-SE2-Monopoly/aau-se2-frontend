@@ -69,6 +69,25 @@ class ServiceLocatorTest {
     }
 
     @Test
+    fun resetGameService_disconnectsAndClearsGameService() {
+        val mockService = mockk<GameService>(relaxed = true)
+        ServiceLocator.injectGameServiceForTest(mockService)
+
+        ServiceLocator.resetGameService()
+
+        val newService = ServiceLocator.provideGameService()
+        assertNotSame(mockService, newService)
+        io.mockk.verify { mockService.disconnect() }
+    }
+
+    @Test
+    fun resetGameService_handlesNullGameServiceGracefully() {
+        // No game service injected – should not throw
+        ServiceLocator.resetGameService()
+        assertNotNull(ServiceLocator.provideGameService())
+    }
+
+    @Test
     fun resetForTests_clearsAllInstances() {
         val mockClient = mockk<StompClient>()
         val mockService = mockk<GameService>()

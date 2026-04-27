@@ -12,6 +12,7 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.yield
 import org.hildan.krossbow.stomp.StompClient
 import org.hildan.krossbow.stomp.StompSession
 import org.hildan.krossbow.stomp.sendText
@@ -34,8 +35,12 @@ class GameStompClient(
     private var isConnecting = false
 
 
-    private val _events = MutableSharedFlow<String>(replay = 64)
+    private val _events = MutableSharedFlow<String>(replay = 1)
     override val events: SharedFlow<String> = _events.asSharedFlow()
+
+
+    private val _logEvents = MutableSharedFlow<String>(replay = 80)
+    override val logEvents: SharedFlow<String> = _logEvents.asSharedFlow()
 
     private val _status = MutableSharedFlow<String>(replay = 1)
     override val status: SharedFlow<String> = _status.asSharedFlow()
@@ -97,6 +102,7 @@ class GameStompClient(
                 Log.d("GameStomp", "Subscribing to personal topic: /topic/game/$currentPlayerId")
                 currentSession.subscribeText("/topic/game/$currentPlayerId").collect { msg ->
                     _events.emit(msg)
+                    _logEvents.emit(msg)
                 }
             } catch (e: Throwable) {
                 if (!isCancellation(e)) {
@@ -201,7 +207,7 @@ class GameStompClient(
                 _status.emit("Join failed: Could not subscribe to game topic")
                 return@launch
             }
-
+            yield()
             Log.d("GameStomp", "Sending join command for game: $gameId with icon: $iconId")
             sendRawInternal(
                 "/app/game/join",
@@ -259,6 +265,7 @@ class GameStompClient(
                 try {
                     subscription.collect { msg ->
                         _events.emit(msg)
+                        _logEvents.emit(msg)
                     }
                 } catch (e: Throwable) {
                     if (!isCancellation(e)) Log.e("GameStomp", "collect error", e)

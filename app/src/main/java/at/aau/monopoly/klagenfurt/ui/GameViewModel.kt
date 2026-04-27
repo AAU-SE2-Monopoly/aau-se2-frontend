@@ -56,10 +56,10 @@ class GameViewModel(private val gameService: GameService) : ViewModel() {
         )
 
     /**
-     * Dedicated flow for logs with higher replay to preserve chat history 
-     * across activity switches.
+     * Dedicated log source from the networking layer. This keeps log replay
+     * independent from state replay.
      */
-    private val logEventFlow: SharedFlow<GameEvent> = gameService.events
+    private val logEventFlow: SharedFlow<GameEvent> = gameService.logEvents
         .mapNotNull { jsonString ->
             try {
                 objectMapper.readValue(jsonString, GameEvent::class.java)
@@ -68,7 +68,7 @@ class GameViewModel(private val gameService: GameService) : ViewModel() {
         .shareIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5000),
-            replay = 64
+            replay = 1
         )
 
     init {
@@ -128,9 +128,14 @@ class GameViewModel(private val gameService: GameService) : ViewModel() {
     val eventLog: StateFlow<List<LogEntry>> = logEventFlow
         .runningFold(LogAccumulator(gameId = "", entries = emptyList())) { acc, event ->
             val eventGameId = event.gameId
-            val incomingGameId = if (eventGameId.isNotBlank()) eventGameId else acc.gameId
+            val incomingGameId = when {
+                eventGameId.isNotBlank() -> eventGameId
+                gameService.currentGameId.isNotBlank() -> gameService.currentGameId
+                else -> acc.gameId
+            }
 
             val shouldIgnore =
+                event.event != "GAME_CREATED" &&
                 incomingGameId.isNotBlank() &&
                     gameService.currentGameId.isNotBlank() &&
                     incomingGameId != gameService.currentGameId

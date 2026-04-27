@@ -16,6 +16,7 @@ object ServiceLocator {
     @Volatile
     private var gameService: GameService? = null
 
+
     fun provideStompClient(): StompClient {
         // Double-Checked Locking für Thread-Sicherheit (falls es parallel aufgerufen wird)
         return stompClient ?: synchronized(this) {
@@ -40,6 +41,8 @@ object ServiceLocator {
             gameService = null
         }
     }
+
+
 
     // --- TEST HELPERS ---
     // Diese Methoden sind essentiell, damit du MockK in Espresso verwenden kannst.
@@ -66,5 +69,6 @@ object ServiceLocator {
     fun resetForTests() {
         stompClient = null
         gameService = null
+
     }
 }

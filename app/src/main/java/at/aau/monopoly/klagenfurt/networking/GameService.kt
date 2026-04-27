@@ -4,6 +4,8 @@ import kotlinx.coroutines.flow.SharedFlow
 
 interface GameService {
     val events: SharedFlow<String>
+    val logEvents: SharedFlow<String>
+        get() = events
     val status: SharedFlow<String>
     val lobbyEvents: SharedFlow<String>
     val currentPlayerId: String

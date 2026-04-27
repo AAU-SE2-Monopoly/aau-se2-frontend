@@ -69,10 +69,11 @@ class GameStompClient(
             try {
                 Log.d("GameStomp", "Connecting to $websocketUri...")
                 session = stompClient.connect(websocketUri)
+
+                subscribeToPersonalTopic()
+                
                 _status.emit("Connected ✓")
                 Log.d("GameStomp", "Connected successfully")
-                
-                subscribeToPersonalTopic()
 
             } catch (e: Throwable) {
                 if (isCancellation(e)) {
@@ -101,6 +102,7 @@ class GameStompClient(
                 if (!isCancellation(e)) {
                     Log.e("GameStomp", "personal subscription error", e)
                 }
+                personalSubscriptionJob = null
             }
         }
     }
@@ -125,7 +127,11 @@ class GameStompClient(
 
     override fun subscribeToGame(gameId: String) {
         scope.launch {
-            subscribeToGameInternal(gameId = gameId, requestStateAfterSubscribe = true)
+
+            val success = subscribeToGameInternal(gameId = gameId, requestStateAfterSubscribe = true)
+            if (!success) {
+                _status.emit("Subscription failed for $gameId")
+            }
         }
     }
 
@@ -140,6 +146,7 @@ class GameStompClient(
                 val currentSession = session
                 if (currentSession == null) {
                     Log.w("GameStomp", "Cannot subscribe to lobby: not connected")
+                    _status.emit("Lobby sub failed: Not connected")
                     return@launch
                 }
                 Log.d("GameStomp", "Subscribing to /topic/lobby")
@@ -153,6 +160,7 @@ class GameStompClient(
                     Log.e("GameStomp", "lobby subscription error", e)
                     _status.emit("Lobby subscription error: ${e.message}")
                 }
+                lobbySubscriptionJob = null
             }
         }
     }
@@ -187,8 +195,12 @@ class GameStompClient(
     override fun joinGame(gameId: String, playerName: String, iconId: String) {
         _currentPlayerName = playerName
         scope.launch {
+
             val subscribed = subscribeToGameInternal(gameId = gameId, requestStateAfterSubscribe = true)
-            if (!subscribed) return@launch
+            if (!subscribed) {
+                _status.emit("Join failed: Could not subscribe to game topic")
+                return@launch
+            }
 
             Log.d("GameStomp", "Sending join command for game: $gameId with icon: $iconId")
             sendRawInternal(
@@ -242,9 +254,14 @@ class GameStompClient(
             Log.d("GameStomp", "Subscribing to /topic/game/$gameId")
             val subscription = currentSession.subscribeText("/topic/game/$gameId")
 
+
             subscriptionJob = scope.launch {
-                subscription.collect { msg ->
-                    _events.emit(msg)
+                try {
+                    subscription.collect { msg ->
+                        _events.emit(msg)
+                    }
+                } catch (e: Throwable) {
+                    if (!isCancellation(e)) Log.e("GameStomp", "collect error", e)
                 }
             }
 
@@ -254,6 +271,7 @@ class GameStompClient(
 
             true
         } catch (e: Throwable) {
+            subscriptionJob = null
             if (isCancellation(e)) {
                 Log.d("GameStomp", "Subscription job cancelled for $gameId")
             } else {
@@ -282,19 +300,7 @@ class GameStompClient(
 
     private fun sendRaw(destination: String, json: String) {
         scope.launch {
-            try {
-                val currentSession = session
-                if (currentSession != null) {
-                    currentSession.sendText(destination, json)
-                } else {
-                    _status.emit("Not connected")
-                }
-            } catch (e: Throwable) {
-                if (!isCancellation(e)) {
-                    Log.e("GameStomp", "send error to $destination", e)
-                    _status.emit("Send error: ${e.message}")
-                }
-            }
+            sendRawInternal(destination, json)
         }
     }
 

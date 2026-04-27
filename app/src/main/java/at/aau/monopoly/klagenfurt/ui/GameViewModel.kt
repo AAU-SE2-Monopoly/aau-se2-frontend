@@ -36,7 +36,10 @@ class GameViewModel(private val gameService: GameService) : ViewModel() {
 
     private val objectMapper = JacksonProvider.objectMapper
 
-
+    /**
+     * Primary flow for game state changes. Low replay to avoid re-processing 
+     * old technical snapshots for current UI state.
+     */
     private val gameEventFlow: SharedFlow<GameEvent> = gameService.events
         .mapNotNull { jsonString ->
             try {
@@ -49,16 +52,34 @@ class GameViewModel(private val gameService: GameService) : ViewModel() {
         .shareIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5000),
+            replay = 1
+        )
+
+    /**
+     * Dedicated flow for logs with higher replay to preserve chat history 
+     * across activity switches.
+     */
+    private val logEventFlow: SharedFlow<GameEvent> = gameService.events
+        .mapNotNull { jsonString ->
+            try {
+                objectMapper.readValue(jsonString, GameEvent::class.java)
+            } catch (e: Exception) { null }
+        }
+        .shareIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
             replay = 64
         )
 
     init {
         gameEventFlow
             .onEach { event ->
+                // Only auto-capture the gameId if we don't have one yet.
+                // This prevents replayed events from switching the game context unexpectedly.
                 if (
                     event.event == "GAME_CREATED" &&
                     event.gameId.isNotBlank() &&
-                    event.gameId != gameService.currentGameId
+                    gameService.currentGameId.isBlank()
                 ) {
                     gameService.setGameId(event.gameId)
                 }
@@ -97,22 +118,17 @@ class GameViewModel(private val gameService: GameService) : ViewModel() {
     val isGameReady: StateFlow<Boolean> = gameState
         .map { it != null }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
-
     /**
-    eventLog displays events like join, create game, dice rolled etc.
-    The Log ignores State Snapshots-> Technical Logs will be displayed on DoubleClick on ChatBar in an expanded window.
-     **/
+    * Displays user-facing game events such as joining, creating a game, and rolling dice.
+    *
+    * State snapshots and other technical log entries are excluded from the normal log.
+    * Technical logs are shown separately in the expanded chat bar view.
+    */
 
-    val eventLog: StateFlow<List<LogEntry>> = gameEventFlow
+    val eventLog: StateFlow<List<LogEntry>> = logEventFlow
         .runningFold(LogAccumulator(gameId = "", entries = emptyList())) { acc, event ->
             val eventGameId = event.gameId
             val incomingGameId = if (eventGameId.isNotBlank()) eventGameId else acc.gameId
-
-            val isGameSwitch = incomingGameId.isNotBlank() &&
-                acc.gameId.isNotBlank() &&
-                incomingGameId != acc.gameId
-
-            val baseEntries = if (isGameSwitch || event.event == "GAME_CREATED") emptyList() else acc.entries
 
             val shouldIgnore =
                 incomingGameId.isNotBlank() &&
@@ -120,8 +136,14 @@ class GameViewModel(private val gameService: GameService) : ViewModel() {
                     incomingGameId != gameService.currentGameId
 
             if (shouldIgnore) {
-                LogAccumulator(gameId = incomingGameId, entries = baseEntries)
+                acc
             } else {
+                val isGameSwitch = incomingGameId.isNotBlank() &&
+                        acc.gameId.isNotBlank() &&
+                        incomingGameId != acc.gameId
+
+                val baseEntries = if (isGameSwitch || event.event == "GAME_CREATED") emptyList() else acc.entries
+
                 val isTechnical = event.event == "STATE_SNAPSHOT" || event.event == "STATE_UPDATED"
                 val entryText = event.message?.takeIf { it.isNotBlank() } 
                     ?: humanReadableEvent(event.event, event.gameId)
@@ -162,6 +184,12 @@ class GameViewModel(private val gameService: GameService) : ViewModel() {
     fun requestState() = gameService.requestState()
 
     fun setGameId(gameId: String) = gameService.setGameId(gameId)
+
+    fun syncGameboardEntryState() {
+        val currentGameId = gameService.currentGameId
+        if (currentGameId.isBlank()) return
+        gameService.requestState()
+    }
 
     private fun humanReadableEvent(eventType: String, gameId: String): String {
         return when (eventType) {

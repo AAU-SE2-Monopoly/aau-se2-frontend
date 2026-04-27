@@ -27,6 +27,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -40,7 +41,6 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
-import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
@@ -60,6 +60,7 @@ import at.aau.monopoly.klagenfurt.model.Player
 import at.aau.monopoly.klagenfurt.model.enums.PropertyColor
 import at.aau.monopoly.klagenfurt.model.field.Field
 import at.aau.monopoly.klagenfurt.model.field.PropertyField
+import at.aau.monopoly.klagenfurt.ui.chat.ChatOverlay
 import com.example.myapplication.R
 import kotlin.collections.emptyList
 import kotlin.collections.listOf
@@ -69,10 +70,11 @@ class GameboardUI : ComponentActivity() {
     private val viewModel: GameViewModel by viewModels {
         GameViewModel.Factory(ServiceLocator.provideGameService())
     }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
-            GameboardScreen(viewModel=viewModel)
+            GameboardScreen(viewModel = viewModel)
         }
     }
 }
@@ -92,16 +94,42 @@ fun LockScreenOrientation(orientation: Int) {
     }
 }
 
-    @Composable
-    fun GameboardScreen(modifier: Modifier = Modifier, viewModel: GameViewModel) {
-        val fields by viewModel.fields.collectAsState(initial = emptyList())
-        val gameState by viewModel.gameState.collectAsState()
-        val players = gameState?.players ?: emptyList()
-
-        LockScreenOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE)
-
-        GameboardContent(fields ?: emptyList(), players, modifier)
+@Composable
+fun GameboardScreen(modifier: Modifier = Modifier, viewModel: GameViewModel) {
+    // Request state sync when entering the screen to ensure fresh data
+    LaunchedEffect(Unit) {
+        viewModel.syncGameboardEntryState()
     }
+
+    val fields by viewModel.fields.collectAsState(initial = emptyList())
+    val gameState by viewModel.gameState.collectAsState()
+    val eventLog by viewModel.eventLog.collectAsState()
+    val players = gameState?.players ?: emptyList()
+
+    LockScreenOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE)
+
+    Box(modifier = modifier.fillMaxSize()) {
+        GameboardContent(fields, players, Modifier.fillMaxSize())
+        GameboardOverlayLayer(eventLog = eventLog)
+    }
+}
+
+/**
+ * Creates the overlay layer for the gameboard. 
+ * Place components here that should remain fixed (not zoomable), such as UI controls or HUD.
+ * 
+ * eventLog displays events like join, create game, dice rolled etc.
+ * The Log ignores State Snapshots -> Technical Logs will be displayed on DoubleClick on ChatBar in an expanded window.
+ */
+@Composable
+private fun BoxScope.GameboardOverlayLayer(eventLog: List<GameViewModel.LogEntry>) {
+    ChatOverlay(
+        entries = eventLog,
+        modifier = Modifier
+            .align(Alignment.TopCenter)
+    )
+}
+
 
 class ZoomState(
     initialScale: Float = 1f,

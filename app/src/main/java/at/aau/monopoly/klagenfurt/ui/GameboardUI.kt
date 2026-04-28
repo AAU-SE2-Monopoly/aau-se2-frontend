@@ -60,6 +60,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import at.aau.monopoly.klagenfurt.ServiceLocator
 import at.aau.monopoly.klagenfurt.model.Player
+import at.aau.monopoly.klagenfurt.model.enums.GamePhase
 import at.aau.monopoly.klagenfurt.model.enums.PropertyColor
 import at.aau.monopoly.klagenfurt.model.field.Field
 import at.aau.monopoly.klagenfurt.model.field.PropertyField
@@ -116,23 +117,22 @@ fun GameboardScreen(modifier: Modifier = Modifier, viewModel: GameViewModel) {
     val eventLog by viewModel.eventLog.collectAsState()
     val players = gameState?.players ?: emptyList()
     val lastDiceRoll by viewModel.lastDiceRoll.collectAsState()
-    val showDiceOverlay by viewModel.showDiceOverlay.collectAsState()
-    val isRolling by viewModel.isRolling.collectAsState()
+    val isRollingPhaseForCurrentPlayer by viewModel.isRollingPhaseForCurrentPlayer.collectAsState()
     val context = LocalContext.current
 
     // ShakeDetector setup
     val shakeDetector = remember {
         ShakeDetector(context) {
             // On shake detected, complete the roll
-            if (showDiceOverlay && isRolling) {
+            if (isRollingPhaseForCurrentPlayer) {
                 viewModel.onDiceRollComplete()
             }
         }
     }
 
     // Start/stop listening for shake when overlay visibility or rolling state changes
-    LaunchedEffect(showDiceOverlay, isRolling) {
-        if (showDiceOverlay && isRolling) {
+    LaunchedEffect(isRollingPhaseForCurrentPlayer) {
+        if (isRollingPhaseForCurrentPlayer) {
             shakeDetector.startListening()
         } else {
             shakeDetector.stopListening()
@@ -170,9 +170,9 @@ fun GameboardScreen(modifier: Modifier = Modifier, viewModel: GameViewModel) {
 
         // 🎲 Dice Roll Overlay
         DiceRollOverlay(
-            isVisible = showDiceOverlay,
+            isVisible = isRollingPhaseForCurrentPlayer,
             diceResult = if (lastDiceRoll != null) Pair(lastDiceRoll!!.die1, lastDiceRoll!!.die2) else null,
-            isRolling = isRolling,
+            isRolling = isRollingPhaseForCurrentPlayer && lastDiceRoll == null,
             onClose = { viewModel.closeDiceOverlay() }
         )
 

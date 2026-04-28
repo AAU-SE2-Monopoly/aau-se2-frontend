@@ -8,6 +8,7 @@ import at.aau.monopoly.klagenfurt.messaging.GameEvent
 import at.aau.monopoly.klagenfurt.model.DiceRoll
 import at.aau.monopoly.klagenfurt.model.GameState
 import at.aau.monopoly.klagenfurt.model.field.Field
+import at.aau.monopoly.klagenfurt.model.enums.GamePhase
 import at.aau.monopoly.klagenfurt.networking.GameService
 import at.aau.monopoly.klagenfurt.networking.JacksonProvider
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -183,7 +184,13 @@ class GameViewModel(private val gameService: GameService) : ViewModel() {
     val showDiceOverlay: StateFlow<Boolean> = _showDiceOverlay.asStateFlow()
 
     private val _isRolling = MutableStateFlow(false)
-    val isRolling: StateFlow<Boolean> = _isRolling.asStateFlow()
+
+    val isRollingPhaseForCurrentPlayer: StateFlow<Boolean> = gameState
+        .map { state ->
+            state?.phase == GamePhase.ROLLING &&
+                state.currentPlayer?.id == gameService.currentPlayerId
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
     val events: SharedFlow<String> = gameService.events
     val status: SharedFlow<String> = gameService.status

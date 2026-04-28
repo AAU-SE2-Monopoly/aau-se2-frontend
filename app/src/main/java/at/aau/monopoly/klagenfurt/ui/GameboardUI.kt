@@ -70,6 +70,7 @@ import kotlin.collections.emptyList
 import kotlin.collections.listOf
 import kotlin.math.sqrt
 import kotlinx.coroutines.delay
+import androidx.compose.runtime.rememberUpdatedState
 
 
 class GameboardUI : ComponentActivity() {
@@ -134,13 +135,17 @@ fun GameboardScreen(modifier: Modifier = Modifier, viewModel: GameViewModel) {
     }
 
     // ShakeDetector setup
-    val shakeDetector = remember {
-        ShakeDetector(context) {
-            // On shake detected, complete the roll
-            if (isRollingPhaseForCurrentPlayer) {
-                viewModel.rollDice()
+    val latestIsRollingPhase = rememberUpdatedState(isRollingPhaseForCurrentPlayer)
+
+    val shakeDetector = remember(context) {
+        ShakeDetector(
+            context = context,
+            onShake = {
+                if (latestIsRollingPhase.value) {
+                    viewModel.rollDice()
+                }
             }
-        }
+        )
     }
 
     // Start/stop listening for shake when overlay visibility or rolling state changes

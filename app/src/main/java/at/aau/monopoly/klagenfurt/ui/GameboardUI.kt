@@ -69,6 +69,7 @@ import com.example.myapplication.R
 import kotlin.collections.emptyList
 import kotlin.collections.listOf
 import kotlin.math.sqrt
+import kotlinx.coroutines.delay
 
 
 class GameboardUI : ComponentActivity() {
@@ -115,9 +116,22 @@ fun GameboardScreen(modifier: Modifier = Modifier, viewModel: GameViewModel) {
     val gameState by viewModel.gameState.collectAsState()
     val eventLog by viewModel.eventLog.collectAsState()
     val players = gameState?.players ?: emptyList()
-    val lastDiceRoll by viewModel.lastDiceRoll.collectAsState()
+
+    
     val isRollingPhaseForCurrentPlayer by viewModel.isRollingPhaseForCurrentPlayer.collectAsState()
+    val lastDiceRoll by viewModel.lastDiceRoll.collectAsState()
+
     val context = LocalContext.current
+
+
+    var showOverlay by remember { mutableStateOf(false) }
+
+
+    LaunchedEffect(isRollingPhaseForCurrentPlayer) {
+        if (isRollingPhaseForCurrentPlayer) {
+            showOverlay = true
+        }
+    }
 
     // ShakeDetector setup
     val shakeDetector = remember {
@@ -180,10 +194,12 @@ fun GameboardScreen(modifier: Modifier = Modifier, viewModel: GameViewModel) {
 
         // 🎲 Dice Roll Overlay
         DiceRollOverlay(
-            isVisible = isRollingPhaseForCurrentPlayer,
-            diceResult = if (lastDiceRoll != null) Pair(lastDiceRoll!!.die1, lastDiceRoll!!.die2) else null,
-            isRolling = isRollingPhaseForCurrentPlayer && lastDiceRoll == null,
-            onClose = { viewModel.closeDiceOverlay() }
+            isVisible = showOverlay,
+            diceResult = lastDiceRoll?.let { Pair(it.die1, it.die2) },
+            isRolling = isRollingPhaseForCurrentPlayer,
+            onClose = {
+                showOverlay = false // Schließt das Overlay sauber!
+            }
         )
 
         // Chat / Event log overlay (top center)

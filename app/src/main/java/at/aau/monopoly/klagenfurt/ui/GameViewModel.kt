@@ -180,15 +180,33 @@ class GameViewModel(private val gameService: GameService) : ViewModel() {
         .map { it?.lastDiceRoll }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
 
-    private val _showDiceOverlay = MutableStateFlow(false)
-    val showDiceOverlay: StateFlow<Boolean> = _showDiceOverlay.asStateFlow()
-
-    private val _isRolling = MutableStateFlow(false)
 
     val isRollingPhaseForCurrentPlayer: StateFlow<Boolean> = gameState
         .map { state ->
             state?.phase == GamePhase.ROLLING &&
                 state.currentPlayer?.id == gameService.currentPlayerId
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+
+    val diceResultForCurrentPlayer: StateFlow<DiceRoll?> = gameState
+        .map { state ->
+            if (
+                state?.phase == GamePhase.BUYING &&
+                state.currentPlayer?.id == gameService.currentPlayerId
+            ) {
+                state.lastDiceRoll
+            } else {
+                null
+            }
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+
+    val showDiceOverlayForCurrentPlayer: StateFlow<Boolean> = gameState
+        .map { state ->
+            val isCurrentPlayer = state?.currentPlayer?.id == gameService.currentPlayerId
+            val isRollingPhase = state?.phase == GamePhase.ROLLING
+            val hasResult = state?.phase == GamePhase.BUYING && state.lastDiceRoll != null
+            isCurrentPlayer && (isRollingPhase || hasResult)
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
@@ -206,11 +224,6 @@ class GameViewModel(private val gameService: GameService) : ViewModel() {
     // Use the simpler main-branch behavior for rolling the dice: just forward to service.
     fun rollDice() = gameService.rollDice()
 
-
-    fun closeDiceOverlay() {
-        _showDiceOverlay.value = false
-        Log.d("DiceRoll", "closeDiceOverlay - overlay hidden")
-    }
 
     fun endTurn() = gameService.endTurn()
 

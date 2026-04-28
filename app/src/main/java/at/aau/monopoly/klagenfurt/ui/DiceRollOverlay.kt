@@ -1,5 +1,6 @@
 package at.aau.monopoly.klagenfurt.ui
 
+import android.os.SystemClock
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.tween
@@ -42,16 +43,22 @@ fun DiceRollOverlay(
 
     var displayRolling by remember(isRolling) { mutableStateOf(isRolling) }
     var displayResult by remember { mutableStateOf(diceResult) }
+    var rollStartMs by remember { mutableStateOf(0L) }
+    val minOverlayMs = 1200L
 
     // Wait for backend response before stopping animation
     LaunchedEffect(diceResult, isRolling) {
         if (!isRolling && diceResult != null) {
-            // Backend response received - show with 500ms delay for smooth transition
-            delay(500)
+            // Ensure the overlay stays visible for a minimum duration
+            val elapsed = SystemClock.elapsedRealtime() - rollStartMs
+            if (elapsed < minOverlayMs) {
+                delay(minOverlayMs - elapsed)
+            }
             displayResult = diceResult
             displayRolling = false
         } else if (isRolling) {
             // Start rolling animation
+            rollStartMs = SystemClock.elapsedRealtime()
             displayRolling = true
             displayResult = null
         }

@@ -43,7 +43,6 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
-import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
@@ -64,6 +63,7 @@ import at.aau.monopoly.klagenfurt.model.Player
 import at.aau.monopoly.klagenfurt.model.enums.PropertyColor
 import at.aau.monopoly.klagenfurt.model.field.Field
 import at.aau.monopoly.klagenfurt.model.field.PropertyField
+import at.aau.monopoly.klagenfurt.ui.chat.ChatOverlay
 import com.example.myapplication.R
 import kotlin.collections.emptyList
 import kotlin.collections.listOf
@@ -75,6 +75,7 @@ class GameboardUI : ComponentActivity() {
     private val viewModel: GameViewModel by viewModels {
         GameViewModel.Factory(ServiceLocator.provideGameService())
     }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val gameId = intent.getStringExtra("GAME_ID")
@@ -83,7 +84,7 @@ class GameboardUI : ComponentActivity() {
             viewModel.setGameId(gameId)
         }
         setContent {
-            GameboardScreen(viewModel=viewModel)
+            GameboardScreen(viewModel = viewModel)
         }
     }
 }
@@ -104,12 +105,15 @@ fun LockScreenOrientation(orientation: Int) {
 }
 
 @Composable
-fun GameboardScreen(
-    modifier: Modifier = Modifier,
-    viewModel: GameViewModel
-) {
+fun GameboardScreen(modifier: Modifier = Modifier, viewModel: GameViewModel) {
+    // Request state sync when entering the screen to ensure fresh data
+    LaunchedEffect(Unit) {
+        viewModel.syncGameboardEntryState()
+    }
+
     val fields by viewModel.fields.collectAsState(initial = emptyList())
     val gameState by viewModel.gameState.collectAsState()
+    val eventLog by viewModel.eventLog.collectAsState()
     val players = gameState?.players ?: emptyList()
     val lastDiceRoll by viewModel.lastDiceRoll.collectAsState()
     val showDiceOverlay by viewModel.showDiceOverlay.collectAsState()
@@ -119,14 +123,14 @@ fun GameboardScreen(
     // ShakeDetector setup
     val shakeDetector = remember {
         ShakeDetector(context) {
-            // On shake detected, roll the dice
+            // On shake detected, complete the roll
             if (showDiceOverlay && isRolling) {
                 viewModel.onDiceRollComplete()
             }
         }
     }
 
-    // Start listening for shake when overlay is visible and rolling
+    // Start/stop listening for shake when overlay visibility or rolling state changes
     LaunchedEffect(showDiceOverlay, isRolling) {
         if (showDiceOverlay && isRolling) {
             shakeDetector.startListening()
@@ -171,9 +175,27 @@ fun GameboardScreen(
             isRolling = isRolling,
             onClose = { viewModel.closeDiceOverlay() }
         )
+
+        // Chat / Event log overlay (top center)
+        GameboardOverlayLayer(eventLog = eventLog)
     }
 }
 
+/**
+ * Creates the overlay layer for the gameboard.
+ * Place components here that should remain fixed (not zoomable), such as UI controls or HUD.
+ *
+ * eventLog displays events like join, create game, dice rolled etc.
+ * The Log ignores State Snapshots -> Technical Logs will be displayed on DoubleClick on ChatBar in an expanded window.
+ */
+@Composable
+private fun BoxScope.GameboardOverlayLayer(eventLog: List<GameViewModel.LogEntry>) {
+    ChatOverlay(
+        entries = eventLog,
+        modifier = Modifier
+            .align(Alignment.TopCenter)
+    )
+}
 class ZoomState(
     initialScale: Float = 1f,
     initialOffset: Offset = Offset.Zero

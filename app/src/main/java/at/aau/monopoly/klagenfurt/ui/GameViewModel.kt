@@ -206,10 +206,6 @@ class GameViewModel(private val gameService: GameService) : ViewModel() {
     // Use the simpler main-branch behavior for rolling the dice: just forward to service.
     fun rollDice() = gameService.rollDice()
 
-    fun onDiceRollComplete() {
-        _isRolling.value = false
-        Log.d("DiceRoll", "onDiceRollComplete - rolling finished")
-    }
 
     fun closeDiceOverlay() {
         _showDiceOverlay.value = false

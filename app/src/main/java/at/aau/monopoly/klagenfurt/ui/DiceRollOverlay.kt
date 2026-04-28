@@ -95,9 +95,9 @@ fun DiceRollOverlay(
                 Spacer(modifier = Modifier.height(20.dp))
 
                 // Result display (only when not rolling and result available)
-                if (!displayRolling && displayResult != null) {
-                    val result = displayResult
-                    if (result != null) {
+                if (!displayRolling) {
+                    val result = displayResult // Lokale Konstante für den Compiler
+                    if (result != null) {      // Ab hier greift der Kotlin Smart Cast!
                         val total = result.first + result.second
                         val isDouble = result.first == result.second
 

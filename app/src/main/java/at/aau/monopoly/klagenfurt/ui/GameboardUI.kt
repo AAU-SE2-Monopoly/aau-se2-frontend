@@ -14,6 +14,7 @@ import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
@@ -60,7 +61,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import at.aau.monopoly.klagenfurt.ServiceLocator
 import at.aau.monopoly.klagenfurt.model.Player
-import at.aau.monopoly.klagenfurt.model.enums.GamePhase
 import at.aau.monopoly.klagenfurt.model.enums.PropertyColor
 import at.aau.monopoly.klagenfurt.model.field.Field
 import at.aau.monopoly.klagenfurt.model.field.PropertyField
@@ -69,7 +69,6 @@ import com.example.myapplication.R
 import kotlin.collections.emptyList
 import kotlin.collections.listOf
 import kotlin.math.sqrt
-import androidx.compose.material3.Button
 
 
 class GameboardUI : ComponentActivity() {
@@ -125,7 +124,7 @@ fun GameboardScreen(modifier: Modifier = Modifier, viewModel: GameViewModel) {
         ShakeDetector(context) {
             // On shake detected, complete the roll
             if (isRollingPhaseForCurrentPlayer) {
-                viewModel.onDiceRollComplete()
+                viewModel.rollDice()
             }
         }
     }
@@ -156,16 +155,27 @@ fun GameboardScreen(modifier: Modifier = Modifier, viewModel: GameViewModel) {
             modifier = Modifier.fillMaxSize()
         )
 
-        // 🎲 Button on the lower right side
-        Button(
-            onClick = {
-                viewModel.rollDice()
-            },
+        Column(
             modifier = Modifier
                 .align(Alignment.BottomEnd)
-                .padding(20.dp)
+                .padding(20.dp),
+            horizontalAlignment = Alignment.End
         ) {
-            Text("🎲 Würfeln")
+            Button(
+                onClick = { viewModel.startGame() },
+                modifier = Modifier.padding(bottom = 8.dp)
+            ) {
+                Text("Start Game")
+            }
+
+            // 🎲 Button on the lower right side
+            Button(
+                onClick = {
+                    viewModel.rollDice()
+                }
+            ) {
+                Text("🎲 Würfeln")
+            }
         }
 
         // 🎲 Dice Roll Overlay

@@ -37,6 +37,7 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Row
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+
 @Composable
 fun PlayerPropertyOverlay(
     player: at.aau.monopoly.klagenfurt.model.Player,

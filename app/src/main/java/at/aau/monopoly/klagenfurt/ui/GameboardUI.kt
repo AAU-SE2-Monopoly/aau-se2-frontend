@@ -49,6 +49,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
@@ -91,7 +92,6 @@ class GameboardUI : ComponentActivity() {
     private val viewModel: GameViewModel by viewModels {
         GameViewModel.Factory(ServiceLocator.provideGameService())
     }
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val gameId = intent.getStringExtra("GAME_ID")
@@ -217,6 +217,9 @@ fun LockScreenOrientation(orientation: Int) {
     // ═══════════════════════════════════════════════
     // End of Fixes
 
+        // 1. Beobachte den ausgewählten Spieler aus dem ViewModel
+        val selectedPlayer by viewModel.selectedPlayerForOverlay.collectAsState()
+
     LockScreenOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE)
 
     Box(modifier = modifier.fillMaxSize()) {
@@ -269,6 +272,16 @@ fun LockScreenOrientation(orientation: Int) {
 
         // Chat / Event log overlay (top center)
         GameboardOverlayLayer(eventLog = eventLog)
+
+        // --- DAS OVERLAY ---
+        // Wird nur gerendert, wenn selectedPlayer NICHT null ist
+        selectedPlayer?.let { player ->
+            PlayerPropertyOverlay(
+                player = player,
+                allFields = fields ?: emptyList(),
+                onDismiss = { viewModel.hidePlayerOverlay() }
+            )
+        }
     }
 }
 

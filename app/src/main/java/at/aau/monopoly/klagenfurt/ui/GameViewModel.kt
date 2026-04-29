@@ -41,7 +41,7 @@ class GameViewModel(private val gameService: GameService) : ViewModel() {
     private val objectMapper = JacksonProvider.objectMapper
 
     /**
-     * Primary flow for game state changes. Low replay to avoid re-processing 
+     * Primary flow for game state changes. Low replay to avoid re-processing
      * old technical snapshots for current UI state.
      */
     private val gameEventFlow: SharedFlow<GameEvent> = gameService.events
@@ -99,7 +99,7 @@ class GameViewModel(private val gameService: GameService) : ViewModel() {
             val eventGameId = event.gameId
 
             val isDifferentGame = eventGameId.isNotBlank() &&
-                                 gameService.currentGameId.isNotBlank() && 
+                                 gameService.currentGameId.isNotBlank() &&
                                  eventGameId != gameService.currentGameId
 
             if (isDifferentGame) {
@@ -157,7 +157,7 @@ class GameViewModel(private val gameService: GameService) : ViewModel() {
                 val baseEntries = if (isGameSwitch || event.event == "GAME_CREATED") emptyList() else acc.entries
 
                 val isTechnical = event.event == "STATE_SNAPSHOT" || event.event == "STATE_UPDATED"
-                val entryText = event.message?.takeIf { it.isNotBlank() } 
+                val entryText = event.message?.takeIf { it.isNotBlank() }
                     ?: humanReadableEvent(event.event, event.gameId)
 
                 if (entryText.isBlank()) {
@@ -234,6 +234,17 @@ class GameViewModel(private val gameService: GameService) : ViewModel() {
     fun requestState() = gameService.requestState()
 
     fun setGameId(gameId: String) = gameService.setGameId(gameId)
+
+    private val _selectedPlayerForOverlay = kotlinx.coroutines.flow.MutableStateFlow<at.aau.monopoly.klagenfurt.model.Player?>(null)
+    val selectedPlayerForOverlay: StateFlow<at.aau.monopoly.klagenfurt.model.Player?> = _selectedPlayerForOverlay
+
+    fun showPlayerOverlay(player: at.aau.monopoly.klagenfurt.model.Player) {
+        _selectedPlayerForOverlay.value = player
+    }
+
+    fun hidePlayerOverlay() {
+        _selectedPlayerForOverlay.value = null
+    }
 
     fun syncGameboardEntryState() {
         val currentGameId = gameService.currentGameId

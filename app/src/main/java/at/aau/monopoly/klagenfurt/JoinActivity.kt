@@ -82,7 +82,7 @@ class JoinActivity : ComponentActivity() {
                         val iconId = mapIndexToIconId(iconIndex)
 
                         if (isNewGame) {
-                            if (isNewGame) {
+
                             // Create a new game – the backend will respond with GAME_CREATED
                             gameService.createGame(playerName, iconId)
                             lifecycleScope.launch {
@@ -114,7 +114,7 @@ class JoinActivity : ComponentActivity() {
                             }
                         }
                     }
-                )
+                        )
             }
         }
     }

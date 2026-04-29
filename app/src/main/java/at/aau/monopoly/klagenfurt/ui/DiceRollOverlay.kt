@@ -90,7 +90,7 @@ fun DiceRollOverlay(
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Text(
-                    text = "🎲 Würfeln",
+                    text = "🎲 Roll Dice",
                     fontSize = 28.sp,
                     fontWeight = FontWeight.Bold
                 )
@@ -108,8 +108,8 @@ fun DiceRollOverlay(
 
                 // Result display (only when not rolling and result available)
                 if (!displayRolling) {
-                    val result = displayResult // Lokale Konstante für den Compiler
-                    if (result != null) {      // Ab hier greift der Kotlin Smart Cast!
+                    val result = displayResult
+                    if (result != null) {
                         val total = result.first + result.second
                         val isDouble = result.first == result.second
 
@@ -122,7 +122,7 @@ fun DiceRollOverlay(
 
                         if (isDouble) {
                             Text(
-                                text = "🎉 DOPPEL! 🎉",
+                                text = "🎉 DOUBLE! 🎉",
                                 fontSize = 18.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = Color(0xFFFF6B6B)
@@ -136,10 +136,10 @@ fun DiceRollOverlay(
                 // Instructions – differentiate sensor-active vs waiting for minOverlayMs
                 Text(
                     text = when {
-                        displayRolling && isRolling -> "Handy schütteln! 📱"
-                        displayRolling -> "Warten auf Ergebnis..."
-                        displayResult != null -> "Würfelergebnis angezeigt ✓"
-                        else -> "Würfeln..."
+                        displayRolling && isRolling -> "Shake your phone! 📱"
+                        displayRolling -> "Waiting for result..."
+                        displayResult != null -> "Dice result shown ✓"
+                        else -> "Rolling..."
                     },
                     fontSize = 14.sp,
                     color = Color.Gray
@@ -154,7 +154,7 @@ fun DiceRollOverlay(
                     modifier = Modifier
                         .size(width = 150.dp, height = 40.dp)
                 ) {
-                    Text("Schließen")
+                    Text("Close")
                 }
             }
         }

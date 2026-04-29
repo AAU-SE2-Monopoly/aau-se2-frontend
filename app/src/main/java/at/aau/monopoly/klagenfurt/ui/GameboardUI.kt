@@ -138,6 +138,8 @@ fun LockScreenOrientation(orientation: Int) {
 
     val isRollingPhaseForCurrentPlayer by viewModel.isRollingPhaseForCurrentPlayer.collectAsState()
     val lastDiceRoll by viewModel.lastDiceRoll.collectAsState()
+    val isGameStarted by viewModel.isGameStarted.collectAsState()
+    val isHost by viewModel.isHost.collectAsState()
 
     val context = LocalContext.current
 
@@ -145,11 +147,7 @@ fun LockScreenOrientation(orientation: Int) {
     var showOverlay by remember { mutableStateOf(false) }
 
 
-    LaunchedEffect(isRollingPhaseForCurrentPlayer) {
-        if (isRollingPhaseForCurrentPlayer) {
-            showOverlay = true
-        }
-    }
+
 
     // ═══════════════════════════════════════════════
     // FIX: Flow-based ShakeDetector lifecycle
@@ -218,7 +216,7 @@ fun LockScreenOrientation(orientation: Int) {
     // ═══════════════════════════════════════════════
     // End of Fixes
 
-        // 1. Beobachte den ausgewählten Spieler aus dem ViewModel
+        // 1. Observe the selected player from the ViewModel
         val selectedPlayer by viewModel.selectedPlayerForOverlay.collectAsState()
 
     LockScreenOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE)
@@ -229,14 +227,12 @@ fun LockScreenOrientation(orientation: Int) {
             players = players,
             currentPlayerId = currentPlayerId,
             currentTurnPlayer = currentTurnPlayer,
+            onPlayerCardClick = { player -> viewModel.showPlayerOverlay(player) },
+            selectedPlayerForOverlay = selectedPlayer,
+            onDismissOverlay = { viewModel.hidePlayerOverlay() },
             modifier = Modifier.fillMaxSize()
         )
 
-        GameboardContent(
-            fields = fields,
-            players = players,
-            modifier = Modifier.fillMaxSize()
-        )
 
         Column(
             modifier = Modifier
@@ -244,20 +240,23 @@ fun LockScreenOrientation(orientation: Int) {
                 .padding(20.dp),
             horizontalAlignment = Alignment.End
         ) {
-            Button(
-                onClick = { viewModel.startGame() },
-                modifier = Modifier.padding(bottom = 8.dp)
-            ) {
-                Text("Start Game")
+            if (isHost && !isGameStarted) {
+                Button(
+                    onClick = { viewModel.startGame() },
+                    modifier = Modifier.padding(bottom = 8.dp)
+                ) {
+                    Text("Start Game")
+                }
             }
 
             // 🎲 Button on the lower right side
             Button(
                 onClick = {
+                    showOverlay = true
                     viewModel.rollDice()
                 }
             ) {
-                Text("🎲 Würfeln")
+                Text("🎲 Roll Dice")
             }
         }
 
@@ -267,22 +266,12 @@ fun LockScreenOrientation(orientation: Int) {
             diceResult = lastDiceRoll?.let { Pair(it.die1, it.die2) },
             isRolling = isRollingPhaseForCurrentPlayer,
             onClose = {
-                showOverlay = false // Schließt das Overlay sauber!
+                showOverlay = false
             }
         )
 
         // Chat / Event log overlay (top center)
         GameboardOverlayLayer(eventLog = eventLog)
-
-        // --- DAS OVERLAY ---
-        // Wird nur gerendert, wenn selectedPlayer NICHT null ist
-        selectedPlayer?.let { player ->
-            PlayerPropertyOverlay(
-                player = player,
-                allFields = fields ?: emptyList(),
-                onDismiss = { viewModel.hidePlayerOverlay() }
-            )
-        }
     }
 }
 
@@ -362,6 +351,9 @@ fun GameboardContent(
     players: List<Player> = emptyList(),
     currentPlayerId: String = "",
     currentTurnPlayer: Player? = null,
+    onPlayerCardClick: (Player) -> Unit = {},
+    selectedPlayerForOverlay: Player? = null,
+    onDismissOverlay: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val myPlayer = players.find { it.id == currentPlayerId }
@@ -515,7 +507,8 @@ fun GameboardContent(
                         player = player,
                         fields = testFields,
                         cards = testCardsPerPlayer[player.id] ?: emptyList(),
-                        isCurrentTurn = player.id == currentTurnPlayer?.id
+                        isCurrentTurn = player.id == currentTurnPlayer?.id,
+                        onCardClick = { onPlayerCardClick(player) }
                     )
                 }
             }
@@ -548,9 +541,19 @@ fun GameboardContent(
                     fields = testFields,
                     cards = testCardsPerPlayer[myPlayer.id] ?: emptyList(),
                     isCurrentTurn = myPlayer.id == currentTurnPlayer?.id,
-                    isOwnPlayer = true
+                    isOwnPlayer = true,
+                    onCardClick = { onPlayerCardClick(myPlayer) }
                 )
             }
+        }
+
+        // Player Property Overlay (rendered here to access testFields with ownership data)
+        selectedPlayerForOverlay?.let { player ->
+            PlayerPropertyOverlay(
+                player = player,
+                allFields = testFields,
+                onDismiss = onDismissOverlay
+            )
         }
     }
 }

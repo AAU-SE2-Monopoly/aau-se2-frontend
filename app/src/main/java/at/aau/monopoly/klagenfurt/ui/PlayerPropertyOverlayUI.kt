@@ -7,6 +7,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import at.aau.monopoly.klagenfurt.model.field.PropertyField
+import at.aau.monopoly.klagenfurt.model.field.RailroadField
+import at.aau.monopoly.klagenfurt.model.field.UtilityField
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -44,10 +46,15 @@ fun PlayerPropertyOverlay(
     allFields: List<at.aau.monopoly.klagenfurt.model.field.Field>,
     onDismiss: () -> Unit
 ) {
-    val playerProperties = remember(player.ownedPropertyIds, allFields) {
-        allFields
-            .filterIsInstance<PropertyField>()
-            .filter { field -> player.ownedPropertyIds.contains(field.id) }
+    val playerProperties = remember(player.id, allFields) {
+        allFields.filter { field ->
+            when (field) {
+                is PropertyField -> field.ownerId == player.id || player.ownedPropertyIds.contains(field.id)
+                is RailroadField -> field.ownerId == player.id || player.ownedPropertyIds.contains(field.id)
+                is UtilityField -> field.ownerId == player.id || player.ownedPropertyIds.contains(field.id)
+                else -> false
+            }
+        }
     }
 
     Dialog(
@@ -57,7 +64,7 @@ fun PlayerPropertyOverlay(
             dismissOnBackPress = true
         )
     ) {
-        // 1. Hintergrund-Ebene: Füllt alles aus, Klick schließt das Overlay
+        // 1. Background layer: fills everything, click dismisses the overlay
         Box(
             modifier = Modifier
                 .fillMaxSize()
@@ -70,17 +77,17 @@ fun PlayerPropertyOverlay(
                 .systemBarsPadding()
         ) {
 
-            // 2. Vertikales Layout: Teilt den Bildschirm hart in "Oben" und "Unten" auf
+            // 2. Vertical layout: splits screen into top and bottom
             Column(modifier = Modifier.fillMaxSize()) {
 
-                // --- KOPFZEILE (Nur für den Button) ---
+                // --- HEADER (Back button) ---
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(16.dp)
                 ) {
                     Button(
-                        onClick = onDismiss, // Reagiert jetzt garantiert
+                        onClick = onDismiss,
                         shape = RoundedCornerShape(12.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = PrimaryBlue),
                         elevation = ButtonDefaults.buttonElevation(defaultElevation = 4.dp)
@@ -102,16 +109,16 @@ fun PlayerPropertyOverlay(
                     }
                 }
 
-                // --- HAUPTBEREICH (Für die Karten, nimmt den restlichen Platz ein) ---
+                // --- MAIN AREA (Cards, fills remaining space) ---
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .weight(1f), // Füllt den restlichen Bildschirm nach unten aus
+                        .weight(1f), // Fills the rest of the screen
                     contentAlignment = Alignment.Center
                 ) {
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
-                        // DIESER Bereich blockiert Klicks, ragt aber nicht mehr zum Button hoch!
+                        // This area blocks clicks from passing through
                         modifier = Modifier.clickable(
                             interactionSource = remember { MutableInteractionSource() },
                             indication = null,
@@ -119,7 +126,7 @@ fun PlayerPropertyOverlay(
                         )
                     ) {
                         Text(
-                            text = "Besitz von ${player.name}",
+                            text = "${player.name}'s Properties",
                             color = Color.White,
                             fontSize = 28.sp,
                             fontWeight = FontWeight.Bold,
@@ -128,7 +135,7 @@ fun PlayerPropertyOverlay(
 
                         if (playerProperties.isEmpty()) {
                             Text(
-                                text = "Dieser Spieler besitzt noch keine kaufbaren Straßen.",
+                                text = "This player does not own any properties yet.",
                                 color = Color.LightGray,
                                 fontSize = 18.sp
                             )
@@ -139,7 +146,7 @@ fun PlayerPropertyOverlay(
                                 modifier = Modifier.fillMaxWidth()
                             ) {
                                 items(playerProperties) { property ->
-                                    PropertyCardUI(property = property)
+                                    FieldCardUI(field = property)
                                 }
                             }
                         }

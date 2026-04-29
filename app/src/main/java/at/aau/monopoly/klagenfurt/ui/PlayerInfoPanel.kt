@@ -3,6 +3,7 @@ package at.aau.monopoly.klagenfurt.ui
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -44,6 +45,7 @@ fun PlayerInfoPanel(
     cards: List<Card> = emptyList(),
     isCurrentTurn: Boolean = false,
     isOwnPlayer: Boolean = false,
+    onCardClick: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val scale = if (isOwnPlayer) OWN_SCALE else OTHER_SCALE
@@ -132,11 +134,14 @@ fun PlayerInfoPanel(
             )
 
             if (isOwnPlayer) {
-                MiniCardFlowRow(groupedFields, scale, cardW, cardH, sameGap, groupGap, alignEnd = true)
+                Box(modifier = Modifier.clickable(enabled = onCardClick != null) { onCardClick?.invoke() }) {
+                    MiniCardFlowRow(groupedFields, scale, cardW, cardH, sameGap, groupGap, alignEnd = true)
+                }
             } else {
                 Row(
                     horizontalArrangement = Arrangement.Start,
                     modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())
+                        .clickable(enabled = onCardClick != null) { onCardClick?.invoke() }
                 ) {
                     var lastKey = -999
                     groupedFields.forEach { field ->

@@ -125,6 +125,17 @@ class GameViewModel(private val gameService: GameService) : ViewModel() {
     val isGameReady: StateFlow<Boolean> = gameState
         .map { it != null }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+
+    val isGameStarted: StateFlow<Boolean> = gameState
+        .map { it?.phase != null && it.phase != GamePhase.WAITING }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+
+    val isHost: StateFlow<Boolean> = gameState
+        .map { state ->
+            state?.players?.firstOrNull()?.id == gameService.currentPlayerId
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+
     /**
     * Displays user-facing game events such as joining, creating a game, and rolling dice.
     *

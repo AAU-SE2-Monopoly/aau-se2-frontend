@@ -104,26 +104,6 @@ fun GameboardScreen(modifier: Modifier = Modifier, viewModel: GameViewModel) {
 
         // Das normale Spielfeld (ganz unten)
         GameboardContent(fields = fields ?: emptyList(), modifier = modifier)
-
-        // --- TEMPORÄRER TEST-BUTTON ---
-        // Diesen entfernst du später, wenn du echte Spieler-Avatare auf dem Feld hast
-        androidx.compose.material3.Button(
-            onClick = {
-                // Erstelle einen Test-Spieler mit ein paar Grundstücks-IDs (z.B. ID 1, 3 und 4)
-                // Wichtig: Diese IDs müssen zu den PropertyFields in deiner fields-Liste passen!
-                val testPlayer = at.aau.monopoly.klagenfurt.model.Player(
-                    id = "test-123",
-                    name = "Testspieler Lukas",
-                    ownedPropertyIds = mutableListOf(1, 3, 5, 6,8,9)
-                )
-                viewModel.showPlayerOverlay(testPlayer)
-            },
-            modifier = Modifier
-                .align(Alignment.TopEnd) // Oben rechts im Eck positionieren
-                .padding(16.dp)
-        ) {
-            androidx.compose.material3.Text("Test: Overlay öffnen")
-        }
         // ------------------------------
 
         // --- DAS OVERLAY ---

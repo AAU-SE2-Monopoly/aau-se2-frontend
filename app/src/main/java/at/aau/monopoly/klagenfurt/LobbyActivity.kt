@@ -28,15 +28,20 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -269,6 +274,29 @@ fun GameCard(
     onClick: () -> Unit,
     onClose: () -> Unit
 ) {
+    var showCloseDialog by remember { mutableStateOf(false) }
+
+    if (showCloseDialog) {
+        AlertDialog(
+            onDismissRequest = { showCloseDialog = false },
+            title = { Text("Close Game") },
+            text = { Text("Are you sure you want to close this game?") },
+            confirmButton = {
+                TextButton(onClick = {
+                    showCloseDialog = false
+                    onClose()
+                }) {
+                    Text("Yes, close")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showCloseDialog = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
+
     Box(
         modifier = Modifier
             .size(160.dp)
@@ -307,7 +335,7 @@ fun GameCard(
         // Close button for own games
         if (isOwnGame) {
             IconButton(
-                onClick = onClose,
+                onClick = { showCloseDialog = true },
                 modifier = Modifier
                     .align(Alignment.TopEnd)
                     .padding(4.dp)

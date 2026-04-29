@@ -2,6 +2,7 @@ package at.aau.monopoly.klagenfurt
 
 import at.aau.monopoly.klagenfurt.networking.GameService
 import at.aau.monopoly.klagenfurt.networking.GameStompClient
+import at.aau.monopoly.klagenfurt.networking.ServerConfig
 import org.hildan.krossbow.stomp.StompClient
 import org.hildan.krossbow.websocket.okhttp.OkHttpWebSocketClient
 
@@ -25,7 +26,19 @@ object ServiceLocator {
 
     fun provideGameService(): GameService {
         return gameService ?: synchronized(this) {
-            gameService ?: GameStompClient(provideStompClient()).also { gameService = it }
+            gameService ?: GameStompClient(provideStompClient(), websocketUri = ServerConfig.websocketUri).also { gameService = it }
+        }
+    }
+
+    /**
+     * Disconnects the current GameService and clears the cached instance.
+     * Call this when the server configuration changes so the next
+     * [provideGameService] call creates a fresh client with the new URI.
+     */
+    fun resetGameService() {
+        synchronized(this) {
+            gameService?.disconnect()
+            gameService = null
         }
     }
 

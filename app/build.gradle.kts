@@ -146,6 +146,7 @@ dependencies {
     implementation(libs.androidx.compose.ui.test.junit4)
     implementation(libs.androidx.compose.material3)
 
+
     // -- UNIT TESTS --
     testImplementation(libs.junit)
     testImplementation(libs.junit.jupiter.api)
@@ -164,6 +165,7 @@ dependencies {
     testImplementation("androidx.test.ext:junit:1.1.5")
     testImplementation("androidx.test.espresso:espresso-core:3.5.0")
     testImplementation("androidx.test.espresso:espresso-intents:3.5.0")
+    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.8.1")
 
     // -- ANDROID TESTS (Hier lag der Fehler!) --
 

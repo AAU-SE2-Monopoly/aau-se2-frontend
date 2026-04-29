@@ -2,6 +2,7 @@ package at.aau.monopoly.klagenfurt
 
 import android.content.Intent
 import android.os.Bundle
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -81,10 +82,12 @@ class JoinActivity : ComponentActivity() {
                         val iconId = mapIndexToIconId(iconIndex)
 
                         if (isNewGame) {
+
                             // Create a new game – the backend will respond with GAME_CREATED
                             gameService.createGame(playerName, iconId)
                             lifecycleScope.launch {
                                 val createdGameId = waitForGameCreatedId(gameService)
+                                gameService.setGameId(createdGameId)
                                 startActivity(
                                     Intent(this@JoinActivity, GameboardUI::class.java).apply {
                                         putExtra("GAME_ID", createdGameId)
@@ -111,7 +114,7 @@ class JoinActivity : ComponentActivity() {
                             }
                         }
                     }
-                )
+                        )
             }
         }
     }
@@ -141,7 +144,8 @@ private suspend fun waitForGameCreatedId(gameService: GameService): String {
                 } else {
                     null
                 }
-            } catch (_: Exception) {
+            } catch (e: Exception) {
+                Log.e("JoinActivity", "waitForGameCreatedId parse error: ${e.message}", e)
                 null
             }
         }

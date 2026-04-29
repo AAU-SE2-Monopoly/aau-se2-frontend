@@ -41,12 +41,17 @@ fun DiceRollOverlay(
 ) {
     if (!isVisible) return
 
-    var displayRolling by remember(isRolling) { mutableStateOf(isRolling) }
-    var displayResult by remember { mutableStateOf(diceResult) }
+    // displayRolling is controlled solely by the LaunchedEffect below,
+    // NOT by remember(isRolling). This prevents the animation from being
+    // aborted prematurely when isRolling flips to false on server response.
+    // Reset when overlay reappears (isVisible toggles) so a second roll starts fresh
+    var displayRolling by remember(isVisible) { mutableStateOf(true) }
+    var displayResult by remember { mutableStateOf<Pair<Int, Int>?>(null) }
     var rollStartMs by remember { mutableStateOf(0L) }
     val minOverlayMs = 1200L
 
-    // Wait for backend response before stopping animation
+    // Control display state: start rolling → show animation,
+    // server responds → wait minOverlayMs → show result.
     LaunchedEffect(diceResult, isRolling) {
         if (!isRolling && diceResult != null) {
             // Ensure the overlay stays visible for a minimum duration
@@ -92,7 +97,7 @@ fun DiceRollOverlay(
 
                 Spacer(modifier = Modifier.height(20.dp))
 
-                // Dice display
+                // Dice display (uses displayRolling so animation isn't cancelled early)
                 DiceDisplay(
                     die1 = displayResult?.first ?: 1,
                     die2 = displayResult?.second ?: 1,
@@ -128,14 +133,13 @@ fun DiceRollOverlay(
 
                 Spacer(modifier = Modifier.height(20.dp))
 
-                // Instructions
+                // Instructions – differentiate sensor-active vs waiting for minOverlayMs
                 Text(
-                    text = if (displayRolling) {
-                        "Handy schütteln! 📱"
-                    } else if (displayResult != null) {
-                        "Würfelergebnis angezeigt ✓"
-                    } else {
-                        "Würfeln..."
+                    text = when {
+                        displayRolling && isRolling -> "Handy schütteln! 📱"
+                        displayRolling -> "Warten auf Ergebnis..."
+                        displayResult != null -> "Würfelergebnis angezeigt ✓"
+                        else -> "Würfeln..."
                     },
                     fontSize = 14.sp,
                     color = Color.Gray
@@ -166,9 +170,20 @@ private fun DiceDisplay(
     val rotation1 = remember { Animatable(0f) }
     val rotation2 = remember { Animatable(0f) }
 
+    // Counter as LaunchedEffect key: increments on each roll so animateTo
+    // runs the full 1500ms without being cancelled mid-roll by key changes.
+    var animKey by remember { mutableStateOf(0) }
+
     LaunchedEffect(isRolling) {
         if (isRolling) {
-            // Start fast rotation
+            animKey++  // trigger animation below
+        }
+    }
+
+    LaunchedEffect(animKey) {
+        if (animKey > 0) {
+            rotation1.snapTo(0f)
+            rotation2.snapTo(0f)
             rotation1.animateTo(
                 targetValue = 360f * 3,
                 animationSpec = tween(1500, easing = LinearEasing)
@@ -177,10 +192,6 @@ private fun DiceDisplay(
                 targetValue = 360f * 3,
                 animationSpec = tween(1500, easing = LinearEasing)
             )
-        } else {
-            // Animation finished - reset for next roll
-            rotation1.snapTo(0f)
-            rotation2.snapTo(0f)
         }
     }
 

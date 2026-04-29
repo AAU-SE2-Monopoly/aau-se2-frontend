@@ -3,8 +3,11 @@ package at.aau.monopoly.klagenfurt
 
 import at.aau.monopoly.klagenfurt.networking.GameService
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.asStateFlow
 
 /** This Class is only used for testing **/
 class FakeGameService : GameService {
@@ -16,6 +19,9 @@ class FakeGameService : GameService {
 
     private val _lobbyEvents = MutableSharedFlow<String>(replay = 1)
     override val lobbyEvents: SharedFlow<String> = _lobbyEvents.asSharedFlow()
+
+    private val _subscriptionReady = MutableStateFlow(false)
+    override val subscriptionReady: StateFlow<Boolean> = _subscriptionReady.asStateFlow()
 
     override val currentPlayerId: String = "test-player-id"
     override var currentPlayerName: String = "test-player-name"
@@ -52,6 +58,7 @@ class FakeGameService : GameService {
 
     override fun subscribeToGame(gameId: String) {
         lastSubscribedGameId = gameId
+        _subscriptionReady.value = true
     }
 
     override fun createGame(playerName: String, iconId: String) {
@@ -86,6 +93,7 @@ class FakeGameService : GameService {
     override fun setGameId(gameId: String) {
         lastSubscribedGameId = gameId
         currentGameId = gameId
+        _subscriptionReady.value = true
     }
 
     override fun subscribeToLobby() {

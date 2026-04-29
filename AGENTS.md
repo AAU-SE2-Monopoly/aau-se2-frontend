@@ -1,53 +1,79 @@
 # AGENTS.md – Coding-Agent Guide
 
-> **Project:** AAU SE2 – WebSocket Broker Demo (Android Frontend)
+> **Project:** AAU SE2 – Monopoly Klagenfurt (Android Frontend)
 > **Course:** 621.250 (25S) Software Engineering II
-> **Language / Platform:** Kotlin · Android (minSdk 30, targetSdk 36) · Jetpack Compose + View-based UI
+> **Language / Platform:** Kotlin · Android (minSdk 30, targetSdk 36) · Jetpack Compose
 
 ---
 
 ## 1. Repository Overview
 
-This is an Android client application that communicates with a Spring Boot backend via **WebSockets / STOMP** using the [Krossbow](https://github.com/joffrey-bion/krossbow) library. The app implements a simplified **Monopoly-style board game** debug client.
+This is an Android client application that communicates with a Spring Boot backend via **WebSockets / STOMP** using the [Krossbow](https://github.com/joffrey-bion/krossbow) library. The app implements a **Monopoly-style board game** client.
 
 ```
-app/src/main/java/
-├── MyStomp.kt                          # Legacy demo STOMP client (hello / JSON topics)
-└── at/aau/serg/websocketbrokerdemo/
-    ├── Callbacks.kt                    # Interface: onResponse(String)
-    ├── GameCallbacks.kt                # Interface: onStatus / onGameEvent
-    ├── GameStompClient.kt              # Primary STOMP client for game actions
-    ├── GameActivity.kt                 # Main launcher Activity (Monopoly debug UI)
-    ├── MainActivity.kt                 # Legacy demo Activity
-    ├── messaging/
-    │   ├── GameAction.kt               # Data class sent TO the server
-    │   └── GameEvent.kt                # Data class received FROM the server
-    ├── model/
-    │   ├── DiceRoll.kt                 # die1, die2, total, isDouble
-    │   ├── GameState.kt                # Full game state (fields, players, phase, …)
-    │   ├── Player.kt                   # Player state + isBankrupt()
-    │   ├── card/
-    │   │   ├── Card.kt                 # Abstract base for deck cards
-    │   │   ├── ChanceCard.kt
-    │   │   └── CommunityChestCard.kt
-    │   ├── enums/
-    │   │   ├── CardAction.kt           # COLLECT_MONEY, PAY_MONEY, MOVE_TO, …
-    │   │   ├── FieldType.kt            # GO, PROPERTY, TAX, RAILROAD, CHANCE, …
-    │   │   ├── GamePhase.kt            # WAITING, ROLLING, BUYING, …, FINISHED
-    │   │   └── PropertyColor.kt        # BROWN, LIGHT_BLUE, …, DARK_BLUE
-    │   └── field/
-    │       ├── Field.kt                # Abstract base for board fields
-    │       ├── PropertyField.kt        # id, color, price, rent[], houses, hotel
-    │       ├── RailroadField.kt
-    │       ├── UtilityField.kt
-    │       ├── TaxField.kt
-    │       ├── ChanceField.kt
-    │       ├── CommunityChestField.kt
-    │       ├── GoField.kt
-    │       ├── GoToJailField.kt
-    │       ├── JailField.kt
-    │       └── FreeParkingField.kt
-    └── ui/theme/
+app/src/main/java/at/aau/monopoly/klagenfurt/
+├── CreditsActivity.kt
+├── JoinActivity.kt
+├── LobbyActivity.kt                    # Launcher Activity (lobby → join → gameboard)
+├── MainMenuActivity.kt
+├── ServiceLocator.kt                   # Simple DI / service registry
+├── SettingsActivity.kt
+├── messaging/
+│   ├── GameAction.kt                   # Data class sent TO the server
+│   └── GameEvent.kt                    # Data class received FROM the server
+├── model/
+│   ├── DiceRoll.kt                     # die1, die2, total, isDouble
+│   ├── GameState.kt                    # Full game state (fields, players, phase, …)
+│   ├── Player.kt                       # Player state + isBankrupt()
+│   ├── card/
+│   │   ├── Card.kt                     # Abstract base for deck cards
+│   │   ├── ChanceCard.kt
+│   │   └── CommunityChestCard.kt
+│   ├── enums/
+│   │   ├── CardAction.kt
+│   │   ├── FieldType.kt
+│   │   ├── GamePhase.kt
+│   │   └── PropertyColor.kt
+│   └── field/
+│       ├── Field.kt                    # Abstract base + OwnableField interface
+│       ├── PropertyField.kt            # implements OwnableField
+│       ├── RailroadField.kt            # implements OwnableField
+│       ├── UtilityField.kt             # implements OwnableField
+│       ├── TaxField.kt
+│       ├── ChanceField.kt
+│       ├── CommunityChestField.kt
+│       ├── GoField.kt
+│       ├── GoToJailField.kt
+│       ├── JailField.kt
+│       └── FreeParkingField.kt
+├── networking/
+│   ├── GameService.kt                  # High-level game service (flows + actions)
+│   ├── GameStompClient.kt              # STOMP session management
+│   ├── JacksonProvider.kt              # Shared ObjectMapper
+│   └── ServerConfig.kt                 # WebSocket URI configuration
+├── sensors/                            # Device sensor integrations
+└── ui/
+    ├── GameViewModel.kt                # Primary game ViewModel
+    ├── LobbyViewModel.kt               # Lobby ViewModel
+    ├── GameServiceViewModelFactory.kt  # Generic reusable ViewModel factory
+    ├── GameboardUI.kt                  # Gameboard orchestrator composable
+    ├── FieldCardUI.kt                  # Field detail card (title deed style)
+    ├── PlayerInfoPanel.kt              # Player info sidebar
+    ├── PlayerPropertyOverlayUI.kt      # Player property overlay
+    ├── CardUI.kt                       # Chance / Community Chest card UI
+    ├── DiceRollOverlay.kt              # Dice roll animation overlay
+    ├── PropertyCardUI.kt               # Property card composable
+    ├── board/
+    │   ├── BoardFieldRendering.kt      # FieldItem, FieldBounds, PropertyColorBar, etc.
+    │   └── PlayerTokens.kt            # Player token rendering
+    ├── chat/                           # In-game chat UI components
+    ├── components/                     # Shared UI components
+    ├── zoom/
+    │   └── ZoomableWrapper.kt          # ZoomState + ZoomableWrapper composable
+    ├── util/
+    │   ├── GameEventParser.kt          # parseGameEvent(json): GameEvent?
+    │   └── UiMappers.kt               # getPlayerTokenResource(), PropertyColor.toComposeColor()
+    └── theme/
         ├── Color.kt
         ├── Theme.kt
         └── Type.kt
@@ -62,9 +88,9 @@ app/src/main/java/
 | `org.hildan.krossbow:krossbow-stomp-core` | 9.3.0 | STOMP protocol over WebSocket |
 | `org.hildan.krossbow:krossbow-websocket-okhttp` | 9.3.0 | OkHttp WebSocket transport |
 | `org.hildan.krossbow:krossbow-websocket-builtin` | 9.3.0 | Built-in WebSocket transport |
+| `com.fasterxml.jackson` | — | JSON serialization (Jackson) |
 | `androidx.compose` BOM | 2026.03.00 | Jetpack Compose UI toolkit |
 | `androidx.activity:activity-compose` | 1.13.0 | Compose entry point |
-| `androidx.constraintlayout` | 2.2.1 | Legacy XML layout support |
 | `org.junit.jupiter` | 6.0.3 | Unit testing (JUnit 5) |
 | Kotlin | 2.3.10 | Primary language |
 | AGP | 8.13.2 | Android Gradle Plugin |
@@ -75,20 +101,33 @@ Build tool: **Gradle (Kotlin DSL)** – `build.gradle.kts`
 
 ## 3. Architecture
 
-### 3.1 STOMP Communication
+### 3.1 Communication
 
 ```
-GameActivity  ──uses──►  GameStompClient  ──STOMP/WS──►  Backend (ws://10.0.2.2:8080/ws)
-     ▲                          │
-     │ GameCallbacks             │  subscribeText("/topic/game/{gameId}")
-     └──────────────────────────┘  sendText("/app/game/{create|join|start|action|state}")
+LobbyActivity ──► GameService ──► GameStompClient ──STOMP/WS──► Backend (ws://10.0.2.2:8080/ws)
+     ▲                  │
+     │ flows            │  subscribeText("/topic/game/{gameId}")
+     └──────────────────┘  sendText("/app/game/{create|join|start|action|state}")
 ```
 
-- **`GameStompClient`** manages a single `StompSession` on a `CoroutineScope(Dispatchers.IO)`.
-- All callbacks are posted back to the main thread via `Handler(Looper.getMainLooper())`.
-- A unique `currentPlayerId` (UUID) is generated at `GameStompClient` instantiation time.
+- **`GameService`** exposes `SharedFlow<String>` for events/status; ViewModels observe these.
+- **`GameStompClient`** manages a single `StompSession` on `Dispatchers.IO`.
+- JSON is parsed via Jackson (`JacksonProvider.objectMapper`).
+- A shared `parseGameEvent()` utility in `ui/util/GameEventParser.kt` avoids duplicated parsing.
 
-### 3.2 Message Protocol
+### 3.2 OwnableField Interface
+
+`PropertyField`, `RailroadField`, and `UtilityField` implement `OwnableField`:
+```kotlin
+interface OwnableField {
+    val ownerId: String?
+    val price: Int
+    val isMortgaged: Boolean
+}
+```
+Use `field is OwnableField` instead of multi-branch `when` for ownership checks.
+
+### 3.3 Message Protocol
 
 **Outgoing – `GameAction` (JSON)**
 ```json
@@ -110,9 +149,7 @@ GameActivity  ──uses──►  GameStompClient  ──STOMP/WS──►  Bac
 }
 ```
 
-When a `GAME_CREATED` event is received, `GameActivity` automatically fills the game-ID field and calls `stomp.setGameId(gameId)`.
-
-### 3.3 Game Phases (`GamePhase`)
+### 3.4 Game Phases (`GamePhase`)
 
 `WAITING → ROLLING → BUYING / AUCTIONING → TURN_END → (loop) → FINISHED`
 
@@ -122,12 +159,12 @@ When a `GAME_CREATED` event is received, `GameActivity` automatically fills the 
 
 | Direction | Destination | Triggered by |
 |---|---|---|
-| Send | `/app/game/create` | `GameStompClient.createGame(playerName)` |
-| Send | `/app/game/join` | `GameStompClient.joinGame(gameId, playerName)` |
-| Send | `/app/game/start` | `GameStompClient.startGame()` |
+| Send | `/app/game/create` | `GameService.createGame(playerName)` |
+| Send | `/app/game/join` | `GameService.joinGame(gameId, playerName)` |
+| Send | `/app/game/start` | `GameService.startGame()` |
 | Send | `/app/game/action` | `rollDice()` / `endTurn()` |
-| Send | `/app/game/state` | `GameStompClient.requestState()` |
-| Subscribe | `/topic/game/{gameId}` | `GameStompClient.subscribeToGame(gameId)` |
+| Send | `/app/game/state` | `GameService.requestState()` |
+| Subscribe | `/topic/game/{gameId}` | auto on join/create |
 
 > **Note:** The emulator backend address is `ws://10.0.2.2:8080/ws`. For a real device, replace `10.0.2.2` with the host machine's LAN IP.
 
@@ -155,8 +192,16 @@ When a `GAME_CREATED` event is received, `GameActivity` automatically fills the 
 | `total` | `Int` | computed |
 | `isDouble` | `Boolean` | computed |
 
+### `OwnableField` (interface)
+Implemented by `PropertyField`, `RailroadField`, `UtilityField`.
+| Field | Type |
+|---|---|
+| `ownerId` | `String?` |
+| `price` | `Int` |
+| `isMortgaged` | `Boolean` |
+
 ### `PropertyField`
-Extends `Field`. Notable fields: `color` (`PropertyColor`), `price`, `rent: List<Int>` (index 0 = no houses … 5 = hotel), `houses`, `hasHotel`, `isMortgaged`, `ownerId`.
+Extends `Field`, implements `OwnableField`. Additional: `color` (`PropertyColor`), `rent: List<Int>`, `houses`, `hasHotel`, `houseCost`, `hotelCost`.
 
 ---
 
@@ -166,7 +211,7 @@ Extends `Field`. Notable fields: `color` (`PropertyColor`), `price`, `rent: List
 - Android Studio Meerkat (or later)
 - JDK 17
 - Android SDK 36 (API level 36.1)
-- A running backend on `localhost:8080` (or adjust `WEBSOCKET_URI` in `GameStompClient.kt`)
+- A running backend on `localhost:8080` (or adjust `ServerConfig.kt`)
 
 ### Build
 ```bash
@@ -197,15 +242,17 @@ Extends `Field`. Notable fields: `color` (`PropertyColor`), `price`, `rent: List
 ## 7. Coding Guidelines for Agents
 
 1. **Kotlin only.** Do not add Java source files.
-2. **Coroutines for async work.** All STOMP calls go through `CoroutineScope(Dispatchers.IO)`. Never block the main thread.
-3. **Post to main thread** via `Handler(Looper.getMainLooper()).post { … }` (see `GameStompClient.postToMain`).
-4. **JSON serialisation** is done manually with `org.json.JSONObject` / `org.json.JSONArray`. Do not add a separate serialisation library without team approval.
-5. **Package convention:** `at.aau.serg.websocketbrokerdemo.<subpackage>`. New classes must follow this scheme.
-6. **Models mirror the backend.** Package names inside model files intentionally use `at.aau.serg.websocketdemoserver.model.*` to stay in sync with the backend. Do not rename them without updating the backend simultaneously.
-7. **UI:** `GameActivity` is the launcher Activity. `MainActivity` is a legacy demo and should not be extended.
-8. **Tests:** Use JUnit 5 (`@Test` from `org.junit.jupiter.api`). Place unit tests under `app/src/test/java/`.
-9. **No hardcoded secrets.** Keep `WEBSOCKET_URI` values in the respective client files; externalise to `local.properties` / build config if needed.
-10. **Min SDK is 30.** Do not use APIs that require a higher SDK level without a runtime check.
+2. **Coroutines for async work.** All STOMP calls go through `Dispatchers.IO`. Never block the main thread.
+3. **JSON serialisation** uses Jackson via `JacksonProvider.objectMapper`. Use the shared `parseGameEvent()` utility for event parsing.
+4. **Package convention:** `at.aau.monopoly.klagenfurt.<subpackage>`. New classes must follow this scheme.
+5. **OwnableField:** Use `field is OwnableField` for ownership/price/mortgage checks. Do not duplicate `when` branches per field type.
+6. **ViewModel factories:** Use `GameServiceViewModelFactory<T>` for any ViewModel that takes a `GameService`. Do not duplicate `Factory` inner classes.
+7. **UI structure:** `GameboardUI.kt` is the orchestrator. Field rendering goes in `ui/board/`, zoom in `ui/zoom/`, shared mappers in `ui/util/`.
+8. **No hardcoded test data in production UI.** Preview data belongs in `@Preview` functions only.
+9. **Tests:** Use JUnit 5 (`@Test` from `org.junit.jupiter.api`). Place unit tests under `app/src/test/java/`.
+10. **No hardcoded secrets.** WebSocket URI lives in `ServerConfig.kt`.
+11. **Min SDK is 30.** Do not use APIs that require a higher SDK level without a runtime check.
+12. **LobbyActivity** is the launcher. `GameActivity` has been removed (was dead code).
 
 ---
 
@@ -225,4 +272,3 @@ The following patterns are excluded from coverage analysis:
 - `**/Manifest*.*`
 - `**/*Test*.*`
 - `android/**/*.*`
-

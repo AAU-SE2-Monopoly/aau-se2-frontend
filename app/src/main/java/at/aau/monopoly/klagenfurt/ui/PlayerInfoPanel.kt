@@ -26,6 +26,7 @@ import at.aau.monopoly.klagenfurt.model.field.Field
 import at.aau.monopoly.klagenfurt.model.field.PropertyField
 import at.aau.monopoly.klagenfurt.model.field.RailroadField
 import at.aau.monopoly.klagenfurt.model.field.UtilityField
+import at.aau.monopoly.klagenfurt.ui.util.getPlayerTokenResource
 
 private val PanelBg = Color(0xCC1B1B1B)
 private val GoldAccent = Color(0xFFFFD54F)
@@ -99,7 +100,7 @@ fun PlayerInfoPanel(
                 fontSize = 10.sp
             )
             Spacer(modifier = Modifier.width(4.dp))
-            Text("💵", fontSize = 9.sp)
+            Text("", fontSize = 9.sp)
             Text(
                 text = "$${player.money}",
                 color = Color(0xFF81C784),

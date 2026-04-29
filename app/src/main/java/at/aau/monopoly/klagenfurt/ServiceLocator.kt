@@ -8,8 +8,8 @@ import org.hildan.krossbow.websocket.okhttp.OkHttpWebSocketClient
 
 object ServiceLocator {
 
-    // Normale Properties statt 'by lazy', damit wir sie in Tests überschreiben können.
-    // Sichtbarkeit des Setters bleibt intern für normale Nutzung gesperrt.
+    // Normal properties instead of 'by lazy', so we can override them in tests.
+    // Setter visibility remains internally locked for normal usage.
     @Volatile
     private var stompClient: StompClient? = null
 
@@ -18,7 +18,7 @@ object ServiceLocator {
 
 
     fun provideStompClient(): StompClient {
-        // Double-Checked Locking für Thread-Sicherheit (falls es parallel aufgerufen wird)
+        // Double-Checked Locking for thread safety (in case of parallel calls)
         return stompClient ?: synchronized(this) {
             stompClient ?: StompClient(OkHttpWebSocketClient()).also { stompClient = it }
         }
@@ -45,26 +45,26 @@ object ServiceLocator {
 
 
     // --- TEST HELPERS ---
-    // Diese Methoden sind essentiell, damit du MockK in Espresso verwenden kannst.
+    // These methods are essential so you can use MockK in Espresso tests.
 
     /**
-     * Injiziert einen Mock für den GameService.
-     * Aufruf in der @Before Methode deines Tests.
+     * Injects a mock for the GameService.
+     * Call in the @Before method of your test.
      */
     fun injectGameServiceForTest(mock: GameService) {
         gameService = mock
     }
 
     /**
-     * Injiziert einen Mock für den StompClient (falls benötigt).
+     * Injects a mock for the StompClient (if needed).
      */
     fun injectStompClientForTest(mock: StompClient) {
         stompClient = mock
     }
 
     /**
-     * ZWINGEND in der @After Methode jedes Tests aufrufen,
-     * damit Mocks nicht in den nächsten Test leaken!
+     * MUST be called in the @After method of every test,
+     * so mocks don't leak into the next test!
      */
     fun resetForTests() {
         stompClient = null

@@ -23,6 +23,7 @@ import androidx.compose.ui.unit.sp
 import at.aau.monopoly.klagenfurt.model.enums.FieldType
 import at.aau.monopoly.klagenfurt.model.enums.PropertyColor
 import at.aau.monopoly.klagenfurt.model.field.*
+import at.aau.monopoly.klagenfurt.ui.util.toComposeColor
 
 private val CardBg = Color(0xFFFFF8E1)
 private const val REF_W = 140f // reference width in dp
@@ -105,7 +106,7 @@ private fun RailroadCard(field: RailroadField, modifier: Modifier = Modifier) {
             Text("RAILROAD", color = Color.White, fontWeight = FontWeight.Bold, fontSize = s.sp(9f), letterSpacing = 1.sp)
         }
         Spacer(modifier = Modifier.height(s.dp(2f)))
-        Text("🚂", fontSize = s.sp(18f))
+        Text("", fontSize = s.sp(18f))
         Text(field.name, fontWeight = FontWeight.ExtraBold, fontSize = s.sp(11f), textAlign = TextAlign.Center,
             maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(horizontal = s.dp(4f)))
         ThinDivider(s)
@@ -161,7 +162,7 @@ private fun TaxCard(field: TaxField, modifier: Modifier = Modifier) {
             Text("TAX", color = Color.White, fontWeight = FontWeight.Bold, fontSize = s.sp(9f), letterSpacing = 1.sp)
         }
         Spacer(modifier = Modifier.weight(1f))
-        Text("💰", fontSize = s.sp(22f))
+        Text("", fontSize = s.sp(22f))
         Text(field.name, fontWeight = FontWeight.ExtraBold, fontSize = s.sp(11f), textAlign = TextAlign.Center,
             modifier = Modifier.padding(horizontal = s.dp(4f)))
         ThinDivider(s)
@@ -176,11 +177,11 @@ private fun TaxCard(field: TaxField, modifier: Modifier = Modifier) {
 private fun GenericFieldCard(field: Field, modifier: Modifier = Modifier) {
     val (accent, icon) = when (field.type) {
         FieldType.GO -> Color(0xFFD32F2F) to "▶"
-        FieldType.JAIL -> Color(0xFF5D4037) to "🔒"
-        FieldType.GO_TO_JAIL -> Color(0xFF5D4037) to "🚔"
+        FieldType.JAIL -> Color(0xFF5D4037) to ""
+        FieldType.GO_TO_JAIL -> Color(0xFF5D4037) to ""
         FieldType.CHANCE -> Color(0xFFF57C00) to "?"
         FieldType.COMMUNITY_CHEST -> Color(0xFF1565C0) to "☆"
-        FieldType.FREE_PARKING -> Color(0xFF2E7D32) to "🅿"
+        FieldType.FREE_PARKING -> Color(0xFF2E7D32) to ""
         else -> Color(0xFF616161) to "•"
     }
     CardShell(borderColor = accent, modifier = modifier) { s ->

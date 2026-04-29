@@ -6,7 +6,7 @@ import org.junit.jupiter.api.Test
 
 class CardTest {
 
-    // Da Card abstrakt ist, erstellen wir eine konkrete Implementierung für den Test
+    // Since Card is abstract, we create a concrete implementation for the test
     class TestCard(
         override val id: Int,
         override val description: String,
@@ -29,7 +29,7 @@ class CardTest {
         assertEquals("Gehe vor auf Start", card.description)
         assertEquals(CardAction.MOVE_TO, card.action)
         assertEquals(0, card.targetFieldId)
-        // Überprüfung der Default-Werte
+        // Check default values
         assertEquals(0, card.amount)
         assertEquals(0, card.moveSpaces)
     }

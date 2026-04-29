@@ -20,7 +20,7 @@ class CommunityChestCardTest {
         assertEquals(CardAction.COLLECT_MONEY, card.action)
         assertEquals(200, card.amount)
 
-        // Default-Werte prüfen
+        // Check default values
         assertNull(card.targetFieldId)
         assertEquals(0, card.moveSpaces)
     }
@@ -31,7 +31,7 @@ class CommunityChestCardTest {
         val card2 = CommunityChestCard(1, "Arztgebühr", CardAction.PAY_MONEY, amount = 50)
         val card3 = CommunityChestCard(2, "Arztgebühr", CardAction.PAY_MONEY, amount = 50)
 
-        // Testet die generierten equals() und hashCode() Methoden
+        // Tests the generated equals() and hashCode() methods
         assertEquals(card1, card2)
         assertNotEquals(card1, card3)
         assertEquals(card1.hashCode(), card2.hashCode())
@@ -49,10 +49,10 @@ class CommunityChestCardTest {
 
     @Test
     fun `test community chest card toString`() {
-        val card = CommunityChestCard(1, "Erbschaft", CardAction.COLLECT_MONEY, amount = 100)
+        val card = CommunityChestCard(1, "Inheritance", CardAction.COLLECT_MONEY, amount = 100)
         val stringRepresentation = card.toString()
 
-        // Stellt sicher, dass toString() die Datenklasse korrekt repräsentiert
+        // Ensures that toString() correctly represents the data class
         assertTrue(stringRepresentation.contains("CommunityChestCard"))
         assertTrue(stringRepresentation.contains("id=1"))
         assertTrue(stringRepresentation.contains("amount=100"))

@@ -51,13 +51,6 @@
             android:screenOrientation="landscape"
             android:theme="@style/Theme.MyApplication" />
 
-        <activity
-            android:name="at.aau.monopoly.klagenfurt.GameActivity"
-            android:exported="false"
-            android:label="Monopoly Debug"
-            android:screenOrientation="landscape"
-            android:theme="@style/Theme.MyApplication" />
-
         <!-- Lobby – game browser -->
         <activity
             android:name="at.aau.monopoly.klagenfurt.LobbyActivity"

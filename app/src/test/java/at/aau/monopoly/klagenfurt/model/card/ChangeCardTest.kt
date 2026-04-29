@@ -8,7 +8,7 @@ class ChanceCardTest {
 
     @Test
     fun `test chance card inheritance and properties`() {
-        val description = "Rücke vor bis auf die Wiener Straße"
+        val description = "Advance to Wiener Straße"
         val chanceCard = ChanceCard(
             id = 5,
             description = description,
@@ -16,13 +16,13 @@ class ChanceCardTest {
             targetFieldId = 24
         )
 
-        // Teste die Properties (Vererbung von Card)
+        // Test properties (inherited from Card)
         assertEquals(5, chanceCard.id)
         assertEquals(description, chanceCard.description)
         assertEquals(CardAction.MOVE_TO, chanceCard.action)
         assertEquals(24, chanceCard.targetFieldId)
 
-        // Teste Default-Werte
+        // Test default values
         assertEquals(0, chanceCard.amount)
         assertEquals(0, chanceCard.moveSpaces)
     }
@@ -31,22 +31,22 @@ class ChanceCardTest {
     fun `test data class copy method`() {
         val original = ChanceCard(1, "Original", CardAction.COLLECT_MONEY, amount = 200)
 
-        // Nutze die Kotlin copy-Funktion
+        // Use the Kotlin copy function
         val copied = original.copy(id = 2, description = "Kopie")
 
         assertEquals(2, copied.id)
         assertEquals("Kopie", copied.description)
-        assertEquals(original.action, copied.action) // Bleibt gleich
-        assertEquals(200, copied.amount)           // Bleibt gleich
+        assertEquals(original.action, copied.action) // Stays the same
+        assertEquals(200, copied.amount)           // Stays the same
     }
 
     @Test
     fun `test data class equality`() {
-        val card1 = ChanceCard(10, "Gleiche Karte", CardAction.PAY_MONEY, amount = 50)
-        val card2 = ChanceCard(10, "Gleiche Karte", CardAction.PAY_MONEY, amount = 50)
-        val card3 = ChanceCard(11, "Andere Karte", CardAction.PAY_MONEY, amount = 50)
+        val card1 = ChanceCard(10, "Same Card", CardAction.PAY_MONEY, amount = 50)
+        val card2 = ChanceCard(10, "Same Card", CardAction.PAY_MONEY, amount = 50)
+        val card3 = ChanceCard(11, "Different Card", CardAction.PAY_MONEY, amount = 50)
 
-        // Testet equals() und hashCode() automatisch
+        // Tests equals() and hashCode() automatically
         assertEquals(card1, card2)
         assertNotEquals(card1, card3)
         assertEquals(card1.hashCode(), card2.hashCode())
@@ -57,7 +57,7 @@ class ChanceCardTest {
         val card = ChanceCard(1, "Test", CardAction.MOVE_FORWARD, moveSpaces = 3)
         val toString = card.toString()
 
-        // Prüft, ob die wichtigsten Infos im String enthalten sind (gut für Debugging/Coverage)
+        // Checks if the most important info is contained in the string (good for debugging/coverage)
         assertTrue(toString.contains("id=1"))
         assertTrue(toString.contains("description=Test"))
         assertTrue(toString.contains("moveSpaces=3"))

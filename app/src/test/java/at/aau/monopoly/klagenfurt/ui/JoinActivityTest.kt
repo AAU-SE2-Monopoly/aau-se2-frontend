@@ -58,22 +58,22 @@ class JoinActivityTest {
         ActivityScenario.launch<JoinActivity>(intent).use {
             composeTestRule.waitForIdle()
 
-            // Prüft, ob der Titel korrekt ist
+            // Checks if the title is correct
             composeTestRule.onNode(hasTestTag("ScreenTitle") and hasText("JOIN GAME")).assertExists()
 
-            // Prüft, ob die Game-ID korrekt abgeschnitten wird (take(8))
+            // Checks if the Game-ID is correctly truncated (take(8))
             composeTestRule.onNodeWithText("Game: test-gam…").assertIsDisplayed()
 
-            // Eingabe und Klick
+            // Input and click
             composeTestRule.onNodeWithTag("PlayerNameInput").performTextInput("Alice")
             composeTestRule.onNodeWithTag("ActionButton").performClick()
 
-            // Service Aufrufe verifizieren
+            // Verify service calls
             assertEquals(1, fakeService.joinGameCalls)
             assertEquals("Alice", fakeService.lastJoinedPlayerName)
             assertEquals("test-game-123456", fakeService.lastJoinedGameId)
 
-            // Icon Index 0 ist Default = lindwurm
+            // Icon index 0 is default = lindwurm
             assertEquals("lindwurm", fakeService.lastJoinedIconId)
         }
     }
@@ -107,7 +107,7 @@ class JoinActivityTest {
         ActivityScenario.launch<JoinActivity>(intent).use { scenario ->
             composeTestRule.waitForIdle()
 
-            // Absichtlich keine Eingabe tätigen -> Fallback Logik `ifBlank` greift
+            // Intentionally no input -> fallback logic `ifBlank` applies
             composeTestRule.onNodeWithTag("ActionButton").performClick()
 
             assertEquals(1, fakeService.createGameCalls)
@@ -118,7 +118,7 @@ class JoinActivityTest {
             }
             composeTestRule.waitForIdle()
 
-            // Verifizieren, dass die Activity beendet und GameboardUI gestartet wurde
+            // Verify that the activity is finished and GameboardUI was started
             scenario.onActivity { activity ->
                 val shadowActivity = shadowOf(activity)
                 val expectedIntent = shadowActivity.nextStartedActivity
@@ -134,10 +134,10 @@ class JoinActivityTest {
         ActivityScenario.launch(JoinActivity::class.java).use { scenario ->
             composeTestRule.waitForIdle()
 
-            // Back-Button über den Text finden und auslösen
+            // Find back button by text and trigger it
             composeTestRule.onNodeWithText("Back").performClick()
 
-            // Verifizieren, dass Activity.finish() aufgerufen wurde
+            // Verify that Activity.finish() was called
             scenario.onActivity { activity ->
                 assertTrue(activity.isFinishing)
             }
@@ -146,7 +146,7 @@ class JoinActivityTest {
 
     @Test
     fun testIconCycling_andMissingGameIdFallback() {
-        // Intent ohne "gameId" -> testet Fallback `getStringExtra("gameId") ?: ""`
+        // Intent without "gameId" -> tests fallback `getStringExtra("gameId") ?: ""`
         val intent = Intent(ApplicationProvider.getApplicationContext(), JoinActivity::class.java).apply {
             putExtra("isNewGame", false)
         }
@@ -154,7 +154,7 @@ class JoinActivityTest {
         ActivityScenario.launch<JoinActivity>(intent).use {
             composeTestRule.waitForIdle()
 
-            // Durchlaufen der Icons (3 Klicks)
+            // Cycle through the icons (3 clicks)
             val iconButton = composeTestRule.onNodeWithContentDescription("Selected Icon")
             iconButton.performClick() // Index 1: woerthersee
             iconButton.performClick() // Index 2: gti
@@ -165,7 +165,7 @@ class JoinActivityTest {
             assertEquals(1, fakeService.joinGameCalls)
             assertEquals("", fakeService.lastJoinedGameId)
 
-            // Prüft, ob das korrekte Icon aus dem `when`-Block gemappt wurde
+            // Checks if the correct icon is mapped from the `when`-block
             assertEquals("ironman", fakeService.lastJoinedIconId)
         }
     }
@@ -182,16 +182,16 @@ class JoinActivityTest {
             ActivityScenario.launch<JoinActivity>(intent).use {
                 composeTestRule.waitForIdle()
 
-                // Klicke entsprechend dem aktuellen Index (0 bis 4 mal) auf das Icon
+                // Click according to the current index (0 to 4 times) on the icon
                 val iconButton = composeTestRule.onNodeWithContentDescription("Selected Icon")
                 for (click in 0 until index) {
                     iconButton.performClick()
                 }
 
-                // Button klicken, um das onJoin Lambda auszulösen
+                // Click button to trigger the onJoin lambda
                 composeTestRule.onNodeWithTag("ActionButton").performClick()
 
-                // Verifizieren, ob die richtige ID an den Service übergeben wurde
+                // Verify that the correct ID was passed to the service
                 assertEquals(expectedIconId, fakeService.lastCreatedIconId)
             }
         }
@@ -199,8 +199,8 @@ class JoinActivityTest {
 
     @Test
     fun testIconMapping_elseBranch_coverage() {
-        // Testet explizit den unerreichbaren else-Zweig für SonarQube.
-        // Setzt voraus, dass JoinActivity.mapIndexToIconId existiert.
+        // Explicitly tests the unreachable else-branch for SonarQube.
+        // Assumes that JoinActivity.mapIndexToIconId exists.
         val fallbackIcon = JoinActivity.mapIndexToIconId(99)
         assertEquals("lindwurm", fallbackIcon)
     }

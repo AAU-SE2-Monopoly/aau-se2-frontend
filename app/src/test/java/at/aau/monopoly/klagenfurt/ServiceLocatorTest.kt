@@ -13,7 +13,7 @@ class ServiceLocatorTest {
 
     @AfterEach
     fun teardown() {
-        // Zwingend erforderlich: Setzt den globalen Zustand nach jedem Test zurück.
+        // Mandatory: resets global state after each test.
         ServiceLocator.resetForTests()
     }
 
@@ -29,7 +29,7 @@ class ServiceLocatorTest {
         val client1 = ServiceLocator.provideStompClient()
         val client2 = ServiceLocator.provideStompClient()
 
-        // assertSame prüft auf exakte Speicherreferenz (Singleton-Verhalten)
+        // assertSame checks for exact memory reference (singleton behavior)
         assertSame(client1, client2)
     }
 
@@ -95,11 +95,11 @@ class ServiceLocatorTest {
         ServiceLocator.injectStompClientForTest(mockClient)
         ServiceLocator.injectGameServiceForTest(mockService)
 
-        // Reset aufrufen
+        // Call reset
         ServiceLocator.resetForTests()
 
-        // Nach dem Reset müssen beim erneuten Aufruf echte, neue Instanzen gebaut werden,
-        // nicht mehr die Mocks von oben.
+        // After reset, subsequent calls must build real, new instances,
+        // not the mocks from above.
         val newClient = ServiceLocator.provideStompClient()
         val newService = ServiceLocator.provideGameService()
 

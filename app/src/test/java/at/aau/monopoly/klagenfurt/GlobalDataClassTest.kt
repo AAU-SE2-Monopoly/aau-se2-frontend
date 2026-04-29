@@ -139,7 +139,7 @@ class GlobalDataClassTest {
                     card.id; card.description; card.action; card.amount; card.targetFieldId; card.moveSpaces
                 }
             } finally {
-                // EXPLIZITER COVERAGE-BOOSTER FÜR DIE ABSTRAKTE KLASSE
+                // EXPLICIT COVERAGE BOOSTER FOR THE ABSTRACT CLASS
                 if (clazz == Card::class.java) {
                     val cardAction = CardAction.MOVE_TO
                     val testCard = object : Card(

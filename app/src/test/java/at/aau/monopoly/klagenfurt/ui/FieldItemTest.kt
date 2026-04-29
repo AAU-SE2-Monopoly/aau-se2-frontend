@@ -14,6 +14,7 @@ import at.aau.monopoly.klagenfurt.model.field.ChanceField
 import at.aau.monopoly.klagenfurt.model.field.GoField
 import at.aau.monopoly.klagenfurt.model.field.PropertyField
 import at.aau.monopoly.klagenfurt.model.field.TaxField
+import at.aau.monopoly.klagenfurt.ui.board.FieldItem
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -149,7 +150,7 @@ class FieldItemTest {
         composeTestRule.setContent {
             FieldItem(index = 4, field = taxField, sw = sw, sh = sh)
         }
-        // Überprüft den "false" Branch der PropertyBar Logik
+        // Verifies the "false" branch of the PropertyBar logic
         composeTestRule.onNodeWithTag("Bottom-Bar").assertDoesNotExist()
         composeTestRule.onNodeWithTag("Top-Bar").assertDoesNotExist()
     }
@@ -160,7 +161,7 @@ class FieldItemTest {
         composeTestRule.setContent {
             FieldItem(index = 0, field = unknownField, sw = sw, sh = sh)
         }
-        // Überprüft den null-Check in FieldImage
+        // Verifies the null-check in FieldImage
         composeTestRule.onNodeWithText("Unknown Place").assertExists()
     }
 }

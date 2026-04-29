@@ -6,6 +6,11 @@ import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import at.aau.monopoly.klagenfurt.model.enums.PropertyColor
+import at.aau.monopoly.klagenfurt.ui.board.calculateFieldBounds
+import at.aau.monopoly.klagenfurt.ui.board.getFieldImageMapping
+import at.aau.monopoly.klagenfurt.ui.util.getPlayerTokenResource
+import at.aau.monopoly.klagenfurt.ui.util.toComposeColor
+import at.aau.monopoly.klagenfurt.ui.zoom.ZoomState
 
 import at.aau.monopoly.klagenfurt.model.field.GoField
 import at.aau.monopoly.klagenfurt.model.field.PropertyField

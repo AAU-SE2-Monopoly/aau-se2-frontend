@@ -15,6 +15,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import at.aau.monopoly.klagenfurt.model.field.PropertyField
+import at.aau.monopoly.klagenfurt.ui.util.toComposeColor
 
 @Composable
 fun PropertyCardUI(property: PropertyField) {
@@ -56,12 +57,12 @@ fun PropertyCardUI(property: PropertyField) {
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // Mieten (rent[0] = normal, rent[1..4] = 1-4 Häuser, rent[5] = Hotel)
+        // Rents (rent[0] = normal, rent[1..4] = 1-4 houses, rent[5] = hotel)
         if (property.rent.isNotEmpty()) {
             Text(text = "Miete: € ${property.rent.getOrNull(0) ?: 0}", fontSize = 14.sp)
             Spacer(modifier = Modifier.height(8.dp))
 
-            val houseLabels = listOf("Mit 1 Haus", "Mit 2 Häusern", "Mit 3 Häusern", "Mit 4 Häusern")
+            val houseLabels = listOf("With 1 House", "With 2 Houses", "With 3 Houses", "With 4 Houses")
             for (i in 1..4) {
                 Row(
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
@@ -77,7 +78,7 @@ fun PropertyCardUI(property: PropertyField) {
 
         Spacer(modifier = Modifier.weight(1f))
 
-        // Kosten
+        // Costs
         Row(
             modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
             horizontalArrangement = Arrangement.SpaceBetween
@@ -89,7 +90,7 @@ fun PropertyCardUI(property: PropertyField) {
             modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            Text(text = "Hotel kostet", fontSize = 10.sp)
+            Text(text = "Hotel costs", fontSize = 10.sp)
             Text(text = "€ ${property.hotelCost}", fontSize = 10.sp)
         }
     }

@@ -189,7 +189,7 @@ class GameViewModel(private val gameService: GameService) : ViewModel() {
         .map { it.entries }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    // 🎲 Dice Roll states
+    //  Dice Roll states
     val lastDiceRoll: StateFlow<DiceRoll?> = gameState
         .map { it?.lastDiceRoll }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)

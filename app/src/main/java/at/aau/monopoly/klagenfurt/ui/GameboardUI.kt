@@ -3,6 +3,7 @@ package at.aau.monopoly.klagenfurt.ui
 import android.app.Activity
 import android.content.pm.ActivityInfo
 import android.os.Bundle
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.viewModels
@@ -28,6 +29,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Button
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -56,7 +58,13 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
+import at.aau.monopoly.klagenfurt.sensors.ShakeDetector
 import androidx.compose.ui.text.TextStyle
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.filter
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.Hyphens
 import androidx.compose.ui.text.style.TextAlign
@@ -78,6 +86,8 @@ import com.example.myapplication.R
 import kotlin.collections.emptyList
 import kotlin.collections.listOf
 import kotlin.math.sqrt
+import kotlinx.coroutines.delay
+
 
 class GameboardUI : ComponentActivity() {
     private val viewModel: GameViewModel by viewModels {
@@ -85,6 +95,11 @@ class GameboardUI : ComponentActivity() {
     }
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        val gameId = intent.getStringExtra("GAME_ID")
+        Log.d("DiceDebug", "GameboardUI received GAME_ID=$gameId")
+        if (!gameId.isNullOrBlank()) {
+            viewModel.setGameId(gameId)
+        }
         setContent {
             GameboardScreen(viewModel = viewModel)
         }
@@ -120,6 +135,89 @@ fun LockScreenOrientation(orientation: Int) {
         val currentTurnPlayer = gameState?.currentPlayer
         val eventLog by viewModel.eventLog.collectAsState()
 
+
+    val isRollingPhaseForCurrentPlayer by viewModel.isRollingPhaseForCurrentPlayer.collectAsState()
+    val lastDiceRoll by viewModel.lastDiceRoll.collectAsState()
+
+    val context = LocalContext.current
+
+
+    var showOverlay by remember { mutableStateOf(false) }
+
+
+    LaunchedEffect(isRollingPhaseForCurrentPlayer) {
+        if (isRollingPhaseForCurrentPlayer) {
+            showOverlay = true
+        }
+    }
+
+    // ═══════════════════════════════════════════════
+    // FIX: Flow-based ShakeDetector lifecycle
+    // ═══════════════════════════════════════════════
+    // Instead of LaunchedEffect(key) that restarts on every phase toggle,
+    // use two LaunchedEffect(Unit) collecting flows continuously.
+    // This guarantees no orphaned listeners regardless of phase change frequency.
+
+    val shakeDetector = remember { ShakeDetector(context) }
+
+    // 1. Start/stop the accelerometer reactively via rollingPhase flow
+    LaunchedEffect(Unit) {
+        viewModel.isRollingPhaseForCurrentPlayer.collect { isRolling ->
+            if (isRolling) {
+                shakeDetector.startListening()
+            } else {
+                shakeDetector.stopListening()
+            }
+        }
+    }
+
+    // 2. Anti-double-fire guard: only one shake per rolling phase
+    var shakeFired by remember { mutableStateOf(false) }
+
+    // Reset guard when rolling phase starts
+    LaunchedEffect(isRollingPhaseForCurrentPlayer) {
+        if (isRollingPhaseForCurrentPlayer) {
+            shakeFired = false
+        }
+    }
+
+    // 3. Gate shake events with the current rolling phase using Flow operators
+    LaunchedEffect(Unit) {
+        shakeDetector.shakeEvents
+            .combine(viewModel.isRollingPhaseForCurrentPlayer) { _, isRolling -> isRolling }
+            .filter { it }
+            .collect {
+                if (!shakeFired) {
+                    shakeFired = true
+                    viewModel.rollDice()
+                }
+            }
+    }
+
+    // 4. Lifecycle-aware observer: stop sensor onPause (app backgrounded),
+    //    restart onResume if still in rolling phase, and clean up on dispose.
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            when (event) {
+                Lifecycle.Event.ON_PAUSE -> shakeDetector.stopListening()
+                Lifecycle.Event.ON_RESUME -> {
+                    if (viewModel.isRollingPhaseForCurrentPlayer.value) {
+                        shakeDetector.startListening()
+                    }
+                }
+                else -> {}
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+            shakeDetector.stopListening()
+        }
+    }
+    // ═══════════════════════════════════════════════
+    // End of Fixes
+
         // 1. Beobachte den ausgewählten Spieler aus dem ViewModel
         val selectedPlayer by viewModel.selectedPlayerForOverlay.collectAsState()
 
@@ -133,6 +231,47 @@ fun LockScreenOrientation(orientation: Int) {
             currentTurnPlayer = currentTurnPlayer,
             modifier = Modifier.fillMaxSize()
         )
+
+        GameboardContent(
+            fields = fields,
+            players = players,
+            modifier = Modifier.fillMaxSize()
+        )
+
+        Column(
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(20.dp),
+            horizontalAlignment = Alignment.End
+        ) {
+            Button(
+                onClick = { viewModel.startGame() },
+                modifier = Modifier.padding(bottom = 8.dp)
+            ) {
+                Text("Start Game")
+            }
+
+            // 🎲 Button on the lower right side
+            Button(
+                onClick = {
+                    viewModel.rollDice()
+                }
+            ) {
+                Text("🎲 Würfeln")
+            }
+        }
+
+        // 🎲 Dice Roll Overlay
+        DiceRollOverlay(
+            isVisible = showOverlay,
+            diceResult = lastDiceRoll?.let { Pair(it.die1, it.die2) },
+            isRolling = isRollingPhaseForCurrentPlayer,
+            onClose = {
+                showOverlay = false // Schließt das Overlay sauber!
+            }
+        )
+
+        // Chat / Event log overlay (top center)
         GameboardOverlayLayer(eventLog = eventLog)
 
         // --- DAS OVERLAY ---
@@ -162,8 +301,6 @@ private fun BoxScope.GameboardOverlayLayer(eventLog: List<GameViewModel.LogEntry
             .align(Alignment.TopCenter)
     )
 }
-
-
 class ZoomState(
     initialScale: Float = 1f,
     initialOffset: Offset = Offset.Zero

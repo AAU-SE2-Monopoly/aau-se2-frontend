@@ -2,9 +2,11 @@ package at.aau.monopoly.klagenfurt
 
 import android.content.Intent
 import android.os.Bundle
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.lifecycle.lifecycleScope
 import at.aau.monopoly.klagenfurt.ui.GameboardUI
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -48,6 +50,13 @@ import androidx.compose.ui.unit.sp
 import at.aau.monopoly.klagenfurt.ui.theme.MyApplicationTheme
 import at.aau.monopoly.klagenfurt.ui.theme.PrimaryBlue
 import at.aau.monopoly.klagenfurt.ui.theme.PrimaryBlueLight
+import at.aau.monopoly.klagenfurt.networking.GameService
+import at.aau.monopoly.klagenfurt.networking.JacksonProvider
+import at.aau.monopoly.klagenfurt.messaging.GameEvent
+import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.mapNotNull
+import kotlinx.coroutines.launch
 
 class JoinActivity : ComponentActivity() {
 
@@ -55,7 +64,9 @@ class JoinActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
-        val gameId = intent.getStringExtra("gameId") ?: ""
+        val gameId = intent.getStringExtra("GAME_ID")
+            ?: intent.getStringExtra("gameId")
+            ?: ""
         val isNewGame = intent.getBooleanExtra("isNewGame", false)
 
         setContent {
@@ -71,19 +82,39 @@ class JoinActivity : ComponentActivity() {
                         val iconId = mapIndexToIconId(iconIndex)
 
                         if (isNewGame) {
+
                             // Create a new game – the backend will respond with GAME_CREATED
                             gameService.createGame(playerName, iconId)
+                            lifecycleScope.launch {
+                                val createdGameId = waitForGameCreatedId(gameService)
+                                gameService.setGameId(createdGameId)
+                                startActivity(
+                                    Intent(this@JoinActivity, GameboardUI::class.java).apply {
+                                        putExtra("GAME_ID", createdGameId)
+                                    }
+                                )
+                                finish()
+                            }
                         } else {
-                            // Join existing game - subscribeToGame is handled inside joinGame
+                            // Join existing game - mirror main: set gameId first, then join
+                            if (gameId.isNotBlank()) {
+                                gameService.setGameId(gameId)
+                            }
                             gameService.joinGame(gameId, playerName, iconId)
+                            if (gameId.isNotBlank()) {
+                                lifecycleScope.launch {
+                                    waitForSubscribed(gameService, gameId)
+                                    startActivity(
+                                        Intent(this@JoinActivity, GameboardUI::class.java).apply {
+                                            putExtra("GAME_ID", gameId)
+                                        }
+                                    )
+                                    finish()
+                                }
+                            }
                         }
-                        // Navigate to the game board
-                        startActivity(
-                            Intent(this, GameboardUI::class.java)
-                        )
-                        finish()
                     }
-                )
+                        )
             }
         }
     }
@@ -100,6 +131,31 @@ class JoinActivity : ComponentActivity() {
             }
         }
     }
+}
+
+private suspend fun waitForGameCreatedId(gameService: GameService): String {
+    val objectMapper = JacksonProvider.objectMapper
+    return gameService.events
+        .mapNotNull { payload ->
+            try {
+                val event = objectMapper.readValue(payload, GameEvent::class.java)
+                if (event.event == "GAME_CREATED" && event.gameId.isNotBlank()) {
+                    event.gameId
+                } else {
+                    null
+                }
+            } catch (e: Exception) {
+                Log.e("JoinActivity", "waitForGameCreatedId parse error: ${e.message}", e)
+                null
+            }
+        }
+        .first()
+}
+
+private suspend fun waitForSubscribed(gameService: GameService, gameId: String) {
+    gameService.status
+        .filter { it == "SUBSCRIBED:$gameId" }
+        .first()
 }
 
 @Composable

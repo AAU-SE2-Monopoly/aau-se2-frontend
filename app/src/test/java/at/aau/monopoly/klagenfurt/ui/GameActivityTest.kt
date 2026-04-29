@@ -258,6 +258,10 @@ class GameActivityTest {
                 activity.findViewById<Button>(R.id.button_gameboard).isEnabled = true
             }
 
+            // GameActivity requires a Game ID to be entered before opening the game board
+            onView(withId(R.id.et_game_id))
+                .perform(typeText("TEST-GAME-ID"), closeSoftKeyboard())
+
             onView(withId(R.id.button_gameboard)).perform(click())
 
             intended(hasComponent(GameboardUI::class.java.name))

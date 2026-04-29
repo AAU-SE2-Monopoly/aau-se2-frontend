@@ -5,13 +5,17 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import at.aau.monopoly.klagenfurt.messaging.GameEvent
+import at.aau.monopoly.klagenfurt.model.DiceRoll
 import at.aau.monopoly.klagenfurt.model.GameState
 import at.aau.monopoly.klagenfurt.model.field.Field
+import at.aau.monopoly.klagenfurt.model.enums.GamePhase
 import at.aau.monopoly.klagenfurt.networking.GameService
 import at.aau.monopoly.klagenfurt.networking.JacksonProvider
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.mapNotNull
@@ -63,7 +67,10 @@ class GameViewModel(private val gameService: GameService) : ViewModel() {
         .mapNotNull { jsonString ->
             try {
                 objectMapper.readValue(jsonString, GameEvent::class.java)
-            } catch (e: Exception) { null }
+            } catch (e: Exception) {
+                Log.e("GameViewModel", "logEventFlow parse error: ${e.message}", e)
+                null
+            }
         }
         .shareIn(
             scope = viewModelScope,
@@ -171,6 +178,41 @@ class GameViewModel(private val gameService: GameService) : ViewModel() {
         .map { it.entries }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
+    // 🎲 Dice Roll states
+    val lastDiceRoll: StateFlow<DiceRoll?> = gameState
+        .map { it?.lastDiceRoll }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+
+
+    val isRollingPhaseForCurrentPlayer: StateFlow<Boolean> = gameState
+        .map { state ->
+            state?.phase == GamePhase.ROLLING &&
+                state.currentPlayer?.id == gameService.currentPlayerId
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+
+    val diceResultForCurrentPlayer: StateFlow<DiceRoll?> = gameState
+        .map { state ->
+            if (
+                state?.phase == GamePhase.BUYING &&
+                state.currentPlayer?.id == gameService.currentPlayerId
+            ) {
+                state.lastDiceRoll
+            } else {
+                null
+            }
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+
+    val showDiceOverlayForCurrentPlayer: StateFlow<Boolean> = gameState
+        .map { state ->
+            val isCurrentPlayer = state?.currentPlayer?.id == gameService.currentPlayerId
+            val isRollingPhase = state?.phase == GamePhase.ROLLING
+            val hasResult = state?.phase == GamePhase.BUYING && state.lastDiceRoll != null
+            isCurrentPlayer && (isRollingPhase || hasResult)
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+
     val events: SharedFlow<String> = gameService.events
     val status: SharedFlow<String> = gameService.status
     val currentPlayerId: String get() = gameService.currentPlayerId
@@ -183,7 +225,9 @@ class GameViewModel(private val gameService: GameService) : ViewModel() {
 
     fun startGame() = gameService.startGame()
 
+    // Use the simpler main-branch behavior for rolling the dice: just forward to service.
     fun rollDice() = gameService.rollDice()
+
 
     fun endTurn() = gameService.endTurn()
 

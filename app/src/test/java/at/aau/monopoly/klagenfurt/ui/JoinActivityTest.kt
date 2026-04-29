@@ -16,6 +16,7 @@ import androidx.test.core.app.ApplicationProvider
 import at.aau.monopoly.klagenfurt.FakeGameService
 import at.aau.monopoly.klagenfurt.JoinActivity
 import at.aau.monopoly.klagenfurt.ServiceLocator
+import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -111,6 +112,11 @@ class JoinActivityTest {
 
             assertEquals(1, fakeService.createGameCalls)
             assertEquals("Player", fakeService.lastCreatedPlayerName)
+
+            runBlocking {
+                fakeService.emitTestEvent("""{"event":"GAME_CREATED","gameId":"created-123"}""")
+            }
+            composeTestRule.waitForIdle()
 
             // Verifizieren, dass die Activity beendet und GameboardUI gestartet wurde
             scenario.onActivity { activity ->

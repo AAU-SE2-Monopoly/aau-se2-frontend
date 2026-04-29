@@ -9,8 +9,11 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.yield
 import org.hildan.krossbow.stomp.StompClient
@@ -32,7 +35,6 @@ class GameStompClient(
     private var connectJob: Job? = null
     private var isConnecting = false
 
-
     private val _events = MutableSharedFlow<String>(replay = 1)
     override val events: SharedFlow<String> = _events.asSharedFlow()
 
@@ -45,6 +47,11 @@ class GameStompClient(
 
     private val _lobbyEvents = MutableSharedFlow<String>(replay = 1)
     override val lobbyEvents: SharedFlow<String> = _lobbyEvents.asSharedFlow()
+
+    // Tracks whether the STOMP subscription for the active game topic is ready.
+    // Set to true after subscribeToGameInternal succeeds, reset on disconnect/subscribe.
+    private val _subscriptionReady = MutableStateFlow(false)
+    override val subscriptionReady: StateFlow<Boolean> = _subscriptionReady.asStateFlow()
 
     private var _currentGameId: String = ""
     override val currentGameId: String get() = _currentGameId
@@ -77,7 +84,6 @@ class GameStompClient(
                 
                 emitStatus("Connected ✓")
                 Log.d("GameStomp", "Connected successfully")
-
             } catch (e: Throwable) {
                 if (isCancellation(e)) {
                     Log.d("GameStomp", "Connection attempt cancelled")
@@ -112,6 +118,7 @@ class GameStompClient(
     }
 
     override fun disconnect() {
+        _subscriptionReady.value = false
         connectJob?.cancel()
         subscriptionJob?.cancel()
         personalSubscriptionJob?.cancel()
@@ -215,7 +222,11 @@ class GameStompClient(
     }
 
     override fun startGame() = sendRaw("/app/game/start", buildAction())
-    override fun rollDice() = sendRaw("/app/game/action", buildAction("ROLL_DICE"))
+    override fun rollDice() {
+        val payload = buildAction("ROLL_DICE")
+        Log.d("DiceDebug", "rollDice gameId=$_currentGameId playerId=$currentPlayerId payload=$payload")
+        sendRaw("/app/game/action", payload)
+    }
     override fun endTurn() = sendRaw("/app/game/action", buildAction("END_TURN"))
     override fun requestState() = sendRaw("/app/game/state", buildAction())
 
@@ -239,12 +250,15 @@ class GameStompClient(
     ): Boolean {
         if (subscriptionJob?.isActive == true && gameId == _currentGameId) {
             Log.d("GameStomp", "Already subscribed to $gameId")
+            _subscriptionReady.value = true
+            emitStatus("SUBSCRIBED:$gameId")
             if (requestStateAfterSubscribe) {
                 sendRawInternal("/app/game/state", buildAction())
             }
             return true
         }
 
+        _subscriptionReady.value = false
         _currentGameId = gameId
         subscriptionJob?.cancel()
 
@@ -258,7 +272,6 @@ class GameStompClient(
             Log.d("GameStomp", "Subscribing to /topic/game/$gameId")
             val subscription = currentSession.subscribeText("/topic/game/$gameId")
 
-
             subscriptionJob = scope.launch {
                 try {
                     subscription.collect { msg ->
@@ -270,12 +283,16 @@ class GameStompClient(
                 }
             }
 
+            _subscriptionReady.value = true
+            emitStatus("SUBSCRIBED:$gameId")
+
             if (requestStateAfterSubscribe) {
                 sendRawInternal("/app/game/state", buildAction())
             }
 
             true
         } catch (e: Throwable) {
+            _subscriptionReady.value = false
             subscriptionJob = null
             if (isCancellation(e)) {
                 Log.d("GameStomp", "Subscription job cancelled for $gameId")

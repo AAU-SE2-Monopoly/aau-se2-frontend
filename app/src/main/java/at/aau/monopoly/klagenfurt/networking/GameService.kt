@@ -1,6 +1,7 @@
 package at.aau.monopoly.klagenfurt.networking
 
 import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.StateFlow
 
 interface GameService {
     val events: SharedFlow<String>
@@ -11,6 +12,9 @@ interface GameService {
     val currentPlayerId: String
     val currentPlayerName: String
     val currentGameId: String
+
+    /** Emits `true` once the STOMP subscription for the current game topic is active. */
+    val subscriptionReady: StateFlow<Boolean>
 
     fun connect()
     fun disconnect()

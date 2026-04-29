@@ -2,6 +2,7 @@ package at.aau.monopoly.klagenfurt
 
 import android.content.Intent
 import android.os.Bundle
+import android.util.Log
 import android.widget.ArrayAdapter
 import android.widget.Button
 import android.widget.EditText
@@ -91,7 +92,19 @@ class GameActivity : ComponentActivity() {
             viewModel.connect()
         }
         btnGameBoard.setOnClickListener {
-            val intent = Intent(this, GameboardUI::class.java)
+            val gameId = etGameId.text.toString().trim()
+
+            if (gameId.isEmpty()) {
+                toast(getString(R.string.error_enter_game_id))
+                return@setOnClickListener
+            }
+
+            viewModel.setGameId(gameId)
+
+            val intent = Intent(this, GameboardUI::class.java).apply {
+                putExtra("GAME_ID", gameId)
+            }
+            Log.d("DiceDebug", "Opening GameboardUI with GAME_ID=$gameId")
             startActivity(intent)
         }
         btnClear.setOnClickListener { tvEventLog.text = "" }
@@ -110,11 +123,17 @@ class GameActivity : ComponentActivity() {
                 }
                 GameActionItem.JOIN_GAME -> {
                     if (gameId.isEmpty()) { toast(getString(R.string.error_enter_game_id)); return@setOnClickListener }
+                    viewModel.setGameId(gameId)  // ✨ Set gameId immediately
                     viewModel.joinGame(gameId, playerName)
                     appendLog("→ JOIN_GAME gameId=$gameId player=$playerName")
+
                 }
                 else -> {
-                    if (gameId.isEmpty()) { toast(getString(R.string.error_enter_game_id)); return@setOnClickListener }
+                    if (gameId.isEmpty()) { 
+                        toast(getString(R.string.error_enter_game_id))
+                        appendLog("❌ Cannot execute ${selected.name} - please join a game first or click 'GameBoard'")
+                        return@setOnClickListener 
+                    }
                     viewModel.setGameId(gameId)
                     when (selected) {
                         GameActionItem.START_GAME -> viewModel.startGame()
@@ -181,6 +200,11 @@ class GameActivity : ComponentActivity() {
     }
 
     private fun toast(msg: String) = Toast.makeText(this, msg, Toast.LENGTH_SHORT).show()
+
+    private fun navigateToGameBoard(gameId: String) {
+        val intent = Intent(this, GameboardUI::class.java).apply {
+            putExtra("GAME_ID", gameId)
+        }
+        startActivity(intent)
+    }
 }
-
-

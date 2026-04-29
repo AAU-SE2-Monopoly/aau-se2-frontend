@@ -10,9 +10,11 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.detectTransformGestures
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
@@ -23,15 +25,21 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import kotlinx.coroutines.delay
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -56,9 +64,16 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import at.aau.monopoly.klagenfurt.ServiceLocator
+import at.aau.monopoly.klagenfurt.model.Player
+import at.aau.monopoly.klagenfurt.model.card.Card
+
+import at.aau.monopoly.klagenfurt.model.enums.FieldType
 import at.aau.monopoly.klagenfurt.model.enums.PropertyColor
 import at.aau.monopoly.klagenfurt.model.field.Field
 import at.aau.monopoly.klagenfurt.model.field.PropertyField
+import at.aau.monopoly.klagenfurt.model.field.RailroadField
+import at.aau.monopoly.klagenfurt.model.field.UtilityField
+import at.aau.monopoly.klagenfurt.ui.chat.ChatOverlay
 import com.example.myapplication.R
 import kotlin.collections.emptyList
 import kotlin.collections.listOf
@@ -71,7 +86,7 @@ class GameboardUI : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
-            GameboardScreen(viewModel=viewModel)
+            GameboardScreen(viewModel = viewModel)
         }
     }
 }
@@ -91,20 +106,34 @@ fun LockScreenOrientation(orientation: Int) {
     }
 }
 
-@Composable
-fun GameboardScreen(modifier: Modifier = Modifier, viewModel: GameViewModel) {
-    val fields by viewModel.fields.collectAsState(initial = emptyList())
-    // 1. Beobachte den ausgewählten Spieler aus dem ViewModel
-    val selectedPlayer by viewModel.selectedPlayerForOverlay.collectAsState()
+    @Composable
+    fun GameboardScreen(modifier: Modifier = Modifier, viewModel: GameViewModel) {
+        // Request state sync when entering the screen to ensure fresh data
+        LaunchedEffect(Unit) {
+            viewModel.syncGameboardEntryState()
+        }
+
+        val fields by viewModel.fields.collectAsState(initial = emptyList())
+        val gameState by viewModel.gameState.collectAsState()
+        val players = gameState?.players ?: emptyList()
+        val currentPlayerId = viewModel.currentPlayerId
+        val currentTurnPlayer = gameState?.currentPlayer
+        val eventLog by viewModel.eventLog.collectAsState()
+
+        // 1. Beobachte den ausgewählten Spieler aus dem ViewModel
+        val selectedPlayer by viewModel.selectedPlayerForOverlay.collectAsState()
 
     LockScreenOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE)
 
-    // Ein umschließendes Box-Layout erlaubt es uns, Elemente übereinander zu legen (z-index)
-    Box(modifier = Modifier.fillMaxSize()) {
-
-        // Das normale Spielfeld (ganz unten)
-        GameboardContent(fields = fields ?: emptyList(), modifier = modifier)
-        // ------------------------------
+    Box(modifier = modifier.fillMaxSize()) {
+        GameboardContent(
+            fields = fields,
+            players = players,
+            currentPlayerId = currentPlayerId,
+            currentTurnPlayer = currentTurnPlayer,
+            modifier = Modifier.fillMaxSize()
+        )
+        GameboardOverlayLayer(eventLog = eventLog)
 
         // --- DAS OVERLAY ---
         // Wird nur gerendert, wenn selectedPlayer NICHT null ist
@@ -117,6 +146,23 @@ fun GameboardScreen(modifier: Modifier = Modifier, viewModel: GameViewModel) {
         }
     }
 }
+
+/**
+ * Creates the overlay layer for the gameboard.
+ * Place components here that should remain fixed (not zoomable), such as UI controls or HUD.
+ *
+ * eventLog displays events like join, create game, dice rolled etc.
+ * The Log ignores State Snapshots -> Technical Logs will be displayed on DoubleClick on ChatBar in an expanded window.
+ */
+@Composable
+private fun BoxScope.GameboardOverlayLayer(eventLog: List<GameViewModel.LogEntry>) {
+    ChatOverlay(
+        entries = eventLog,
+        modifier = Modifier
+            .align(Alignment.TopCenter)
+    )
+}
+
 
 class ZoomState(
     initialScale: Float = 1f,
@@ -176,36 +222,210 @@ fun ZoomableWrapper(modifier: Modifier = Modifier, content: @Composable () -> Un
 @Composable
 fun GameboardContent(
     fields: List<Field>,
+    players: List<Player> = emptyList(),
+    currentPlayerId: String = "",
+    currentTurnPlayer: Player? = null,
     modifier: Modifier = Modifier
 ) {
-    ZoomableWrapper(modifier = modifier.fillMaxSize()) {
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .aspectRatio(3840f / 2160f),
-            contentAlignment = Alignment.Center
-        ) {
-            BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
-                val sw = this.maxWidth.value
-                val sh = this.maxHeight.value
+    val myPlayer = players.find { it.id == currentPlayerId }
+    val otherPlayers = players.filter { it.id != currentPlayerId }
 
-                Image(
-                    painter = painterResource(id = R.drawable.inskapedownscalewebp),
-                    contentDescription = "Klagenfurt-Map",
-                    modifier = Modifier.fillMaxSize(),
-                    contentScale = ContentScale.FillBounds
-                )
-                Image(
-                    painter = painterResource(id = R.drawable.pathreworked),
-                    contentDescription = "Path - Klagenfurt-Ring",
-                    modifier = Modifier.fillMaxSize(),
-                    contentScale = ContentScale.FillBounds
-                )
-                fields.forEachIndexed { index, field ->
-                    FieldItem(index, field, sw, sh)
+    // Test data: assign random property ownership and cards to players for demo
+    val testFields: List<Field> = remember(fields, players) {
+        if (players.isEmpty() || fields.isEmpty()) fields
+        else {
+            // Create test property fields with owners assigned to players
+            val testOwnedProps = listOf(
+                PropertyField(1, "Herrengasse", FieldType.PROPERTY, PropertyColor.BROWN, 60, listOf(2, 10, 30, 90, 160, 250), 50, 50),
+                PropertyField(3, "Alter Platz", FieldType.PROPERTY, PropertyColor.BROWN, 60, listOf(4, 20, 60, 180, 320, 450), 50, 50),
+                PropertyField(6, "Neuer Platz", FieldType.PROPERTY, PropertyColor.LIGHT_BLUE, 100, listOf(6, 30, 90, 270, 400, 550), 50, 50),
+                PropertyField(8, "Benediktiner Platz", FieldType.PROPERTY, PropertyColor.LIGHT_BLUE, 100, listOf(6, 30, 90, 270, 400, 550), 50, 50),
+                PropertyField(9, "Cine City", FieldType.PROPERTY, PropertyColor.LIGHT_BLUE, 120, listOf(8, 40, 100, 300, 450, 600), 50, 50),
+                RailroadField(5, "Hauptbahnhof", FieldType.RAILROAD, 200),
+                RailroadField(15, "Ostbahnhof", FieldType.RAILROAD, 200),
+                UtilityField(12, "Kelag Klagenfurt", FieldType.UTILITY, 150),
+                PropertyField(11, "McDonalds", FieldType.PROPERTY, PropertyColor.PINK, 140, listOf(10, 50, 150, 450, 625, 750), 100, 100),
+                PropertyField(13, "Ruthar", FieldType.PROPERTY, PropertyColor.PINK, 140, listOf(10, 50, 150, 450, 625, 750), 100, 100, houses = 2),
+                PropertyField(14, "Wohnzimmer", FieldType.PROPERTY, PropertyColor.PINK, 160, listOf(12, 60, 180, 500, 700, 900), 100, 100, hasHotel = true),
+            )
+            // Distribute ownership among players round-robin
+            val playerIds = players.map { it.id }
+            testOwnedProps.forEachIndexed { i, f ->
+                val ownerId = playerIds[i % playerIds.size]
+                when (f) {
+                    is PropertyField -> f.ownerId = ownerId
+                    is RailroadField -> f.ownerId = ownerId
+                    is UtilityField -> f.ownerId = ownerId
+                    else -> {}
+                }
+            }
+            // Merge: replace fields by id with the test-owned versions
+            val ownedById = testOwnedProps.associateBy { it.id }
+            fields.map { ownedById[it.id] ?: it }
+        }
+    }
+
+    val testCardsPerPlayer: Map<String, List<Card>> = emptyMap()
+
+    val currentField = currentTurnPlayer?.let { p ->
+        testFields.getOrNull(p.position)
+    }
+
+    val panelWidth = 280.dp
+
+    Box(modifier = modifier.fillMaxSize()) {
+        // Board layer (zoomable) – fullscreen background
+        ZoomableWrapper(
+            modifier = Modifier.fillMaxSize()
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .aspectRatio(3840f / 2160f),
+                contentAlignment = Alignment.Center
+            ) {
+                BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+                    val sw = this.maxWidth.value
+                    val sh = this.maxHeight.value
+
+                    Image(
+                        painter = painterResource(id = R.drawable.background),
+                        contentDescription = "Klagenfurt-Map",
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.FillBounds
+                    )
+                    Image(
+                        painter = painterResource(id = R.drawable.pathreworked),
+                        contentDescription = "Path - Klagenfurt-Ring",
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.FillBounds
+                    )
+                    // Stagger field rendering to avoid decoding all images on first frame
+                    var visibleFieldCount by remember { mutableIntStateOf(0) }
+                    LaunchedEffect(testFields.size) {
+                        if (testFields.isNotEmpty() && visibleFieldCount < testFields.size) {
+                            // Render in batches to spread image decoding across frames
+                            val batchSize = 5
+                            var count = 0
+                            while (count < testFields.size) {
+                                count = (count + batchSize).coerceAtMost(testFields.size)
+                                visibleFieldCount = count
+                                delay(32) // ~2 frames between batches
+                            }
+                        }
+                    }
+
+                    testFields.take(visibleFieldCount).forEachIndexed { index, field ->
+                        key(field.id) {
+                            FieldItem(index, field, sw, sh)
+                        }
+                    }
+
+                    players.forEachIndexed { index, player ->
+                        key(player.id) {
+                        val bounds = remember(player.position, sw, sh) {
+                            calculateFieldBounds(player.position, sw, sh)
+                        }
+
+                        val maxCols = 3
+                        val maxRows = 2
+
+                        val tokenSizeX = (bounds.width / maxCols) * 0.8f
+                        val tokenSizeY = (bounds.height / maxRows) * 0.8f
+                        val tokenSize = minOf(tokenSizeX, tokenSizeY).coerceAtMost(16f)
+
+                        val column = index % maxCols
+                        val row = index / maxCols
+
+                        val gridWidth = maxCols * tokenSize
+                        val gridHeight = maxRows * tokenSize
+                        val startX = (bounds.width - gridWidth) / 2
+                        val startY = (bounds.height - gridHeight) / 2
+
+                        val offsetX = startX + (column * tokenSize)
+                        val offsetY = startY + (row * tokenSize)
+
+                        Image(
+                            painter = painterResource(id = getPlayerTokenResource(player.iconId)),
+                            contentDescription = player.name,
+                            modifier = Modifier
+                                .offset(
+                                    x = (bounds.x + offsetX).dp,
+                                    y = (bounds.y + offsetY).dp
+                                )
+                                .size(tokenSize.dp)
+                                .clip(RoundedCornerShape(2.dp))
+                                .background(Color.White)
+                        )
+                        }
+                    }
+                }            }
+        }
+
+        // Overlay: Left panel – other players
+        if (otherPlayers.isNotEmpty()) {
+            Column(
+                modifier = Modifier
+                    .align(Alignment.CenterStart)
+                    .width(panelWidth)
+                    .padding(start = 4.dp, top = 4.dp, bottom = 4.dp)
+                    .fillMaxHeight()
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterVertically)
+            ) {
+                otherPlayers.forEach { player ->
+                    PlayerInfoPanel(
+                        player = player,
+                        fields = testFields,
+                        cards = testCardsPerPlayer[player.id] ?: emptyList(),
+                        isCurrentTurn = player.id == currentTurnPlayer?.id
+                    )
                 }
             }
         }
+
+        // Overlay: Center – current field card
+        if (currentField != null) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.Center)
+                    .padding(8.dp)
+            ) {
+                FieldCardUI(field = currentField)
+            }
+        }
+
+        // Overlay: Right panel – own player
+        if (myPlayer != null) {
+            Column(
+                modifier = Modifier
+                    .align(Alignment.CenterEnd)
+                    .width(panelWidth)
+                    .padding(end = 4.dp, top = 4.dp, bottom = 4.dp)
+                    .fillMaxHeight()
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.Center
+            ) {
+                PlayerInfoPanel(
+                    player = myPlayer,
+                    fields = testFields,
+                    cards = testCardsPerPlayer[myPlayer.id] ?: emptyList(),
+                    isCurrentTurn = myPlayer.id == currentTurnPlayer?.id,
+                    isOwnPlayer = true
+                )
+            }
+        }
+    }
+}
+
+fun getPlayerTokenResource(iconId: String): Int {
+    return when (iconId.lowercase()) {
+        "lindwurm" -> R.drawable.lindwurm
+        "woerthersee" -> R.drawable.woertherseemandl
+        "gti" -> R.drawable.gti
+        "ironman" -> R.drawable.ironman
+        "josef" -> R.drawable.josef
+        else -> R.drawable.lindwurm
     }
 }
 
@@ -240,15 +460,9 @@ fun calculateFieldBounds(index: Int, sw: Float, sh: Float): FieldBounds {
     fun scaleY(y: Float) = (y / 2160f) * sh
 
     if (isCorner) {
-        val textRotation = when (index) {
-            0 -> -45f
-            10 -> 45f
-            20 -> 135f
-            30 -> 225f
-            else -> 0f
-        }
+        val textRotation = 0f
 
-        val innerScale = 0.7f
+        val innerScale = 1.0f
         val tW = scaleX(designCornerSize) * innerScale
         val tH = scaleY(designCornerSize) * innerScale
         
@@ -299,10 +513,12 @@ fun calculateFieldBounds(index: Int, sw: Float, sh: Float): FieldBounds {
 fun FieldItem(index: Int, field: Field, sw: Float, sh: Float) {
     val bounds = remember(index, sw, sh) { calculateFieldBounds(index, sw, sh) }
     val side = (index / 10) % 4
-    val imageMap = getFieldImageMapping(field.name)
+    val imageMap = remember(field.name) { getFieldImageMapping(field.name) }
+
+    val containerMod = remember(bounds) { fieldItemContainerMod(bounds) }
 
     Box(
-        modifier = fieldItemContainerMod(bounds),
+        modifier = containerMod,
         contentAlignment = Alignment.Center
     ) {
         FieldImage(
@@ -380,7 +596,7 @@ fun getFieldImageMapping(fieldName: String): Int? {
 }
 
 private fun fieldItemContainerMod(bounds: FieldBounds): Modifier {
-    val borderWidth = if (bounds.isCorner) 1.dp else 0.5.dp
+    val borderWidth = if (bounds.isCorner) 0.5.dp else 0.25.dp
     val borderAlpha = if (bounds.isCorner) 0.3f else 0.2f
     val backgroundColor = if (bounds.isCorner) {
         Color.Red.copy(alpha = 0.1f)
@@ -404,9 +620,9 @@ private fun FieldImage(
 ) {
     if (imageRes == null) return
 
-    val imagePadding = if (bounds.isCorner) 2.dp else 1.dp
+    val imagePadding = 0.dp
     val imageShape = RoundedCornerShape(2.dp)
-    val borderWidth = if (bounds.isCorner) 2.dp else 1.dp
+    val borderWidth = if (bounds.isCorner) 1.dp else 0.5.dp
 
     Box(
         modifier = Modifier
@@ -420,7 +636,7 @@ private fun FieldImage(
             painter = painterResource(id = imageRes),
             contentDescription = fieldName,
             modifier = Modifier.fillMaxSize(),
-            contentScale = ContentScale.Crop
+            contentScale = ContentScale.FillBounds
         )
     }
 }

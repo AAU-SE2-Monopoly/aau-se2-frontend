@@ -27,6 +27,9 @@ class FakeGameService : GameService {
     var lastJoinedGameId: String? = null
     var lastJoinedPlayerName: String? = null
 
+    var lastCreatedIconId: String? = null
+    var lastJoinedIconId: String? = null
+
     // Call counters
     var joinGameCalls = 0
     var createGameCalls = 0
@@ -51,15 +54,17 @@ class FakeGameService : GameService {
         lastSubscribedGameId = gameId
     }
 
-    override fun createGame(playerName: String) {
+    override fun createGame(playerName: String, iconId: String) {
         createGameCalls++
         lastCreatedPlayerName = playerName
+        lastCreatedIconId = iconId
     }
 
-    override fun joinGame(gameId: String, playerName: String) {
+    override fun joinGame(gameId: String, playerName: String, iconId: String) {
         joinGameCalls++
         lastJoinedGameId = gameId
         lastJoinedPlayerName = playerName
+        lastJoinedIconId = iconId
     }
 
     override fun startGame() {

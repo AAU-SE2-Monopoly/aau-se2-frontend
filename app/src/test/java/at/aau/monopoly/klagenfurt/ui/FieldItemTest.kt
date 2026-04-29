@@ -13,6 +13,7 @@ import at.aau.monopoly.klagenfurt.model.enums.PropertyColor
 import at.aau.monopoly.klagenfurt.model.field.ChanceField
 import at.aau.monopoly.klagenfurt.model.field.GoField
 import at.aau.monopoly.klagenfurt.model.field.PropertyField
+import at.aau.monopoly.klagenfurt.model.field.TaxField
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -140,5 +141,26 @@ class FieldItemTest {
         composeTestRule
             .onNodeWithText("Chance")
             .assertExists()
+    }
+
+    @Test
+    fun `verify FieldItem for TaxField does not render PropertyBar`() {
+        val taxField = TaxField(id = 4, name = "Reichensteuer", type = FieldType.TAX, amount = 200)
+        composeTestRule.setContent {
+            FieldItem(index = 4, field = taxField, sw = sw, sh = sh)
+        }
+        // Überprüft den "false" Branch der PropertyBar Logik
+        composeTestRule.onNodeWithTag("Bottom-Bar").assertDoesNotExist()
+        composeTestRule.onNodeWithTag("Top-Bar").assertDoesNotExist()
+    }
+
+    @Test
+    fun `verify FieldItem with unknown name does not crash (null image branch)`() {
+        val unknownField = GoField(id = 99, name = "Unknown Place", type = FieldType.GO)
+        composeTestRule.setContent {
+            FieldItem(index = 0, field = unknownField, sw = sw, sh = sh)
+        }
+        // Überprüft den null-Check in FieldImage
+        composeTestRule.onNodeWithText("Unknown Place").assertExists()
     }
 }

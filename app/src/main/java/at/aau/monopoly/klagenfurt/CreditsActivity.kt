@@ -17,27 +17,21 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import at.aau.monopoly.klagenfurt.ui.components.BackButton
+import at.aau.monopoly.klagenfurt.ui.components.DarkGradientBackground
 import at.aau.monopoly.klagenfurt.ui.theme.MyApplicationTheme
-import at.aau.monopoly.klagenfurt.ui.theme.PrimaryBlue
 import at.aau.monopoly.klagenfurt.ui.theme.PrimaryBlueLight
 
 class CreditsActivity : ComponentActivity() {
@@ -56,7 +50,6 @@ class CreditsActivity : ComponentActivity() {
 
 @Composable
 fun CreditsScreen(onBackClicked: () -> Unit) {
-    val darkBackground = Color(0xFF0A0A2E)
     val accentBlue = PrimaryBlueLight
 
     val teamMembers = listOf(
@@ -67,20 +60,7 @@ fun CreditsScreen(onBackClicked: () -> Unit) {
         "Christian Wascher"
     )
 
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(
-                Brush.verticalGradient(
-                    colors = listOf(
-                        darkBackground,
-                        Color(0xFF16213E),
-                        darkBackground
-                    )
-                )
-            )
-    ) {
-        // Center content (non-scrollable)
+    DarkGradientBackground {
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -173,42 +153,9 @@ fun CreditsScreen(onBackClicked: () -> Unit) {
             )
         }
 
-        // Fixed back button – always visible at top-left
-        Button(
+        BackButton(
             onClick = onBackClicked,
-            modifier = Modifier
-                .align(Alignment.TopStart)
-                .padding(16.dp),
-            shape = RoundedCornerShape(12.dp),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = PrimaryBlue
-            ),
-            elevation = ButtonDefaults.buttonElevation(defaultElevation = 4.dp)
-        ) {
-            Icon(
-                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                contentDescription = "Back",
-                tint = Color.White,
-                modifier = Modifier.size(18.dp)
-            )
-            Spacer(modifier = Modifier.width(6.dp))
-            Text(
-                text = "Back",
-                fontSize = 14.sp,
-                color = Color.White,
-                fontWeight = FontWeight.Medium,
-                letterSpacing = 1.sp
-            )
-        }
+            modifier = Modifier.align(Alignment.TopStart)
+        )
     }
 }
-
-
-
-
-
-
-
-
-
-

@@ -16,11 +16,6 @@
         android:usesCleartextTraffic="true"
         tools:targetApi="31">
 
-        <!-- Legacy Demo Activity -->
-        <activity
-            android:name="at.aau.monopoly.klagenfurt.MainActivity"
-            android:exported="false"
-            android:theme="@style/Theme.MyApplication" />
 
         <!-- Main Menu – launcher -->
         <activity
@@ -38,6 +33,13 @@
         <!-- Credits -->
         <activity
             android:name="at.aau.monopoly.klagenfurt.CreditsActivity"
+            android:exported="false"
+            android:screenOrientation="landscape"
+            android:theme="@style/Theme.MyApplication" />
+
+        <!-- Settings -->
+        <activity
+            android:name="at.aau.monopoly.klagenfurt.SettingsActivity"
             android:exported="false"
             android:screenOrientation="landscape"
             android:theme="@style/Theme.MyApplication" />

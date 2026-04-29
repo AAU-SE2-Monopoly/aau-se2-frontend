@@ -53,6 +53,11 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import at.aau.monopoly.klagenfurt.sensors.ShakeDetector
 import androidx.compose.ui.text.TextStyle
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.filter
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.Hyphens
 import androidx.compose.ui.text.style.TextAlign
@@ -133,31 +138,72 @@ fun GameboardScreen(modifier: Modifier = Modifier, viewModel: GameViewModel) {
         }
     }
 
-    // ShakeDetector setup
-    val shakeDetector = remember {
-        ShakeDetector(context) {
-            // On shake detected, complete the roll
-            if (isRollingPhaseForCurrentPlayer) {
-                viewModel.rollDice()
+    // ═══════════════════════════════════════════════
+    // FIX: Flow-based ShakeDetector lifecycle
+    // ═══════════════════════════════════════════════
+    // Instead of LaunchedEffect(key) that restarts on every phase toggle,
+    // use two LaunchedEffect(Unit) collecting flows continuously.
+    // This guarantees no orphaned listeners regardless of phase change frequency.
+
+    val shakeDetector = remember { ShakeDetector(context) }
+
+    // 1. Start/stop the accelerometer reactively via rollingPhase flow
+    LaunchedEffect(Unit) {
+        viewModel.isRollingPhaseForCurrentPlayer.collect { isRolling ->
+            if (isRolling) {
+                shakeDetector.startListening()
+            } else {
+                shakeDetector.stopListening()
             }
         }
     }
 
-    // Start/stop listening for shake when overlay visibility or rolling state changes
+    // 2. Anti-double-fire guard: only one shake per rolling phase
+    var shakeFired by remember { mutableStateOf(false) }
+
+    // Reset guard when rolling phase starts
     LaunchedEffect(isRollingPhaseForCurrentPlayer) {
         if (isRollingPhaseForCurrentPlayer) {
-            shakeDetector.startListening()
-        } else {
-            shakeDetector.stopListening()
+            shakeFired = false
         }
     }
 
-    // Stop listening when composable is disposed
-    DisposableEffect(Unit) {
+    // 3. Gate shake events with the current rolling phase using Flow operators
+    LaunchedEffect(Unit) {
+        shakeDetector.shakeEvents
+            .combine(viewModel.isRollingPhaseForCurrentPlayer) { _, isRolling -> isRolling }
+            .filter { it }
+            .collect {
+                if (!shakeFired) {
+                    shakeFired = true
+                    viewModel.rollDice()
+                }
+            }
+    }
+
+    // 4. Lifecycle-aware observer: stop sensor onPause (app backgrounded),
+    //    restart onResume if still in rolling phase, and clean up on dispose.
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            when (event) {
+                Lifecycle.Event.ON_PAUSE -> shakeDetector.stopListening()
+                Lifecycle.Event.ON_RESUME -> {
+                    if (viewModel.isRollingPhaseForCurrentPlayer.value) {
+                        shakeDetector.startListening()
+                    }
+                }
+                else -> {}
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
         onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
             shakeDetector.stopListening()
         }
     }
+    // ═══════════════════════════════════════════════
+    // End of Fixes
 
     LockScreenOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE)
 

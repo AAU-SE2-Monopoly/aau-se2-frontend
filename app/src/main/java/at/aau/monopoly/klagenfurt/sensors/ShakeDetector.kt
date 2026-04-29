@@ -5,16 +5,17 @@ import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlin.math.sqrt
 
 /**
  * Detects shake gestures using the accelerometer sensor.
- * Calls the callback when a shake is detected.
+ * Exposes [shakeEvents] as a [SharedFlow] so consumers can react using
+ * Flow operators (combine, filter, etc.) instead of callbacks.
  */
-class ShakeDetector(
-    context: Context,
-    private val onShake: () -> Unit
-) : SensorEventListener {
+class ShakeDetector(context: Context) : SensorEventListener {
 
     companion object {
         // Shake detection threshold (m/s²)
@@ -28,6 +29,9 @@ class ShakeDetector(
     private val accelerometer: Sensor? = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
 
     private var lastShakeTime = 0L
+
+    private val _shakeEvents = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+    val shakeEvents: SharedFlow<Unit> = _shakeEvents.asSharedFlow()
 
     fun startListening() {
         accelerometer?.let {
@@ -55,7 +59,7 @@ class ShakeDetector(
         if (acceleration > SHAKE_THRESHOLD &&
             currentTime - lastShakeTime > SHAKE_TIME_THRESHOLD) {
             lastShakeTime = currentTime
-            onShake()
+            _shakeEvents.tryEmit(Unit)
         }
     }
 

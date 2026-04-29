@@ -67,7 +67,10 @@ class GameViewModel(private val gameService: GameService) : ViewModel() {
         .mapNotNull { jsonString ->
             try {
                 objectMapper.readValue(jsonString, GameEvent::class.java)
-            } catch (e: Exception) { null }
+            } catch (e: Exception) {
+                Log.e("GameViewModel", "logEventFlow parse error: ${e.message}", e)
+                null
+            }
         }
         .shareIn(
             scope = viewModelScope,

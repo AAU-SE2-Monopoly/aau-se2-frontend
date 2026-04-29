@@ -256,5 +256,154 @@ class GameViewModelTest {
         collector.cancel()
     }
 
+    @OptIn(ExperimentalCoroutinesApi::class)
+    @Test
+    fun syncGameboardEntryState_requests_state_when_gameId_is_set() = runTest(testDispatcher) {
+        every { gameService.currentGameId } returns "game-1"
+        viewModel = GameViewModel(gameService)
+        advanceUntilIdle()
+
+        viewModel.syncGameboardEntryState()
+        verify { gameService.requestState() }
+    }
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    @Test
+    fun syncGameboardEntryState_does_nothing_when_gameId_is_blank() = runTest(testDispatcher) {
+        every { gameService.currentGameId } returns ""
+        viewModel = GameViewModel(gameService)
+        advanceUntilIdle()
+
+        viewModel.syncGameboardEntryState()
+        verify(exactly = 0) { gameService.requestState() }
+    }
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    @Test
+    fun isGameReady_is_false_initially_and_true_after_state() = runTest(testDispatcher) {
+        val collector = launch { viewModel.isGameReady.collect { } }
+        advanceUntilIdle()
+        assertEquals(false, viewModel.isGameReady.value)
+
+        val state = GameState(gameId = "g1", fields = emptyList())
+        mockEvents.emit(jsonEvent(GameEvent(gameId = "g1", event = "STATE_UPDATED", gameState = state)))
+        advanceUntilIdle()
+        assertEquals(true, viewModel.isGameReady.value)
+
+        collector.cancel()
+    }
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    @Test
+    fun init_auto_sets_gameId_on_game_created_when_current_is_blank() = runTest(testDispatcher) {
+        every { gameService.currentGameId } returns ""
+        viewModel = GameViewModel(gameService)
+        val collector = launch { viewModel.gameState.collect { } }
+        advanceUntilIdle()
+
+        mockEvents.emit(jsonEvent(GameEvent(gameId = "new-game", event = "GAME_CREATED", message = "created")))
+        advanceUntilIdle()
+
+        verify { gameService.setGameId("new-game") }
+        collector.cancel()
+    }
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    @Test
+    fun init_does_not_set_gameId_when_already_has_one() = runTest(testDispatcher) {
+        every { gameService.currentGameId } returns "existing-game"
+        viewModel = GameViewModel(gameService)
+        val collector = launch { viewModel.gameState.collect { } }
+        advanceUntilIdle()
+
+        mockEvents.emit(jsonEvent(GameEvent(gameId = "new-game", event = "GAME_CREATED", message = "created")))
+        advanceUntilIdle()
+
+        verify(exactly = 0) { gameService.setGameId(any()) }
+        collector.cancel()
+    }
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    @Test
+    fun eventLog_marks_state_snapshot_as_technical() = runTest(testDispatcher) {
+        val collector = launch { viewModel.eventLog.collect { } }
+        advanceUntilIdle()
+
+        mockEvents.emit(jsonEvent(GameEvent(gameId = "g1", event = "STATE_SNAPSHOT", message = null)))
+        advanceUntilIdle()
+
+        assertTrue(viewModel.eventLog.value.last().isTechnical)
+        collector.cancel()
+    }
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    @Test
+    fun eventLog_marks_state_updated_as_technical() = runTest(testDispatcher) {
+        val collector = launch { viewModel.eventLog.collect { } }
+        advanceUntilIdle()
+
+        mockEvents.emit(jsonEvent(GameEvent(gameId = "g1", event = "STATE_UPDATED", message = null)))
+        advanceUntilIdle()
+
+        assertTrue(viewModel.eventLog.value.last().isTechnical)
+        collector.cancel()
+    }
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    @Test
+    fun eventLog_marks_normal_events_as_not_technical() = runTest(testDispatcher) {
+        val collector = launch { viewModel.eventLog.collect { } }
+        advanceUntilIdle()
+
+        mockEvents.emit(jsonEvent(GameEvent(gameId = "g1", event = "DICE_ROLLED", message = "Rolled a 7")))
+        advanceUntilIdle()
+
+        assertEquals(false, viewModel.eventLog.value.last().isTechnical)
+        collector.cancel()
+    }
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    @Test
+    fun eventLog_uses_blank_event_type_as_UNKNOWN() = runTest(testDispatcher) {
+        val collector = launch { viewModel.eventLog.collect { } }
+        advanceUntilIdle()
+
+        mockEvents.emit(jsonEvent(GameEvent(gameId = "g1", event = "", message = "Something happened")))
+        advanceUntilIdle()
+
+        assertEquals("UNKNOWN", viewModel.eventLog.value.last().eventType)
+        collector.cancel()
+    }
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    @Test
+    fun gameState_parsing_error_does_not_crash() = runTest(testDispatcher) {
+        val collector = launch { viewModel.gameState.collect { } }
+        advanceUntilIdle()
+
+        mockEvents.emit("not valid json at all {{{")
+        advanceUntilIdle()
+
+        assertEquals(null, viewModel.gameState.value)
+        collector.cancel()
+    }
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    @Test
+    fun fields_returns_empty_when_no_game_state() = runTest(testDispatcher) {
+        val collector = launch { viewModel.fields.collect { } }
+        advanceUntilIdle()
+
+        assertEquals(emptyList<Any>(), viewModel.fields.value)
+        collector.cancel()
+    }
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    @Test
+    fun currentPlayerId_delegates_to_gameService() {
+        every { gameService.currentPlayerId } returns "player-42"
+        assertEquals("player-42", viewModel.currentPlayerId)
+    }
+
     private fun jsonEvent(event: GameEvent): String = objectMapper.writeValueAsString(event)
 }

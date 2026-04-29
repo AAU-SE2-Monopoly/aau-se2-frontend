@@ -173,6 +173,7 @@ class GameViewModel(private val gameService: GameService) : ViewModel() {
 
     val events: SharedFlow<String> = gameService.events
     val status: SharedFlow<String> = gameService.status
+    val currentPlayerId: String get() = gameService.currentPlayerId
 
     fun connect() = gameService.connect()
 

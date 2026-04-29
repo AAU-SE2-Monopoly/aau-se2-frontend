@@ -5,6 +5,8 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import at.aau.monopoly.klagenfurt.SettingsScreen
+import at.aau.monopoly.klagenfurt.networking.ServerConfig
+import org.junit.After
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -18,6 +20,11 @@ class SettingsActivityTest {
     @get:Rule
     val composeTestRule = createComposeRule()
 
+    @After
+    fun tearDown() {
+        ServerConfig.isGlobal = false
+    }
+
     private fun setUpSettingsScreen(onBackClicked: () -> Unit = {}) {
         composeTestRule.setContent {
             SettingsScreen(onBackClicked = onBackClicked)
@@ -28,9 +35,21 @@ class SettingsActivityTest {
     fun settingsScreen_displaysAllElements() {
         setUpSettingsScreen()
         composeTestRule.onNodeWithText("SETTINGS").assertIsDisplayed()
+        composeTestRule.onNodeWithText("Server: Local", substring = true).assertIsDisplayed()
         composeTestRule.onNodeWithText("Sounds").assertIsDisplayed()
         composeTestRule.onNodeWithText("Music").assertIsDisplayed()
         composeTestRule.onNodeWithText("Back").assertIsDisplayed()
+    }
+
+    @Test
+    fun settingsScreen_serverToggleSwitchesToGlobal() {
+        ServerConfig.isGlobal = false
+        setUpSettingsScreen()
+        composeTestRule.onNodeWithText("Server: Local", substring = true).assertIsDisplayed()
+        // Programmatically toggle
+        ServerConfig.isGlobal = true
+        composeTestRule.waitForIdle()
+        composeTestRule.onNodeWithText("Server: Global", substring = true).assertIsDisplayed()
     }
 
     @Test

@@ -36,7 +36,8 @@ class LobbyViewModelTest {
     }
 
     @Test
-    fun `init calls connect on gameService`() {
+    fun `init calls connect on gameService`() = runTest(testDispatcher) {
+        advanceUntilIdle()
         assertTrue(fakeService.connectCalled)
     }
 

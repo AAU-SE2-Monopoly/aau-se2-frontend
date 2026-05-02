@@ -53,6 +53,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import at.aau.monopoly.klagenfurt.messaging.dtos.GameLobbyInfo
+import at.aau.monopoly.klagenfurt.model.GameCardStatus
+import at.aau.monopoly.klagenfurt.model.cardStatus
 import at.aau.monopoly.klagenfurt.ui.LobbyViewModel
 import at.aau.monopoly.klagenfurt.ui.theme.MyApplicationTheme
 import at.aau.monopoly.klagenfurt.ui.theme.PrimaryBlue
@@ -276,6 +278,30 @@ fun GameCard(
 ) {
     var showCloseDialog by remember { mutableStateOf(false) }
 
+    val status = game.cardStatus()
+    val isInteractable = status is GameCardStatus.Open
+
+    val cardBackground = when (status) {
+        GameCardStatus.Open       -> Color(0xFF1A237E).copy(alpha = 0.6f)
+        GameCardStatus.Full       -> Color(0xFF424242).copy(alpha = 0.7f)
+        GameCardStatus.InProgress -> Color(0xFF1B5E20).copy(alpha = 0.7f)
+        GameCardStatus.Finished   -> Color(0xFF212121).copy(alpha = 0.5f)
+    }
+
+    val statusBadgeText = when (status) {
+        GameCardStatus.Open       -> null
+        GameCardStatus.Full       -> "FULL"
+        GameCardStatus.InProgress -> "IN PROGRESS"
+        GameCardStatus.Finished   -> "FINISHED"
+    }
+
+    val statusBadgeColor = when (status) {
+        GameCardStatus.Full       -> Color(0xFFB71C1C).copy(alpha = 0.85f)
+        GameCardStatus.InProgress -> Color(0xFFF57F17).copy(alpha = 0.85f)
+        GameCardStatus.Finished   -> Color(0xFF424242).copy(alpha = 0.85f)
+        else                      -> Color.Transparent
+    }
+
     if (showCloseDialog) {
         AlertDialog(
             onDismissRequest = { showCloseDialog = false },
@@ -301,8 +327,8 @@ fun GameCard(
         modifier = Modifier
             .size(160.dp)
             .clip(RoundedCornerShape(16.dp))
-            .background(Color(0xFF1A237E).copy(alpha = 0.6f))
-            .clickable(onClick = onClick)
+            .background(cardBackground)
+            .clickable(enabled = isInteractable, onClick = onClick)
     ) {
         Column(
             modifier = Modifier
@@ -311,6 +337,21 @@ fun GameCard(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
+            // Status badge
+            if (statusBadgeText != null) {
+                Text(
+                    text = statusBadgeText,
+                    color = Color.White,
+                    fontSize = 9.sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 1.sp,
+                    modifier = Modifier
+                        .background(statusBadgeColor, RoundedCornerShape(4.dp))
+                        .padding(horizontal = 6.dp, vertical = 2.dp)
+                )
+                Spacer(modifier = Modifier.height(6.dp))
+            }
+
             Text(
                 text = "🎲",
                 fontSize = 32.sp
@@ -318,7 +359,7 @@ fun GameCard(
             Spacer(modifier = Modifier.height(8.dp))
             Text(
                 text = game.hostPlayerName.ifBlank { "Unknown" },
-                color = Color.White,
+                color = if (isInteractable) Color.White else Color.White.copy(alpha = 0.5f),
                 fontSize = 14.sp,
                 fontWeight = FontWeight.Bold,
                 maxLines = 1,
@@ -327,7 +368,7 @@ fun GameCard(
             Spacer(modifier = Modifier.height(4.dp))
             Text(
                 text = "${game.playerCount}/${game.maxPlayers} Players",
-                color = Color.White.copy(alpha = 0.7f),
+                color = Color.White.copy(alpha = if (isInteractable) 0.7f else 0.4f),
                 fontSize = 12.sp
             )
         }

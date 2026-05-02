@@ -53,7 +53,6 @@ import at.aau.monopoly.klagenfurt.ui.theme.PrimaryBlueLight
 import at.aau.monopoly.klagenfurt.networking.GameService
 import at.aau.monopoly.klagenfurt.networking.JacksonProvider
 import at.aau.monopoly.klagenfurt.messaging.GameEvent
-import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.mapNotNull
 import kotlinx.coroutines.launch
@@ -96,20 +95,28 @@ class JoinActivity : ComponentActivity() {
                                 finish()
                             }
                         } else {
-                            // Join existing game - mirror main: set gameId first, then join
+                            // Join existing game: subscribe first, then send join,
+                            // then wait for PLAYER_JOINED or ERROR before navigating.
                             if (gameId.isNotBlank()) {
                                 gameService.setGameId(gameId)
                             }
                             gameService.joinGame(gameId, playerName, iconId)
                             if (gameId.isNotBlank()) {
                                 lifecycleScope.launch {
-                                    waitForSubscribed(gameService, gameId)
-                                    startActivity(
-                                        Intent(this@JoinActivity, GameboardUI::class.java).apply {
-                                            putExtra("GAME_ID", gameId)
-                                        }
-                                    )
-                                    finish()
+                                    val result = waitForJoinResult(gameService, gameId)
+                                    if (result.isSuccess) {
+                                        startActivity(
+                                            Intent(this@JoinActivity, GameboardUI::class.java).apply {
+                                                putExtra("GAME_ID", gameId)
+                                            }
+                                        )
+                                        finish()
+                                    } else {
+                                        // Join was rejected by the server (e.g. game full).
+                                        // The error message is surfaced via GameViewModel.errorMessage;
+                                        // here we just stay on this screen so the user can try again.
+                                        Log.w("JoinActivity", "Join rejected: ${result.exceptionOrNull()?.message}")
+                                    }
                                 }
                             }
                         }
@@ -133,6 +140,29 @@ class JoinActivity : ComponentActivity() {
     }
 }
 
+private suspend fun waitForJoinResult(gameService: GameService, gameId: String): Result<Unit> {
+    val objectMapper = JacksonProvider.objectMapper
+
+    // Map each raw event to a Result: success on PLAYER_JOINED, failure on ERROR
+    val joinResultFlow = gameService.events
+        .mapNotNull { payload ->
+            try {
+                val event = objectMapper.readValue(payload, GameEvent::class.java)
+                when (event.event) {
+                    "PLAYER_JOINED" -> Result.success(Unit)
+                    "ERROR"         -> Result.failure(Exception(event.message ?: "Join rejected by server"))
+                    else            -> null   // ignore unrelated events
+                }
+            } catch (e: Exception) {
+                Log.e("JoinActivity", "waitForJoinResult parse error: ${e.message}", e)
+                null
+            }
+        }
+
+    return joinResultFlow.first()
+}
+
+
 private suspend fun waitForGameCreatedId(gameService: GameService): String {
     val objectMapper = JacksonProvider.objectMapper
     return gameService.events
@@ -152,11 +182,7 @@ private suspend fun waitForGameCreatedId(gameService: GameService): String {
         .first()
 }
 
-private suspend fun waitForSubscribed(gameService: GameService, gameId: String) {
-    gameService.status
-        .filter { it == "SUBSCRIBED:$gameId" }
-        .first()
-}
+
 
 @Composable
 fun JoinScreen(

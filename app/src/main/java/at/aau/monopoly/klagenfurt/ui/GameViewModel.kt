@@ -11,6 +11,7 @@ import at.aau.monopoly.klagenfurt.model.field.Field
 import at.aau.monopoly.klagenfurt.model.enums.GamePhase
 import at.aau.monopoly.klagenfurt.networking.GameService
 import at.aau.monopoly.klagenfurt.networking.JacksonProvider
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -78,6 +79,13 @@ class GameViewModel(private val gameService: GameService) : ViewModel() {
             replay = 1
         )
 
+    // ---------------------------------------------------------------------------
+    // Error handling – derived from the already-parsed gameEventFlow.
+    // No extra parsing, no changes to GameStompClient.
+    // ---------------------------------------------------------------------------
+    private val _errorMessage = MutableStateFlow<String?>(null)
+    val errorMessage: StateFlow<String?> = _errorMessage.asStateFlow()
+
     init {
         gameEventFlow
             .onEach { event ->
@@ -89,6 +97,17 @@ class GameViewModel(private val gameService: GameService) : ViewModel() {
                     gameService.currentGameId.isBlank()
                 ) {
                     gameService.setGameId(event.gameId)
+                }
+            }
+            .launchIn(viewModelScope)
+
+        // Surface ERROR events to the UI; auto-clear after 5 seconds
+        gameEventFlow
+            .onEach { event ->
+                if (event.event == "ERROR") {
+                    _errorMessage.value = event.message ?: "An unknown error occurred"
+                    delay(5_000)
+                    _errorMessage.value = null
                 }
             }
             .launchIn(viewModelScope)

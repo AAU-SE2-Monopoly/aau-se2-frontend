@@ -245,5 +245,15 @@ class GameViewModelTest {
         job.cancel()
     }
 
+    @Test
+    fun `currentPlayerName getter should return internal value`() {
+        // Act: Wir lesen die Property. Das löst exakt den Code "get() = _currentPlayerName" aus.
+        val actualName = gameService.currentPlayerName
+
+        // Assert: Wir prüfen auf den Standardwert.
+        // Falls deine Variable mit "" initialisiert wird, nutze diesen Assert:
+        assertEquals("", actualName)
+    }
+
 
 }

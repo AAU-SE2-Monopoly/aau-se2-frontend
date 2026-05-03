@@ -82,6 +82,13 @@ class LobbyViewModel(private val gameService: GameService) : ViewModel() {
         gameService.requestGameList()
     }
 
+    /** Re-subscribes to lobby and fetches fresh game list (called on Activity resume). */
+    fun refreshLobby() {
+        if (!gameService.connectionState.value) return
+        gameService.subscribeToLobby()
+        gameService.requestGameList()
+    }
+
     fun createGame(playerName: String) {
         _createdGameId.value = null
         gameService.createGame(playerName)

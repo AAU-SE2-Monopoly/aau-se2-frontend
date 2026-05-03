@@ -36,6 +36,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -52,6 +53,9 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import at.aau.monopoly.klagenfurt.messaging.dtos.GameLobbyInfo
 import at.aau.monopoly.klagenfurt.model.GameCardStatus
 import at.aau.monopoly.klagenfurt.model.cardStatus
@@ -110,6 +114,18 @@ fun LobbyScreen(
         if (isConnected) {
             viewModel.onConnected()
         }
+    }
+
+    // Refresh lobby subscription and game list every time we come back to this screen
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                viewModel.refreshLobby()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
     Box(
@@ -281,7 +297,7 @@ fun GameCard(
     var showCloseDialog by remember { mutableStateOf(false) }
 
     val status = game.cardStatus()
-    val isInteractable = status is GameCardStatus.Open
+    val isInteractable = status != GameCardStatus.Finished
 
     val cardBackground = when (status) {
         GameCardStatus.Open       -> Color(0xFF1A237E).copy(alpha = 0.6f)

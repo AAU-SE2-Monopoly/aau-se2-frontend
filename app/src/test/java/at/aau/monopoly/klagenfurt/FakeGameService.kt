@@ -23,6 +23,9 @@ class FakeGameService : GameService {
     private val _subscriptionReady = MutableStateFlow(false)
     override val subscriptionReady: StateFlow<Boolean> = _subscriptionReady.asStateFlow()
 
+    private val _connectionState = MutableStateFlow(false)
+    override val connectionState: StateFlow<Boolean> = _connectionState.asStateFlow()
+
     override val currentPlayerId: String = "test-player-id"
     override var currentPlayerName: String = "test-player-name"
     override var currentGameId: String = "test-game-id"
@@ -119,5 +122,9 @@ class FakeGameService : GameService {
 
     suspend fun emitTestLobbyEvent(jsonMessage: String) {
         _lobbyEvents.emit(jsonMessage)
+    }
+
+    fun setConnectionState(connected: Boolean) {
+        _connectionState.value = connected
     }
 }

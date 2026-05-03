@@ -53,12 +53,12 @@ class LobbyViewModelTest {
     }
 
     @Test
-    fun `isConnected becomes true when status emits Connected`() = runTest(testDispatcher) {
+    fun `isConnected becomes true when connectionState becomes true`() = runTest(testDispatcher) {
         val values = mutableListOf<Boolean>()
         val job = launch { viewModel.isConnected.collect { values.add(it) } }
         advanceUntilIdle()
 
-        fakeService.emitTestStatus("Connected ✓")
+        fakeService.setConnectionState(true)
         advanceUntilIdle()
 
         assertTrue(values.contains(true))
@@ -66,11 +66,11 @@ class LobbyViewModelTest {
     }
 
     @Test
-    fun `isConnected stays false when status emits non-connected message`() = runTest(testDispatcher) {
+    fun `isConnected becomes false when connectionState becomes false`() = runTest(testDispatcher) {
         val job = launch { viewModel.isConnected.collect {} }
         advanceUntilIdle()
 
-        fakeService.emitTestStatus("Connection error: timeout")
+        fakeService.setConnectionState(false)
         advanceUntilIdle()
         assertEquals(false, viewModel.isConnected.value)
         job.cancel()

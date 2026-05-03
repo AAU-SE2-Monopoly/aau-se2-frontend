@@ -8,6 +8,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -34,6 +35,15 @@ class GameStompClient(
     private var lobbySubscriptionJob: Job? = null
     private var connectJob: Job? = null
     private var isConnecting = false
+    private var reconnectJob: Job? = null
+    private var isReconnecting = false
+    private var reconnectAttempts = 0
+    private var wasSubscribedToLobby = false  // tracks lobby subscription state for reconnect
+
+    companion object {
+        private const val MAX_RECONNECT_ATTEMPTS = 5
+        private const val INITIAL_RECONNECT_DELAY_MS = 1000L
+    }
 
     private val _events = MutableSharedFlow<String>(replay = 1)
     override val events: SharedFlow<String> = _events.asSharedFlow()
@@ -65,6 +75,10 @@ class GameStompClient(
     override val currentPlayerId: String = UUID.randomUUID().toString()
 
     override fun connect() {
+        reconnectJob?.cancel()
+        isReconnecting = false
+        reconnectAttempts = 0
+
         if (session != null) {
             Log.d("GameStomp", "Already connected (session=$session)")
             tryEmitStatus("Already connected")
@@ -82,9 +96,7 @@ class GameStompClient(
             try {
                 Log.d("GameStomp", "Connecting to $websocketUri...")
                 session = stompClient.connect(websocketUri)
-
                 subscribeToPersonalTopic()
-                
                 _connectionState.value = true
                 emitStatus("Connected ✓")
                 Log.d("GameStomp", "Connected successfully")
@@ -96,10 +108,59 @@ class GameStompClient(
                     session = null
                     _connectionState.value = false
                     emitStatus("Connection error: ${e.message}")
+                    startReconnectLoop()
                 }
             } finally {
                 isConnecting = false
             }
+        }
+    }
+
+    private fun startReconnectLoop() {
+        if (isReconnecting || isConnecting) return
+        isReconnecting = true
+        session = null  // discard the stale/dead session
+        reconnectJob?.cancel()
+        reconnectJob = scope.launch {
+            while (reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
+                val delayMs = INITIAL_RECONNECT_DELAY_MS * (1L shl reconnectAttempts)
+                Log.d("GameStomp", "Reconnecting in ${delayMs}ms (attempt ${reconnectAttempts + 1}/$MAX_RECONNECT_ATTEMPTS)...")
+                emitStatus("Reconnecting in ${delayMs / 1000}s...")
+                delay(delayMs)
+                reconnectAttempts++
+                try {
+                    _connectionState.value = false
+                    session = stompClient.connect(websocketUri)
+                    _connectionState.value = true
+                    reconnectAttempts = 0
+                    isReconnecting = false
+                    emitStatus("Reconnected ✓")
+                    Log.d("GameStomp", "Reconnected successfully")
+
+                    subscribeToPersonalTopic()
+                    if (_currentGameId.isNotBlank()) {
+                        _subscriptionReady.value = false
+                        subscribeToGameInternal(
+                            gameId = _currentGameId,
+                            requestStateAfterSubscribe = true
+                        )
+                    }
+                    if (wasSubscribedToLobby) {
+                        subscribeToLobby()
+                    }
+                    return@launch
+                } catch (e: CancellationException) {
+                    isReconnecting = false
+                    throw e
+                } catch (e: Throwable) {
+                    Log.e("GameStomp", "Reconnect attempt $reconnectAttempts/$MAX_RECONNECT_ATTEMPTS failed: ${e.message}")
+                    emitStatus("Reconnect failed ($reconnectAttempts/$MAX_RECONNECT_ATTEMPTS)")
+                    _connectionState.value = false
+                }
+            }
+            isReconnecting = false
+            Log.e("GameStomp", "Max reconnect attempts ($MAX_RECONNECT_ATTEMPTS) reached – giving up")
+            emitStatus("Connection lost – please restart")
         }
     }
 
@@ -116,13 +177,17 @@ class GameStompClient(
             } catch (e: Throwable) {
                 if (!isCancellation(e)) {
                     Log.e("GameStomp", "personal subscription error", e)
+                    personalSubscriptionJob = null
+                    startReconnectLoop()
                 }
-                personalSubscriptionJob = null
             }
         }
     }
 
     override fun disconnect() {
+        reconnectJob?.cancel()
+        isReconnecting = false
+        reconnectAttempts = 0
         _subscriptionReady.value = false
         _connectionState.value = false
         connectJob?.cancel()
@@ -144,7 +209,6 @@ class GameStompClient(
 
     override fun subscribeToGame(gameId: String) {
         scope.launch {
-
             val success = subscribeToGameInternal(gameId = gameId, requestStateAfterSubscribe = true)
             if (!success) {
                 emitStatus("Subscription failed for $gameId")
@@ -158,6 +222,7 @@ class GameStompClient(
             Log.d("GameStomp", "Already subscribed to lobby")
             return
         }
+        wasSubscribedToLobby = true
         lobbySubscriptionJob = scope.launch {
             try {
                 val currentSession = session
@@ -176,8 +241,9 @@ class GameStompClient(
                 } else {
                     Log.e("GameStomp", "lobby subscription error", e)
                     emitStatus("Lobby subscription error: ${e.message}")
+                    lobbySubscriptionJob = null
+                    startReconnectLoop()
                 }
-                lobbySubscriptionJob = null
             }
         }
     }
@@ -285,7 +351,10 @@ class GameStompClient(
                         _logEvents.emit(msg)
                     }
                 } catch (e: Throwable) {
-                    if (!isCancellation(e)) Log.e("GameStomp", "collect error", e)
+                    if (!isCancellation(e)) {
+                        Log.e("GameStomp", "collect error", e)
+                        startReconnectLoop()
+                    }
                 }
             }
 
@@ -305,6 +374,7 @@ class GameStompClient(
             } else {
                 Log.e("GameStomp", "subscription error", e)
                 emitStatus("Subscription error: ${e.message}")
+                startReconnectLoop()
             }
             false
         }
@@ -343,8 +413,8 @@ class GameStompClient(
     }
 
     private fun isCancellation(e: Throwable): Boolean {
-        return e is CancellationException || 
-               (e is IllegalStateException && e.message?.contains("cancelled", ignoreCase = true) == true) ||
-               (e.cause is CancellationException)
+        return e is CancellationException ||
+                (e is IllegalStateException && e.message?.contains("cancelled", ignoreCase = true) == true) ||
+                (e.cause is CancellationException)
     }
 }

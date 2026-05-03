@@ -190,9 +190,12 @@ class GameStompClient(
         reconnectAttempts = 0
         _subscriptionReady.value = false
         _connectionState.value = false
+        wasSubscribedToLobby = false
         connectJob?.cancel()
         subscriptionJob?.cancel()
         personalSubscriptionJob?.cancel()
+        lobbySubscriptionJob?.cancel()
+        lobbySubscriptionJob = null
         val currentSession = session
         session = null
         scope.launch {
@@ -333,6 +336,9 @@ class GameStompClient(
         _subscriptionReady.value = false
         _currentGameId = gameId
         subscriptionJob?.cancel()
+        wasSubscribedToLobby = false
+        lobbySubscriptionJob?.cancel()
+        lobbySubscriptionJob = null // leaving the lobby
 
         return try {
             val currentSession = session

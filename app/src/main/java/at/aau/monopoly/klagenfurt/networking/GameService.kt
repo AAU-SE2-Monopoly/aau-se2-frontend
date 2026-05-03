@@ -25,7 +25,7 @@ interface GameService {
     fun createGame(playerName: String, iconId: String = "lindwurm")
     fun joinGame(gameId: String, playerName: String, iconId: String = "lindwurm")
     fun startGame()
-    fun rollDice()
+    fun rollDice(isCheating: Boolean = false)
     fun endTurn()
     fun requestState()
     fun setGameId(gameId: String)

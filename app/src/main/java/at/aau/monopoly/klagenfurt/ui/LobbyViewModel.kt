@@ -14,7 +14,6 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -25,8 +24,7 @@ class LobbyViewModel(private val gameService: GameService) : ViewModel() {
 
     val currentPlayerId: String get() = gameService.currentPlayerId
 
-    val isConnected: StateFlow<Boolean> = gameService.status
-        .map { it.contains("Connected", ignoreCase = true) }
+    val isConnected: StateFlow<Boolean> = gameService.connectionState
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
     private val _games = MutableStateFlow<List<GameLobbyInfo>>(emptyList())

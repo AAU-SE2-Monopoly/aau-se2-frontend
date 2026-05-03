@@ -16,6 +16,9 @@ interface GameService {
     /** Emits `true` once the STOMP subscription for the current game topic is active. */
     val subscriptionReady: StateFlow<Boolean>
 
+    /** Emits `true` when the WebSocket session is established, `false` on disconnect. */
+    val connectionState: StateFlow<Boolean>
+
     fun connect()
     fun disconnect()
     fun subscribeToGame(gameId: String)

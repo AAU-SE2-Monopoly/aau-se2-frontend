@@ -53,6 +53,9 @@ class GameStompClient(
     private val _subscriptionReady = MutableStateFlow(false)
     override val subscriptionReady: StateFlow<Boolean> = _subscriptionReady.asStateFlow()
 
+    private val _connectionState = MutableStateFlow(false)
+    override val connectionState: StateFlow<Boolean> = _connectionState.asStateFlow()
+
     private var _currentGameId: String = ""
     override val currentGameId: String get() = _currentGameId
 
@@ -82,6 +85,7 @@ class GameStompClient(
 
                 subscribeToPersonalTopic()
                 
+                _connectionState.value = true
                 emitStatus("Connected ✓")
                 Log.d("GameStomp", "Connected successfully")
             } catch (e: Throwable) {
@@ -90,6 +94,7 @@ class GameStompClient(
                 } else {
                     Log.e("GameStomp", "connect error", e)
                     session = null
+                    _connectionState.value = false
                     emitStatus("Connection error: ${e.message}")
                 }
             } finally {
@@ -119,6 +124,7 @@ class GameStompClient(
 
     override fun disconnect() {
         _subscriptionReady.value = false
+        _connectionState.value = false
         connectJob?.cancel()
         subscriptionJob?.cancel()
         personalSubscriptionJob?.cancel()

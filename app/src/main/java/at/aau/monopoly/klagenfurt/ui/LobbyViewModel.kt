@@ -6,6 +6,8 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import at.aau.monopoly.klagenfurt.messaging.dtos.GameLobbyInfo
 import at.aau.monopoly.klagenfurt.messaging.dtos.LobbyEvent
+import at.aau.monopoly.klagenfurt.model.cardStatus
+import at.aau.monopoly.klagenfurt.model.sortOrder
 import at.aau.monopoly.klagenfurt.networking.GameService
 import at.aau.monopoly.klagenfurt.networking.JacksonProvider
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -49,7 +51,8 @@ class LobbyViewModel(private val gameService: GameService) : ViewModel() {
             gameService.lobbyEvents.collect { raw ->
                 try {
                     val lobbyEvent = objectMapper.readValue(raw, LobbyEvent::class.java)
-                    _games.value = lobbyEvent.games
+                    // Open games first, then in-progress, full, finished
+                    _games.value = lobbyEvent.games.sortedBy { it.cardStatus().sortOrder }
                 } catch (e: Exception) {
                     Log.e("LobbyViewModel", "Error parsing lobby event: ${e.message}", e)
                 }

@@ -172,12 +172,16 @@ class GameViewModel(private val gameService: GameService) : ViewModel() {
             }
 
             val shouldIgnore =
-                event.event != "GAME_CREATED" &&
+                event.event == "ERROR" ||
+                (event.event != "GAME_CREATED" &&
                 incomingGameId.isNotBlank() &&
                     gameService.currentGameId.isNotBlank() &&
-                    incomingGameId != gameService.currentGameId
+                    incomingGameId != gameService.currentGameId)
 
             if (shouldIgnore) {
+                if (event.event == "ERROR") {
+                    Log.w("GameViewModel", "Server ERROR [game=${event.gameId}]: ${event.message}")
+                }
                 acc
             } else {
                 val isGameSwitch = incomingGameId.isNotBlank() &&

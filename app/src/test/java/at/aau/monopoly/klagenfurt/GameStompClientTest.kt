@@ -586,4 +586,112 @@ class GameStompClientTest {
 
         verify { Log.e("GameStomp", "connect error", any()) }
     }
+    @Test
+    fun disconnect_cancels_lobby_subscription_and_prevents_lobby_reconnect() = runTest(testDispatcher) {
+        coEvery { stompClient.connect(any<String>()) } returns stompSession
+        val lobbyFlow = MutableSharedFlow<String>()
+        coEvery { stompSession.subscribeText(any<String>()) } returns flowOf()
+        coEvery { stompSession.subscribeText("/topic/lobby") } returns lobbyFlow
+
+        gameStompClient.connect()
+        advanceUntilIdle()
+
+        // Subscribe to lobby
+        gameStompClient.subscribeToLobby()
+        advanceUntilIdle()
+
+        coVerify(exactly = 1) { stompSession.subscribeText("/topic/lobby") }
+
+        // Disconnect
+        gameStompClient.disconnect()
+        advanceUntilIdle()
+
+        // After disconnect, connectionState should be false
+        assertEquals(false, gameStompClient.connectionState.value)
+    }
+
+    @Test
+    fun subscribeToGame_cancels_lobby_subscription() = runTest(testDispatcher) {
+        coEvery { stompClient.connect(any<String>()) } returns stompSession
+        val lobbyFlow = MutableSharedFlow<String>()
+        coEvery { stompSession.subscribeText(any<String>()) } returns flowOf()
+        coEvery { stompSession.subscribeText("/topic/lobby") } returns lobbyFlow
+        coEvery { stompSession.sendText(any<String>(), any<String>()) } returns mockk()
+
+        gameStompClient.connect()
+        advanceUntilIdle()
+
+        // Subscribe to lobby first
+        gameStompClient.subscribeToLobby()
+        advanceUntilIdle()
+        coVerify(exactly = 1) { stompSession.subscribeText("/topic/lobby") }
+
+        // Then subscribe to a game - this should cancel lobby
+        gameStompClient.subscribeToGame("new-game")
+        advanceUntilIdle()
+
+        // Verify game subscription happened
+        coVerify { stompSession.subscribeText("/topic/game/new-game") }
+
+        // Verify that re-subscribing to lobby afterwards works (proves old lobby sub was cancelled)
+        gameStompClient.subscribeToLobby()
+        advanceUntilIdle()
+        coVerify(exactly = 2) { stompSession.subscribeText("/topic/lobby") }
+    }
+
+    @Test
+    fun subscribeToGame_does_not_cancel_lobby_if_already_subscribed_to_same_game() = runTest(testDispatcher) {
+        coEvery { stompClient.connect(any<String>()) } returns stompSession
+        val lobbyFlow = MutableSharedFlow<String>()
+        val gameFlow = MutableSharedFlow<String>()
+        coEvery { stompSession.subscribeText(any<String>()) } returns flowOf()
+        coEvery { stompSession.subscribeText("/topic/lobby") } returns lobbyFlow
+        coEvery { stompSession.subscribeText("/topic/game/same-game") } returns gameFlow
+        coEvery { stompSession.sendText(any<String>(), any<String>()) } returns mockk()
+
+        gameStompClient.connect()
+        advanceUntilIdle()
+
+        // First subscription to game
+        gameStompClient.subscribeToGame("same-game")
+        advanceUntilIdle()
+        coVerify(exactly = 1) { stompSession.subscribeText("/topic/game/same-game") }
+
+        // Subscribe to lobby
+        gameStompClient.subscribeToLobby()
+        advanceUntilIdle()
+        coVerify(exactly = 1) { stompSession.subscribeText("/topic/lobby") }
+
+        // Re-subscribe to the same game - should early-return (no new subscribe calls)
+        gameStompClient.subscribeToGame("same-game")
+        advanceUntilIdle()
+
+        // Game subscribe should still be exactly 1 (not 2) since we early-returned
+        coVerify(exactly = 1) { stompSession.subscribeText("/topic/game/same-game") }
+
+        // Verify the "Already subscribed" log was emitted
+        verify { Log.d("GameStomp", "Already subscribed to same-game") }
+    }
+
+    @Test
+    fun subscribeToLobby_guard_prevents_duplicate_subscription() = runTest(testDispatcher) {
+        coEvery { stompClient.connect(any<String>()) } returns stompSession
+        val lobbyFlow = MutableSharedFlow<String>()
+        coEvery { stompSession.subscribeText(any<String>()) } returns flowOf()
+        coEvery { stompSession.subscribeText("/topic/lobby") } returns lobbyFlow
+
+        gameStompClient.connect()
+        advanceUntilIdle()
+
+        // First subscription
+        gameStompClient.subscribeToLobby()
+        advanceUntilIdle()
+        coVerify(exactly = 1) { stompSession.subscribeText("/topic/lobby") }
+
+        // Second subscription (should be guarded - no extra subscribe call)
+        gameStompClient.subscribeToLobby()
+        advanceUntilIdle()
+        coVerify(exactly = 1) { stompSession.subscribeText("/topic/lobby") }
+        verify { Log.d("GameStomp", "Already subscribed to lobby") }
+    }
 }

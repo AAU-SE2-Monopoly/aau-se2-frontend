@@ -86,10 +86,13 @@ class JoinActivity : ComponentActivity() {
                     }
                 }
 
+                val isConnected by viewModel.isConnected.collectAsState()
+
                 JoinScreen(
                     gameId      = gameId,
                     isNewGame   = isNewGame,
                     joinState   = joinState,
+                    isConnected = isConnected,
                     onBackClicked = {
                         viewModel.resetState()
                         finish()
@@ -124,6 +127,7 @@ fun JoinScreen(
     gameId: String,
     isNewGame: Boolean,
     joinState: JoinViewModel.JoinState,
+    isConnected: Boolean = true,
     onBackClicked: () -> Unit,
     onJoin: (playerName: String, iconIndex: Int) -> Unit
 ) {
@@ -146,6 +150,7 @@ fun JoinScreen(
 
     val isLoading = joinState is JoinViewModel.JoinState.Loading
     val errorMessage = (joinState as? JoinViewModel.JoinState.Error)?.message
+    val interactionDisabled = !isConnected || isLoading
 
     Box(
         modifier = Modifier
@@ -182,6 +187,16 @@ fun JoinScreen(
                 )
             }
 
+            // Connection warning – shown only when idle and not connected
+            if (!isConnected && joinState is JoinViewModel.JoinState.Idle) {
+                Text(
+                    text = "Connecting to server…",
+                    color = Color.White.copy(alpha = 0.5f),
+                    fontSize = 13.sp
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+            }
+
             // Error message from server (e.g. game full)
             if (errorMessage != null) {
                 Spacer(modifier = Modifier.height(8.dp))
@@ -199,7 +214,7 @@ fun JoinScreen(
             // Icon chooser
             Button(
                 onClick = { selectedIconIndex = (selectedIconIndex + 1) % playerIcons.size },
-                enabled = !isLoading,
+                enabled = !interactionDisabled,
                 modifier = Modifier.size(90.dp),
                 shape = RoundedCornerShape(20.dp),
                 colors = ButtonDefaults.buttonColors(
@@ -236,7 +251,7 @@ fun JoinScreen(
                 onValueChange = { playerName = it },
                 label = { Text("Player Name") },
                 singleLine = true,
-                enabled = !isLoading,
+                enabled = !interactionDisabled,
                 modifier = Modifier
                     .fillMaxWidth(0.5f)
                     .testTag("PlayerNameInput"),
@@ -259,7 +274,7 @@ fun JoinScreen(
                     val name = playerName.ifBlank { "Player" }
                     onJoin(name, selectedIconIndex)
                 },
-                enabled = !isLoading,
+                enabled = !interactionDisabled,
                 modifier = Modifier
                     .fillMaxWidth(0.5f)
                     .height(56.dp)
@@ -289,7 +304,6 @@ fun JoinScreen(
         // Back button
         Button(
             onClick = onBackClicked,
-            enabled = !isLoading,
             modifier = Modifier
                 .align(Alignment.TopStart)
                 .padding(16.dp),

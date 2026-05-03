@@ -40,12 +40,21 @@ class JoinViewModel(private val gameService: GameService) : ViewModel() {
     private val _joinState = MutableStateFlow<JoinState>(JoinState.Idle)
     val joinState: StateFlow<JoinState> = _joinState.asStateFlow()
 
+    val isConnected: StateFlow<Boolean> = gameService.connectionState
+
     // -------------------------------------------------------------------------
     // Create game
     // -------------------------------------------------------------------------
 
     fun createGame(playerName: String, iconId: String) {
         if (_joinState.value is JoinState.Loading) return
+
+        // Guard: refuse to send commands when disconnected
+        if (!gameService.connectionState.value) {
+            _joinState.value = JoinState.Error("Not connected to server. Please wait…")
+            return
+        }
+
         _joinState.value = JoinState.Loading
 
         viewModelScope.launch {
@@ -71,6 +80,13 @@ class JoinViewModel(private val gameService: GameService) : ViewModel() {
 
     fun joinGame(gameId: String, playerName: String, iconId: String) {
         if (_joinState.value is JoinState.Loading) return
+
+        // Guard: refuse to send commands when disconnected
+        if (!gameService.connectionState.value) {
+            _joinState.value = JoinState.Error("Not connected to server. Please wait…")
+            return
+        }
+
         _joinState.value = JoinState.Loading
 
         viewModelScope.launch {

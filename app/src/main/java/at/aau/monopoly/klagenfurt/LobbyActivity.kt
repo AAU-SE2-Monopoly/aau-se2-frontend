@@ -159,7 +159,7 @@ fun LobbyScreen(
             ) {
                 // "+" card to create a new game
                 item {
-                    CreateGameCard(onClick = onCreateGame)
+                    CreateGameCard(onClick = onCreateGame, enabled = isConnected)
                 }
 
                 // Existing open games
@@ -167,6 +167,7 @@ fun LobbyScreen(
                     GameCard(
                         game = game,
                         isOwnGame = game.hostPlayerId == viewModel.currentPlayerId,
+                        isConnected = isConnected,
                         onClick = { onGameClicked(game.gameId) },
                         onClose = { viewModel.closeGame(game.gameId) }
                     )
@@ -241,13 +242,13 @@ fun LobbyScreen(
 }
 
 @Composable
-fun CreateGameCard(onClick: () -> Unit) {
+fun CreateGameCard(onClick: () -> Unit, enabled: Boolean = true) {
     Box(
         modifier = Modifier
             .size(160.dp)
             .clip(RoundedCornerShape(16.dp))
-            .background(PrimaryBlue.copy(alpha = 0.3f))
-            .clickable(onClick = onClick),
+            .background(if (enabled) PrimaryBlue.copy(alpha = 0.3f) else Color(0xFF424242).copy(alpha = 0.5f))
+            .clickable(enabled = enabled, onClick = onClick),
         contentAlignment = Alignment.Center
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -273,6 +274,7 @@ fun CreateGameCard(onClick: () -> Unit) {
 fun GameCard(
     game: GameLobbyInfo,
     isOwnGame: Boolean,
+    isConnected: Boolean = true,
     onClick: () -> Unit,
     onClose: () -> Unit
 ) {
@@ -323,12 +325,14 @@ fun GameCard(
         )
     }
 
+    val clickable = isInteractable && isConnected
+
     Box(
         modifier = Modifier
             .size(160.dp)
             .clip(RoundedCornerShape(16.dp))
-            .background(cardBackground)
-            .clickable(enabled = isInteractable, onClick = onClick)
+            .background(if (clickable) cardBackground else Color(0xFF424242).copy(alpha = 0.5f))
+            .clickable(enabled = clickable, onClick = onClick)
     ) {
         Column(
             modifier = Modifier
@@ -373,8 +377,8 @@ fun GameCard(
             )
         }
 
-        // Close button for own games
-        if (isOwnGame) {
+        // Close button for own games – also requires connection
+        if (isOwnGame && isConnected) {
             IconButton(
                 onClick = { showCloseDialog = true },
                 modifier = Modifier

@@ -9,6 +9,14 @@ sealed class GameCardStatus {
     object Finished : GameCardStatus()
 }
 
+/** Natural display order: joinable games first, unavailable last. */
+val GameCardStatus.sortOrder: Int get() = when (this) {
+    is GameCardStatus.Open       -> 0
+    is GameCardStatus.InProgress -> 1
+    is GameCardStatus.Full       -> 2
+    is GameCardStatus.Finished   -> 3
+}
+
 /**
  * Derives the visual status of a lobby game card from its data.
  */

@@ -17,7 +17,7 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
-import kotlinx.coroutines.yield
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.channels.Channel
 import at.aau.monopoly.klagenfurt.messaging.GameEvent
 import org.hildan.krossbow.stomp.StompClient
@@ -60,6 +60,13 @@ class GameStompClient(
     private var reconnectJob: Job? = null
     private var isReconnecting = false
     private var reconnectAttempts = 0
+
+    init {
+        // Forward all game events to the log events shared flow (used by UI event log)
+        scope.launch {
+            _events.collect { _logEvents.emit(it) }
+        }
+    }
 
     companion object {
         private const val MAX_RECONNECT_ATTEMPTS = 5
@@ -302,7 +309,6 @@ class GameStompClient(
             return Result.failure(Exception("Join failed: Could not subscribe to game topic"))
         }
 
-        yield()
         Log.d("GameStomp", "Sending join command for game: $gameId with icon: $iconId")
 
         // Start the collector BEFORE sending the request to avoid race conditions
@@ -409,11 +415,11 @@ class GameStompClient(
         gameChannel.cancel()
         gameChannel.subscribe(gameId)
 
-        // Yield to let the subscription coroutine start
-        yield()
-
-        if (!gameChannel.isReady.value) {
-            Log.w("GameStomp", "subscribeToGameInternal: subscription not ready for $gameId")
+        val ready = withTimeoutOrNull(2000L) {
+            gameChannel.isReady.first { it }
+        }
+        if (ready == null) {
+            Log.w("GameStomp", "Game subscription timed out for $gameId")
             return false
         }
 

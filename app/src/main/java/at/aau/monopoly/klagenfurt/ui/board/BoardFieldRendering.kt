@@ -196,8 +196,8 @@ fun getFieldImageMapping(fieldName: String): Int? {
 }
 
 private fun fieldItemContainerMod(bounds: FieldBounds): Modifier {
-    val borderWidth = if (bounds.isCorner) 0.5.dp else 0.25.dp
-    val borderAlpha = if (bounds.isCorner) 0.3f else 0.2f
+    val borderWidth = if (bounds.isCorner) 0.75.dp else 0.5.dp
+    val borderAlpha = if (bounds.isCorner) 0.4f else 0.3f
     val backgroundColor = if (bounds.isCorner) {
         Color.Red.copy(alpha = 0.1f)
     } else {
@@ -208,7 +208,7 @@ private fun fieldItemContainerMod(bounds: FieldBounds): Modifier {
         .offset(x = bounds.x.dp, y = bounds.y.dp)
         .size(bounds.width.dp, bounds.height.dp)
         .clip(RectangleShape)
-        .border(borderWidth, Color.White.copy(alpha = borderAlpha))
+        .border(borderWidth, Color.Black.copy(alpha = borderAlpha))
         .background(backgroundColor)
 }
 
@@ -294,25 +294,19 @@ fun FieldTitle(
             .fillMaxSize()
             .rotate(bounds.rotation)
             .padding(if (bounds.isCorner) 2.dp else 4.dp),
-        contentAlignment = if (bounds.isCorner) Alignment.Center else Alignment.TopCenter
+        contentAlignment = if (bounds.isCorner) Alignment.Center else Alignment.BottomCenter
     ) {
-        Box(
-            modifier = Modifier
-                .background(Color.Black.copy(alpha = 0.4f), RoundedCornerShape(2.dp))
-                .padding(horizontal = 2.dp, vertical = 1.dp),
-            contentAlignment = Alignment.Center
-        ) {
-            Text(
-                text = text,
-                color = Color.White,
-                fontSize = if (bounds.isCorner) 3.75.sp else 2.75.sp,
-                lineHeight = if (bounds.isCorner) 4.75.sp else 3.75.sp,
-                fontWeight = FontWeight.ExtraBold,
-                textAlign = TextAlign.Center,
-                overflow = TextOverflow.Ellipsis,
-                maxLines = 3,
-                style = TextStyle(hyphens = Hyphens.Auto)
-            )
-        }
+        Text(
+            text = text,
+            color = Color.Black,
+            fontSize = if (bounds.isCorner) 3.5.sp else 2.5.sp,
+            lineHeight = if (bounds.isCorner) 4.5.sp else 3.5.sp,
+            fontWeight = FontWeight.Bold,
+            textAlign = TextAlign.Center,
+            overflow = TextOverflow.Ellipsis,
+            maxLines = 2,
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 2.dp),
+            style = TextStyle(hyphens = Hyphens.Auto)
+        )
     }
 }

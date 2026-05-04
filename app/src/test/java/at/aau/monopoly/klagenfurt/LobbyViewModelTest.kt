@@ -196,4 +196,82 @@ class LobbyViewModelTest {
         // Should not crash, createdGameId stays null
         assertNull(viewModel.createdGameId.value)
     }
+    // ── Connection indicator ("Connecting to server…") tests ──────────────────
+    @Test
+    fun `shows connecting text when not connected`() = runTest(testDispatcher) {
+        val job = launch { viewModel.isConnected.collect {} }
+        // FakeGameService starts with connectionState = false
+        // After init, connect() is called but does NOT set connectionState to true
+        // (the real FakeGameService.connect() only sets connectCalled = true)
+        advanceUntilIdle()
+        // isConnected remains false => LobbyScreen renders "Connecting to server…"
+        assertEquals(false,viewModel.isConnected.value)
+        job.cancel()
+    }
+    @Test
+    fun `hides connecting text when connection established`() = runTest(testDispatcher) {
+        val job = launch { viewModel.isConnected.collect {} }
+        advanceUntilIdle()
+        // Simulate successful connection
+        fakeService.setConnectionState(true)
+        advanceUntilIdle()
+        // isConnected is true => LobbyScreen hides "Connecting to server…"
+        assertTrue(viewModel.isConnected.value)
+        job.cancel()
+    }
+    @Test
+    fun `remains connected after leaving GameboardUI and returning to Lobby`() = runTest(testDispatcher) {
+        val job = launch { viewModel.isConnected.collect {} }
+        // Step 1: Establish connection (simulates successful WebSocket handshake)
+        fakeService.setConnectionState(true)
+        advanceUntilIdle()
+        assertTrue(viewModel.isConnected.value)
+        // Step 2: Simulate GameboardUI Activity – the GameService singleton stays alive
+        // and retains connectionState = true (GameboardUI does NOT call disconnect())
+        // Step 3: User returns to Lobby – a NEW LobbyViewModel is created,
+        // observing the SAME GameService which is still connected
+        fakeService.connectCalled = false  // reset for verification
+        val newViewModel = LobbyViewModel(fakeService)
+        val job2 = launch { newViewModel.isConnected.collect {} }
+        advanceUntilIdle()
+        // The new ViewModel should immediately see connectionState = true
+        // because FakeGameService.connectionState still holds the value set in step 1
+        assertTrue(newViewModel.isConnected.value)
+        // The "Connecting to server…" text will NOT appear in LobbyScreen
+        job.cancel()
+        job2.cancel()
+    }
+    @Test
+    fun `connecting text reappears after connection loss`() = runTest(testDispatcher) {
+        val job = launch { viewModel.isConnected.collect {} }
+        // Step 1: Simulate initially connected
+        fakeService.setConnectionState(true)
+        advanceUntilIdle()
+        assertTrue(viewModel.isConnected.value)
+        // Step 2: Connection drops (server down, network lost)
+        fakeService.setConnectionState(false)
+        advanceUntilIdle()
+        // isConnected becomes false => LobbyScreen renders "Connecting to server…"
+        assertEquals(false,viewModel.isConnected.value)
+        job.cancel()
+    }
+    @Test
+    fun `connecting text reappears after reconnect loop gives up`() = runTest(testDispatcher) {
+        val job = launch { viewModel.isConnected.collect {} }
+        // Step 1: Simulate initial connection
+        fakeService.setConnectionState(true)
+        advanceUntilIdle()
+        assertTrue(viewModel.isConnected.value)
+        // Step 2: Connection drops and reconnect fails
+        fakeService.setConnectionState(false)
+        advanceUntilIdle()
+        assertEquals(false,viewModel.isConnected.value)
+        // Step 3: Simulate reconnect max attempts reached – still disconnected
+        // FakeGameService does NOT implement reconnect, so state stays false
+        // => LobbyScreen shows "Connecting to server…" permanently
+        assertEquals(false,viewModel.isConnected.value)
+        job.cancel()
+    }
+    // ── End of connection indicator tests ────────────────────────────────────
+
 }

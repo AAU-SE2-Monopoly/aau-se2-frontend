@@ -155,7 +155,7 @@ fun FieldItem(index: Int, field: Field, sw: Float, sh: Float) {
 
 private val fieldImageMappings = mapOf(
     "Go" to R.drawable.mono_go,
-    "Herrengasse" to R.drawable.herrengasse,
+    "Herrengasse" to R.drawable.ic_herrengasse,
     "Community Chest" to R.drawable.community_chest,
     "Reichensteuer" to R.drawable.tax,
     "Hauptbahnhof" to R.drawable.hauptbahnhof,
@@ -220,23 +220,25 @@ private fun FieldImage(
 ) {
     if (imageRes == null) return
 
-    val imagePadding = 0.dp
+    val imagePadding = if (bounds.isCorner) 0.dp else 6.dp
     val imageShape = RoundedCornerShape(2.dp)
     val borderWidth = if (bounds.isCorner) 1.dp else 0.5.dp
 
     Box(
         modifier = Modifier
             .requiredSize(width = bounds.textWidth.dp, height = bounds.textHeight.dp)
-            .padding(imagePadding)
             .rotate(bounds.rotation)
             .clip(imageShape)
+            .background(Color.White)
             .border(borderWidth, Color.White, imageShape)
     ) {
         Image(
             painter = painterResource(id = imageRes),
             contentDescription = fieldName,
-            modifier = Modifier.fillMaxSize(),
-            contentScale = ContentScale.FillBounds
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(imagePadding),
+            contentScale = ContentScale.Fit
         )
     }
 }

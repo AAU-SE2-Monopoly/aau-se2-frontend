@@ -220,7 +220,7 @@ private fun FieldImage(
 ) {
     if (imageRes == null) return
 
-    val imagePadding = if (bounds.isCorner) 0.dp else 6.dp
+    val imagePadding = if (bounds.isCorner) 0.dp else 3.dp
     val imageShape = RoundedCornerShape(2.dp)
     val borderWidth = if (bounds.isCorner) 1.dp else 0.5.dp
 
@@ -255,25 +255,25 @@ fun BoxScope.PropertyColorBar(
         0 -> Modifier
             .fillMaxWidth()
             .height(((barSize / 2160f) * sh).dp)
-            .align(Alignment.BottomCenter)
+            .align(Alignment.TopCenter)
             .testTag("Bottom-Bar")
 
         1 -> Modifier
             .fillMaxHeight()
             .width(((barSize / 3840f) * sw).dp)
-            .align(Alignment.CenterStart)
+            .align(Alignment.CenterEnd)
             .testTag("Left-Bar")
 
         2 -> Modifier
             .fillMaxWidth()
             .height(((barSize / 2160f) * sh).dp)
-            .align(Alignment.TopCenter)
+            .align(Alignment.BottomCenter)
             .testTag("Top-Bar")
 
         3 -> Modifier
             .fillMaxHeight()
             .width(((barSize / 3840f) * sw).dp)
-            .align(Alignment.CenterEnd)
+            .align(Alignment.CenterStart)
             .testTag("Right-Bar")
 
         else -> Modifier

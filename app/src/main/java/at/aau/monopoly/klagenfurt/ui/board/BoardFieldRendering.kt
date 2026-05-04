@@ -39,6 +39,7 @@ import at.aau.monopoly.klagenfurt.model.field.Field
 import at.aau.monopoly.klagenfurt.model.field.PropertyField
 import at.aau.monopoly.klagenfurt.ui.util.toComposeColor
 import com.example.myapplication.R
+import kotlin.math.roundToInt
 import kotlin.math.sqrt
 
 data class FieldBounds(
@@ -68,8 +69,8 @@ fun calculateFieldBounds(index: Int, sw: Float, sh: Float): FieldBounds {
     val end = corners[(side + 1) % 4]
     val designCornerSize = 240f
 
-    fun scaleX(x: Float) = (x / 3840f) * sw
-    fun scaleY(y: Float) = (y / 2160f) * sh
+    fun scaleX(x: Float) = ((x / 3840f) * sw).roundToInt().toFloat()
+    fun scaleY(y: Float) = ((y / 2160f) * sh).roundToInt().toFloat()
 
     if (isCorner) {
         val textRotation = 0f
@@ -197,12 +198,8 @@ fun getFieldImageMapping(fieldName: String): Int? {
 
 private fun fieldItemContainerMod(bounds: FieldBounds): Modifier {
     val borderWidth = if (bounds.isCorner) 0.75.dp else 0.5.dp
-    val borderAlpha = if (bounds.isCorner) 0.4f else 0.3f
-    val backgroundColor = if (bounds.isCorner) {
-        Color.Red.copy(alpha = 0.1f)
-    } else {
-        Color.Black.copy(alpha = 0.1f)
-    }
+    val borderAlpha = if (bounds.isCorner) 0.5f else 0.4f
+    val backgroundColor = Color.White
 
     return Modifier
         .offset(x = bounds.x.dp, y = bounds.y.dp)
@@ -220,13 +217,17 @@ private fun FieldImage(
 ) {
     if (imageRes == null) return
 
-    val imagePadding = if (bounds.isCorner) 0.dp else 3.dp
+    val imagePadding = if (bounds.isCorner) 0.dp else 1.dp
     val imageShape = RoundedCornerShape(2.dp)
     val borderWidth = if (bounds.isCorner) 1.dp else 0.5.dp
 
+    val imgHeight = if (bounds.isCorner) bounds.textHeight else bounds.textHeight * 0.75f
+    val imgOffsetY = 0.dp
+
     Box(
         modifier = Modifier
-            .requiredSize(width = bounds.textWidth.dp, height = bounds.textHeight.dp)
+            .requiredSize(width = bounds.textWidth.dp, height = imgHeight.dp)
+            .offset(y = imgOffsetY)
             .rotate(bounds.rotation)
             .clip(imageShape)
             .background(Color.White)
@@ -293,14 +294,14 @@ fun FieldTitle(
         modifier = Modifier
             .fillMaxSize()
             .rotate(bounds.rotation)
-            .padding(if (bounds.isCorner) 2.dp else 4.dp),
+            .padding(horizontal = 2.dp, vertical = if (bounds.isCorner) 2.dp else 1.dp),
         contentAlignment = if (bounds.isCorner) Alignment.Center else Alignment.BottomCenter
     ) {
         Text(
             text = text,
             color = Color.Black,
-            fontSize = if (bounds.isCorner) 3.5.sp else 2.5.sp,
-            lineHeight = if (bounds.isCorner) 4.5.sp else 3.5.sp,
+            fontSize = if (bounds.isCorner) 5.sp else 3.5.sp,
+            lineHeight = if (bounds.isCorner) 6.sp else 4.2.sp,
             fontWeight = FontWeight.Bold,
             textAlign = TextAlign.Center,
             overflow = TextOverflow.Ellipsis,

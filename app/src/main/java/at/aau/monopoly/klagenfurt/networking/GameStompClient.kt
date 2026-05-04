@@ -16,7 +16,10 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.yield
+import kotlinx.coroutines.channels.Channel
+import at.aau.monopoly.klagenfurt.messaging.GameEvent
 import org.hildan.krossbow.stomp.StompClient
 import org.hildan.krossbow.stomp.StompSession
 import org.hildan.krossbow.stomp.sendText
@@ -265,7 +268,7 @@ class GameStompClient(
 
     private val objectMapper = JacksonProvider.objectMapper
 
-    override fun createGame(playerName: String, iconId: String) {
+    override suspend fun createGame(playerName: String, iconId: String): String? {
         _currentPlayerName = playerName
         val player = Player(
             id = currentPlayerId,
@@ -275,24 +278,126 @@ class GameStompClient(
         val playerJson = objectMapper.writeValueAsString(player)
 
         Log.d("GameStomp", "Sending create command for player: $playerName with icon: $iconId")
+
+        // Start the collector BEFORE sending the request to avoid race conditions
+        val resultChannel = Channel<GameEvent>(Channel.CONFLATED)
+        val collectingJob = scope.launch {
+            _events.collect { json ->
+                try {
+                    val event = objectMapper.readValue(json, GameEvent::class.java)
+                    if (event.event == "GAME_CREATED") {
+                        resultChannel.trySend(event)
+                    }
+                } catch (_: Exception) {
+                    // Ignore parse errors
+                }
+            }
+        }
+
         sendRaw("/app/game/create", playerJson)
+
+        val createEvent = withTimeoutOrNull(10_000L) {
+            resultChannel.receive()
+        }
+        collectingJob.cancel()
+        resultChannel.close()
+
+        val gameId = createEvent?.gameId
+        if (gameId.isNullOrBlank()) {
+            emitStatus("Create game failed: no gameId in response")
+            return null
+        }
+
+
+        val subscribed = subscribeToGameInternal(
+            gameId = gameId,
+            requestStateAfterSubscribe = true
+        )
+        if (!subscribed) {
+            emitStatus("Create game failed: could not subscribe to game topic")
+            return null
+        }
+
+        return gameId
     }
 
-    override fun joinGame(gameId: String, playerName: String, iconId: String) {
+    override suspend fun joinGame(gameId: String, playerName: String, iconId: String): Result<GameEvent> {
         _currentPlayerName = playerName
-        scope.launch {
 
-            val subscribed = subscribeToGameInternal(gameId = gameId, requestStateAfterSubscribe = true)
-            if (!subscribed) {
-                emitStatus("Join failed: Could not subscribe to game topic")
-                return@launch
+
+        val subscribed = subscribeToGameInternal(
+            gameId = gameId,
+            requestStateAfterSubscribe = true
+        )
+        if (!subscribed) {
+            emitStatus("Join failed: Could not subscribe to game topic")
+            return Result.failure(Exception("Join failed: Could not subscribe to game topic"))
+        }
+
+        yield()
+        Log.d("GameStomp", "Sending join command for game: $gameId with icon: $iconId")
+
+        // Start the collector BEFORE sending the request to avoid race conditions
+        val resultChannel = Channel<GameEvent>(Channel.CONFLATED)
+        val collectingJob = scope.launch {
+            _events.collect { json ->
+                try {
+                    val event = objectMapper.readValue(json, GameEvent::class.java)
+
+                    // Ignore events from other games
+                    if (event.gameId != gameId) return@collect
+
+                    when (event.event) {
+                        "PLAYER_JOINED" -> {
+                            val isOurJoin = event.gameState?.players
+                                ?.any { it.id == currentPlayerId } == true
+                            if (isOurJoin) {
+                                resultChannel.trySend(event)
+                            }
+                        }
+                        "ERROR" -> {
+                            resultChannel.trySend(event)
+                        }
+                    }
+                } catch (_: Exception) {
+                    // Ignore parse errors
+                }
             }
-            yield()
-            Log.d("GameStomp", "Sending join command for game: $gameId with icon: $iconId")
-            sendRawInternal(
-                "/app/game/join",
-                buildAction(extra = mapOf("name" to playerName, "iconId" to iconId))
-            )
+        }
+
+        sendRawInternal(
+            "/app/game/join",
+            buildAction(extra = mapOf("name" to playerName, "iconId" to iconId))
+        )
+
+        val result = withTimeoutOrNull(10_000L) {
+            resultChannel.receive()
+        }
+        collectingJob.cancel()
+        resultChannel.close()
+
+        if (result == null) {
+            val msg = "Join timeout: no server response for game $gameId"
+            Log.w("GameStomp", msg)
+            emitStatus(msg)
+            return Result.failure(Exception(msg))
+        }
+
+        return when (result.event) {
+            "PLAYER_JOINED" -> {
+                Log.d("GameStomp", "Join confirmed for game $gameId")
+                Result.success(result)
+            }
+            "ERROR" -> {
+                val errMsg = result.message ?: "Join rejected by server"
+                Log.w("GameStomp", "Join rejected for game $gameId: $errMsg")
+                emitStatus(errMsg)
+                Result.failure(Exception(errMsg))
+            }
+            else -> {
+                // Should not happen since waitForEventOnGameTopic only returns on these
+                Result.failure(Exception("Unexpected event: ${result.event}"))
+            }
         }
     }
 
@@ -423,4 +528,6 @@ class GameStompClient(
                 (e is IllegalStateException && e.message?.contains("cancelled", ignoreCase = true) == true) ||
                 (e.cause is CancellationException)
     }
+
+
 }

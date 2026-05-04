@@ -1,6 +1,7 @@
 package at.aau.monopoly.klagenfurt
 
 
+import at.aau.monopoly.klagenfurt.messaging.GameEvent
 import at.aau.monopoly.klagenfurt.networking.GameService
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -51,6 +52,9 @@ class FakeGameService : GameService {
     var lastClosedGameId: String? = null
     var closeGameCalls = 0
 
+    /** Set to false to simulate a rejected join during tests */
+    var joinGameSuccess: Boolean = true
+
     override fun connect() {
         connectCalled = true
     }
@@ -64,17 +68,29 @@ class FakeGameService : GameService {
         _subscriptionReady.value = true
     }
 
-    override fun createGame(playerName: String, iconId: String) {
+    override suspend fun createGame(playerName: String, iconId: String): String? {
         createGameCalls++
         lastCreatedPlayerName = playerName
         lastCreatedIconId = iconId
+        return "test-created-game-id"
     }
 
-    override fun joinGame(gameId: String, playerName: String, iconId: String) {
+    override suspend fun joinGame(gameId: String, playerName: String, iconId: String): Result<GameEvent> {
         joinGameCalls++
         lastJoinedGameId = gameId
         lastJoinedPlayerName = playerName
         lastJoinedIconId = iconId
+        return if (joinGameSuccess) {
+            Result.success(
+                GameEvent(
+                    gameId = gameId,
+                    event = "PLAYER_JOINED",
+                    message = "$playerName joined the game"
+                )
+            )
+        } else {
+            Result.failure(Exception("Join rejected by server"))
+        }
     }
 
     override fun startGame() {

@@ -299,13 +299,24 @@ class GameStompClientTest {
     @Test
     fun joinGame_subscribes_then_requests_state_then_sends_join() = runTest(testDispatcher) {
         coEvery { stompClient.connect(any<String>()) } returns stompSession
-        coEvery { stompSession.subscribeText(any<String>()) } returns flowOf()
+        // Use a real MutableSharedFlow so we can emit the PLAYER_JOINED event
+        // that joinGame now waits for before returning.
+        val gameTopicFlow = MutableSharedFlow<String>()
+        coEvery { stompSession.subscribeText(any<String>()) } returns gameTopicFlow
         coEvery { stompSession.sendText(any<String>(), any<String>()) } returns mockk()
 
         gameStompClient.connect()
         advanceUntilIdle()
 
-        gameStompClient.joinGame("game-123", "Alice", "gti")
+        val joinJob = launch {
+            gameStompClient.joinGame("game-123", "Alice", "gti")
+        }
+        advanceUntilIdle()
+
+        // Emit PLAYER_JOINED with the current player in game state to unblock joinGame
+        gameTopicFlow.emit(
+            """{"event":"PLAYER_JOINED","gameId":"game-123","gameState":{"players":[{"id":"${gameStompClient.currentPlayerId}"}]}}"""
+        )
         advanceUntilIdle()
 
         coVerifyOrder {
@@ -318,26 +329,42 @@ class GameStompClientTest {
     @Test
     fun joinGame_does_not_send_join_before_subscription_and_state_request_complete() = runTest(testDispatcher) {
         coEvery { stompClient.connect(any<String>()) } returns stompSession
-        coEvery { stompSession.subscribeText(match { it.startsWith("/topic/game/") && it != "/topic/game/game-123" }) } returns flowOf()
+        // For non-game-123 subscriptions, use a real flow so we can emit events
+        coEvery { stompSession.subscribeText(match { it.startsWith("/topic/game/") && it != "/topic/game/game-123" }) } returns MutableSharedFlow()
+
+        // For the game-123 subscription, delay then return a flow that emits PLAYER_JOINED
         coEvery { stompSession.subscribeText("/topic/game/game-123") } coAnswers {
             delay(1000)
-            flowOf()
+            val flow = MutableSharedFlow<String>()
+            // Schedule emission after the subscription is ready so joinGame can proceed
+            launch {
+                flow.emit(
+                    """{"event":"PLAYER_JOINED","gameId":"game-123","gameState":{"players":[{"id":"${gameStompClient.currentPlayerId}"}]}}"""
+                )
+            }
+            flow
         }
         coEvery { stompSession.sendText(any<String>(), any<String>()) } returns mockk()
 
         gameStompClient.connect()
         advanceUntilIdle()
 
-        gameStompClient.joinGame("game-123", "Alice", "gti")
+        val joinJob = launch {
+            gameStompClient.joinGame("game-123", "Alice", "gti")
+        }
         runCurrent()
         advanceTimeBy(500)
         runCurrent()
 
+        // After 500ms, subscription isn't ready yet, so join should not have been sent
         coVerify(exactly = 0) { stompSession.sendText("/app/game/join", any<String>()) }
 
+        // Advance past the 1000ms delay so subscription completes
         advanceTimeBy(1000)
         advanceUntilIdle()
 
+        // Now the subscription is done, state was requested, join was sent, and
+        // PLAYER_JOINED was received, so joinGame completed.
         coVerifyOrder {
             stompSession.subscribeText("/topic/game/game-123")
             stompSession.sendText("/app/game/state", any<String>())
@@ -355,11 +382,16 @@ class GameStompClientTest {
         gameStompClient.connect()
         advanceUntilIdle()
 
-        gameStompClient.joinGame("game-123", "Alice", "gti")
+        val result = gameStompClient.joinGame("game-123", "Alice", "gti")
         advanceUntilIdle()
 
         coVerify(exactly = 0) { stompSession.sendText("/app/game/join", any<String>()) }
         verify { Log.e("GameStomp", "subscription error", any()) }
+        assertTrue(result.isFailure)
+
+        // Clean up any reconnect coroutines started by subscribeToGameInternal
+        gameStompClient.disconnect()
+        advanceUntilIdle()
     }
 
     @Test
@@ -525,7 +557,9 @@ class GameStompClientTest {
     @Test
     fun test_all_game_actions() = runTest(testDispatcher) {
         coEvery { stompClient.connect(any<String>()) } returns stompSession
-        coEvery { stompSession.subscribeText(any<String>()) } returns flowOf()
+        // Use MutableSharedFlow so the joinGame wait can be unblocked
+        val gameTopicFlow = MutableSharedFlow<String>()
+        coEvery { stompSession.subscribeText(any<String>()) } returns gameTopicFlow
         coEvery { stompSession.sendText(any<String>(), any<String>()) } returns mockk()
 
         gameStompClient.connect()
@@ -535,10 +569,20 @@ class GameStompClientTest {
         gameStompClient.rollDice()
         gameStompClient.endTurn()
         gameStompClient.requestState()
-        gameStompClient.joinGame("id", "name")
+        // Launch joinGame in a separate coroutine since it now suspends waiting for PLAYER_JOINED
+        val joinJob = launch {
+            gameStompClient.joinGame("id", "name")
+        }
         gameStompClient.setGameId("new-id")
 
         advanceUntilIdle()
+
+        // Emit PLAYER_JOINED to unblock joinGame
+        gameTopicFlow.emit(
+            """{"event":"PLAYER_JOINED","gameId":"id","gameState":{"players":[{"id":"${gameStompClient.currentPlayerId}"}]}}"""
+        )
+        advanceUntilIdle()
+
         coVerify(atLeast = 1) { stompSession.sendText(any<String>(), any<String>()) }
     }
 

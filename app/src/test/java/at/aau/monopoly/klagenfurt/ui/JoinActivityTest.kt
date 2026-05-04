@@ -40,6 +40,7 @@ class JoinActivityTest {
     @Before
     fun setup() {
         fakeService = FakeGameService()
+        fakeService.setConnectionState(true)
         ServiceLocator.injectGameServiceForTest(fakeService)
     }
 
@@ -67,6 +68,7 @@ class JoinActivityTest {
             // Input and click
             composeTestRule.onNodeWithTag("PlayerNameInput").performTextInput("Alice")
             composeTestRule.onNodeWithTag("ActionButton").performClick()
+            composeTestRule.waitForIdle()
 
             // Verify service calls
             assertEquals(1, fakeService.joinGameCalls)
@@ -91,6 +93,7 @@ class JoinActivityTest {
 
             composeTestRule.onNodeWithTag("PlayerNameInput").performTextInput("Bob")
             composeTestRule.onNodeWithTag("ActionButton").performClick()
+            composeTestRule.waitForIdle()
 
             assertEquals(1, fakeService.createGameCalls)
             assertEquals("Bob", fakeService.lastCreatedPlayerName)
@@ -109,6 +112,7 @@ class JoinActivityTest {
 
             // Intentionally no input -> fallback logic `ifBlank` applies
             composeTestRule.onNodeWithTag("ActionButton").performClick()
+            composeTestRule.waitForIdle()
 
             assertEquals(1, fakeService.createGameCalls)
             assertEquals("Player", fakeService.lastCreatedPlayerName)
@@ -161,6 +165,7 @@ class JoinActivityTest {
             iconButton.performClick() // Index 3: ironman
 
             composeTestRule.onNodeWithTag("ActionButton").performClick()
+            composeTestRule.waitForIdle()
 
             assertEquals(1, fakeService.joinGameCalls)
             assertEquals("", fakeService.lastJoinedGameId)
@@ -190,6 +195,7 @@ class JoinActivityTest {
 
                 // Click button to trigger the onJoin lambda
                 composeTestRule.onNodeWithTag("ActionButton").performClick()
+                composeTestRule.waitForIdle()
 
                 // Verify that the correct ID was passed to the service
                 assertEquals(expectedIconId, fakeService.lastCreatedIconId)

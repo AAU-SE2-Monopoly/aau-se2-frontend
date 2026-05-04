@@ -2,24 +2,41 @@ package at.aau.monopoly.klagenfurt.ui
 
 import at.aau.monopoly.klagenfurt.model.Player
 import at.aau.monopoly.klagenfurt.networking.GameService
+import io.mockk.coVerify
 import io.mockk.mockk
+import io.mockk.verify
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.advanceUntilIdle
+import kotlinx.coroutines.test.resetMain
+import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.test.setMain
+import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
-import io.mockk.verify
-import org.junit.jupiter.api.Assertions.assertTrue
 
 class GameViewModelTest {
 
     private lateinit var gameService: GameService
     private lateinit var viewModel: GameViewModel
+    private val testDispatcher = StandardTestDispatcher()
 
+    @OptIn(ExperimentalCoroutinesApi::class)
     @Before
     fun setup() {
-        // Wir mocken den GameService, da wir nur die Overlay-Logik testen wollen
+        Dispatchers.setMain(testDispatcher)
         gameService = mockk(relaxed = true)
         viewModel = GameViewModel(gameService)
+    }
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    @After
+    fun tearDown() {
+        Dispatchers.resetMain()
     }
 
     @Test
@@ -29,48 +46,47 @@ class GameViewModelTest {
 
     @Test
     fun `showPlayerOverlay should update state with correct player`() {
-        // Arrange
         val testPlayer = Player(id = "p1", name = "Spieler 1")
 
-        // Act
         viewModel.showPlayerOverlay(testPlayer)
 
-        // Assert
         assertEquals(testPlayer, viewModel.selectedPlayerForOverlay.value)
         assertEquals("Spieler 1", viewModel.selectedPlayerForOverlay.value?.name)
     }
 
     @Test
     fun `hidePlayerOverlay should reset state to null`() {
-        // Arrange
         val testPlayer = Player(id = "p1", name = "Spieler 1")
-        viewModel.showPlayerOverlay(testPlayer) // Zuerst setzen
+        viewModel.showPlayerOverlay(testPlayer)
 
-        // Act
         viewModel.hidePlayerOverlay()
 
-        // Assert
         assertNull(viewModel.selectedPlayerForOverlay.value)
     }
+
     @Test
     fun `connect should call gameService connect`() {
         viewModel.connect()
         verify(exactly = 1) { gameService.connect() }
     }
 
+    @OptIn(ExperimentalCoroutinesApi::class)
     @Test
-    fun `createGame should call gameService createGame`() {
+    fun `createGame should call gameService createGame`() = runTest(testDispatcher) {
         val playerName = "Lukas"
         viewModel.createGame(playerName)
-        verify(exactly = 1) { gameService.createGame(playerName) }
+        advanceUntilIdle()
+        coVerify(exactly = 1) { gameService.createGame(playerName) }
     }
 
+    @OptIn(ExperimentalCoroutinesApi::class)
     @Test
-    fun `joinGame should call gameService joinGame`() {
+    fun `joinGame should call gameService joinGame`() = runTest(testDispatcher) {
         val gameId = "game123"
         val playerName = "Lukas"
         viewModel.joinGame(gameId, playerName)
-        verify(exactly = 1) { gameService.joinGame(gameId, playerName) }
+        advanceUntilIdle()
+        coVerify(exactly = 1) { gameService.joinGame(gameId, playerName) }
     }
 
     @Test

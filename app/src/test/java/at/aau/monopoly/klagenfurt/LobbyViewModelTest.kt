@@ -132,8 +132,9 @@ class LobbyViewModelTest {
     }
 
     @Test
-    fun `createGame delegates to gameService`() {
+    fun `createGame delegates to gameService`() = runTest(testDispatcher) {
         viewModel.createGame("TestPlayer")
+        advanceUntilIdle()
         assertEquals(1, fakeService.createGameCalls)
         assertEquals("TestPlayer", fakeService.lastCreatedPlayerName)
     }
@@ -151,19 +152,17 @@ class LobbyViewModelTest {
     }
 
     @Test
-    fun `createdGameId updates when GAME_CREATED event received`() = runTest(testDispatcher) {
-        val gameEventJson = """{"event":"GAME_CREATED","gameId":"new-game-id"}"""
-        fakeService.emitTestEvent(gameEventJson)
+    fun `createdGameId updates when createGame succeeds`() = runTest(testDispatcher) {
+        viewModel.createGame("Alice")
         advanceUntilIdle()
-        assertEquals("new-game-id", viewModel.createdGameId.value)
+        assertEquals("test-created-game-id", viewModel.createdGameId.value)
     }
 
     @Test
     fun `clearCreatedGameId resets to null`() = runTest(testDispatcher) {
-        val gameEventJson = """{"event":"GAME_CREATED","gameId":"new-game-id"}"""
-        fakeService.emitTestEvent(gameEventJson)
+        viewModel.createGame("Alice")
         advanceUntilIdle()
-        assertEquals("new-game-id", viewModel.createdGameId.value)
+        assertEquals("test-created-game-id", viewModel.createdGameId.value)
 
         viewModel.clearCreatedGameId()
         assertNull(viewModel.createdGameId.value)
@@ -171,13 +170,15 @@ class LobbyViewModelTest {
 
     @Test
     fun `createGame resets createdGameId before creating`() = runTest(testDispatcher) {
-        val gameEventJson = """{"event":"GAME_CREATED","gameId":"old-id"}"""
-        fakeService.emitTestEvent(gameEventJson)
+        viewModel.createGame("OldPlayer")
         advanceUntilIdle()
-        assertEquals("old-id", viewModel.createdGameId.value)
+        assertEquals("test-created-game-id", viewModel.createdGameId.value)
 
         viewModel.createGame("NewPlayer")
         assertNull(viewModel.createdGameId.value)
+
+        advanceUntilIdle()
+        assertEquals("test-created-game-id", viewModel.createdGameId.value)
     }
 
     @Test
@@ -196,9 +197,3 @@ class LobbyViewModelTest {
         assertNull(viewModel.createdGameId.value)
     }
 }
-
-
-
-
-
-

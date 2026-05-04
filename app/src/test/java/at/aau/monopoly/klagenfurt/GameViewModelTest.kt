@@ -66,11 +66,13 @@ class GameViewModelTest {
         verify { gameService.connect() }
     }
 
+    @OptIn(ExperimentalCoroutinesApi::class)
     @Test
-    fun test_createGame_calls_service_createGame() {
+    fun test_createGame_calls_service_createGame() = runTest(testDispatcher) {
         val name = "Player1"
         viewModel.createGame(name)
-        verify { gameService.createGame(name) }
+        advanceUntilIdle()
+        coVerify { gameService.createGame(name) }
     }
     @Test
     fun test_startGame_calls_service_startGame() {
@@ -79,10 +81,12 @@ class GameViewModelTest {
     }
 
 
+    @OptIn(ExperimentalCoroutinesApi::class)
     @Test
-    fun test_joinGame_calls_service_joinGame() {
+    fun test_joinGame_calls_service_joinGame() = runTest(testDispatcher) {
         viewModel.joinGame("room123", "Player1")
-        verify { gameService.joinGame("room123", "Player1") }
+        advanceUntilIdle()
+        coVerify { gameService.joinGame("room123", "Player1") }
     }
 
     @Test

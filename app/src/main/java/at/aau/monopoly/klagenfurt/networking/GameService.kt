@@ -1,5 +1,6 @@
 package at.aau.monopoly.klagenfurt.networking
 
+import at.aau.monopoly.klagenfurt.messaging.GameEvent
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 
@@ -25,8 +26,8 @@ interface GameService {
     fun subscribeToLobby()
     fun requestGameList()
     fun closeGame(gameId: String)
-    fun createGame(playerName: String, iconId: String = "lindwurm")
-    fun joinGame(gameId: String, playerName: String, iconId: String = "lindwurm")
+    suspend fun createGame(playerName: String, iconId: String = "lindwurm"): String?
+    suspend fun joinGame(gameId: String, playerName: String, iconId: String = "lindwurm"): Result<GameEvent>
     fun startGame()
     fun rollDice()
     fun endTurn()

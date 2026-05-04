@@ -24,6 +24,7 @@ import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.runningFold
 import kotlinx.coroutines.flow.shareIn
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 
 class GameViewModel(private val gameService: GameService) : ViewModel() {
 
@@ -76,7 +77,7 @@ class GameViewModel(private val gameService: GameService) : ViewModel() {
         .shareIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5000),
-            replay = 1
+            replay = 80
         )
 
     // ---------------------------------------------------------------------------
@@ -89,8 +90,6 @@ class GameViewModel(private val gameService: GameService) : ViewModel() {
     init {
         gameEventFlow
             .onEach { event ->
-                // Only auto-capture the gameId if we don't have one yet.
-                // This prevents replayed events from switching the game context unexpectedly.
                 if (
                     event.event == "GAME_CREATED" &&
                     event.gameId.isNotBlank() &&
@@ -101,7 +100,6 @@ class GameViewModel(private val gameService: GameService) : ViewModel() {
             }
             .launchIn(viewModelScope)
 
-        // Surface ERROR events to the UI; auto-clear after 5 seconds
         gameEventFlow
             .onEach { event ->
                 if (event.event == "ERROR") {
@@ -155,13 +153,6 @@ class GameViewModel(private val gameService: GameService) : ViewModel() {
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
-    /**
-    * Displays user-facing game events such as joining, creating a game, and rolling dice.
-    *
-    * State snapshots and other technical log entries are excluded from the normal log.
-    * Technical logs are shown separately in the expanded chat bar view.
-    */
-
     val eventLog: StateFlow<List<LogEntry>> = logEventFlow
         .runningFold(LogAccumulator(gameId = "", entries = emptyList())) { acc, event ->
             val eventGameId = event.gameId
@@ -212,11 +203,9 @@ class GameViewModel(private val gameService: GameService) : ViewModel() {
         .map { it.entries }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    //  Dice Roll states
     val lastDiceRoll: StateFlow<DiceRoll?> = gameState
         .map { it?.lastDiceRoll }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
-
 
     val isRollingPhaseForCurrentPlayer: StateFlow<Boolean> = gameState
         .map { state ->
@@ -253,15 +242,21 @@ class GameViewModel(private val gameService: GameService) : ViewModel() {
 
     fun connect() = gameService.connect()
 
-    fun createGame(playerName: String) = gameService.createGame(playerName)
+    fun createGame(playerName: String) {
+        viewModelScope.launch {
+            gameService.createGame(playerName)
+        }
+    }
 
-    fun joinGame(gameId: String, playerName: String) = gameService.joinGame(gameId, playerName)
+    fun joinGame(gameId: String, playerName: String) {
+        viewModelScope.launch {
+            gameService.joinGame(gameId, playerName)
+        }
+    }
 
     fun startGame() = gameService.startGame()
 
-    // Use the simpler main-branch behavior for rolling the dice: just forward to service.
     fun rollDice() = gameService.rollDice()
-
 
     fun endTurn() = gameService.endTurn()
 
@@ -299,7 +294,6 @@ class GameViewModel(private val gameService: GameService) : ViewModel() {
         }
     }
 
-    // Factory to create ViewModel with dependencies
     class Factory(private val gameService: GameService) : ViewModelProvider.Factory {
         override fun <T : ViewModel> create(modelClass: Class<T>): T {
             @Suppress("UNCHECKED_CAST")

@@ -64,11 +64,10 @@ class LobbyViewModel(private val gameService: GameService) : ViewModel() {
                 try {
                     val node = objectMapper.readTree(raw)
                     val event = node.get("event")?.asText() ?: ""
-                    if (event == "GAME_CREATED") {
-                        val gameId = node.get("gameId")?.asText() ?: ""
-                        if (gameId.isNotEmpty()) {
-                            _createdGameId.value = gameId
-                        }
+                    // GAME_CREATED wird jetzt direkt aus dem Rückgabewert von createGame() bezogen
+                    // Eventuell andere Ereignisse später hier behandeln
+                    if (event == "ERROR") {
+                        Log.w("LobbyViewModel", "Server error: ${node.get("message")?.asText()}")
                     }
                 } catch (e: Exception) {
                     Log.e("LobbyViewModel", "Error parsing game event: ${e.message}", e)
@@ -91,7 +90,10 @@ class LobbyViewModel(private val gameService: GameService) : ViewModel() {
 
     fun createGame(playerName: String) {
         _createdGameId.value = null
-        gameService.createGame(playerName)
+        viewModelScope.launch {
+            val gameId = gameService.createGame(playerName)
+            _createdGameId.value = gameId
+        }
     }
 
     fun closeGame(gameId: String) {

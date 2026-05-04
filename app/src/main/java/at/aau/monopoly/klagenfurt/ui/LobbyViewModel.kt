@@ -10,13 +10,15 @@ import at.aau.monopoly.klagenfurt.model.cardStatus
 import at.aau.monopoly.klagenfurt.model.sortOrder
 import at.aau.monopoly.klagenfurt.networking.GameService
 import at.aau.monopoly.klagenfurt.networking.JacksonProvider
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 
 class LobbyViewModel(private val gameService: GameService) : ViewModel() {
 
@@ -84,8 +86,21 @@ class LobbyViewModel(private val gameService: GameService) : ViewModel() {
     /** Re-subscribes to lobby and fetches fresh game list (called on Activity resume). */
     fun refreshLobby() {
         if (!gameService.connectionState.value) return
-        gameService.subscribeToLobby()
-        gameService.requestGameList()
+        viewModelScope.launch {
+            gameService.subscribeToLobby()
+
+            // Wait up to 2 seconds for the STOMP subscription to be active
+            val ready = withTimeoutOrNull(2000L) {
+                gameService.lobbySubscriptionReady.first { it }
+            }
+
+            if (ready == null) {
+                Log.w("LobbyViewModel", "Lobby subscription timed out")
+                return@launch
+            }
+
+            gameService.requestGameList()
+        }
     }
 
     fun createGame(playerName: String) {

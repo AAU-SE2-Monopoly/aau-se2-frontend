@@ -33,24 +33,9 @@ class GameStompClient(
 ) : GameService {
 
     private var session: StompSession? = null
-    private var subscriptionJob: Job? = null
-    private var personalSubscriptionJob: Job? = null
-    private var lobbySubscriptionJob: Job? = null
-    private var connectJob: Job? = null
-    private var isConnecting = false
-    private var reconnectJob: Job? = null
-    private var isReconnecting = false
-    private var reconnectAttempts = 0
-    private var wasSubscribedToLobby = false  // tracks lobby subscription state for reconnect
-
-    companion object {
-        private const val MAX_RECONNECT_ATTEMPTS = 5
-        private const val INITIAL_RECONNECT_DELAY_MS = 1000L
-    }
 
     private val _events = MutableSharedFlow<String>(replay = 1)
     override val events: SharedFlow<String> = _events.asSharedFlow()
-
 
     private val _logEvents = MutableSharedFlow<String>(replay = 80)
     override val logEvents: SharedFlow<String> = _logEvents.asSharedFlow()
@@ -61,10 +46,28 @@ class GameStompClient(
     private val _lobbyEvents = MutableSharedFlow<String>(replay = 1)
     override val lobbyEvents: SharedFlow<String> = _lobbyEvents.asSharedFlow()
 
-    // Tracks whether the STOMP subscription for the active game topic is ready.
-    // Set to true after subscribeToGameInternal succeeds, reset on disconnect/subscribe.
-    private val _subscriptionReady = MutableStateFlow(false)
-    override val subscriptionReady: StateFlow<Boolean> = _subscriptionReady.asStateFlow()
+    private val lobbyChannel = SubscriptionChannel(
+        scope, { session }, "/topic/lobby", _lobbyEvents,
+        onError = { startReconnectLoop() }
+    )
+    private val gameChannel = SubscriptionChannel(
+        scope, { session }, "/topic/game/", _events,
+        onError = { startReconnectLoop() }
+    )
+    private var personalSubscriptionJob: Job? = null
+    private var connectJob: Job? = null
+    private var isConnecting = false
+    private var reconnectJob: Job? = null
+    private var isReconnecting = false
+    private var reconnectAttempts = 0
+
+    companion object {
+        private const val MAX_RECONNECT_ATTEMPTS = 5
+        private const val INITIAL_RECONNECT_DELAY_MS = 1000L
+    }
+
+    override val subscriptionReady: StateFlow<Boolean> = gameChannel.isReady
+    override val lobbySubscriptionReady: StateFlow<Boolean> = lobbyChannel.isReady
 
     private val _connectionState = MutableStateFlow(false)
     override val connectionState: StateFlow<Boolean> = _connectionState.asStateFlow()
@@ -142,15 +145,10 @@ class GameStompClient(
 
                     subscribeToPersonalTopic()
                     if (_currentGameId.isNotBlank()) {
-                        _subscriptionReady.value = false
-                        subscribeToGameInternal(
-                            gameId = _currentGameId,
-                            requestStateAfterSubscribe = true
-                        )
+                        gameChannel.cancel()
+                        gameChannel.subscribe(_currentGameId)
                     }
-                    if (wasSubscribedToLobby) {
-                        subscribeToLobby()
-                    }
+                    lobbyChannel.subscribe()
                     return@launch
                 } catch (e: CancellationException) {
                     isReconnecting = false
@@ -191,14 +189,11 @@ class GameStompClient(
         reconnectJob?.cancel()
         isReconnecting = false
         reconnectAttempts = 0
-        _subscriptionReady.value = false
         _connectionState.value = false
-        wasSubscribedToLobby = false
+        gameChannel.cancel()
+        lobbyChannel.cancel()
         connectJob?.cancel()
-        subscriptionJob?.cancel()
         personalSubscriptionJob?.cancel()
-        lobbySubscriptionJob?.cancel()
-        lobbySubscriptionJob = null
         val currentSession = session
         session = null
         scope.launch {
@@ -224,34 +219,7 @@ class GameStompClient(
 
 
     override fun subscribeToLobby() {
-        if (lobbySubscriptionJob?.isActive == true) {
-            Log.d("GameStomp", "Already subscribed to lobby")
-            return
-        }
-        wasSubscribedToLobby = true
-        lobbySubscriptionJob = scope.launch {
-            try {
-                val currentSession = session
-                if (currentSession == null) {
-                    Log.w("GameStomp", "Cannot subscribe to lobby: not connected")
-                    emitStatus("Lobby sub failed: Not connected")
-                    return@launch
-                }
-                Log.d("GameStomp", "Subscribing to /topic/lobby")
-                currentSession.subscribeText("/topic/lobby").collect { msg ->
-                    _lobbyEvents.emit(msg)
-                }
-            } catch (e: Throwable) {
-                if (isCancellation(e)) {
-                    Log.d("GameStomp", "Lobby subscription cancelled")
-                } else {
-                    Log.e("GameStomp", "lobby subscription error", e)
-                    emitStatus("Lobby subscription error: ${e.message}")
-                    lobbySubscriptionJob = null
-                    startReconnectLoop()
-                }
-            }
-        }
+        lobbyChannel.subscribe()
     }
 
     override fun requestGameList() {
@@ -428,9 +396,8 @@ class GameStompClient(
         gameId: String,
         requestStateAfterSubscribe: Boolean
     ): Boolean {
-        if (subscriptionJob?.isActive == true && gameId == _currentGameId) {
+        if (gameChannel.isReady.value && gameId == _currentGameId) {
             Log.d("GameStomp", "Already subscribed to $gameId")
-            _subscriptionReady.value = true
             emitStatus("SUBSCRIBED:$gameId")
             if (requestStateAfterSubscribe) {
                 sendRawInternal("/app/game/state", buildAction())
@@ -438,57 +405,25 @@ class GameStompClient(
             return true
         }
 
-        _subscriptionReady.value = false
         _currentGameId = gameId
-        subscriptionJob?.cancel()
-        wasSubscribedToLobby = false
-        lobbySubscriptionJob?.cancel()
-        lobbySubscriptionJob = null // leaving the lobby
+        gameChannel.cancel()
+        gameChannel.subscribe(gameId)
 
-        return try {
-            val currentSession = session
-            if (currentSession == null) {
-                Log.w("GameStomp", "Cannot subscribe: not connected")
-                return false
-            }
+        // Yield to let the subscription coroutine start
+        yield()
 
-            Log.d("GameStomp", "Subscribing to /topic/game/$gameId")
-            val subscription = currentSession.subscribeText("/topic/game/$gameId")
-
-            subscriptionJob = scope.launch {
-                try {
-                    subscription.collect { msg ->
-                        _events.emit(msg)
-                        _logEvents.emit(msg)
-                    }
-                } catch (e: Throwable) {
-                    if (!isCancellation(e)) {
-                        Log.e("GameStomp", "collect error", e)
-                        startReconnectLoop()
-                    }
-                }
-            }
-
-            _subscriptionReady.value = true
-            emitStatus("SUBSCRIBED:$gameId")
-
-            if (requestStateAfterSubscribe) {
-                sendRawInternal("/app/game/state", buildAction())
-            }
-
-            true
-        } catch (e: Throwable) {
-            _subscriptionReady.value = false
-            subscriptionJob = null
-            if (isCancellation(e)) {
-                Log.d("GameStomp", "Subscription job cancelled for $gameId")
-            } else {
-                Log.e("GameStomp", "subscription error", e)
-                emitStatus("Subscription error: ${e.message}")
-                startReconnectLoop()
-            }
-            false
+        if (!gameChannel.isReady.value) {
+            Log.w("GameStomp", "subscribeToGameInternal: subscription not ready for $gameId")
+            return false
         }
+
+        emitStatus("SUBSCRIBED:$gameId")
+
+        if (requestStateAfterSubscribe) {
+            sendRawInternal("/app/game/state", buildAction())
+        }
+
+        return true
     }
 
     private suspend fun sendRawInternal(destination: String, json: String) {

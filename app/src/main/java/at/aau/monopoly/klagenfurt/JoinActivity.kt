@@ -55,7 +55,42 @@ import at.aau.monopoly.klagenfurt.ui.theme.PrimaryBlue
 import at.aau.monopoly.klagenfurt.ui.theme.PrimaryBlueLight
 import com.example.myapplication.R
 
+enum class GameJoinStatus {
+    OPEN,
+    FULL,
+    IN_PROGRESS,
+    FINISHED
+}
+
 class JoinActivity : ComponentActivity() {
+
+    companion object {
+        /**
+         * Tracks game IDs this player has successfully joined during the session.
+         *
+         * Resets if the process is killed. When that happens and the user returns to a
+         * game that is still open (not yet started), [isReturningPlayer] will be false
+         * and the full join UI will be shown. The IN_PROGRESS status from the server
+         * still correctly triggers the reconnect flow via [GameJoinStatus.IN_PROGRESS].
+         */
+        private val joinedGameIds = mutableSetOf<String>()
+
+        fun mapIndexToIconId(iconIndex: Int): String = when (iconIndex) {
+            0    -> "lindwurm"
+            1    -> "woerthersee"
+            2    -> "gti"
+            3    -> "ironman"
+            4    -> "josef"
+            else -> "lindwurm"
+        }
+    }
+
+    private fun computeJoinStatus(phase: String, playerCount: Int, maxPlayers: Int): GameJoinStatus = when {
+        phase == "FINISHED"                     -> GameJoinStatus.FINISHED
+        phase != "WAITING"                      -> GameJoinStatus.IN_PROGRESS
+        playerCount >= maxPlayers               -> GameJoinStatus.FULL
+        else                                    -> GameJoinStatus.OPEN
+    }
 
     private val viewModel: JoinViewModel by viewModels {
         JoinViewModel.Factory(ServiceLocator.provideGameService())
@@ -67,6 +102,13 @@ class JoinActivity : ComponentActivity() {
 
         val gameId    = intent.getStringExtra("GAME_ID") ?: intent.getStringExtra("gameId") ?: ""
         val isNewGame = intent.getBooleanExtra("isNewGame", false)
+        val gamePhase    = intent.getStringExtra("GAME_PHASE") ?: "WAITING"
+        val playerCount  = intent.getIntExtra("PLAYER_COUNT", 0)
+        val maxPlayers   = intent.getIntExtra("MAX_PLAYERS", 4)
+        val joinStatus   = computeJoinStatus(gamePhase, playerCount, maxPlayers)
+
+        // Detect returning player – tracked per session
+        val isReturningPlayer = !isNewGame && gameId in joinedGameIds
 
         setContent {
             MyApplicationTheme(dynamicColor = false) {
@@ -76,6 +118,8 @@ class JoinActivity : ComponentActivity() {
                 LaunchedEffect(joinState) {
                     when (val state = joinState) {
                         is JoinViewModel.JoinState.Success -> {
+                            // Track this game as joined for future reconnection detection
+                            joinedGameIds.add(state.gameId)
                             startActivity(
                                 Intent(this@JoinActivity, GameboardUI::class.java)
                                     .putExtra("GAME_ID", state.gameId)
@@ -92,6 +136,8 @@ class JoinActivity : ComponentActivity() {
                     gameId      = gameId,
                     isNewGame   = isNewGame,
                     joinState   = joinState,
+                    joinStatus  = joinStatus,
+                    isReturningPlayer = isReturningPlayer,
                     isConnected = isConnected,
                     onBackClicked = {
                         viewModel.resetState()
@@ -99,25 +145,14 @@ class JoinActivity : ComponentActivity() {
                     },
                     onJoin = { playerName, iconIndex ->
                         val iconId = mapIndexToIconId(iconIndex)
-                        if (isNewGame) {
-                            viewModel.createGame(playerName, iconId)
-                        } else {
-                            viewModel.joinGame(gameId, playerName, iconId)
+                        when {
+                            isNewGame && !isReturningPlayer && joinStatus == GameJoinStatus.OPEN ->
+                                viewModel.createGame(playerName, iconId)
+                            else -> viewModel.joinGame(gameId, playerName, iconId)
                         }
                     }
                 )
             }
-        }
-    }
-
-    companion object {
-        fun mapIndexToIconId(iconIndex: Int): String = when (iconIndex) {
-            0    -> "lindwurm"
-            1    -> "woerthersee"
-            2    -> "gti"
-            3    -> "ironman"
-            4    -> "josef"
-            else -> "lindwurm"
         }
     }
 }
@@ -127,6 +162,8 @@ fun JoinScreen(
     gameId: String,
     isNewGame: Boolean,
     joinState: JoinViewModel.JoinState,
+    joinStatus: GameJoinStatus,
+    isReturningPlayer: Boolean = false,
     isConnected: Boolean = true,
     onBackClicked: () -> Unit,
     onJoin: (playerName: String, iconIndex: Int) -> Unit
@@ -136,6 +173,66 @@ fun JoinScreen(
     BackHandler(enabled = !joinState.let { it is JoinViewModel.JoinState.Loading }) {
         onBackClicked()
     }
+
+    // Early return for FINISHED – show static message
+    if (joinStatus == GameJoinStatus.FINISHED) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(
+                    Brush.horizontalGradient(
+                        colors = listOf(darkBackground, Color(0xFF16213E), darkBackground)
+                    )
+                ),
+            contentAlignment = Alignment.Center
+        ) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(
+                    text = "GAME FINISHED",
+                    color = Color.Gray,
+                    fontSize = 24.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = "This game has already ended.",
+                    color = Color.White.copy(alpha = 0.5f),
+                    fontSize = 14.sp
+                )
+            }
+
+            // Back button for finished screen
+            Button(
+                onClick = onBackClicked,
+                modifier = Modifier
+                    .align(Alignment.TopStart)
+                    .padding(16.dp),
+                shape = RoundedCornerShape(12.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = PrimaryBlue),
+                elevation = ButtonDefaults.buttonElevation(defaultElevation = 4.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = "Back",
+                    tint = Color.White,
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(
+                    text = "Back",
+                    fontSize = 14.sp,
+                    color = Color.White,
+                    fontWeight = FontWeight.Medium,
+                    letterSpacing = 1.sp
+                )
+            }
+        }
+        return
+    }
+
+    val isFull = joinStatus == GameJoinStatus.FULL
+    val isInProgress = joinStatus == GameJoinStatus.IN_PROGRESS
+    val isReconnectFlow = isInProgress || isReturningPlayer
 
     val playerIcons = listOf(
         R.drawable.lindwurm,
@@ -150,7 +247,7 @@ fun JoinScreen(
 
     val isLoading = joinState is JoinViewModel.JoinState.Loading
     val errorMessage = (joinState as? JoinViewModel.JoinState.Error)?.message
-    val interactionDisabled = !isConnected || isLoading
+    val interactionDisabled = !isConnected || isLoading || isFull
 
     Box(
         modifier = Modifier
@@ -169,7 +266,11 @@ fun JoinScreen(
             verticalArrangement = Arrangement.Center
         ) {
             Text(
-                text = if (isNewGame) "CREATE GAME" else "JOIN GAME",
+                text = when {
+                    isReconnectFlow -> "RECONNECT"
+                    isNewGame -> "CREATE GAME"
+                    else -> "JOIN GAME"
+                },
                 color = PrimaryBlueLight,
                 fontSize = 28.sp,
                 fontWeight = FontWeight.ExtraBold,
@@ -184,6 +285,32 @@ fun JoinScreen(
                     text = "Game: ${gameId.take(8)}…",
                     color = Color.White.copy(alpha = 0.5f),
                     fontSize = 12.sp
+                )
+            }
+
+            // Status-specific messages
+            if (isFull) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = "This game is currently full.",
+                    color = Color(0xFFEF9A9A),
+                    fontSize = 14.sp,
+                    textAlign = TextAlign.Center,
+                    fontWeight = FontWeight.Medium
+                )
+            }
+
+            if (isReconnectFlow) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = if (isInProgress) {
+                        "Game already in progress – you can rejoin as your previous player."
+                    } else {
+                        "You have already joined this game. You can rejoin."
+                    },
+                    color = Color.White.copy(alpha = 0.7f),
+                    fontSize = 14.sp,
+                    textAlign = TextAlign.Center
                 )
             }
 
@@ -246,6 +373,7 @@ fun JoinScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
+            // Player name text field
             OutlinedTextField(
                 value = playerName,
                 onValueChange = { playerName = it },
@@ -291,7 +419,11 @@ fun JoinScreen(
                     )
                 } else {
                     Text(
-                        text = if (isNewGame) "CREATE & JOIN" else "JOIN GAME",
+                        text = when {
+                            isReconnectFlow -> "RECONNECT"
+                            isNewGame -> "CREATE & JOIN"
+                            else -> "JOIN GAME"
+                        },
                         fontSize = 18.sp,
                         fontWeight = FontWeight.Bold,
                         letterSpacing = 2.sp,
@@ -301,7 +433,7 @@ fun JoinScreen(
             }
         }
 
-        // Back button
+        // Back button – always rendered and functional
         Button(
             onClick = onBackClicked,
             modifier = Modifier

@@ -79,11 +79,14 @@ class LobbyActivity : ComponentActivity() {
                 LobbyScreen(
                     viewModel = viewModel,
                     onBackClicked = { finish() },
-                    onGameClicked = { gameId ->
+                    onGameClicked = { game ->
                         startActivity(
                             Intent(this, JoinActivity::class.java)
-                                .putExtra("gameId", gameId)
+                                .putExtra("gameId", game.gameId)
                                 .putExtra("isNewGame", false)
+                                .putExtra("GAME_PHASE", game.phase)
+                                .putExtra("PLAYER_COUNT", game.playerCount)
+                                .putExtra("MAX_PLAYERS", game.maxPlayers)
                         )
                     },
                     onCreateGame = {
@@ -102,7 +105,7 @@ class LobbyActivity : ComponentActivity() {
 fun LobbyScreen(
     viewModel: LobbyViewModel,
     onBackClicked: () -> Unit,
-    onGameClicked: (String) -> Unit,
+    onGameClicked: (GameLobbyInfo) -> Unit,
     onCreateGame: () -> Unit
 ) {
     val darkBackground = Color(0xFF0A0A2E)
@@ -184,7 +187,7 @@ fun LobbyScreen(
                         game = game,
                         isOwnGame = game.hostPlayerId == viewModel.currentPlayerId,
                         isConnected = isConnected,
-                        onClick = { onGameClicked(game.gameId) },
+                        onClick = { onGameClicked(game) },
                         onClose = { viewModel.closeGame(game.gameId) }
                     )
                 }
@@ -297,7 +300,12 @@ fun GameCard(
     var showCloseDialog by remember { mutableStateOf(false) }
 
     val status = game.cardStatus()
-    val isInteractable = status != GameCardStatus.Finished
+    val isInteractable = when (status) {
+        GameCardStatus.Open       -> true
+        GameCardStatus.Full       -> true
+        GameCardStatus.InProgress -> true
+        GameCardStatus.Finished   -> false
+    }
 
     val cardBackground = when (status) {
         GameCardStatus.Open       -> Color(0xFF1A237E).copy(alpha = 0.6f)

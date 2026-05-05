@@ -1,16 +1,24 @@
 package at.aau.monopoly.klagenfurt
 
+import android.util.Log
 import at.aau.monopoly.klagenfurt.ui.LobbyViewModel
+import io.mockk.every
+import io.mockk.mockkStatic
+import io.mockk.unmockkAll
+import io.mockk.verify
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
@@ -32,6 +40,7 @@ class LobbyViewModelTest {
 
     @AfterEach
     fun tearDown() {
+        unmockkAll()
         Dispatchers.resetMain()
     }
 
@@ -196,6 +205,117 @@ class LobbyViewModelTest {
         // Should not crash, createdGameId stays null
         assertNull(viewModel.createdGameId.value)
     }
+    // ── refreshLobby() tests ────────────────────────────────────────────────────
+
+    @Test
+    fun `refreshLobby does nothing when connectionState is false`() = runTest(testDispatcher) {
+        fakeService.setConnectionState(false)
+        advanceUntilIdle()
+
+        // Reset counters from init
+        fakeService.subscribeToLobbyCalled = false
+        fakeService.requestGameListCalled = false
+
+        viewModel.refreshLobby()
+        advanceUntilIdle()
+
+        assertFalse(fakeService.subscribeToLobbyCalled)
+        assertFalse(fakeService.requestGameListCalled)
+    }
+
+    @Test
+    fun `refreshLobby calls subscribeToLobby then waits for lobbySubscriptionReady`() = runTest(testDispatcher) {
+        fakeService.setConnectionState(true)
+        advanceUntilIdle()
+
+        // Reset counters from init
+        fakeService.subscribeToLobbyCalled = false
+        fakeService.requestGameListCalled = false
+
+        // Do NOT set lobbySubscriptionReady yet
+        fakeService.setLobbySubscriptionReady(false)
+        advanceUntilIdle()
+
+        viewModel.refreshLobby()
+        advanceUntilIdle()
+
+        // subscribeToLobby should have been called
+        assertTrue(fakeService.subscribeToLobbyCalled)
+        // requestGameList should NOT have been called yet because subscription is not ready
+        assertFalse(fakeService.requestGameListCalled)
+    }
+
+    @Test
+    fun `refreshLobby calls requestGameList only after lobbySubscriptionReady emits true`() = runTest(testDispatcher) {
+        fakeService.setConnectionState(true)
+
+        viewModel.refreshLobby()
+        runCurrent() // let refreshLobby launch and reach the first { it } suspension
+
+        assertFalse(fakeService.requestGameListCalled)
+
+        // Unblock the waiting coroutine
+        fakeService.setLobbySubscriptionReady(true)
+        advanceUntilIdle()
+
+        assertTrue(fakeService.subscribeToLobbyCalled)
+        assertTrue(fakeService.requestGameListCalled)
+    }
+
+    @Test
+    fun `refreshLobby logs warning and returns when subscription times out after 2000ms`() = runTest(testDispatcher) {
+        fakeService.setConnectionState(true)
+        advanceUntilIdle()
+
+        fakeService.subscribeToLobbyCalled = false
+        fakeService.requestGameListCalled = false
+        fakeService.setLobbySubscriptionReady(false)
+        advanceUntilIdle()
+
+        // Mock Log.w to capture the warning
+        mockkStatic(Log::class)
+        every { Log.w(any<String>(), any<String>()) } returns 0
+
+        viewModel.refreshLobby()
+
+        // Advance time by just under the 2000ms timeout — should not have timed out yet
+        advanceTimeBy(1999L)
+        advanceUntilIdle()
+        // requestGameList should NOT have been called (no ready signal, not timed out yet)
+        assertFalse(fakeService.requestGameListCalled)
+
+        // Advance past the 2000ms timeout
+        advanceTimeBy(2L)
+        advanceUntilIdle()
+
+        verify(exactly = 1) { Log.w("LobbyViewModel", "Lobby subscription timed out") }
+        assertTrue(fakeService.subscribeToLobbyCalled)
+        // requestGameList must NOT be called on timeout
+        assertFalse(fakeService.requestGameListCalled)
+    }
+
+    @Test
+    fun `refreshLobby does NOT call requestGameList on timeout`() = runTest(testDispatcher) {
+        fakeService.setConnectionState(true)
+        advanceUntilIdle()
+
+        fakeService.subscribeToLobbyCalled = false
+        fakeService.requestGameListCalled = false
+        fakeService.setLobbySubscriptionReady(false)
+        advanceUntilIdle()
+
+        viewModel.refreshLobby()
+
+        // Advance past the 2000ms timeout
+        advanceTimeBy(2500L)
+        advanceUntilIdle()
+
+        // subscribeToLobby should have been called
+        assertTrue(fakeService.subscribeToLobbyCalled)
+        // requestGameList must NOT be called
+        assertFalse(fakeService.requestGameListCalled)
+    }
+
     // ── Connection indicator ("Connecting to server…") tests ──────────────────
     @Test
     fun `shows connecting text when not connected`() = runTest(testDispatcher) {

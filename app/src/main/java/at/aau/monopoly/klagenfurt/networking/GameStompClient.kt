@@ -34,7 +34,7 @@ class GameStompClient(
 
     private var session: StompSession? = null
 
-    private val _events = MutableSharedFlow<String>(replay = 1)
+    private val _events = MutableSharedFlow<String>()
     override val events: SharedFlow<String> = _events.asSharedFlow()
 
     private val _logEvents = MutableSharedFlow<String>(replay = 80)
@@ -154,8 +154,9 @@ class GameStompClient(
                     if (_currentGameId.isNotBlank()) {
                         gameChannel.cancel()
                         gameChannel.subscribe(_currentGameId)
+                    } else {
+                        lobbyChannel.subscribe()
                     }
-                    lobbyChannel.subscribe()
                     return@launch
                 } catch (e: CancellationException) {
                     isReconnecting = false
@@ -388,9 +389,13 @@ class GameStompClient(
         subscribeToGame(gameId)
     }
 
-    private fun buildAction(action: String = "", extra: Map<String, String> = emptyMap()): String {
+    private fun buildAction(
+        action: String = "",
+        extra: Map<String, String> = emptyMap(),
+        gameId: String = _currentGameId
+    ): String {
         val gameAction = GameAction(
-            gameId = _currentGameId,
+            gameId = gameId,
             playerId = currentPlayerId,
             action = action,
             payload = extra
@@ -415,11 +420,18 @@ class GameStompClient(
         gameChannel.cancel()
         gameChannel.subscribe(gameId)
 
-        val ready = withTimeoutOrNull(2000L) {
+        val ready = withTimeoutOrNull(10_000L) {
             gameChannel.isReady.first { it }
         }
         if (ready == null) {
-            Log.w("GameStomp", "Game subscription timed out for $gameId")
+            Log.e("GameStomp", "Subscription timed out for $gameId")
+            // Close orphan game if this subscription failure is for a newly created game
+            if (gameId.isNotEmpty() && gameId == _currentGameId) {
+                scope.launch {
+                    sendRawInternal("/app/game/close", buildAction(gameId = gameId))
+                }
+            }
+            startReconnectLoop()
             return false
         }
 

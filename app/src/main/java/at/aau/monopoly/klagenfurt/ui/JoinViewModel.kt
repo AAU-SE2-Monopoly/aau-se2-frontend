@@ -57,7 +57,6 @@ class JoinViewModel(private val gameService: GameService) : ViewModel() {
             val createdGameId = gameService.createGame(playerName, iconId)
 
             if (createdGameId != null) {
-                gameService.setGameId(createdGameId)
                 _joinState.value = JoinState.Success(createdGameId)
             } else {
                 _joinState.value = JoinState.Error("Failed to create game – no response from server")

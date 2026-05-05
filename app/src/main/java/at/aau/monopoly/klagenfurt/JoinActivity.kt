@@ -335,71 +335,70 @@ fun JoinScreen(
                     fontWeight = FontWeight.Medium
                 )
             }
-
             Spacer(modifier = Modifier.height(16.dp))
-
-            // Icon chooser
-            Button(
-                onClick = { selectedIconIndex = (selectedIconIndex + 1) % playerIcons.size },
-                enabled = !interactionDisabled,
-                modifier = Modifier.size(90.dp),
-                shape = RoundedCornerShape(20.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(0xFF1A237E).copy(alpha = 0.6f)
-                ),
-                elevation = ButtonDefaults.buttonElevation(defaultElevation = 4.dp),
-                contentPadding = PaddingValues(0.dp)
-            ) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(Color.White),
-                    contentAlignment = Alignment.Center
+            // Icon chooser and name input – hidden during reconnect flow
+            if (!isReconnectFlow) {
+                // Icon chooser
+                Button(
+                    onClick = { selectedIconIndex = (selectedIconIndex + 1) % playerIcons.size },
+                    enabled = !interactionDisabled,
+                    modifier = Modifier.size(90.dp),
+                    shape = RoundedCornerShape(20.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFF1A237E).copy(alpha = 0.6f)
+                    ),
+                    elevation = ButtonDefaults.buttonElevation(defaultElevation = 4.dp),
+                    contentPadding = PaddingValues(0.dp)
                 ) {
-                    Image(
-                        painter = painterResource(id = playerIcons[selectedIconIndex]),
-                        contentDescription = "Selected Icon",
-                        modifier = Modifier.size(64.dp)
-                    )
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(Color.White),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Image(
+                            painter = painterResource(id = playerIcons[selectedIconIndex]),
+                            contentDescription = "Selected Icon",
+                            modifier = Modifier.size(64.dp)
+                        )
+                    }
                 }
-            }
 
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                text = "Tap to change icon",
-                color = Color.White.copy(alpha = 0.4f),
-                fontSize = 11.sp
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Player name text field
-            OutlinedTextField(
-                value = playerName,
-                onValueChange = { playerName = it },
-                label = { Text("Player Name") },
-                singleLine = true,
-                enabled = !interactionDisabled,
-                modifier = Modifier
-                    .fillMaxWidth(0.5f)
-                    .testTag("PlayerNameInput"),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = PrimaryBlueLight,
-                    unfocusedBorderColor = Color.White.copy(alpha = 0.3f),
-                    focusedLabelColor = PrimaryBlueLight,
-                    unfocusedLabelColor = Color.White.copy(alpha = 0.5f),
-                    cursorColor = PrimaryBlueLight,
-                    focusedTextColor = Color.White,
-                    unfocusedTextColor = Color.White
-                ),
-                shape = RoundedCornerShape(12.dp)
-            )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = "Tap to change icon",
+                    color = Color.White.copy(alpha = 0.4f),
+                    fontSize = 11.sp
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+                // Player name text field
+                OutlinedTextField(
+                    value = playerName,
+                    onValueChange = { playerName = it },
+                    label = { Text("Player Name") },
+                    singleLine = true,
+                    enabled = !interactionDisabled,
+                    modifier = Modifier
+                        .fillMaxWidth(0.5f)
+                        .testTag("PlayerNameInput"),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = PrimaryBlueLight,
+                        unfocusedBorderColor = Color.White.copy(alpha = 0.3f),
+                        focusedLabelColor = PrimaryBlueLight,
+                        unfocusedLabelColor = Color.White.copy(alpha = 0.5f),
+                        cursorColor = PrimaryBlueLight,
+                        focusedTextColor = Color.White,
+                        unfocusedTextColor = Color.White
+                    ),
+                    shape = RoundedCornerShape(12.dp)
+                )
 
             Spacer(modifier = Modifier.height(20.dp))
+            }
 
             Button(
                 onClick = {
-                    val name = playerName.ifBlank { "Player" }
+                    val name = if (isReconnectFlow) "" else playerName.ifBlank { "Player" }
                     onJoin(name, selectedIconIndex)
                 },
                 enabled = !interactionDisabled,

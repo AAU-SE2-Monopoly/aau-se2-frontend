@@ -24,6 +24,9 @@ class FakeGameService : GameService {
     private val _subscriptionReady = MutableStateFlow(false)
     override val subscriptionReady: StateFlow<Boolean> = _subscriptionReady.asStateFlow()
 
+    private val _lobbySubscriptionReady = MutableStateFlow(false)
+    override val lobbySubscriptionReady: StateFlow<Boolean> = _lobbySubscriptionReady.asStateFlow()
+
     private val _connectionState = MutableStateFlow(false)
     override val connectionState: StateFlow<Boolean> = _connectionState.asStateFlow()
 
@@ -144,3 +147,4 @@ class FakeGameService : GameService {
         _connectionState.value = connected
     }
 }
+

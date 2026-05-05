@@ -85,11 +85,18 @@ class JoinActivity : ComponentActivity() {
         }
     }
 
-    private fun computeJoinStatus(phase: String, playerCount: Int, maxPlayers: Int): GameJoinStatus = when {
-        phase == "FINISHED"                     -> GameJoinStatus.FINISHED
-        phase != "WAITING"                      -> GameJoinStatus.IN_PROGRESS
-        playerCount >= maxPlayers               -> GameJoinStatus.FULL
-        else                                    -> GameJoinStatus.OPEN
+    private fun computeJoinStatus(
+        phase: String,
+        playerCount: Int,
+        maxPlayers: Int,
+        playerIds: List<String> = emptyList(),
+        currentPlayerId: String = ""
+    ): GameJoinStatus = when {
+        phase == "FINISHED"                             -> GameJoinStatus.FINISHED
+        phase != "WAITING"                              -> GameJoinStatus.IN_PROGRESS
+        currentPlayerId in playerIds                    -> GameJoinStatus.OPEN
+        playerCount >= maxPlayers                       -> GameJoinStatus.FULL
+        else                                            -> GameJoinStatus.OPEN
     }
 
     private val viewModel: JoinViewModel by viewModels {
@@ -105,7 +112,9 @@ class JoinActivity : ComponentActivity() {
         val gamePhase    = intent.getStringExtra("GAME_PHASE") ?: "WAITING"
         val playerCount  = intent.getIntExtra("PLAYER_COUNT", 0)
         val maxPlayers   = intent.getIntExtra("MAX_PLAYERS", 4)
-        val joinStatus   = computeJoinStatus(gamePhase, playerCount, maxPlayers)
+        val playerIds    = intent.getStringArrayListExtra("PLAYER_IDS") ?: emptyList()
+        val currentPlayerId = ServiceLocator.provideGameService().currentPlayerId
+        val joinStatus   = computeJoinStatus(gamePhase, playerCount, maxPlayers, playerIds, currentPlayerId)
 
         // Detect returning player – tracked per session
         val isReturningPlayer = !isNewGame && gameId in joinedGameIds

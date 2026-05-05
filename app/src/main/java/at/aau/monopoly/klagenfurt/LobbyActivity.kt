@@ -87,6 +87,7 @@ class LobbyActivity : ComponentActivity() {
                                 .putExtra("GAME_PHASE", game.phase)
                                 .putExtra("PLAYER_COUNT", game.playerCount)
                                 .putExtra("MAX_PLAYERS", game.maxPlayers)
+                                .putStringArrayListExtra("PLAYER_IDS", ArrayList(game.playerIds))
                         )
                     },
                     onCreateGame = {

@@ -146,5 +146,9 @@ class FakeGameService : GameService {
     fun setConnectionState(connected: Boolean) {
         _connectionState.value = connected
     }
+
+    fun setLobbySubscriptionReady(ready: Boolean) {
+        _lobbySubscriptionReady.value = ready
+    }
 }
 

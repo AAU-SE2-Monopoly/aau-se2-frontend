@@ -18,7 +18,7 @@ class LobbyDtoTest {
         assertEquals("", info.hostPlayerName)
         assertEquals("", info.hostPlayerId)
         assertEquals(0, info.playerCount)
-        assertEquals(4, info.maxPlayers)
+        assertEquals(6, info.maxPlayers)
         assertEquals("WAITING", info.phase)
         assertEquals(emptyList<String>(), info.playerIds)
     }

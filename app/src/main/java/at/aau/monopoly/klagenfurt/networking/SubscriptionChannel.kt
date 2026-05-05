@@ -1,5 +1,6 @@
 package at.aau.monopoly.klagenfurt.networking
 
+import android.util.Log
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -32,17 +33,22 @@ class SubscriptionChannel(
         val fullTopic = if (topicSuffix != null) "$baseTopic$topicSuffix" else baseTopic
 
         // Caller is responsible for calling cancel() before subscribe() when switching topics
-        if (job?.isActive == true) return
+        if (job?.isActive == true) {
+            Log.w("SubscriptionChannel", "subscribe skipped – active job already running for topic. Call cancel() first.")
+            return
+        }
 
         cancel()
         _isReady.value = false
 
         job = scope.launch {
             try {
+                Log.d("SubscriptionChannel", "Subscribing to $fullTopic")
                 val sub = session()?.subscribeText(fullTopic) ?: return@launch
                 _isReady.value = true
                 sub.collect { events.emit(it) }
             } catch (e: Throwable) {
+                Log.e("SubscriptionChannel", "Error in subscription to $fullTopic", e)
                 if (!isCancellation(e)) onError?.invoke(e)
             } finally {
                 _isReady.value = false

@@ -353,4 +353,16 @@ class GameStompClient(
         val json = JacksonProvider.objectMapper.writeValueAsString(action)
         sendRaw("/app/game/action", json)
     }
+
+    override fun drawCard() {
+        Log.d("GameStomp", "Drawing card for player: $currentPlayerId")
+        val action = GameAction(
+            gameId = _currentGameId,
+            playerId = currentPlayerId,
+            action = "DRAW_CARD",
+            payload = emptyMap()
+        )
+        val json = JacksonProvider.objectMapper.writeValueAsString(action)
+        sendRaw("/app/game/action", json)
+    }
 }

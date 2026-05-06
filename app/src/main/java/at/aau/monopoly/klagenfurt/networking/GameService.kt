@@ -30,4 +30,5 @@ interface GameService {
     fun requestState()
     fun setGameId(gameId: String)
     fun executeAction(playerId: String)
+    fun drawCard()
 }

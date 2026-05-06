@@ -106,6 +106,11 @@ fun GameboardScreen(modifier: Modifier = Modifier, viewModel: GameViewModel) {
     val isGameStarted by viewModel.isGameStarted.collectAsState()
     val isHost by viewModel.isHost.collectAsState()
 
+    // Action Card states
+    val currentActionCard by viewModel.currentActionCard.collectAsState()
+    val isExecutingAction by viewModel.isExecutingAction.collectAsState()
+    val showActionCardOverlay by viewModel.showActionCardOverlay.collectAsState()
+
     val context = LocalContext.current
 
     var showOverlay by remember { mutableStateOf(false) }
@@ -194,10 +199,17 @@ fun GameboardScreen(modifier: Modifier = Modifier, viewModel: GameViewModel) {
             Button(
                 onClick = {
                     showOverlay = true
-                    viewModel.rollDice()
-                }
+                },
+                enabled = isRollingPhaseForCurrentPlayer,
+                modifier = Modifier.padding(bottom = 8.dp)
             ) {
                 Text(" Roll Dice")
+            }
+
+            Button(
+                onClick = { viewModel.drawCard() }
+            ) {
+                Text("Draw Card")
             }
         }
 
@@ -206,6 +218,14 @@ fun GameboardScreen(modifier: Modifier = Modifier, viewModel: GameViewModel) {
             diceResult = lastDiceRoll?.let { Pair(it.die1, it.die2) },
             isRolling = isRollingPhaseForCurrentPlayer,
             onClose = { showOverlay = false }
+        )
+
+        // Action Card Overlay - highest priority
+        ActionCardOverlay(
+            isVisible = showActionCardOverlay,
+            card = currentActionCard,
+            isExecuting = isExecutingAction,
+            onExecuteAction = { viewModel.executeAction() }
         )
 
         GameboardOverlayLayer(eventLog = eventLog)

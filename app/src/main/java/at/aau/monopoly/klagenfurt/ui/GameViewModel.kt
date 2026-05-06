@@ -61,40 +61,56 @@ class GameViewModel(private val gameService: GameService) : ViewModel() {
             replay = 1
         )
 
-    /**
-     * Dedicated log source from the networking layer. This keeps log replay
-     * independent from state replay.
-     */
-    private val logEventFlow: SharedFlow<GameEvent> = gameService.logEvents
-        .mapNotNull { jsonString ->
-            try {
-                objectMapper.readValue(jsonString, GameEvent::class.java)
-            } catch (e: Exception) {
-                Log.e("GameViewModel", "logEventFlow parse error: ${e.message}", e)
-                null
-            }
-        }
-        .shareIn(
-            scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(5000),
-            replay = 1
-        )
+     /**
+      * Dedicated log source from the networking layer. This keeps log replay
+      * independent from state replay.
+      */
+     private val logEventFlow: SharedFlow<GameEvent> = gameService.logEvents
+         .mapNotNull { jsonString ->
+             try {
+                 objectMapper.readValue(jsonString, GameEvent::class.java)
+             } catch (e: Exception) {
+                 Log.e("GameViewModel", "logEventFlow parse error: ${e.message}", e)
+                 null
+             }
+         }
+         .shareIn(
+             scope = viewModelScope,
+             started = SharingStarted.WhileSubscribed(5000),
+             replay = 1
+         )
 
-    init {
-        gameEventFlow
-            .onEach { event ->
-                // Only auto-capture the gameId if we don't have one yet.
-                // This prevents replayed events from switching the game context unexpectedly.
-                if (
-                    event.event == "GAME_CREATED" &&
-                    event.gameId.isNotBlank() &&
-                    gameService.currentGameId.isBlank()
-                ) {
-                    gameService.setGameId(event.gameId)
-                }
-            }
-            .launchIn(viewModelScope)
-    }
+     // ============ ACTION CARD STATES (mutable) ============
+     /**
+      * Internal mutable state for current action card (set via ACTION_DRAWN events).
+      */
+     private val _currentActionCard = MutableStateFlow<Card?>(null)
+
+     /**
+      * Whether an action is currently being executed.
+      */
+     private val _isExecutingAction = MutableStateFlow(false)
+
+     init {
+         gameEventFlow
+             .onEach { event ->
+                 // Only auto-capture the gameId if we don't have one yet.
+                 // This prevents replayed events from switching the game context unexpectedly.
+                 if (
+                     event.event == "GAME_CREATED" &&
+                     event.gameId.isNotBlank() &&
+                     gameService.currentGameId.isBlank()
+                 ) {
+                     gameService.setGameId(event.gameId)
+                 }
+
+                 // Handle ACTION_DRAWN events
+                 if (event.event == "ACTION_DRAWN" && event.gameState?.currentActionCard != null) {
+                     _currentActionCard.value = event.gameState.currentActionCard
+                 }
+             }
+             .launchIn(viewModelScope)
+     }
 
     val gameState: StateFlow<GameState?> = gameEventFlow
         .runningFold<GameEvent, GameState?>(null) { lastState, event ->
@@ -248,6 +264,8 @@ class GameViewModel(private val gameService: GameService) : ViewModel() {
 
     fun setGameId(gameId: String) = gameService.setGameId(gameId)
 
+    fun drawCard() = gameService.drawCard()
+
      private val _selectedPlayerForOverlay = kotlinx.coroutines.flow.MutableStateFlow<at.aau.monopoly.klagenfurt.model.Player?>(null)
      val selectedPlayerForOverlay: StateFlow<at.aau.monopoly.klagenfurt.model.Player?> = _selectedPlayerForOverlay
 
@@ -259,84 +277,59 @@ class GameViewModel(private val gameService: GameService) : ViewModel() {
          _selectedPlayerForOverlay.value = null
      }
 
-     // ============ ACTION CARD STATES ============
+      // ============ ACTION CARD STATES ============
 
-     /**
-      * Current action card being displayed.
-      * Extracted from gameState based on game phase.
-      */
-     val currentActionCard: StateFlow<Card?> = gameState
-         .map { state ->
-             // Extract current action card from game state if available
-             // For now, we'll use a mock approach - backend should provide this
-             state?.let {
-                 // When backend sends ACTION event with card data, we display it here
-                 null // Backend integration point
-             }
-         }
-         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+      /**
+       * Current action card being displayed.
+       * Populated when ACTION_DRAWN event is received from backend.
+       */
+      val currentActionCard: StateFlow<Card?> = _currentActionCard.asStateFlow()
 
-     /**
-      * Whether an action is currently being executed.
-      */
-     private val _isExecutingAction = MutableStateFlow(false)
-     val isExecutingAction: StateFlow<Boolean> = _isExecutingAction.asStateFlow()
+      /**
+       * Public read-only access to action executing state.
+       */
+      val isExecutingAction: StateFlow<Boolean> = _isExecutingAction.asStateFlow()
 
-     /**
-      * Whether the action card overlay should be visible for the current player.
-      */
-     val showActionCardOverlay: StateFlow<Boolean> = gameState
-         .map { state ->
-             val isCurrentPlayer = state?.currentPlayer?.id == gameService.currentPlayerId
-             val hasAction = state?.let { checkIfPlayerHasAction(it) } ?: false
-             isCurrentPlayer && hasAction
-         }
-         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+      /**
+       * Whether the action card overlay should be visible for the current player.
+       */
+      val showActionCardOverlay: StateFlow<Boolean> = currentActionCard
+          .map { card ->
+              val isCurrentPlayer = gameState.value?.currentPlayer?.id == gameService.currentPlayerId
+              val hasCard = card != null
+              isCurrentPlayer && hasCard
+          }
+          .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
-     /**
-      * Check if current player has a pending action to execute.
-      * This is a utility function that can be extended based on game events.
-      */
-     private fun checkIfPlayerHasAction(state: GameState): Boolean {
-         // Backend should notify via game events when a card is drawn
-         // For now, this is a placeholder for the integration point
-         return false
-     }
+      /**
+       * Execute the current action and notify the backend.
+       */
+      fun executeAction() {
+          _isExecutingAction.value = true
+          Log.d("ActionCard", "Executing action for player: $currentPlayerId")
 
-     /**
-      * Execute the current action and notify the backend.
-      */
-     fun executeAction() {
-         _isExecutingAction.value = true
-         Log.d("ActionCard", "Executing action for player: $currentPlayerId")
+          // Send action execution to backend
+          gameService.executeAction(currentPlayerId)
 
-         // Send action execution to backend
-         gameService.executeAction(currentPlayerId)
+          // Reset state after a short delay
+          viewModelScope.launch {
+              kotlinx.coroutines.delay(500)
+              _isExecutingAction.value = false
+              _currentActionCard.value = null
+          }
+      }
 
-         // Reset state after a short delay
-         viewModelScope.launch {
-             kotlinx.coroutines.delay(500)
-             _isExecutingAction.value = false
-             _currentActionCard.value = null
-         }
-     }
+      /**
+       * Set the current action card (used for backend updates).
+       */
+      fun setCurrentActionCard(card: Card?) {
+          Log.d("ActionCard", "Setting current action card: ${card?.description}")
+          _currentActionCard.value = card
+      }
 
-     /**
-      * Internal mutable state for current action card (for testing/backend updates).
-      */
-     private val _currentActionCard = MutableStateFlow<Card?>(null)
-
-     /**
-      * Exposed as public read-only for testing purposes.
-      */
-     fun setCurrentActionCard(card: Card?) {
-         Log.d("ActionCard", "Setting current action card: ${card?.description}")
-         _currentActionCard.value = card
-     }
-
-     fun dismissActionCard() {
-         _currentActionCard.value = null
-     }
+      fun dismissActionCard() {
+          _currentActionCard.value = null
+      }
 
     fun syncGameboardEntryState() {
         val currentGameId = gameService.currentGameId
@@ -344,18 +337,20 @@ class GameViewModel(private val gameService: GameService) : ViewModel() {
         gameService.requestState()
     }
 
-    private fun humanReadableEvent(eventType: String, gameId: String): String {
-        return when (eventType) {
-            "GAME_CREATED" -> "Game created: $gameId"
-            "PLAYER_JOINED" -> "A new player joined"
-            "GAME_STARTED" -> "Game started!"
-            "DICE_ROLLED" -> "Dice rolled"
-            "TURN_ENDED" -> "Turn ended"
-            "STATE_UPDATED" -> "Game state updated"
-            "STATE_SNAPSHOT" -> "State snapshot synced"
-            else -> eventType.replace("_", " ").lowercase().replaceFirstChar { it.uppercase() }
-        }
-    }
+     private fun humanReadableEvent(eventType: String, gameId: String): String {
+         return when (eventType) {
+             "GAME_CREATED" -> "Game created: $gameId"
+             "PLAYER_JOINED" -> "A new player joined"
+             "GAME_STARTED" -> "Game started!"
+             "DICE_ROLLED" -> "Dice rolled"
+             "TURN_ENDED" -> "Turn ended"
+             "STATE_UPDATED" -> "Game state updated"
+             "STATE_SNAPSHOT" -> "State snapshot synced"
+             "ACTION_DRAWN" -> "Action card drawn!"
+             "ACTION_EXECUTED" -> "Action executed"
+             else -> eventType.replace("_", " ").lowercase().replaceFirstChar { it.uppercase() }
+         }
+     }
 
     // Factory to create ViewModel with dependencies
     class Factory(private val gameService: GameService) : ViewModelProvider.Factory {

@@ -1,0 +1,4 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" aria-labelledby="corners_go_field-title" role="img">
+  <title>Corners Go Field</title>
+  <path d="M 12,2 A 10,10 0 1,0 22,12 A 10.0106,10.0106 0 0,0 12,2 Z M 12,20.4615 a 8.4615,8.4615 0 1,1 8.4615,-8.4615 A 8.4711,8.4711 0 0,1 12,20.4615 Z M 16.6385,11.3481 L 10.4846,7.5019 A 0.7692,0.7692 0 0,0 9.3077,8.1538 l 0,7.6923 a 0.7692,0.7692 0 0,0 1.1769,0.6519 l 6.1538,-3.8462 a 0.7692,0.7692 0 0,0 0,-1.3038 Z M 10.8462,14.4587 L 10.8462,9.5413 L 14.7798,12 Z" fill="#000000" stroke="#000000" stroke-width="0.45" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke" paint-order="stroke fill" />
+</svg>

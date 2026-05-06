@@ -32,7 +32,7 @@ interface GameService {
     suspend fun createGame(playerName: String, iconId: String = "lindwurm"): String?
     suspend fun joinGame(gameId: String, playerName: String, iconId: String = "lindwurm"): Result<GameEvent>
     fun startGame()
-    fun rollDice()
+    fun rollDice(isCheating: Boolean = false)
     fun endTurn()
     fun requestState()
     fun setGameId(gameId: String)

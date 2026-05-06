@@ -256,7 +256,16 @@ class GameViewModel(private val gameService: GameService) : ViewModel() {
 
     fun startGame() = gameService.startGame()
 
-    fun rollDice() = gameService.rollDice()
+    private var isCheatActive = false
+
+    fun activateCheatForNextRoll() {
+        isCheatActive = true
+    }
+
+    fun rollDice() {
+        gameService.rollDice(isCheating = isCheatActive)
+        isCheatActive = false
+    }
 
     fun endTurn() = gameService.endTurn()
 

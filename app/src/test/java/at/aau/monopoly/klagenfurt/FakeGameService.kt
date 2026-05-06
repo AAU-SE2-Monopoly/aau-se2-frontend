@@ -100,7 +100,7 @@ class FakeGameService : GameService {
         startGameCalled = true
     }
 
-    override fun rollDice() {
+    override fun rollDice(isCheating: Boolean) {
         rollDiceCalled = true
     }
 

@@ -134,12 +134,12 @@ class GameboardUITest {
 
     @Test
     fun testGetFieldImageMapping() {
-        assertEquals(com.example.myapplication.R.drawable.mono_go, getFieldImageMapping("Go"))
+        assertEquals(com.example.myapplication.R.drawable.corners_go_field, getFieldImageMapping("Go"))
         assertEquals(com.example.myapplication.R.drawable.herrengasse, getFieldImageMapping("Herrengasse"))
-        assertEquals(com.example.myapplication.R.drawable.tax, getFieldImageMapping("Reichensteuer"))
+        assertEquals(com.example.myapplication.R.drawable.taxes, getFieldImageMapping("Reichensteuer"))
         assertNull(getFieldImageMapping("NonExistentField"))
         // Test trim
-        assertEquals(com.example.myapplication.R.drawable.mono_go, getFieldImageMapping(" Go "))
+        assertEquals(com.example.myapplication.R.drawable.corners_go_field, getFieldImageMapping(" Go "))
     }
 
     @Test

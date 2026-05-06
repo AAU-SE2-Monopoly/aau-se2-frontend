@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" aria-labelledby="taxes-title" role="img">
+  <title>Taxes</title>
+  <path d="M 2,8.57 c 0,-1.197 0.482,-1.93 1.48,-2.486 l 4.11,-2.287 C 9.743,2.6 10.82,2 12,2 s 2.257,0.6 4.41,1.797 l 4.11,2.287 C 21.517,6.64 22,7.373 22,8.57 c 0,0.324 0,0.487 -0.035,0.62 c -0.186,0.7 -0.821,0.811 -1.434,0.811 L 3.469,10.001 c -0.613,0 -1.247,-0.11 -1.434,-0.811 C 2,9.056 2,8.893 2,8.569 M 4,10 l 0,8.5 M 8,10 l 0,8.5 m 3,0 L 5,18.5 a 3,3 0 0,0 -3,3 a 0.5,0.5 0 0,0 0.5,0.5 L 11,22 m 10.5,-7.5 l -7,7" fill="#000000" stroke="#000000" stroke-width="0.45" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke" paint-order="stroke fill" />
+  <path d="M 15.25,15.25 m -0.75,0 a 0.75,0.75 0 0,1 1.5,0 a 0.75,0.75 0 0,1 -1.5,0" fill="#000000" stroke="#000000" stroke-width="0.45" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke" paint-order="stroke fill" />
+  <path d="M 20.75,20.75 m -0.75,0 a 0.75,0.75 0 0,1 1.5,0 a 0.75,0.75 0 0,1 -1.5,0" fill="#000000" stroke="#000000" stroke-width="0.45" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke" paint-order="stroke fill" />
+</svg>

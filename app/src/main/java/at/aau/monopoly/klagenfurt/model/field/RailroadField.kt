@@ -6,7 +6,7 @@ data class RailroadField(
     override val id: Int,
     override val name: String,
     override val type: FieldType = FieldType.RAILROAD,
-    val price: Int = 200,
-    var ownerId: String? = null,
-    var isMortgaged: Boolean = false
-) : Field(id, name, type)
+    override val price: Int = 200,
+    override var ownerId: String? = null,
+    override var isMortgaged: Boolean = false
+) : Field(id, name, type), OwnableField

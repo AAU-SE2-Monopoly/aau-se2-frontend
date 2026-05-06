@@ -136,6 +136,7 @@ private val cornerColors = mapOf(
     20 to Color(0xFFF3E5F5),
     30 to Color(0xFFFFEBEE),
 )
+private val boardFieldBackground = cornerColors.getValue(10)
 @Composable
 fun FieldItem(index: Int, field: Field, sw: Float, sh: Float) {
     val bounds = remember(index, sw, sh) { calculateFieldBounds(index, sw, sh) }
@@ -301,9 +302,9 @@ private fun fieldItemContainerMod(bounds: FieldBounds, index: Int): Modifier {
     val borderWidth = if (bounds.isCorner) 0.75.dp else 0.5.dp
     val borderAlpha = if (bounds.isCorner) 0.5f else 0.4f
     val backgroundColor = if (bounds.isCorner) {
-        cornerColors[index] ?: Color.White
+        cornerColors[index] ?: boardFieldBackground
     } else {
-        Color.White
+        boardFieldBackground
     }
     val elevation = if (bounds.isCorner) 4.dp else 2.dp
 

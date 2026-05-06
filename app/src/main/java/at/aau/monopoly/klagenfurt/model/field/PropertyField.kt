@@ -8,13 +8,13 @@ data class PropertyField(
     override val name: String,
     override val type: FieldType = FieldType.PROPERTY,
     val color: PropertyColor,
-    val price: Int,
+    override val price: Int,
     /** rent[0] = no houses, rent[1] = 1 house, …, rent[5] = hotel */
     val rent: List<Int>,
     val houseCost: Int,
     val hotelCost: Int,
-    var ownerId: String? = null,
+    override var ownerId: String? = null,
     var houses: Int = 0,
     var hasHotel: Boolean = false,
-    var isMortgaged: Boolean = false
-) : Field(id, name, type)
+    override var isMortgaged: Boolean = false
+) : Field(id, name, type), OwnableField

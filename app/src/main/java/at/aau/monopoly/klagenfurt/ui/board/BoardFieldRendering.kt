@@ -47,7 +47,6 @@ import at.aau.monopoly.klagenfurt.ui.util.toComposeColor
 import com.example.myapplication.R
 import kotlin.math.max
 import kotlin.math.min
-import kotlin.math.roundToInt
 import kotlin.math.sqrt
 
 data class FieldBounds(
@@ -77,8 +76,8 @@ fun calculateFieldBounds(index: Int, sw: Float, sh: Float): FieldBounds {
     val end = corners[(side + 1) % 4]
     val designCornerSize = 240f
 
-    fun scaleX(x: Float) = ((x / 3840f) * sw).roundToInt().toFloat()
-    fun scaleY(y: Float) = ((y / 2160f) * sh).roundToInt().toFloat()
+    fun scaleX(x: Float) = (x / 3840f) * sw
+    fun scaleY(y: Float) = (y / 2160f) * sh
 
     if (isCorner) {
         val textRotation = 0f
@@ -388,13 +387,7 @@ private fun BoxScope.OwnerIndicator(
     fieldColor: Color
 ) {
     val dotSize = 4.dp
-    val alignment = when (side) {
-        0 -> Alignment.TopStart
-        1 -> Alignment.BottomStart
-        2 -> Alignment.BottomEnd
-        3 -> Alignment.TopEnd
-        else -> Alignment.TopStart
-    }
+    val alignment = ownerIndicatorAlignment(side)
 
     Box(
         modifier = Modifier
@@ -404,7 +397,16 @@ private fun BoxScope.OwnerIndicator(
             .clip(CircleShape)
             .background(fieldColor)
             .border(0.5.dp, Color.Black.copy(alpha = 0.3f), CircleShape)
+            .testTag("OwnerIndicator")
     )
+}
+
+private fun ownerIndicatorAlignment(side: Int): Alignment = when (side) {
+    0 -> Alignment.TopStart
+    1 -> Alignment.BottomStart
+    2 -> Alignment.BottomEnd
+    3 -> Alignment.TopEnd
+    else -> Alignment.TopStart
 }
 
 /**

@@ -233,8 +233,8 @@ Extends `Field`, implements `OwnableField`. Additional: `color` (`PropertyColor`
 ```bash
 ./gradlew sonar \
   -Dsonar.login=<token>
-# Project key: AAU-SE2-Monopoly_aau-se2-frontend
-# Organisation:  aau-se2-monopoly
+# Project key: AAU-SE2_WebSocketBrokerDemo-App
+# Organisation:  aau-se2
 ```
 
 ---

@@ -42,6 +42,7 @@ import at.aau.monopoly.klagenfurt.model.field.Field
 import at.aau.monopoly.klagenfurt.model.field.OwnableField
 import at.aau.monopoly.klagenfurt.model.field.PropertyField
 import at.aau.monopoly.klagenfurt.model.field.RailroadField
+import at.aau.monopoly.klagenfurt.model.field.TaxField
 import at.aau.monopoly.klagenfurt.ui.util.toComposeColor
 import com.example.myapplication.R
 import kotlin.math.max
@@ -194,7 +195,7 @@ fun FieldItem(index: Int, field: Field, sw: Float, sh: Float) {
         FieldTitle(
             index = index,
             side = side,
-            text = field.name,
+            field = field,
             bounds = bounds
         )
     }
@@ -219,10 +220,10 @@ private fun normalContentWidth(bounds: FieldBounds): Float = max(bounds.width, b
 private fun normalContentHeight(bounds: FieldBounds): Float = min(bounds.width, bounds.height)
 
 private fun outerEdgeTextOffset(side: Int) = when (side) {
-    0 -> Modifier.offset(y = 4.dp)
-    1 -> Modifier.offset(x = (-4).dp)
-    2 -> Modifier.offset(y = (-4).dp)
-    3 -> Modifier.offset(x = 4.dp)
+    0 -> Modifier.offset(y = 5.dp)
+    1 -> Modifier.offset(y = 5.dp)
+    2 -> Modifier.offset(y = 5.dp)
+    3 -> Modifier.offset(y = 5.dp)
     else -> Modifier
 }
 
@@ -241,7 +242,12 @@ fun getDisplayFieldName(fieldName: String): String {
         "Go To Jail" -> "Go To\nJail"
         "Jail / Just Visiting" -> "Jail / Just\nVisiting"
         "Free Parking" -> "Free\nParking"
+        "Cine City" -> "Cine\nCity"
         "City Arkaden" -> "City\nArkaden"
+        "Kelag Klagenfurt" -> "Kelag\nKlagenfurt"
+        "Le Burger" -> "Le\nBurger"
+        "Lendcafe" -> "Lend\nCafe"
+        "Mc Mullens" -> "Mc\nMullens"
         "Westbahnhof" -> "West-\nbahnhof"
         "Lendbahnhof" -> "Lend-\nbahnhof"
         else -> fieldName
@@ -453,37 +459,37 @@ fun BoxScope.PropertyColorBar(
 fun BoxScope.FieldTitle(
     index: Int,
     side: Int,
-    text: String,
+    field: Field,
     bounds: FieldBounds
 ) {
-    val displayText = remember(text) { getDisplayFieldName(text) }
+    val displayText = remember(field.name) { getDisplayFieldName(field.name) }
 
     if (bounds.isCorner) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth(0.92f)
-                .align(cornerTextAlignment(index))
-                .padding(horizontal = 5.dp, vertical = 5.dp),
-            contentAlignment = Alignment.BottomCenter
-        ) {
-            Text(
-                text = displayText,
-                color = Color.Black,
-                fontSize = 4.5.sp,
-                lineHeight = 5.0.sp,
-                letterSpacing = (-0.12).sp,
-                fontWeight = FontWeight.Bold,
-                textAlign = TextAlign.Center,
-                softWrap = true,
-                overflow = TextOverflow.Clip,
-                maxLines = 3,
-                style = TextStyle(hyphens = Hyphens.Auto),
-                modifier = Modifier.fillMaxWidth()
-            )
-        }
+        CornerFieldTitle(
+            index = index,
+            text = displayText
+        )
         return
     }
 
+    RotatedTitleContainer(
+        side = side,
+        bounds = bounds
+    ) {
+        when (field) {
+            is PropertyField -> PropertyFieldTitle(text = displayText)
+            is ChanceField, is CommunityChestField, is TaxField -> ActionFieldTitle(text = displayText)
+            else -> StandardFieldTitle(text = displayText)
+        }
+    }
+}
+
+@Composable
+private fun BoxScope.RotatedTitleContainer(
+    side: Int,
+    bounds: FieldBounds,
+    content: @Composable BoxScope.() -> Unit
+) {
     Box(
         modifier = Modifier
             .size(
@@ -491,25 +497,89 @@ fun BoxScope.FieldTitle(
                 height = normalContentHeight(bounds).dp
             )
             .align(Alignment.Center)
-            .rotate(bounds.rotation)
-            .padding(horizontal = 0.dp, vertical = 0.dp),
+            .rotate(bounds.rotation),
         contentAlignment = Alignment.BottomCenter
     ) {
-        Text(
-            text = displayText,
-            color = Color.Black,
-            fontSize = 3.0.sp,
-            lineHeight = 3.4.sp,
-            letterSpacing = (-0.12).sp,
-            fontWeight = FontWeight.Bold,
-            textAlign = TextAlign.Center,
-            softWrap = true,
-            overflow = TextOverflow.Clip,
-            maxLines = 3,
-            style = TextStyle(hyphens = Hyphens.Auto),
-            modifier = Modifier
-                .fillMaxWidth(1f)
-                .then(outerEdgeTextOffset(side))
+        content()
+    }
+}
+
+@Composable
+private fun BoxScope.CornerFieldTitle(
+    index: Int,
+    text: String
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth(0.92f)
+            .align(cornerTextAlignment(index))
+            .padding(horizontal = 5.dp, vertical = 5.dp),
+        contentAlignment = Alignment.BottomCenter
+    ) {
+        BaseFieldTitleText(
+            text = text,
+            modifier = Modifier.fillMaxWidth(),
+            fontSize = 4.5.sp,
+            lineHeight = 5.0.sp
         )
     }
+}
+
+@Composable
+private fun BoxScope.PropertyFieldTitle(text: String) {
+    BaseFieldTitleText(
+        text = text,
+        modifier = Modifier
+            .fillMaxWidth(0.995f)
+            .then(outerEdgeTextOffset(0)),
+        fontSize = 3.0.sp,
+        lineHeight = 3.4.sp
+    )
+}
+
+@Composable
+private fun BoxScope.ActionFieldTitle(text: String) {
+    BaseFieldTitleText(
+        text = text,
+        modifier = Modifier
+            .fillMaxWidth(0.97f)
+            .then(outerEdgeTextOffset(0)),
+        fontSize = 3.0.sp,
+        lineHeight = 3.4.sp
+    )
+}
+
+@Composable
+private fun BoxScope.StandardFieldTitle(text: String) {
+    BaseFieldTitleText(
+        text = text,
+        modifier = Modifier
+            .fillMaxWidth(0.985f)
+            .then(outerEdgeTextOffset(0)),
+        fontSize = 3.0.sp,
+        lineHeight = 3.4.sp
+    )
+}
+
+@Composable
+private fun BoxScope.BaseFieldTitleText(
+    text: String,
+    modifier: Modifier,
+    fontSize: androidx.compose.ui.unit.TextUnit,
+    lineHeight: androidx.compose.ui.unit.TextUnit
+) {
+    Text(
+        text = text,
+        color = Color.Black,
+        fontSize = fontSize,
+        lineHeight = lineHeight,
+        letterSpacing = (-0.12).sp,
+        fontWeight = FontWeight.Bold,
+        textAlign = TextAlign.Center,
+        softWrap = true,
+        overflow = TextOverflow.Clip,
+        maxLines = 3,
+        style = TextStyle(hyphens = Hyphens.Auto),
+        modifier = modifier
+    )
 }

@@ -159,6 +159,7 @@ fun FieldItem(index: Int, field: Field, sw: Float, sh: Float) {
         FieldImage(
             index = index,
             side = side,
+            hasColorBar = !bounds.isCorner && field is PropertyField,
             imageRes = imageMap,
             fieldName = field.name,
             bounds = bounds,
@@ -216,6 +217,36 @@ private fun cornerTextAlignment(index: Int): Alignment = when (index) {
 private fun normalContentWidth(bounds: FieldBounds): Float = max(bounds.width, bounds.height)
 
 private fun normalContentHeight(bounds: FieldBounds): Float = min(bounds.width, bounds.height)
+
+private fun outerEdgeTextOffset(side: Int) = when (side) {
+    0 -> Modifier.offset(y = 4.dp)
+    1 -> Modifier.offset(x = (-4).dp)
+    2 -> Modifier.offset(y = (-4).dp)
+    3 -> Modifier.offset(x = 4.dp)
+    else -> Modifier
+}
+
+fun getDisplayFieldName(fieldName: String): String {
+    return when (fieldName.trim()) {
+        "Community Chest" -> "Community\nChest"
+        "Benediktiner Platz" -> "Benediktiner\nPlatz"
+        "Alter Platz" -> "Alter\nPlatz"
+        "Neuer Platz" -> "Neuer\nPlatz"
+        "Hauptbahnhof" -> "Haupt-\nbahnhof"
+        "Reichensteuer" -> "Reichen-\nsteuer"
+        "Heiligengeistplatz" -> "Heiligen-\ngeistplatz"
+        "Universität Klagenfurt" -> "Universität\nKlagenfurt"
+        "Stadtwerke Klagenfurt" -> "Stadtwerke\nKlagenfurt"
+        "Botanischer Garten" -> "Botanischer\nGarten"
+        "Go To Jail" -> "Go To\nJail"
+        "Jail / Just Visiting" -> "Jail / Just\nVisiting"
+        "Free Parking" -> "Free\nParking"
+        "City Arkaden" -> "City\nArkaden"
+        "Westbahnhof" -> "West-\nbahnhof"
+        "Lendbahnhof" -> "Lend-\nbahnhof"
+        else -> fieldName
+    }
+}
 
 private val fieldImageMappingsLower = mapOf(
     "go" to R.drawable.corners_go_field,
@@ -283,6 +314,7 @@ private fun fieldItemContainerMod(bounds: FieldBounds, index: Int): Modifier {
 private fun BoxScope.FieldImage(
     index: Int,
     side: Int,
+    hasColorBar: Boolean,
     imageRes: Int?,
     fieldName: String,
     bounds: FieldBounds,
@@ -305,6 +337,8 @@ private fun BoxScope.FieldImage(
         return
     }
 
+    val propertyImageOffset = if (hasColorBar) 4.dp else 0.dp
+
     Box(
         modifier = Modifier
             .size(
@@ -321,7 +355,7 @@ private fun BoxScope.FieldImage(
             modifier = Modifier
                 .fillMaxWidth(0.68f)
                 .fillMaxHeight(0.42f)
-                .offset(y = (-4).dp),
+                .offset(y = (-4).dp + propertyImageOffset),
             contentScale = ContentScale.Fit,
             colorFilter = tint?.let { ColorFilter.tint(it, BlendMode.SrcAtop) }
         )
@@ -422,16 +456,18 @@ fun BoxScope.FieldTitle(
     text: String,
     bounds: FieldBounds
 ) {
+    val displayText = remember(text) { getDisplayFieldName(text) }
+
     if (bounds.isCorner) {
         Box(
             modifier = Modifier
                 .fillMaxWidth(0.92f)
                 .align(cornerTextAlignment(index))
-                .padding(horizontal = 6.dp, vertical = 6.dp),
+                .padding(horizontal = 5.dp, vertical = 5.dp),
             contentAlignment = Alignment.BottomCenter
         ) {
             Text(
-                text = text,
+                text = displayText,
                 color = Color.Black,
                 fontSize = 4.5.sp,
                 lineHeight = 5.0.sp,
@@ -456,11 +492,11 @@ fun BoxScope.FieldTitle(
             )
             .align(Alignment.Center)
             .rotate(bounds.rotation)
-            .padding(2.dp),
+            .padding(horizontal = 0.dp, vertical = 0.dp),
         contentAlignment = Alignment.BottomCenter
     ) {
         Text(
-            text = text,
+            text = displayText,
             color = Color.Black,
             fontSize = 3.0.sp,
             lineHeight = 3.4.sp,
@@ -471,7 +507,9 @@ fun BoxScope.FieldTitle(
             overflow = TextOverflow.Clip,
             maxLines = 3,
             style = TextStyle(hyphens = Hyphens.Auto),
-            modifier = Modifier.fillMaxWidth(0.96f)
+            modifier = Modifier
+                .fillMaxWidth(1f)
+                .then(outerEdgeTextOffset(side))
         )
     }
 }

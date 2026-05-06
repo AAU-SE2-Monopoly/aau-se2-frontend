@@ -200,7 +200,7 @@ fun GameboardScreen(modifier: Modifier = Modifier, viewModel: GameViewModel) {
                 onClick = {
                     showOverlay = true
                 },
-                enabled = isRollingPhaseForCurrentPlayer,
+                enabled = isRollingPhaseForCurrentPlayer && !showActionCardOverlay,
                 modifier = Modifier.padding(bottom = 8.dp)
             ) {
                 Text(" Roll Dice")

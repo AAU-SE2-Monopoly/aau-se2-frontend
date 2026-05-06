@@ -277,6 +277,7 @@ private val fieldImageMappingsLower = mapOf(
     "free parking" to R.drawable.free_parking,
     "city arkaden" to R.drawable.city_arkaden,
     "le burger" to R.drawable.le_burger,
+    "mcmullens" to R.drawable.mc_mullens,
     "mc mullens" to R.drawable.mc_mullens,
     "westbahnhof" to R.drawable.westbahnhof,
     "mensa" to R.drawable.mensa,

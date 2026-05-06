@@ -48,8 +48,12 @@ class SubscriptionChannel(
                 _isReady.value = true
                 sub.collect { events.emit(it) }
             } catch (e: Throwable) {
-                Log.e("SubscriptionChannel", "Error in subscription to $fullTopic", e)
-                if (!isCancellation(e)) onError?.invoke(e)
+                if (isCancellation(e)) {
+                    Log.d("SubscriptionChannel", "Subscription to $fullTopic cancelled")
+                } else {
+                    Log.e("SubscriptionChannel", "Error in subscription to $fullTopic", e)
+                    onError?.invoke(e)
+                }
             } finally {
                 _isReady.value = false
             }

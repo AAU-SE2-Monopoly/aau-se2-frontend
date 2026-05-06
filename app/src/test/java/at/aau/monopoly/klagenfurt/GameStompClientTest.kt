@@ -479,7 +479,6 @@ class GameStompClientTest {
             "Should emit reconnect status when lobby subscription fails")
         collectJob.cancel()
     }
-
     @Test
     fun subscribeToLobby_cancellation_does_not_log_or_trigger_reconnect() = runTest(testDispatcher) {
         coEvery { stompClient.connect(any<String>()) } returns stompSession

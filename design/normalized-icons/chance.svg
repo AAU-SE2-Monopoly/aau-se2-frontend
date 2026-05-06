@@ -1,0 +1,4 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" aria-labelledby="chance-title" role="img">
+  <title>Chance</title>
+  <path d="M 18.9565,8.087 c 0,3.0989 -2.6598,5.6641 -6.087,6.0391 L 12.8696,15.0435 a 0.8696,0.8696 0 0,1 -1.7391,0 L 11.1304,13.3043 a 0.8696,0.8696 0 0,1 0.8696,-0.8696 c 2.8772,0 5.2174,-1.95 5.2174,-4.3478 s -2.3402,-4.3478 -5.2174,-4.3478 S 6.7826,5.6891 6.7826,8.087 a 0.8696,0.8696 0 0,1 -1.7391,0 c 0,-3.3565 3.1207,-6.087 6.9565,-6.087 S 18.9565,4.7304 18.9565,8.087 Z M 12,18.5217 a 1.7391,1.7391 0 1,0 1.7391,1.7391 A 1.7391,1.7391 0 0,0 12,18.5217 Z" fill="#000000" stroke="#000000" stroke-width="0.45" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke" paint-order="stroke fill" />
+</svg>

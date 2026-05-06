@@ -7,6 +7,7 @@ import androidx.lifecycle.viewModelScope
 import at.aau.monopoly.klagenfurt.messaging.GameEvent
 import at.aau.monopoly.klagenfurt.model.DiceRoll
 import at.aau.monopoly.klagenfurt.model.GameState
+import at.aau.monopoly.klagenfurt.model.card.Card
 import at.aau.monopoly.klagenfurt.model.field.Field
 import at.aau.monopoly.klagenfurt.model.enums.GamePhase
 import at.aau.monopoly.klagenfurt.networking.GameService
@@ -23,6 +24,7 @@ import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.runningFold
 import kotlinx.coroutines.flow.shareIn
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 
 class GameViewModel(private val gameService: GameService) : ViewModel() {
 
@@ -246,16 +248,95 @@ class GameViewModel(private val gameService: GameService) : ViewModel() {
 
     fun setGameId(gameId: String) = gameService.setGameId(gameId)
 
-    private val _selectedPlayerForOverlay = kotlinx.coroutines.flow.MutableStateFlow<at.aau.monopoly.klagenfurt.model.Player?>(null)
-    val selectedPlayerForOverlay: StateFlow<at.aau.monopoly.klagenfurt.model.Player?> = _selectedPlayerForOverlay
+     private val _selectedPlayerForOverlay = kotlinx.coroutines.flow.MutableStateFlow<at.aau.monopoly.klagenfurt.model.Player?>(null)
+     val selectedPlayerForOverlay: StateFlow<at.aau.monopoly.klagenfurt.model.Player?> = _selectedPlayerForOverlay
 
-    fun showPlayerOverlay(player: at.aau.monopoly.klagenfurt.model.Player) {
-        _selectedPlayerForOverlay.value = player
-    }
+     fun showPlayerOverlay(player: at.aau.monopoly.klagenfurt.model.Player) {
+         _selectedPlayerForOverlay.value = player
+     }
 
-    fun hidePlayerOverlay() {
-        _selectedPlayerForOverlay.value = null
-    }
+     fun hidePlayerOverlay() {
+         _selectedPlayerForOverlay.value = null
+     }
+
+     // ============ ACTION CARD STATES ============
+
+     /**
+      * Current action card being displayed.
+      * Extracted from gameState based on game phase.
+      */
+     val currentActionCard: StateFlow<Card?> = gameState
+         .map { state ->
+             // Extract current action card from game state if available
+             // For now, we'll use a mock approach - backend should provide this
+             state?.let {
+                 // When backend sends ACTION event with card data, we display it here
+                 null // Backend integration point
+             }
+         }
+         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+
+     /**
+      * Whether an action is currently being executed.
+      */
+     private val _isExecutingAction = MutableStateFlow(false)
+     val isExecutingAction: StateFlow<Boolean> = _isExecutingAction.asStateFlow()
+
+     /**
+      * Whether the action card overlay should be visible for the current player.
+      */
+     val showActionCardOverlay: StateFlow<Boolean> = gameState
+         .map { state ->
+             val isCurrentPlayer = state?.currentPlayer?.id == gameService.currentPlayerId
+             val hasAction = state?.let { checkIfPlayerHasAction(it) } ?: false
+             isCurrentPlayer && hasAction
+         }
+         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+
+     /**
+      * Check if current player has a pending action to execute.
+      * This is a utility function that can be extended based on game events.
+      */
+     private fun checkIfPlayerHasAction(state: GameState): Boolean {
+         // Backend should notify via game events when a card is drawn
+         // For now, this is a placeholder for the integration point
+         return false
+     }
+
+     /**
+      * Execute the current action and notify the backend.
+      */
+     fun executeAction() {
+         _isExecutingAction.value = true
+         Log.d("ActionCard", "Executing action for player: $currentPlayerId")
+
+         // Send action execution to backend
+         gameService.executeAction(currentPlayerId)
+
+         // Reset state after a short delay
+         viewModelScope.launch {
+             kotlinx.coroutines.delay(500)
+             _isExecutingAction.value = false
+             _currentActionCard.value = null
+         }
+     }
+
+     /**
+      * Internal mutable state for current action card (for testing/backend updates).
+      */
+     private val _currentActionCard = MutableStateFlow<Card?>(null)
+
+     /**
+      * Exposed as public read-only for testing purposes.
+      */
+     fun setCurrentActionCard(card: Card?) {
+         Log.d("ActionCard", "Setting current action card: ${card?.description}")
+         _currentActionCard.value = card
+     }
+
+     fun dismissActionCard() {
+         _currentActionCard.value = null
+     }
 
     fun syncGameboardEntryState() {
         val currentGameId = gameService.currentGameId

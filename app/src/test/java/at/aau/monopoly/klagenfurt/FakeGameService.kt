@@ -96,6 +96,10 @@ class FakeGameService : GameService {
         _subscriptionReady.value = true
     }
 
+    override fun executeAction(playerId: String) {
+        TODO("Not yet implemented")
+    }
+
     override fun subscribeToLobby() {
         subscribeToLobbyCalled = true
     }

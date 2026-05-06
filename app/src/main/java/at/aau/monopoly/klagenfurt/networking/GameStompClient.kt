@@ -341,4 +341,16 @@ class GameStompClient(
                (e is IllegalStateException && e.message?.contains("cancelled", ignoreCase = true) == true) ||
                (e.cause is CancellationException)
     }
+
+    override fun executeAction(playerId: String) {
+        Log.d("GameStomp", "Executing action for player: $playerId")
+        val action = GameAction(
+            gameId = _currentGameId,
+            playerId = playerId,
+            action = "EXECUTE_ACTION",
+            payload = emptyMap()
+        )
+        val json = JacksonProvider.objectMapper.writeValueAsString(action)
+        sendRaw("/app/game/action", json)
+    }
 }

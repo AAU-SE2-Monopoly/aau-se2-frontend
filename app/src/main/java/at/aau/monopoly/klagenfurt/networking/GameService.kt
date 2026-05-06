@@ -29,4 +29,5 @@ interface GameService {
     fun endTurn()
     fun requestState()
     fun setGameId(gameId: String)
+    fun executeAction(playerId: String)
 }

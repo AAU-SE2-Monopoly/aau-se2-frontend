@@ -344,6 +344,14 @@ private fun BoxScope.FieldImage(
     }
 
     val propertyImageOffset = if (hasColorBar) 4.dp else 0.dp
+    val iconWidthFactor = when (fieldName.trim()) {
+        "Chance", "Community Chest", "Reichensteuer", "Hauptbahnhof", "Ostbahnhof", "Westbahnhof", "Lendbahnhof" -> 0.78f
+        else -> 0.68f
+    }
+    val iconHeightFactor = when (fieldName.trim()) {
+        "Chance", "Community Chest", "Reichensteuer", "Hauptbahnhof", "Ostbahnhof", "Westbahnhof", "Lendbahnhof" -> 0.50f
+        else -> 0.42f
+    }
 
     Box(
         modifier = Modifier
@@ -359,8 +367,8 @@ private fun BoxScope.FieldImage(
             painter = painterResource(id = imageRes),
             contentDescription = fieldName,
             modifier = Modifier
-                .fillMaxWidth(0.68f)
-                .fillMaxHeight(0.42f)
+                .fillMaxWidth(iconWidthFactor)
+                .fillMaxHeight(iconHeightFactor)
                 .offset(y = (-4).dp + propertyImageOffset),
             contentScale = ContentScale.Fit,
             colorFilter = tint?.let { ColorFilter.tint(it, BlendMode.SrcAtop) }
@@ -511,9 +519,9 @@ private fun BoxScope.CornerFieldTitle(
 ) {
     Box(
         modifier = Modifier
-            .fillMaxWidth(0.92f)
+            .fillMaxWidth(0.98f)
             .align(cornerTextAlignment(index))
-            .padding(horizontal = 5.dp, vertical = 5.dp),
+            .padding(horizontal = 2.dp, vertical = 2.dp),
         contentAlignment = Alignment.BottomCenter
     ) {
         BaseFieldTitleText(

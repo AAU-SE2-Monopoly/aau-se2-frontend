@@ -10,11 +10,9 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
@@ -157,6 +155,8 @@ fun FieldItem(index: Int, field: Field, sw: Float, sh: Float) {
         contentAlignment = Alignment.Center
     ) {
         FieldImage(
+            index = index,
+            side = side,
             imageRes = imageMap,
             fieldName = field.name,
             bounds = bounds,
@@ -189,10 +189,34 @@ fun FieldItem(index: Int, field: Field, sw: Float, sh: Float) {
         }
 
         FieldTitle(
+            index = index,
+            side = side,
             text = field.name,
             bounds = bounds
         )
     }
+}
+
+private fun innerCornerAlignment(index: Int): Alignment = when (index) {
+    0 -> Alignment.TopStart
+    10 -> Alignment.TopEnd
+    20 -> Alignment.BottomEnd
+    30 -> Alignment.BottomStart
+    else -> Alignment.Center
+}
+
+private fun cornerTextAlignment(index: Int): Alignment = when (index) {
+    0, 10 -> Alignment.BottomCenter
+    20, 30 -> Alignment.TopCenter
+    else -> Alignment.BottomCenter
+}
+
+private fun sideTextAlignment(side: Int): Alignment = when (side) {
+    0 -> Alignment.BottomCenter
+    1 -> Alignment.CenterStart
+    2 -> Alignment.TopCenter
+    3 -> Alignment.CenterEnd
+    else -> Alignment.BottomCenter
 }
 
 private val fieldImageMappingsLower = mapOf(
@@ -258,7 +282,9 @@ private fun fieldItemContainerMod(bounds: FieldBounds, index: Int): Modifier {
 }
 
 @Composable
-private fun FieldImage(
+private fun BoxScope.FieldImage(
+    index: Int,
+    side: Int,
     imageRes: Int?,
     fieldName: String,
     bounds: FieldBounds,
@@ -266,32 +292,38 @@ private fun FieldImage(
 ) {
     if (imageRes == null) return
 
-    val imagePadding = if (bounds.isCorner) 0.dp else 1.dp
-    val imageShape = RoundedCornerShape(2.dp)
-    val borderWidth = if (bounds.isCorner) 1.dp else 0.5.dp
+    val imageModifier = when {
+        bounds.isCorner -> {
+            Modifier
+                .fillMaxSize(0.80f)
+                .align(innerCornerAlignment(index))
+                .padding(6.dp)
+        }
 
-    val imgHeight = if (bounds.isCorner) bounds.textHeight else bounds.textHeight * 0.75f
-    val imgOffsetY = 0.dp
+        side == 0 || side == 2 -> {
+            Modifier
+                .fillMaxWidth(0.68f)
+                .fillMaxHeight(0.42f)
+                .align(Alignment.Center)
+                .offset(y = (-4).dp)
+        }
 
-    Box(
-        modifier = Modifier
-            .requiredSize(width = bounds.textWidth.dp, height = imgHeight.dp)
-            .offset(y = imgOffsetY)
-            .rotate(bounds.rotation)
-            .clip(imageShape)
-            .background(Color.Transparent)
-            .border(borderWidth, Color.White, imageShape)
-    ) {
-        Image(
-            painter = painterResource(id = imageRes),
-            contentDescription = fieldName,
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(imagePadding),
-            contentScale = ContentScale.Fit,
-            colorFilter = tint?.let { ColorFilter.tint(it, BlendMode.SrcAtop) }
-        )
+        else -> {
+            Modifier
+                .fillMaxWidth(0.78f)
+                .fillMaxHeight(0.52f)
+                .align(Alignment.Center)
+                .offset(y = (-2).dp)
+        }
     }
+
+    Image(
+        painter = painterResource(id = imageRes),
+        contentDescription = fieldName,
+        modifier = imageModifier.rotate(bounds.rotation),
+        contentScale = ContentScale.Fit,
+        colorFilter = tint?.let { ColorFilter.tint(it, BlendMode.SrcAtop) }
+    )
 }
 
 /**
@@ -382,28 +414,47 @@ fun BoxScope.PropertyColorBar(
 }
 
 @Composable
-fun FieldTitle(
+fun BoxScope.FieldTitle(
+    index: Int,
+    side: Int,
     text: String,
     bounds: FieldBounds
 ) {
-    Box(
-        modifier = Modifier
+    val textModifier = if (bounds.isCorner) {
+        Modifier
+            .fillMaxWidth(0.92f)
+            .align(cornerTextAlignment(index))
+            .padding(horizontal = 6.dp, vertical = 6.dp)
+    } else {
+        Modifier
             .fillMaxSize()
-            .rotate(bounds.rotation)
-            .padding(horizontal = 2.dp, vertical = if (bounds.isCorner) 2.dp else 1.dp),
-        contentAlignment = if (bounds.isCorner) Alignment.Center else Alignment.BottomCenter
+            .padding(2.dp)
+    }
+    val textAlignment = if (bounds.isCorner) {
+        Alignment.BottomCenter
+    } else {
+        sideTextAlignment(side)
+    }
+
+    Box(
+        modifier = textModifier,
+        contentAlignment = textAlignment
     ) {
         Text(
             text = text,
             color = Color.Black,
-            fontSize = if (bounds.isCorner) 5.sp else 3.5.sp,
-            lineHeight = if (bounds.isCorner) 6.sp else 4.2.sp,
+            fontSize = if (bounds.isCorner) 4.5.sp else 3.0.sp,
+            lineHeight = if (bounds.isCorner) 5.0.sp else 3.4.sp,
+            letterSpacing = (-0.12).sp,
             fontWeight = FontWeight.Bold,
             textAlign = TextAlign.Center,
-            overflow = TextOverflow.Ellipsis,
-            maxLines = 2,
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 2.dp),
-            style = TextStyle(hyphens = Hyphens.Auto)
+            softWrap = true,
+            overflow = TextOverflow.Clip,
+            maxLines = 3,
+            style = TextStyle(hyphens = Hyphens.Auto),
+            modifier = Modifier
+                .fillMaxWidth(if (bounds.isCorner) 1f else 0.96f)
+                .rotate(bounds.rotation)
         )
     }
 }

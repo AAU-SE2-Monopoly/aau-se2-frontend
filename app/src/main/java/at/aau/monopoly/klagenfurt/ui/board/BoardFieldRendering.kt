@@ -1,5 +1,4 @@
 package at.aau.monopoly.klagenfurt.ui.board
-
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -14,6 +13,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -22,8 +22,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
@@ -35,8 +38,12 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import at.aau.monopoly.klagenfurt.model.field.ChanceField
+import at.aau.monopoly.klagenfurt.model.field.CommunityChestField
 import at.aau.monopoly.klagenfurt.model.field.Field
+import at.aau.monopoly.klagenfurt.model.field.OwnableField
 import at.aau.monopoly.klagenfurt.model.field.PropertyField
+import at.aau.monopoly.klagenfurt.model.field.RailroadField
 import at.aau.monopoly.klagenfurt.ui.util.toComposeColor
 import com.example.myapplication.R
 import kotlin.math.roundToInt
@@ -121,13 +128,29 @@ fun calculateFieldBounds(index: Int, sw: Float, sh: Float): FieldBounds {
     }
 }
 
+/** Tinted backgrounds for the four corner fields to visually differentiate them. */
+private val cornerColors = mapOf(
+    0  to Color(0xFFE8F5E9),
+    10 to Color(0xFFFFF3E0),
+    20 to Color(0xFFF3E5F5),
+    30 to Color(0xFFFFEBEE),
+)
 @Composable
 fun FieldItem(index: Int, field: Field, sw: Float, sh: Float) {
     val bounds = remember(index, sw, sh) { calculateFieldBounds(index, sw, sh) }
     val side = (index / 10) % 4
     val imageMap = remember(field.name) { getFieldImageMapping(field.name) }
+    val containerMod = remember(bounds, index) { fieldItemContainerMod(bounds, index) }
 
-    val containerMod = remember(bounds) { fieldItemContainerMod(bounds) }
+    val imageTint = remember(field) {
+        when (field) {
+            is PropertyField -> field.color.toComposeColor()
+            is ChanceField -> Color(0xFFFFB900)       // yellow-amber
+            is CommunityChestField -> Color(0xFF1E88E5) // blue
+            is RailroadField -> Color(0xFF5D4037)     // dark brown
+            else -> null
+        }
+    }
 
     Box(
         modifier = containerMod,
@@ -136,7 +159,8 @@ fun FieldItem(index: Int, field: Field, sw: Float, sh: Float) {
         FieldImage(
             imageRes = imageMap,
             fieldName = field.name,
-            bounds = bounds
+            bounds = bounds,
+            tint = imageTint
         )
         if (!bounds.isCorner && field is PropertyField) {
             PropertyColorBar(
@@ -147,6 +171,23 @@ fun FieldItem(index: Int, field: Field, sw: Float, sh: Float) {
             )
         }
 
+        // Owner indicator dot on owned fields
+        if (!bounds.isCorner && field is OwnableField && field.ownerId != null) {
+            val dotColor = when (field) {
+                is PropertyField -> field.color.toComposeColor()
+                else -> Color.DarkGray
+            }
+            OwnerIndicator(
+                side = side,
+                fieldColor = dotColor
+            )
+        }
+
+        // Mortgaged overlay watermark
+        if (!bounds.isCorner && field is OwnableField && field.isMortgaged) {
+            MortgagedOverlay(bounds = bounds)
+        }
+
         FieldTitle(
             text = field.name,
             bounds = bounds
@@ -154,56 +195,63 @@ fun FieldItem(index: Int, field: Field, sw: Float, sh: Float) {
     }
 }
 
-private val fieldImageMappings = mapOf(
-    "Go" to R.drawable.corners_go_field,
-    "Herrengasse" to R.drawable.herrengasse,
-    "Community Chest" to R.drawable.chest,
-    "Reichensteuer" to R.drawable.taxes,
-    "Hauptbahnhof" to R.drawable.hauptbahnhof,
-    "Neuer Platz" to R.drawable.neuer_platz,
-    "Chance" to R.drawable.chance,
-    "Alter Platz" to R.drawable.alter_platz,
-    "Benediktiner Platz" to R.drawable.benedektiner,
-    "Jail / Just Visiting" to R.drawable.jail,
-    "Cine City" to R.drawable.cinema,
-    "Kelag Klagenfurt" to R.drawable.kelag,
-    "McDonalds" to R.drawable.mcdonalds,
-    "Ruthar" to R.drawable.ruthar,
-    "Ostbahnhof" to R.drawable.ostbahnhof,
-    "Wohnzimmer" to R.drawable.wonhzimmer,
-    "Hafenstadt" to R.drawable.hafenstadt,
-    "Lendcafe" to R.drawable.lendcafe,
-    "Free Parking" to R.drawable.free_parking,
-    "City Arkaden" to R.drawable.city_arkaden,
-    "Le Burger" to R.drawable.le_burger,
-    "McMullens" to R.drawable.mc_mullens,
-    "Westbahnhof" to R.drawable.westbahnhof,
-    "Mensa" to R.drawable.mensa,
-    "Universität Klagenfurt" to R.drawable.uni,
-    "Stadtwerke Klagenfurt" to R.drawable.stadtwerke,
-    "Lakeside" to R.drawable.lakeside,
-    "Go To Jail" to R.drawable.gotojail,
-    "Strandbad" to R.drawable.strandbad,
-    "Loretto" to R.drawable.loretto,
-    "Villa Lido" to R.drawable.villa_lido,
-    "Lendbahnhof" to R.drawable.lendbahnhof,
-    "Botanischer Garten" to R.drawable.botanischer_garten,
-    "Kreuzbergl" to R.drawable.kreuzbegl,
-    "Heiligengeistplatz" to R.drawable.heiligengeistplatz
+private val fieldImageMappingsLower = mapOf(
+    "go" to R.drawable.corners_go_field,
+    "herrengasse" to R.drawable.herrengasse,
+    "community chest" to R.drawable.chest,
+    "reichensteuer" to R.drawable.taxes,
+    "hauptbahnhof" to R.drawable.hauptbahnhof,
+    "neuer platz" to R.drawable.neuer_platz,
+    "chance" to R.drawable.chance,
+    "alter platz" to R.drawable.alter_platz,
+    "benediktiner platz" to R.drawable.benedektiner,
+    "jail / just visiting" to R.drawable.jail,
+    "cine city" to R.drawable.cinema,
+    "kelag klagenfurt" to R.drawable.kelag,
+    "mcdonalds" to R.drawable.mcdonalds,
+    "ruthar" to R.drawable.ruthar,
+    "ostbahnhof" to R.drawable.ostbahnhof,
+    "wohnzimmer" to R.drawable.wonhzimmer,
+    "hafenstadt" to R.drawable.hafenstadt,
+    "lendcafe" to R.drawable.lendcafe,
+    "free parking" to R.drawable.free_parking,
+    "city arkaden" to R.drawable.city_arkaden,
+    "le burger" to R.drawable.le_burger,
+    "mc mullens" to R.drawable.mc_mullens,
+    "westbahnhof" to R.drawable.westbahnhof,
+    "mensa" to R.drawable.mensa,
+    "universität klagenfurt" to R.drawable.uni,
+    "stadtwerke klagenfurt" to R.drawable.stadtwerke,
+    "lakeside" to R.drawable.lakeside,
+    "go to jail" to R.drawable.gotojail,
+    "strandbad" to R.drawable.strandbad,
+    "loretto" to R.drawable.loretto,
+    "villa lido" to R.drawable.villa_lido,
+    "lendbahnhof" to R.drawable.lendbahnhof,
+    "botanischer garten" to R.drawable.botanischer_garten,
+    "kreuzbergl" to R.drawable.kreuzbegl,
+    "heiligengeistplatz" to R.drawable.heiligengeistplatz
 )
 
+/** Normalized lookup: trims and lowercases the field name before matching. */
 fun getFieldImageMapping(fieldName: String): Int? {
-    return fieldImageMappings[fieldName.trim()]
+    return fieldImageMappingsLower[fieldName.trim().lowercase()]
 }
 
-private fun fieldItemContainerMod(bounds: FieldBounds): Modifier {
+private fun fieldItemContainerMod(bounds: FieldBounds, index: Int): Modifier {
     val borderWidth = if (bounds.isCorner) 0.75.dp else 0.5.dp
     val borderAlpha = if (bounds.isCorner) 0.5f else 0.4f
-    val backgroundColor = Color.White
+    val backgroundColor = if (bounds.isCorner) {
+        cornerColors[index] ?: Color.White
+    } else {
+        Color.White
+    }
+    val elevation = if (bounds.isCorner) 4.dp else 2.dp
 
     return Modifier
         .offset(x = bounds.x.dp, y = bounds.y.dp)
         .size(bounds.width.dp, bounds.height.dp)
+        .shadow(elevation, RectangleShape, clip = false)
         .clip(RectangleShape)
         .border(borderWidth, Color.Black.copy(alpha = borderAlpha))
         .background(backgroundColor)
@@ -213,7 +261,8 @@ private fun fieldItemContainerMod(bounds: FieldBounds): Modifier {
 private fun FieldImage(
     imageRes: Int?,
     fieldName: String,
-    bounds: FieldBounds
+    bounds: FieldBounds,
+    tint: Color? = null
 ) {
     if (imageRes == null) return
 
@@ -230,7 +279,7 @@ private fun FieldImage(
             .offset(y = imgOffsetY)
             .rotate(bounds.rotation)
             .clip(imageShape)
-            .background(Color.White)
+            .background(Color.Transparent)
             .border(borderWidth, Color.White, imageShape)
     ) {
         Image(
@@ -239,9 +288,56 @@ private fun FieldImage(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(imagePadding),
-            contentScale = ContentScale.Fit
+            contentScale = ContentScale.Fit,
+            colorFilter = tint?.let { ColorFilter.tint(it, BlendMode.SrcAtop) }
         )
     }
+}
+
+/**
+ * A small colored dot in the outer corner of a field indicating it's owned.
+ * Color matches the property color for PropertyFields, dark-gray for railroads/utilities.
+ */
+@Composable
+private fun BoxScope.OwnerIndicator(
+    side: Int,
+    fieldColor: Color
+) {
+    val dotSize = 4.dp
+    val alignment = when (side) {
+        0 -> Alignment.TopStart
+        1 -> Alignment.BottomStart
+        2 -> Alignment.BottomEnd
+        3 -> Alignment.TopEnd
+        else -> Alignment.TopStart
+    }
+
+    Box(
+        modifier = Modifier
+            .size(dotSize)
+            .align(alignment)
+            .offset(x = 2.dp, y = 2.dp)
+            .clip(CircleShape)
+            .background(fieldColor)
+            .border(0.5.dp, Color.Black.copy(alpha = 0.3f), CircleShape)
+    )
+}
+
+/**
+ * A diagonal "MORTGAGED" watermark overlay for owned fields that are mortgaged.
+ */
+@Composable
+private fun BoxScope.MortgagedOverlay(bounds: FieldBounds) {
+    Text(
+        text = "MORTGAGED",
+        color = Color.Red.copy(alpha = 0.5f),
+        fontSize = 2.5.sp,
+        fontWeight = FontWeight.Bold,
+        maxLines = 1,
+        modifier = Modifier
+            .align(Alignment.Center)
+            .rotate(bounds.rotation)
+    )
 }
 
 @Composable

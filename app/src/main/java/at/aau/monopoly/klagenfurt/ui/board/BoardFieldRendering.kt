@@ -44,6 +44,8 @@ import at.aau.monopoly.klagenfurt.model.field.PropertyField
 import at.aau.monopoly.klagenfurt.model.field.RailroadField
 import at.aau.monopoly.klagenfurt.ui.util.toComposeColor
 import com.example.myapplication.R
+import kotlin.math.max
+import kotlin.math.min
 import kotlin.math.roundToInt
 import kotlin.math.sqrt
 
@@ -211,13 +213,9 @@ private fun cornerTextAlignment(index: Int): Alignment = when (index) {
     else -> Alignment.BottomCenter
 }
 
-private fun sideTextAlignment(side: Int): Alignment = when (side) {
-    0 -> Alignment.BottomCenter
-    1 -> Alignment.CenterStart
-    2 -> Alignment.TopCenter
-    3 -> Alignment.CenterEnd
-    else -> Alignment.BottomCenter
-}
+private fun normalContentWidth(bounds: FieldBounds): Float = max(bounds.width, bounds.height)
+
+private fun normalContentHeight(bounds: FieldBounds): Float = min(bounds.width, bounds.height)
 
 private val fieldImageMappingsLower = mapOf(
     "go" to R.drawable.corners_go_field,
@@ -292,38 +290,42 @@ private fun BoxScope.FieldImage(
 ) {
     if (imageRes == null) return
 
-    val imageModifier = when {
-        bounds.isCorner -> {
-            Modifier
+    if (bounds.isCorner) {
+        Image(
+            painter = painterResource(id = imageRes),
+            contentDescription = fieldName,
+            modifier = Modifier
                 .fillMaxSize(0.80f)
                 .align(innerCornerAlignment(index))
                 .padding(6.dp)
-        }
-
-        side == 0 || side == 2 -> {
-            Modifier
-                .fillMaxWidth(0.68f)
-                .fillMaxHeight(0.42f)
-                .align(Alignment.Center)
-                .offset(y = (-4).dp)
-        }
-
-        else -> {
-            Modifier
-                .fillMaxWidth(0.78f)
-                .fillMaxHeight(0.52f)
-                .align(Alignment.Center)
-                .offset(y = (-2).dp)
-        }
+                .rotate(bounds.rotation),
+            contentScale = ContentScale.Fit,
+            colorFilter = tint?.let { ColorFilter.tint(it, BlendMode.SrcAtop) }
+        )
+        return
     }
 
-    Image(
-        painter = painterResource(id = imageRes),
-        contentDescription = fieldName,
-        modifier = imageModifier.rotate(bounds.rotation),
-        contentScale = ContentScale.Fit,
-        colorFilter = tint?.let { ColorFilter.tint(it, BlendMode.SrcAtop) }
-    )
+    Box(
+        modifier = Modifier
+            .size(
+                width = normalContentWidth(bounds).dp,
+                height = normalContentHeight(bounds).dp
+            )
+            .align(Alignment.Center)
+            .rotate(bounds.rotation),
+        contentAlignment = Alignment.Center
+    ) {
+        Image(
+            painter = painterResource(id = imageRes),
+            contentDescription = fieldName,
+            modifier = Modifier
+                .fillMaxWidth(0.68f)
+                .fillMaxHeight(0.42f)
+                .offset(y = (-4).dp),
+            contentScale = ContentScale.Fit,
+            colorFilter = tint?.let { ColorFilter.tint(it, BlendMode.SrcAtop) }
+        )
+    }
 }
 
 /**
@@ -420,31 +422,48 @@ fun BoxScope.FieldTitle(
     text: String,
     bounds: FieldBounds
 ) {
-    val textModifier = if (bounds.isCorner) {
-        Modifier
-            .fillMaxWidth(0.92f)
-            .align(cornerTextAlignment(index))
-            .padding(horizontal = 6.dp, vertical = 6.dp)
-    } else {
-        Modifier
-            .fillMaxSize()
-            .padding(2.dp)
-    }
-    val textAlignment = if (bounds.isCorner) {
-        Alignment.BottomCenter
-    } else {
-        sideTextAlignment(side)
+    if (bounds.isCorner) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth(0.92f)
+                .align(cornerTextAlignment(index))
+                .padding(horizontal = 6.dp, vertical = 6.dp),
+            contentAlignment = Alignment.BottomCenter
+        ) {
+            Text(
+                text = text,
+                color = Color.Black,
+                fontSize = 4.5.sp,
+                lineHeight = 5.0.sp,
+                letterSpacing = (-0.12).sp,
+                fontWeight = FontWeight.Bold,
+                textAlign = TextAlign.Center,
+                softWrap = true,
+                overflow = TextOverflow.Clip,
+                maxLines = 3,
+                style = TextStyle(hyphens = Hyphens.Auto),
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
+        return
     }
 
     Box(
-        modifier = textModifier,
-        contentAlignment = textAlignment
+        modifier = Modifier
+            .size(
+                width = normalContentWidth(bounds).dp,
+                height = normalContentHeight(bounds).dp
+            )
+            .align(Alignment.Center)
+            .rotate(bounds.rotation)
+            .padding(2.dp),
+        contentAlignment = Alignment.BottomCenter
     ) {
         Text(
             text = text,
             color = Color.Black,
-            fontSize = if (bounds.isCorner) 4.5.sp else 3.0.sp,
-            lineHeight = if (bounds.isCorner) 5.0.sp else 3.4.sp,
+            fontSize = 3.0.sp,
+            lineHeight = 3.4.sp,
             letterSpacing = (-0.12).sp,
             fontWeight = FontWeight.Bold,
             textAlign = TextAlign.Center,
@@ -452,9 +471,7 @@ fun BoxScope.FieldTitle(
             overflow = TextOverflow.Clip,
             maxLines = 3,
             style = TextStyle(hyphens = Hyphens.Auto),
-            modifier = Modifier
-                .fillMaxWidth(if (bounds.isCorner) 1f else 0.96f)
-                .rotate(bounds.rotation)
+            modifier = Modifier.fillMaxWidth(0.96f)
         )
     }
 }

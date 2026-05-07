@@ -257,12 +257,17 @@ class GameViewModel(private val gameService: GameService) : ViewModel() {
     fun startGame() = gameService.startGame()
 
     private var isCheatActive = false
+    private var lastDiceRollTimestamp = 0L
 
     fun activateCheatForNextRoll() {
         isCheatActive = true
     }
 
     fun rollDice() {
+        val now = System.currentTimeMillis()
+        // Prevent double-fires from button tap + simultaneous shake sensor event
+        if (now - lastDiceRollTimestamp < 1500L) return
+        lastDiceRollTimestamp = now
         gameService.rollDice(isCheating = isCheatActive)
         isCheatActive = false
     }

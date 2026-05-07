@@ -150,6 +150,10 @@ class GameViewModelTest {
     fun `cheat flag should be reset after one roll`() {
         viewModel.activateCheatForNextRoll()
         viewModel.rollDice()
+        
+        // Wait for debounce period
+        Thread.sleep(1600)
+        
         viewModel.rollDice()
         verify(exactly = 1) { gameService.rollDice(true) }
         verify(exactly = 1) { gameService.rollDice(false) }

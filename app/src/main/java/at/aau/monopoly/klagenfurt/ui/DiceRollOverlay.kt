@@ -30,6 +30,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import android.util.Log
 import kotlinx.coroutines.delay
 
 @Composable
@@ -37,35 +38,50 @@ fun DiceRollOverlay(
     isVisible: Boolean,
     diceResult: Pair<Int, Int>? = null,
     isRolling: Boolean = false,
+    hasShaken: Boolean = false,
     onClose: () -> Unit
 ) {
     if (!isVisible) return
 
-    // displayRolling is controlled solely by the LaunchedEffect below,
+    // Three visual states:
+    //   1. Idle    – overlay open, waiting for the user to shake (no animation, no result).
+    //   2. Rolling – user has shaken, network request fired; dice animate.
+    //   3. Result  – server response received and minimum overlay duration elapsed.
+    //
+    // displayRolling is controlled solely by the LaunchedEffects below,
     // NOT by remember(isRolling). This prevents the animation from being
     // aborted prematurely when isRolling flips to false on server response.
-    // Reset when overlay reappears (isVisible toggles) so a second roll starts fresh
-    var displayRolling by remember(isVisible) { mutableStateOf(true) }
-    var displayResult by remember { mutableStateOf<Pair<Int, Int>?>(null) }
-    var rollStartMs by remember { mutableStateOf(0L) }
+    var displayRolling by remember(isVisible) { mutableStateOf(false) }
+    var displayResult by remember(isVisible) { mutableStateOf<Pair<Int, Int>?>(null) }
+    var rollStartMs by remember(isVisible) { mutableStateOf(0L) }
     val minOverlayMs = 1200L
 
-    // Control display state: start rolling → show animation,
-    // server responds → wait minOverlayMs → show result.
-    LaunchedEffect(diceResult, isRolling) {
-        if (!isRolling && diceResult != null) {
-            // Ensure the overlay stays visible for a minimum duration
-            val elapsed = SystemClock.elapsedRealtime() - rollStartMs
+    // Start the rolling animation the moment the user shakes the device.
+    LaunchedEffect(hasShaken) {
+        if (hasShaken && rollStartMs == 0L) {
+            rollStartMs = SystemClock.elapsedRealtime()
+            displayRolling = true
+            displayResult = null
+        }
+    }
+
+    // Wait for the server response (diceResult populated, isRolling false),
+    // then enforce the minimum overlay duration before revealing the result.
+    LaunchedEffect(diceResult, isRolling, hasShaken) {
+        if (hasShaken && !isRolling && diceResult != null) {
+            val safeStart = rollStartMs.let {
+                if (it > 0L) it
+                else {
+                    Log.w("DiceRollOverlay", "rollStartMs was 0 — using fallback start time")
+                    SystemClock.elapsedRealtime() - 1500L
+                }
+            }
+            val elapsed = SystemClock.elapsedRealtime() - safeStart
             if (elapsed < minOverlayMs) {
                 delay(minOverlayMs - elapsed)
             }
             displayResult = diceResult
             displayRolling = false
-        } else if (isRolling) {
-            // Start rolling animation
-            rollStartMs = SystemClock.elapsedRealtime()
-            displayRolling = true
-            displayResult = null
         }
     }
 
@@ -117,7 +133,8 @@ fun DiceRollOverlay(
                             text = "Total: $total",
                             fontSize = 20.sp,
                             fontWeight = FontWeight.Bold,
-                            color = Color.Black
+                            color = Color.Black,
+                            modifier = Modifier.testTag("dice_total_text")
                         )
 
                         if (isDouble) {
@@ -133,24 +150,27 @@ fun DiceRollOverlay(
 
                 Spacer(modifier = Modifier.height(20.dp))
 
-                // Instructions – differentiate sensor-active vs waiting for minOverlayMs
+                // Instructions – distinguish idle (waiting for shake), rolling (network), result.
                 Text(
                     text = when {
-                        displayRolling && isRolling -> "Shake your phone! 📱"
+                        !hasShaken -> "Shake your phone! 📱"
+                        displayRolling && isRolling -> "Rolling... 🎲"
                         displayRolling -> "Waiting for result..."
                         displayResult != null -> "Dice result shown ✓"
                         else -> "Rolling..."
                     },
                     fontSize = 14.sp,
-                    color = Color.Gray
+                    color = Color.Gray,
+                    modifier = Modifier.testTag("dice_instruction_text")
                 )
 
                 Spacer(modifier = Modifier.weight(1f))
 
-                // Close button (only enabled when not rolling)
+                // Close button: enabled in idle state (no shake yet) or after the result is shown,
+                // disabled while the dice animation/network roundtrip is in progress.
                 Button(
                     onClick = onClose,
-                    enabled = !displayRolling,
+                    enabled = !displayRolling || !hasShaken,
                     modifier = Modifier
                         .size(width = 150.dp, height = 40.dp)
                 ) {

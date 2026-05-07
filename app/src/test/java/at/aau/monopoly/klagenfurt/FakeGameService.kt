@@ -100,6 +100,10 @@ class FakeGameService : GameService {
         TODO("Not yet implemented")
     }
 
+    override fun drawCard(cardType: String) {
+        TODO("Not yet implemented")
+    }
+
     override fun subscribeToLobby() {
         subscribeToLobbyCalled = true
     }

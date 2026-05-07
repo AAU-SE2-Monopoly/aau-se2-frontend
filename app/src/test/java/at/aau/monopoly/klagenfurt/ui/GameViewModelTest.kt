@@ -255,5 +255,120 @@ class GameViewModelTest {
         assertEquals("", actualName)
     }
 
+    @Test
+    fun `drawCard should call gameService drawCard with chance`() {
+        viewModel.drawCard("CHANCE")
+
+        verify(exactly = 1) { gameService.drawCard("CHANCE") }
+    }
+
+    @Test
+    fun `drawCard should call gameService drawCard with community chest`() {
+        viewModel.drawCard("COMMUNITY_CHEST")
+
+        verify(exactly = 1) { gameService.drawCard("COMMUNITY_CHEST") }
+    }
+
+    @Test
+    fun `drawCard should use chance as default`() {
+        viewModel.drawCard()
+
+        verify(exactly = 1) { gameService.drawCard("CHANCE") }
+    }
+
+    @Test
+    fun `executeAction should call gameService executeAction`() {
+        viewModel.executeAction()
+
+        verify(exactly = 1) { gameService.executeAction("p1") }
+    }
+
+    @Test
+    fun `setCurrentActionCard should update currentActionCard state`() {
+        val card = at.aau.monopoly.klagenfurt.model.card.ChanceCard(
+            id = 1,
+            description = "Collect money",
+            action = at.aau.monopoly.klagenfurt.model.enums.CardAction.COLLECT_MONEY,
+            amount = 100
+        )
+
+        viewModel.setCurrentActionCard(card)
+
+        assertEquals(card, viewModel.currentActionCard.value)
+    }
+
+    @Test
+    fun `dismissActionCard should reset currentActionCard to null`() {
+        val card = at.aau.monopoly.klagenfurt.model.card.ChanceCard(
+            id = 1,
+            description = "Collect money",
+            action = at.aau.monopoly.klagenfurt.model.enums.CardAction.COLLECT_MONEY,
+            amount = 100
+        )
+
+        viewModel.setCurrentActionCard(card)
+        viewModel.dismissActionCard()
+
+        assertNull(viewModel.currentActionCard.value)
+    }
+
+    @Test
+    fun `ACTION_DRAWN event should set currentActionCard`() = runTest {
+        val job = launch { viewModel.currentActionCard.collect {} }
+
+        val json = """
+        {
+          "event": "ACTION_DRAWN",
+          "gameId": "g1",
+          "gameState": {
+            "gameId": "g1",
+            "fields": [],
+            "players": [
+              {
+                "id": "p1",
+                "name": "Alice",
+                "iconId": "lindwurm",
+                "money": 1500,
+                "position": 0
+              }
+            ],
+            "currentPlayerIndex": 0,
+            "phase": "BUYING",
+            "chanceCards": [],
+            "communityChestCards": [],
+            "freeParkingMoney": 0,
+            "lastDiceRoll": null,
+            "currentActionCard": {
+              "type": "CHANCE",
+              "id": 7,
+              "description": "Collect 100",
+              "action": "COLLECT_MONEY",
+              "amount": 100
+            }
+          }
+        }
+    """.trimIndent()
+
+        eventsFlow.emit(json)
+        advanceUntilIdle()
+
+        assertEquals("Collect 100", viewModel.currentActionCard.value?.description)
+
+        job.cancel()
+    }
+
+
+    @Test
+    fun `showActionCardOverlay should be false when no action card exists`() {
+        assertFalse(viewModel.showActionCardOverlay.value)
+    }
+
+    @Test
+    fun `isExecutingAction should become true immediately after executeAction`() {
+        viewModel.executeAction()
+
+        assertTrue(viewModel.isExecutingAction.value)
+    }
+
 
 }

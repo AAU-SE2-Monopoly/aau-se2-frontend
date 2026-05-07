@@ -37,12 +37,19 @@ fun DiceRollOverlay(
     isVisible: Boolean,
     diceResult: Pair<Int, Int>? = null,
     isRolling: Boolean = false,
-    onClose: () -> Unit
+    onClose: () -> Unit,
+    forceDismiss: Boolean = false
 ) {
-    // Allow user to manually dismiss the overlay; resets when overlay leaves composition
+    // Allow user to manually dismiss the overlay; resets when overlay reappears
     var userDismissed by remember { mutableStateOf(false) }
 
-    if (!isVisible || userDismissed) return
+    // Reset userDismissed when overlay reappears
+    LaunchedEffect(isVisible) {
+        if (isVisible) userDismissed = false
+    }
+
+    // forceDismiss: external signal (e.g. turn ended) immediately removes overlay
+    if (!isVisible || userDismissed || forceDismiss) return
 
     // displayRolling is controlled solely by the LaunchedEffect below,
     // NOT by remember(isRolling). This prevents the animation from being

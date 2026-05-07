@@ -267,7 +267,8 @@ class GameViewModel(private val gameService: GameService) : ViewModel() {
             val isCurrentPlayer = state?.currentPlayer?.id == gameService.currentPlayerId
             val isRollingPhase = state?.phase == GamePhase.ROLLING
             val hasResult = state?.phase == GamePhase.BUYING && state.lastDiceRoll != null
-            isCurrentPlayer && (isRollingPhase || hasResult)
+            val isTurnEnd = state?.phase == GamePhase.TURN_END
+            isCurrentPlayer && !isTurnEnd && (isRollingPhase || hasResult)
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 

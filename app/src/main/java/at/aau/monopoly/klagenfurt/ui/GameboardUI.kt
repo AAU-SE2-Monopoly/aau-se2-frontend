@@ -121,9 +121,7 @@ fun GameboardScreen(modifier: Modifier = Modifier, viewModel: GameViewModel) {
 
     val context = LocalContext.current
 
-    // ═══════════════════════════════════════════════
     // ShakeDetector lifecycle
-    // ═══════════════════════════════════════════════
     val shakeDetector = remember { ShakeDetector(context) }
 
     LaunchedEffect(Unit) {
@@ -210,7 +208,7 @@ fun GameboardScreen(modifier: Modifier = Modifier, viewModel: GameViewModel) {
                 Button(
                     onClick = { viewModel.rollDice() }
                 ) {
-                    Text("🎲 Roll Dice")
+                    Text("ðŸŽ² Roll Dice")
                 }
             }
 
@@ -222,7 +220,7 @@ fun GameboardScreen(modifier: Modifier = Modifier, viewModel: GameViewModel) {
                     onClick = { viewModel.endTurn() },
                     modifier = Modifier.padding(top = 8.dp)
                 ) {
-                    Text("✅ End Turn")
+                    Text("âœ… End Turn")
                 }
             }
         }
@@ -230,12 +228,14 @@ fun GameboardScreen(modifier: Modifier = Modifier, viewModel: GameViewModel) {
         // Wire DiceRollOverlay to ViewModel-derived states
         val showDiceOverlay by viewModel.showDiceOverlayForCurrentPlayer.collectAsState()
         val diceResultForCurrentPlayer by viewModel.diceResultForCurrentPlayer.collectAsState()
+        val isMyTurn = gameState?.currentPlayer?.id == currentPlayerId
         if (showDiceOverlay) {
             DiceRollOverlay(
                 isVisible = true,
                 diceResult = diceResultForCurrentPlayer?.let { Pair(it.die1, it.die2) },
                 isRolling = isRollingPhaseForCurrentPlayer,
-                onClose = { /* overlay auto-hides via showDiceOverlayForCurrentPlayer */ }
+                onClose = { /* overlay auto-hides via showDiceOverlayForCurrentPlayer */ },
+                forceDismiss = !isMyTurn
             )
         }
 
@@ -332,12 +332,12 @@ fun GameboardContent(
                             )
                         }
                     }
-                    // Old flat PlayerToken loop removed – tokens are now rendered inside FieldItem.
+                    // Old flat PlayerToken loop removed â€“ tokens are now rendered inside FieldItem.
                 }
             }
         }
 
-        // Overlay: Left panel – other players
+        // Overlay: Left panel â€“ other players
         if (otherPlayers.isNotEmpty()) {
             Column(
                 modifier = Modifier
@@ -360,7 +360,7 @@ fun GameboardContent(
             }
         }
 
-        // Overlay: Center – current field card
+        // Overlay: Center â€“ current field card
         if (currentField != null) {
             Box(
                 modifier = Modifier
@@ -371,7 +371,7 @@ fun GameboardContent(
             }
         }
 
-        // Overlay: Right panel – own player
+        // Overlay: Right panel â€“ own player
         if (myPlayer != null) {
             Column(
                 modifier = Modifier

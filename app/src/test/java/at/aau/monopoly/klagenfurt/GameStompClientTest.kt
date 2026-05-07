@@ -1085,7 +1085,9 @@ class GameStompClientTest {
         val createJob = launch {
             resultGameId = gameStompClient.createGame("Player1", "lindwurm")
         }
-        advanceUntilIdle()
+        // Use runCurrent() instead of advanceUntilIdle() to avoid advancing virtual time
+        // and prematurely triggering the 10s withTimeoutOrNull inside createGame.
+        runCurrent()
 
         // Simulate server responding with GAME_CREATED
         personalFlow.emit("""{"event":"GAME_CREATED","gameId":"test-id"}""")
@@ -1144,7 +1146,9 @@ class GameStompClientTest {
         val createJob = launch {
             resultGameId = gameStompClient.createGame("Player1", "lindwurm")
         }
-        advanceUntilIdle()
+        // Use runCurrent() instead of advanceUntilIdle() to avoid advancing virtual time
+        // and prematurely triggering the 10s withTimeoutOrNull inside createGame.
+        runCurrent()
 
         // Emit GAME_CREATED so createGame proceeds to subscribeToGameInternal
         personalFlow.emit("""{"event":"GAME_CREATED","gameId":"test-orphan"}""")

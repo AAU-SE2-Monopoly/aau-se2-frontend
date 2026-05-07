@@ -18,7 +18,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.mapNotNull
 import at.aau.monopoly.klagenfurt.messaging.GameEvent
 import org.hildan.krossbow.stomp.StompClient
 import org.hildan.krossbow.stomp.StompSession
@@ -255,28 +255,29 @@ class GameStompClient(
 
         Log.d("GameStomp", "Sending create command for player: $playerName with icon: $iconId")
 
-        // Start the collector BEFORE sending the request to avoid race conditions
-        val resultChannel = Channel<GameEvent>(Channel.CONFLATED)
-        val collectingJob = scope.launch {
-            _events.collect { json ->
-                try {
-                    val event = objectMapper.readValue(json, GameEvent::class.java)
-                    if (event.event == "GAME_CREATED") {
-                        resultChannel.trySend(event)
-                    }
-                } catch (_: Exception) {
-                    // Ignore parse errors
-                }
-            }
+        // Launch the send asynchronously so we can start collecting events before the
+        // server responds. By collecting synchronously on _events (instead of via
+        // scope.launch) we eliminate the race condition where the GAME_CREATED event
+        // could arrive before our collector is active.
+        scope.launch {
+            sendRawInternal("/app/game/create", playerJson)
         }
 
-        sendRaw("/app/game/create", playerJson)
-
+        // Collect from _events synchronously in the current coroutine.
+        // This guarantees we are subscribed to _events before the server can respond.
         val createEvent = withTimeoutOrNull(10_000L) {
-            resultChannel.receive()
+            _events
+                .mapNotNull { json ->
+                    try {
+                        val event = objectMapper.readValue(json, GameEvent::class.java)
+                        if (event.event == "GAME_CREATED") event else null
+                    } catch (_: Exception) {
+                        // Ignore parse errors
+                        null
+                    }
+                }
+                .first()
         }
-        collectingJob.cancel()
-        resultChannel.close()
 
         if (createEvent == null) {
             emitStatus("Create game failed: no response from server (timeout)")
@@ -320,44 +321,46 @@ class GameStompClient(
 
         Log.d("GameStomp", "Sending join command for game: $gameId with icon: $iconId")
 
-        // Start the collector BEFORE sending the request to avoid race conditions
-        val resultChannel = Channel<GameEvent>(Channel.CONFLATED)
-        val collectingJob = scope.launch {
-            _events.collect { json ->
-                try {
-                    val event = objectMapper.readValue(json, GameEvent::class.java)
-
-                    // Ignore events from other games
-                    if (event.gameId != gameId) return@collect
-
-                    when (event.event) {
-                        "PLAYER_JOINED" -> {
-                            val isOurJoin = event.gameState?.players
-                                ?.any { it.id == currentPlayerId } == true
-                            if (isOurJoin) {
-                                resultChannel.trySend(event)
-                            }
-                        }
-                        "ERROR" -> {
-                            resultChannel.trySend(event)
-                        }
-                    }
-                } catch (_: Exception) {
-                    // Ignore parse errors
-                }
-            }
+        // Launch the send asynchronously so we can start collecting events before the
+        // server responds. By collecting synchronously on _events (instead of via
+        // scope.launch) we eliminate the race condition where the PLAYER_JOINED event
+        // could arrive before our collector is active.
+        scope.launch {
+            sendRawInternal(
+                "/app/game/join",
+                buildAction(extra = mapOf("name" to playerName, "iconId" to iconId))
+            )
         }
 
-        sendRawInternal(
-            "/app/game/join",
-            buildAction(extra = mapOf("name" to playerName, "iconId" to iconId))
-        )
-
+        // Collect from _events synchronously in the current coroutine.
+        // This guarantees we are subscribed to _events before the server can respond.
         val result = withTimeoutOrNull(10_000L) {
-            resultChannel.receive()
+            _events
+                .mapNotNull { json ->
+                    try {
+                        val event = objectMapper.readValue(json, GameEvent::class.java)
+
+                        // Ignore events from other games
+                        if (event.gameId != gameId) return@mapNotNull null
+
+                        when (event.event) {
+                            "PLAYER_JOINED" -> {
+                                val isOurJoin = event.gameState?.players
+                                    ?.any { it.id == currentPlayerId } == true
+                                if (isOurJoin) event else null
+                            }
+                            "ERROR" -> {
+                                event
+                            }
+                            else -> null
+                        }
+                    } catch (_: Exception) {
+                        // Ignore parse errors
+                        null
+                    }
+                }
+                .first()
         }
-        collectingJob.cancel()
-        resultChannel.close()
 
         if (result == null) {
             val msg = "Join timeout: no server response for game $gameId"

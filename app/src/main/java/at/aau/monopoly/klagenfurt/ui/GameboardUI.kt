@@ -56,6 +56,8 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.filter
 import android.view.KeyEvent
+import at.aau.monopoly.klagenfurt.model.field.ChanceField
+import at.aau.monopoly.klagenfurt.model.field.CommunityChestField
 
 
 class GameboardUI : ComponentActivity() {
@@ -114,6 +116,12 @@ fun GameboardScreen(modifier: Modifier = Modifier, viewModel: GameViewModel) {
     val players = gameState?.players ?: emptyList()
     val currentPlayerId = viewModel.currentPlayerId
     val currentTurnPlayer = gameState?.currentPlayer
+    val currentField = currentTurnPlayer?.let { player ->
+        fields.getOrNull(player.position)
+    }
+
+    val isOnChanceField = currentField is ChanceField
+    val isOnCommunityChestField = currentField is CommunityChestField
     val eventLog by viewModel.eventLog.collectAsState()
 
     val isRollingPhaseForCurrentPlayer by viewModel.isRollingPhaseForCurrentPlayer.collectAsState()
@@ -221,19 +229,22 @@ fun GameboardScreen(modifier: Modifier = Modifier, viewModel: GameViewModel) {
                 Text(" Roll Dice")
             }
 
-            Button(
-                onClick = { viewModel.drawCard("CHANCE") },
-                enabled = !showActionCardOverlay,
-                modifier = Modifier.padding(bottom = 8.dp)
-            ) {
-                Text("Draw Chance")
+            if (isOnChanceField) {
+                Button(
+                    onClick = { viewModel.drawCard("CHANCE") },
+                    enabled = !showActionCardOverlay
+                ) {
+                    Text("Draw Chance")
+                }
             }
 
-            Button(
-                onClick = { viewModel.drawCard("COMMUNITY_CHEST") },
-                enabled = !showActionCardOverlay
-            ) {
-                Text("Draw Community")
+            if (isOnCommunityChestField) {
+                Button(
+                    onClick = { viewModel.drawCard("COMMUNITY_CHEST") },
+                    enabled = !showActionCardOverlay
+                ) {
+                    Text("Draw Community")
+                }
             }
         }
 

@@ -94,6 +94,51 @@ class GameViewModel(private val gameService: GameService) : ViewModel() {
                 ) {
                     gameService.setGameId(event.gameId)
                 }
+
+                // Keep previousGameState up to date for every event that carries a GameState.
+                event.gameState?.let { previousGameState = it }
+
+                // Detect position changes on DICE_ROLLED events and drive animation.
+                if (event.event == "DICE_ROLLED") {
+                    val prevState = previousGameState
+                    val newState = event.gameState ?: return@onEach
+
+                    if (prevState != null) {
+                        val currentPlayerId = newState.currentPlayer?.id ?: return@onEach
+                        val prevPlayer = prevState.players.find { it.id == currentPlayerId } ?: return@onEach
+                        val newPlayer = newState.players.find { it.id == currentPlayerId } ?: return@onEach
+
+                        if (prevPlayer.position != newPlayer.position) {
+                            val diceTotal = newState.lastDiceRoll?.total
+                                ?: ((newPlayer.position - prevPlayer.position + newState.fields.size) % newState.fields.size)
+                            val path = computeMovementPath(prevPlayer.position, diceTotal, newState.fields.size)
+
+                            animationJob?.cancel()
+                            animationJob = viewModelScope.launch {
+                                _movementAnimation.value = MovementAnimationState(
+                                    playerId = currentPlayerId,
+                                    startPosition = prevPlayer.position,
+                                    path = path,
+                                    currentStepIndex = -1,
+                                    isComplete = false
+                                )
+                                path.forEachIndexed { stepIdx, _ ->
+                                    delay(250)
+                                    _movementAnimation.value = _movementAnimation.value?.copy(
+                                        currentStepIndex = stepIdx
+                                    )
+                                }
+                                _movementAnimation.value = _movementAnimation.value?.copy(
+                                    currentStepIndex = path.size,
+                                    isComplete = true
+                                )
+                            }
+                        }
+                    }
+                }
+
+                // Always update the previous game state after processing.
+                event.gameState?.let { previousGameState = it }
             }
             .launchIn(viewModelScope)
     }

@@ -314,6 +314,177 @@ class DiceRollIntegrationTest {
     }
 
     // ---------------------------------------------------------------------------
+    // Joined (second) player rolling dice tests
+    // ---------------------------------------------------------------------------
+
+    @Test
+    fun joinedPlayer_seesRollDiceButton_onTheirTurn() {
+        // Simulate a joined (non-host) player by setting currentPlayerId to the guest's ID
+        fakeService.currentPlayerId = "guest-player-id"
+        setContentWithViewModel()
+
+        // Emit a game state with two players: host and guest. currentPlayerIndex=1 (guest's turn)
+        val state = GameState(
+            gameId = "test-game",
+            fields = listOf(GoField()),
+            players = mutableListOf(
+                Player(id = "host-player-id", name = "Host"),
+                Player(id = "guest-player-id", name = "Guest")
+            ),
+            currentPlayerIndex = 1,
+            phase = GamePhase.ROLLING
+        )
+        runBlocking {
+            fakeService.emitTestEvent(objectMapper.writeValueAsString(
+                GameEvent(gameId = "test-game", event = "STATE_SNAPSHOT", gameState = state)
+            ))
+        }
+        composeTestRule.waitForIdle()
+
+        // Joined player should see the Roll Dice button (theirs is the current turn)
+        composeTestRule.onNodeWithTag("roll_dice_button").assertIsDisplayed()
+        // Overlay should NOT be open yet
+        composeTestRule.onNodeWithTag("dice_roll_overlay").assertIsNotDisplayed()
+        // No roll should have happened
+        assertFalse("rollDice must not be called before shake", fakeService.rollDiceCalled)
+    }
+
+    @Test
+    fun joinedPlayer_opensOverlay_shakesAndSeesResult() {
+        fakeService.currentPlayerId = "guest-player-id"
+        setContentWithViewModel()
+
+        // Emit two-player state with guest as current player
+        val state = GameState(
+            gameId = "test-game",
+            fields = listOf(GoField()),
+            players = mutableListOf(
+                Player(id = "host-player-id", name = "Host"),
+                Player(id = "guest-player-id", name = "Guest")
+            ),
+            currentPlayerIndex = 1,
+            phase = GamePhase.ROLLING
+        )
+        runBlocking {
+            fakeService.emitTestEvent(objectMapper.writeValueAsString(
+                GameEvent(gameId = "test-game", event = "STATE_SNAPSHOT", gameState = state)
+            ))
+        }
+        composeTestRule.waitForIdle()
+
+        // Click Roll Dice button
+        composeTestRule.onNodeWithTag("roll_dice_button").performClick()
+        composeTestRule.waitForIdle()
+
+        // Overlay opens with shake instruction
+        composeTestRule.onNodeWithTag("dice_roll_overlay").assertIsDisplayed()
+        composeTestRule.onNodeWithTag("dice_instruction_text")
+            .assertTextContains("Shake", substring = true, ignoreCase = true)
+        composeTestRule.onNodeWithTag("dice_total_text").assertIsNotDisplayed()
+
+        // Shake to trigger the roll
+        simulateShake()
+        assertTrue("rollDice must be called after shake", fakeService.rollDiceCalled)
+
+        // Server responds with dice result
+        val resultState = GameState(
+            gameId = "test-game",
+            fields = listOf(GoField()),
+            players = mutableListOf(
+                Player(id = "host-player-id", name = "Host"),
+                Player(id = "guest-player-id", name = "Guest")
+            ),
+            currentPlayerIndex = 1,
+            phase = GamePhase.BUYING,
+            lastDiceRoll = DiceRoll(die1 = 4, die2 = 2)
+        )
+        runBlocking {
+            fakeService.emitTestEvent(objectMapper.writeValueAsString(
+                GameEvent(
+                    gameId = "test-game",
+                    event = "DICE_ROLLED",
+                    gameState = resultState,
+                    message = "Guest rolled 4 + 2 = 6"
+                )
+            ))
+        }
+        composeTestRule.waitForIdle()
+
+        // Wait for minimum overlay duration
+        waitForOverlayMinDuration()
+
+        // Dice total should be displayed
+        composeTestRule.onNodeWithTag("dice_total_text").assertIsDisplayed()
+        composeTestRule.onNodeWithTag("dice_total_text")
+            .assertTextContains("Total: 6", substring = true, ignoreCase = true)
+
+        // Close overlay
+        composeTestRule.onNodeWithText("Close").performClick()
+        composeTestRule.waitForIdle()
+
+        // Chat should now show the dice rolled message
+        composeTestRule.onNodeWithText("rolled", substring = true, ignoreCase = true).assertIsDisplayed()
+    }
+
+    @Test
+    fun joinedPlayer_doesNotSeeRollButton_whenNotTheirTurn() {
+        fakeService.currentPlayerId = "guest-player-id"
+        setContentWithViewModel()
+
+        // Emit two-player state with HOST as current player (index 0)
+        val state = GameState(
+            gameId = "test-game",
+            fields = listOf(GoField()),
+            players = mutableListOf(
+                Player(id = "host-player-id", name = "Host"),
+                Player(id = "guest-player-id", name = "Guest")
+            ),
+            currentPlayerIndex = 0,
+            phase = GamePhase.ROLLING
+        )
+        runBlocking {
+            fakeService.emitTestEvent(objectMapper.writeValueAsString(
+                GameEvent(gameId = "test-game", event = "STATE_SNAPSHOT", gameState = state)
+            ))
+        }
+        composeTestRule.waitForIdle()
+
+        // Joined player should NOT see Roll Dice button (it's the host's turn)
+        composeTestRule.onNodeWithTag("roll_dice_button").assertIsNotDisplayed()
+        // Overlay should not appear
+        composeTestRule.onNodeWithTag("dice_roll_overlay").assertIsNotDisplayed()
+    }
+
+    @Test
+    fun joinedPlayer_shakeIgnored_whenNotTheirTurn() {
+        fakeService.currentPlayerId = "guest-player-id"
+        setContentWithViewModel()
+
+        // Emit two-player state with HOST as current player
+        val state = GameState(
+            gameId = "test-game",
+            fields = listOf(GoField()),
+            players = mutableListOf(
+                Player(id = "host-player-id", name = "Host"),
+                Player(id = "guest-player-id", name = "Guest")
+            ),
+            currentPlayerIndex = 0,
+            phase = GamePhase.ROLLING
+        )
+        runBlocking {
+            fakeService.emitTestEvent(objectMapper.writeValueAsString(
+                GameEvent(gameId = "test-game", event = "STATE_SNAPSHOT", gameState = state)
+            ))
+        }
+        composeTestRule.waitForIdle()
+
+        // Shake should be ignored (not guest's turn, even if overlay were open)
+        simulateShake()
+        assertFalse("Shake must be ignored when it is not the joined player's turn",
+            fakeService.rollDiceCalled)
+    }
+
+    // ---------------------------------------------------------------------------
 
     private fun setContentWithViewModel() {
         val viewModel = GameViewModel(fakeService)

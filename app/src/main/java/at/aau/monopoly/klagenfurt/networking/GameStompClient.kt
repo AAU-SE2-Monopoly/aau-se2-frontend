@@ -278,7 +278,14 @@ class GameStompClient(
         collectingJob.cancel()
         resultChannel.close()
 
-        val gameId = createEvent?.gameId
+        if (createEvent == null) {
+            emitStatus("Create game failed: no response from server (timeout)")
+            // Note: the game may still have been created on the server.
+            // Server-side TTL on empty WAITING games is the proper mitigation.
+            return null
+        }
+
+        val gameId = createEvent.gameId
         if (gameId.isNullOrBlank()) {
             emitStatus("Create game failed: no gameId in response")
             return null
@@ -287,7 +294,8 @@ class GameStompClient(
 
         val subscribed = subscribeToGameInternal(
             gameId = gameId,
-            requestStateAfterSubscribe = true
+            requestStateAfterSubscribe = true,
+            isNewlyCreated = true
         )
         if (!subscribed) {
             emitStatus("Create game failed: could not subscribe to game topic")
@@ -414,7 +422,8 @@ class GameStompClient(
 
     private suspend fun subscribeToGameInternal(
         gameId: String,
-        requestStateAfterSubscribe: Boolean
+        requestStateAfterSubscribe: Boolean,
+        isNewlyCreated: Boolean = false
     ): Boolean {
         if (gameChannel.isReady.value && gameId == _currentGameId) {
             Log.d("GameStomp", "Already subscribed to $gameId")
@@ -434,10 +443,18 @@ class GameStompClient(
         }
         if (ready == null) {
             Log.e("GameStomp", "Subscription timed out for $gameId")
-            // Close orphan game if this subscription failure is for a newly created game
-            if (gameId.isNotEmpty() && gameId == _currentGameId) {
-                scope.launch {
-                    sendRawInternal("/app/game/close", buildAction(gameId = gameId))
+            // Only attempt to close games that were newly created by us.
+            // Capture the session NOW before startReconnectLoop() nulls it.
+            if (isNewlyCreated && gameId.isNotEmpty() && gameId == _currentGameId) {
+                val capturedSession = session
+                try {
+                    if (capturedSession != null) {
+                        capturedSession.sendText("/app/game/close", buildAction(gameId = gameId))
+                    }
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (_: Exception) {
+                    // best-effort close; do not prevent reconnect
                 }
             }
             startReconnectLoop()

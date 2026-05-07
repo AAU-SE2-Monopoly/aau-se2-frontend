@@ -1049,4 +1049,126 @@ class GameStompClientTest {
         // On reconnection, since _currentGameId is "game-42", it should resub to game topic
         coVerify(atLeast = 1) { secondSession.subscribeText("/topic/game/game-42") }
     }
+
+    // =========================================================================
+    // INVARIANT: If createGame returns a gameId, NO error status is emitted.
+    // Before the fix, the GAME_CREATED could arrive and the game be created on
+    // the server, but a subscription timeout would emit "Create game failed"
+    // AND return null — breaking this invariant. The fix prevents that.
+    // =========================================================================
+
+    @Test
+    fun `createGame success returns gameId and does NOT emit any error status`() = runTest(testDispatcher) {
+        val session: StompSession = mockk(relaxed = true)
+
+        // Personal subscription forwards events to _events
+        val personalFlow = MutableSharedFlow<String>()
+        coEvery { session.subscribeText(match { it.startsWith("/topic/game/") && !it.startsWith("/topic/game/test-id") }) } returns personalFlow
+
+        // Game topic subscription resolves immediately → isReady=true quickly
+        coEvery { session.subscribeText("/topic/game/test-id") } returns MutableSharedFlow()
+        coEvery { session.sendText(any<String>(), any<String>()) } returns mockk()
+        coEvery { stompClient.connect(any<String>()) } returns session
+
+        gameStompClient.connect()
+        advanceUntilIdle()
+
+        // Collect statuses from before the createGame call
+        val statuses = mutableListOf<String>()
+        val statusJob = launch {
+            gameStompClient.status.collect { statuses.add(it) }
+        }
+        advanceUntilIdle()
+
+        // Launch createGame — it sends /app/game/create, then waits for GAME_CREATED
+        var resultGameId: String? = null
+        val createJob = launch {
+            resultGameId = gameStompClient.createGame("Player1", "lindwurm")
+        }
+        advanceUntilIdle()
+
+        // Simulate server responding with GAME_CREATED
+        personalFlow.emit("""{"event":"GAME_CREATED","gameId":"test-id"}""")
+        advanceUntilIdle()
+
+        // Assert: gameId was returned (game was created)
+        assertEquals("test-id", resultGameId)
+
+        // Assert: NO "failed" message appears in the status flow
+        val errorStatuses = statuses.filter { it.startsWith("Create game failed", ignoreCase = true) }
+        assertTrue(errorStatuses.isEmpty(),
+            "Expected no error messages but got: $errorStatuses")
+
+        statusJob.cancel()
+    }
+
+    // =========================================================================
+    // INVARIANT: If a "Create game failed" error is emitted, createGame MUST
+    // return null (the game was NOT registered as created on the client).
+    // The fix ensures close is sent on the original session BEFORE
+    // startReconnectLoop() nulls it, so the server cleans up the orphan.
+    // =========================================================================
+
+    @Test
+    fun `createGame returns null and emits error when subscription times out`() = runTest(testDispatcher) {
+        val session: StompSession = mockk(relaxed = true)
+
+        // Personal subscription forwards events
+        val personalFlow = MutableSharedFlow<String>()
+        coEvery { session.subscribeText(match { it.startsWith("/topic/game/") && !it.startsWith("/topic/game/test-orphan") }) } returns personalFlow
+
+        // Game topic subscription delays >10s → isReady stays false → timeout
+        coEvery { session.subscribeText("/topic/game/test-orphan") } coAnswers {
+            delay(30_000)
+            MutableSharedFlow<String>()
+        }
+        coEvery { session.sendText(any<String>(), any<String>()) } returns mockk()
+
+        // Reconnect session (used after startReconnectLoop)
+        val reconnectSession: StompSession = mockk(relaxed = true)
+        coEvery { reconnectSession.subscribeText(any<String>()) } returns MutableSharedFlow()
+        coEvery { reconnectSession.sendText(any<String>(), any<String>()) } returns mockk()
+
+        coEvery { stompClient.connect(any<String>()) } returns session andThen reconnectSession
+
+        gameStompClient.connect()
+        advanceUntilIdle()
+
+        val statuses = mutableListOf<String>()
+        val statusJob = launch {
+            gameStompClient.status.collect { statuses.add(it) }
+        }
+        advanceUntilIdle()
+
+        var resultGameId: String? = "SHOULD_BE_NULL"
+        val createJob = launch {
+            resultGameId = gameStompClient.createGame("Player1", "lindwurm")
+        }
+        advanceUntilIdle()
+
+        // Emit GAME_CREATED so createGame proceeds to subscribeToGameInternal
+        personalFlow.emit("""{"event":"GAME_CREATED","gameId":"test-orphan"}""")
+        advanceUntilIdle()
+
+        // Advance past the 10s subscription timeout in two stages for robustness
+        advanceTimeBy(10_000)
+        advanceTimeBy(1)
+        advanceUntilIdle()
+
+        // Assert: createGame returned null (client considers it failed)
+        assertEquals(null, resultGameId)
+
+        // Assert: the error status WAS emitted
+        val errorStatuses = statuses.filter { it.startsWith("Create game failed", ignoreCase = true) }
+        assertTrue(errorStatuses.isNotEmpty(),
+            "Expected 'Create game failed' status but got: $statuses")
+
+        // KEY: close message was sent on the ORIGINAL session (proving the fix works)
+        // Before the fix, close was scope.launch-ed AFTER session was nulled → never sent
+        coVerify(exactly = 1) {
+            session.sendText("/app/game/close", match { it.contains("\"gameId\":\"test-orphan\"") })
+        }
+
+        statusJob.cancel()
+    }
 }

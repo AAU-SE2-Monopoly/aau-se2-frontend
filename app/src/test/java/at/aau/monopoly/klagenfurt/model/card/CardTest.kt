@@ -57,4 +57,92 @@ class CardTest {
 
         assertNotEquals(card1.id, card2.id)
     }
+
+    @Test
+    fun `test card collect money action`() {
+        val card = TestCard(
+            id = 10,
+            description = "Collect money",
+            action = CardAction.COLLECT_MONEY,
+            amount = 200
+        )
+
+        assertEquals(CardAction.COLLECT_MONEY, card.action)
+        assertEquals(200, card.amount)
+    }
+
+    @Test
+    fun `test card move forward action`() {
+        val card = TestCard(
+            id = 11,
+            description = "Move forward",
+            action = CardAction.MOVE_FORWARD,
+            moveSpaces = 3
+        )
+
+        assertEquals(CardAction.MOVE_FORWARD, card.action)
+        assertEquals(3, card.moveSpaces)
+    }
+
+    @Test
+    fun `test card go to jail action`() {
+        val card = TestCard(
+            id = 12,
+            description = "Go to jail",
+            action = CardAction.GO_TO_JAIL
+        )
+
+        assertEquals(CardAction.GO_TO_JAIL, card.action)
+        assertEquals(0, card.amount)
+        assertNull(card.targetFieldId)
+        assertEquals(0, card.moveSpaces)
+    }
+
+    @Test
+    fun `test card get out of jail action`() {
+        val card = TestCard(
+            id = 13,
+            description = "Get out of jail",
+            action = CardAction.GET_OUT_OF_JAIL
+        )
+
+        assertEquals(CardAction.GET_OUT_OF_JAIL, card.action)
+    }
+
+    @Test
+    fun `test card pay each player action`() {
+        val card = TestCard(
+            id = 14,
+            description = "Pay each player",
+            action = CardAction.PAY_EACH_PLAYER,
+            amount = 50
+        )
+
+        assertEquals(CardAction.PAY_EACH_PLAYER, card.action)
+        assertEquals(50, card.amount)
+    }
+
+    @Test
+    fun `test card collect from each player action`() {
+        val card = TestCard(
+            id = 15,
+            description = "Collect from each player",
+            action = CardAction.COLLECT_FROM_EACH,
+            amount = 25
+        )
+
+        assertEquals(CardAction.COLLECT_FROM_EACH, card.action)
+        assertEquals(25, card.amount)
+    }
+
+    @Test
+    fun `test two cards with same values have same properties`() {
+        val card1 = TestCard(1, "Same", CardAction.COLLECT_MONEY, amount = 100)
+        val card2 = TestCard(1, "Same", CardAction.COLLECT_MONEY, amount = 100)
+
+        assertEquals(card1.id, card2.id)
+        assertEquals(card1.description, card2.description)
+        assertEquals(card1.action, card2.action)
+        assertEquals(card1.amount, card2.amount)
+    }
 }

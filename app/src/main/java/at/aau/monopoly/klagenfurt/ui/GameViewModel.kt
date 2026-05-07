@@ -11,6 +11,11 @@ import at.aau.monopoly.klagenfurt.model.field.Field
 import at.aau.monopoly.klagenfurt.model.enums.GamePhase
 import at.aau.monopoly.klagenfurt.networking.GameService
 import at.aau.monopoly.klagenfurt.networking.JacksonProvider
+import at.aau.monopoly.klagenfurt.ui.board.MovementAnimationState
+import at.aau.monopoly.klagenfurt.ui.board.computeMovementPath
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -21,6 +26,7 @@ import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.runningFold
 import kotlinx.coroutines.flow.shareIn
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 
 class GameViewModel(private val gameService: GameService) : ViewModel() {
 
@@ -254,6 +260,68 @@ class GameViewModel(private val gameService: GameService) : ViewModel() {
     fun requestState() = gameService.requestState()
 
     fun setGameId(gameId: String) = gameService.setGameId(gameId)
+
+    private val _movementAnimation = MutableStateFlow<MovementAnimationState?>(null)
+    val movementAnimation: StateFlow<MovementAnimationState?> = _movementAnimation.asStateFlow()
+
+    private var previousGameState: GameState? = null
+    private var animationJob: Job? = null
+
+    init {
+        gameEventFlow
+            .onEach { event ->
+                if (event.event != "DICE_ROLLED") return@onEach
+
+                val prevState = previousGameState
+                val newState = event.gameState ?: return@onEach
+                previousGameState = newState
+
+                if (prevState == null) return@onEach
+
+                val currentPlayerId = newState.currentPlayer?.id ?: return@onEach
+                val prevPlayer = prevState.players.find { it.id == currentPlayerId } ?: return@onEach
+                val newPlayer = newState.players.find { it.id == currentPlayerId } ?: return@onEach
+
+                if (prevPlayer.position == newPlayer.position) return@onEach
+
+                val diceTotal = newState.lastDiceRoll?.total
+                    ?: ((newPlayer.position - prevPlayer.position + newState.fields.size) % newState.fields.size)
+
+                val path = computeMovementPath(prevPlayer.position, diceTotal, newState.fields.size)
+
+                // Cancel any previous animation before starting a new one.
+                animationJob?.cancel()
+                animationJob = viewModelScope.launch {
+                    _movementAnimation.value = MovementAnimationState(
+                        playerId = currentPlayerId,
+                        startPosition = prevPlayer.position,
+                        path = path,
+                        currentStepIndex = -1,
+                        isComplete = false
+                    )
+
+                    path.forEachIndexed { stepIdx, _ ->
+                        delay(250)
+                        _movementAnimation.value = _movementAnimation.value?.copy(
+                            currentStepIndex = stepIdx
+                        )
+                    }
+
+                    _movementAnimation.value = _movementAnimation.value?.copy(
+                        currentStepIndex = path.size,
+                        isComplete = true
+                    )
+                }
+            }
+            .launchIn(viewModelScope)
+
+        // Keep previousGameState up to date for every event that carries a GameState.
+        gameEventFlow
+            .onEach { event ->
+                event.gameState?.let { previousGameState = it }
+            }
+            .launchIn(viewModelScope)
+    }
 
     private val _selectedPlayerForOverlay = kotlinx.coroutines.flow.MutableStateFlow<at.aau.monopoly.klagenfurt.model.Player?>(null)
     val selectedPlayerForOverlay: StateFlow<at.aau.monopoly.klagenfurt.model.Player?> = _selectedPlayerForOverlay

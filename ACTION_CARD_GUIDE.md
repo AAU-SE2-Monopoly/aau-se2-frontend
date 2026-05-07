@@ -35,8 +35,8 @@
  * CardAction.PAY_EACH_PLAYER        → Show "-$XX each" to all players
  * CardAction.MOVE_TO               → Show "Advance to Field #XX"
  * CardAction.MOVE_FORWARD          → Show "Move XX spaces"
- * CardAction.GO_TO_JAIL            → Show "🚔 Go to Jail"
- * CardAction.GET_OUT_OF_JAIL       → Show "🔓 Get Out of Jail Free"
+ * CardAction.GO_TO_JAIL            → Show " Go to Jail"
+ * CardAction.GET_OUT_OF_JAIL       → Show " Get Out of Jail Free"
  * 
  * ============ INTEGRATION INTO GAMEBOARDUI ============
  * 
@@ -175,4 +175,3 @@
  *   - 20+ comprehensive tests
  *   - Documentation with integration guide
  */
-

@@ -264,7 +264,7 @@ class GameViewModel(private val gameService: GameService) : ViewModel() {
 
     fun setGameId(gameId: String) = gameService.setGameId(gameId)
 
-    fun drawCard() = gameService.drawCard()
+    fun drawCard(cardType: String = "CHANCE") = gameService.drawCard(cardType)
 
      private val _selectedPlayerForOverlay = kotlinx.coroutines.flow.MutableStateFlow<at.aau.monopoly.klagenfurt.model.Player?>(null)
      val selectedPlayerForOverlay: StateFlow<at.aau.monopoly.klagenfurt.model.Player?> = _selectedPlayerForOverlay

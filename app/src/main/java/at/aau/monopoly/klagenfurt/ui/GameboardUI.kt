@@ -207,9 +207,18 @@ fun GameboardScreen(modifier: Modifier = Modifier, viewModel: GameViewModel) {
             }
 
             Button(
-                onClick = { viewModel.drawCard() }
+                onClick = { viewModel.drawCard("CHANCE") },
+                enabled = !showActionCardOverlay,
+                modifier = Modifier.padding(bottom = 8.dp)
             ) {
-                Text("Draw Card")
+                Text("Draw Chance")
+            }
+
+            Button(
+                onClick = { viewModel.drawCard("COMMUNITY_CHEST") },
+                enabled = !showActionCardOverlay
+            ) {
+                Text("Draw Community")
             }
         }
 

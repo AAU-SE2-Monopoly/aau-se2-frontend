@@ -208,8 +208,18 @@ fun FieldItem(
             MortgagedOverlay(bounds = bounds)
         }
 
-        // Player token container on every non-corner field
-        if (!bounds.isCorner) {
+        // Player token container on every field (including corners)
+        if (bounds.isCorner) {
+            CornerPlayerTokenContainer(
+                index = index,
+                sw = sw,
+                sh = sh,
+                playersOnField = playersOnField,
+                animatingPlayerId = animatingPlayerId,
+                animatingStep = animatingStep,
+                animationComplete = animationComplete
+            )
+        } else {
             PlayerTokenContainer(
                 side = side,
                 sw = sw,
@@ -243,6 +253,13 @@ private fun cornerTextAlignment(index: Int): Alignment = when (index) {
     0, 10 -> Alignment.BottomCenter
     20, 30 -> Alignment.TopCenter
     else -> Alignment.BottomCenter
+}
+
+/** Token bar alignment for corner fields – opposite the title so they don't overlap. */
+private fun cornerTokenAlignment(index: Int): Alignment = when (index) {
+    0, 10 -> Alignment.TopCenter       // opposite of BottomCenter title
+    20, 30 -> Alignment.BottomCenter   // opposite of TopCenter title
+    else -> Alignment.TopCenter
 }
 
 private fun normalContentWidth(bounds: FieldBounds): Float = max(bounds.width, bounds.height)
@@ -617,6 +634,72 @@ private fun BoxScope.PlayerTokenContainer(
 }
 
 @Composable
+private fun BoxScope.CornerPlayerTokenContainer(
+    index: Int,
+    sw: Float,
+    sh: Float,
+    playersOnField: List<Player>,
+    animatingPlayerId: String?,
+    animatingStep: Int?,
+    animationComplete: Boolean
+) {
+    // Position token bar opposite the title to avoid overlap
+    val alignment = cornerTokenAlignment(index)
+    val containerThickness = 28f
+
+    val shouldBlink = animatingPlayerId != null &&
+            animatingStep == index &&
+            !animationComplete &&
+            playersOnField.any { it.id == animatingPlayerId }
+
+    val containerAlpha = if (shouldBlink) {
+        val alphaAnim = remember { Animatable(1f) }
+        LaunchedEffect(shouldBlink) {
+            while (true) {
+                alphaAnim.animateTo(0.35f, tween(150))
+                alphaAnim.animateTo(1f, tween(150))
+            }
+        }
+        alphaAnim.value
+    } else 1f
+
+    Box(
+        modifier = Modifier
+            .fillMaxWidth(0.55f)
+            .height(((containerThickness / 2160f) * sh).dp)
+            .align(alignment)
+            .padding(bottom = 4.dp)
+            .background(Color.White.copy(alpha = containerAlpha * 0.65f))
+            .border(0.5.dp, Color.Black.copy(alpha = 0.25f)),
+        contentAlignment = Alignment.Center
+    ) {
+        if (playersOnField.isNotEmpty()) {
+            Row(
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                playersOnField.take(5).forEach { player ->
+                    val isAnimating = player.id == animatingPlayerId && shouldBlink
+                    MiniPlayerToken(
+                        player = player,
+                        isHighlighted = isAnimating,
+                        modifier = Modifier.size(7.dp)
+                    )
+                }
+                if (playersOnField.size > 5) {
+                    Text(
+                        text = "+${playersOnField.size - 5}",
+                        fontSize = 3.5.sp,
+                        color = Color.Black,
+                        maxLines = 1
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
 fun BoxScope.FieldTitle(
     index: Int,
     side: Int,
@@ -651,6 +734,14 @@ private fun BoxScope.RotatedTitleContainer(
     bounds: FieldBounds,
     content: @Composable BoxScope.() -> Unit
 ) {
+    // Align title text to the INNER side (away from the token bar at the outer edge)
+    val innerAlignment = when (side) {
+        0 -> Alignment.TopCenter      // bottom row: token bar at bottom → title at top
+        1 -> Alignment.BottomCenter   // left column: after 90° rotation, BottomCenter → inner (right)
+        2 -> Alignment.TopCenter      // top row: after 180° rotation, TopCenter → inner (bottom)
+        3 -> Alignment.BottomCenter   // right column: after 270° rotation, BottomCenter → inner (left)
+        else -> Alignment.BottomCenter
+    }
     Box(
         modifier = Modifier
             .size(
@@ -659,7 +750,7 @@ private fun BoxScope.RotatedTitleContainer(
             )
             .align(Alignment.Center)
             .rotate(bounds.rotation),
-        contentAlignment = Alignment.BottomCenter
+        contentAlignment = innerAlignment
     ) {
         content()
     }

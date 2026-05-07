@@ -56,7 +56,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.filter
 import android.view.KeyEvent
-
+import at.aau.monopoly.klagenfurt.model.enums.GamePhase
 
 class GameboardUI : ComponentActivity() {
     private val viewModel: GameViewModel by viewModels {
@@ -74,7 +74,6 @@ class GameboardUI : ComponentActivity() {
         }
     }
 
-
     override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
         if (keyCode == KeyEvent.KEYCODE_VOLUME_UP) {
             // Cheat im ViewModel aktivieren
@@ -85,7 +84,6 @@ class GameboardUI : ComponentActivity() {
         }
         return super.onKeyDown(keyCode, event)
     }
-
 }
 
 @Composable
@@ -122,8 +120,6 @@ fun GameboardScreen(modifier: Modifier = Modifier, viewModel: GameViewModel) {
     val isHost by viewModel.isHost.collectAsState()
 
     val context = LocalContext.current
-
-    var showOverlay by remember { mutableStateOf(false) }
 
     // ═══════════════════════════════════════════════
     // ShakeDetector lifecycle
@@ -164,6 +160,7 @@ fun GameboardScreen(modifier: Modifier = Modifier, viewModel: GameViewModel) {
                     if (viewModel.isRollingPhaseForCurrentPlayer.value) {
                         shakeDetector.startListening()
                     }
+                    else {}
                 }
                 else -> {}
             }
@@ -208,22 +205,39 @@ fun GameboardScreen(modifier: Modifier = Modifier, viewModel: GameViewModel) {
                 }
             }
 
-            Button(
-                onClick = {
-                    showOverlay = true
-                    viewModel.rollDice()
+            // Only show Roll Dice when it's the current player's rolling phase
+            if (isRollingPhaseForCurrentPlayer) {
+                Button(
+                    onClick = { viewModel.rollDice() }
+                ) {
+                    Text("🎲 Roll Dice")
                 }
-            ) {
-                Text(" Roll Dice")
+            }
+
+            // Show End Turn when it's the current player's turn and phase is BUYING
+            val phase = gameState?.phase
+            val isMyTurn = gameState?.currentPlayer?.id == currentPlayerId
+            if (isMyTurn && phase == GamePhase.BUYING) {
+                Button(
+                    onClick = { viewModel.endTurn() },
+                    modifier = Modifier.padding(top = 8.dp)
+                ) {
+                    Text("✅ End Turn")
+                }
             }
         }
 
-        DiceRollOverlay(
-            isVisible = showOverlay,
-            diceResult = lastDiceRoll?.let { Pair(it.die1, it.die2) },
-            isRolling = isRollingPhaseForCurrentPlayer,
-            onClose = { showOverlay = false }
-        )
+        // Wire DiceRollOverlay to ViewModel-derived states
+        val showDiceOverlay by viewModel.showDiceOverlayForCurrentPlayer.collectAsState()
+        val diceResultForCurrentPlayer by viewModel.diceResultForCurrentPlayer.collectAsState()
+        if (showDiceOverlay) {
+            DiceRollOverlay(
+                isVisible = true,
+                diceResult = diceResultForCurrentPlayer?.let { Pair(it.die1, it.die2) },
+                isRolling = isRollingPhaseForCurrentPlayer,
+                onClose = { /* overlay auto-hides via showDiceOverlayForCurrentPlayer */ }
+            )
+        }
 
         GameboardOverlayLayer(eventLog = eventLog)
     }

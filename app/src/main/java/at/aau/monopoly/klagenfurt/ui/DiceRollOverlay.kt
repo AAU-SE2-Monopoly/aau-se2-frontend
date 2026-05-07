@@ -39,7 +39,10 @@ fun DiceRollOverlay(
     isRolling: Boolean = false,
     onClose: () -> Unit
 ) {
-    if (!isVisible) return
+    // Allow user to manually dismiss the overlay; resets when overlay leaves composition
+    var userDismissed by remember { mutableStateOf(false) }
+
+    if (!isVisible || userDismissed) return
 
     // displayRolling is controlled solely by the LaunchedEffect below,
     // NOT by remember(isRolling). This prevents the animation from being
@@ -149,7 +152,10 @@ fun DiceRollOverlay(
 
                 // Close button (only enabled when not rolling)
                 Button(
-                    onClick = onClose,
+                    onClick = {
+                        userDismissed = true
+                        onClose()
+                    },
                     enabled = !displayRolling,
                     modifier = Modifier
                         .size(width = 150.dp, height = 40.dp)

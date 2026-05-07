@@ -291,10 +291,10 @@ class GameViewModel(private val gameService: GameService) : ViewModel() {
         isCheatActive = true
     }
 
-    // GEÄNDERT: rollDice gibt den Cheat-Status mit und setzt ihn dann zurück
+    // GE�NDERT: rollDice gibt den Cheat-Status mit und setzt ihn dann zur�ck
     fun rollDice() {
         gameService.rollDice(isCheating = isCheatActive)
-        isCheatActive = false // Cheat nach dem Würfeln sofort wieder deaktivieren
+        isCheatActive = false // Cheat nach dem W�rfeln sofort wieder deaktivieren
     }
 
 
@@ -305,7 +305,7 @@ class GameViewModel(private val gameService: GameService) : ViewModel() {
     fun setGameId(gameId: String) = gameService.setGameId(gameId)
 
     private val _movementAnimation = MutableStateFlow<MovementAnimationState?>(null)
-    val movementAnimation: StateFlow<MovementAnimationState?> = _movementAnimation.asStateFlow()
+    val movementAnimation: StateFlow<MovementAnimationState?> = _movementAnimation
 
     private var previousGameState: GameState? = null
     private var animationJob: Job? = null

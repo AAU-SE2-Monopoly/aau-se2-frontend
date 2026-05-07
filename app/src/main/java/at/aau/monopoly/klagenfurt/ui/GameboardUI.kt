@@ -48,7 +48,7 @@ import at.aau.monopoly.klagenfurt.model.Player
 import at.aau.monopoly.klagenfurt.model.field.Field
 import at.aau.monopoly.klagenfurt.sensors.ShakeDetector
 import at.aau.monopoly.klagenfurt.ui.board.FieldItem
-import at.aau.monopoly.klagenfurt.ui.board.PlayerToken
+import at.aau.monopoly.klagenfurt.ui.board.MovementAnimationState
 import at.aau.monopoly.klagenfurt.ui.chat.ChatOverlay
 import at.aau.monopoly.klagenfurt.ui.zoom.ZoomableWrapper
 import com.example.myapplication.R
@@ -176,6 +176,7 @@ fun GameboardScreen(modifier: Modifier = Modifier, viewModel: GameViewModel) {
     }
 
     val selectedPlayer by viewModel.selectedPlayerForOverlay.collectAsState()
+    val movementState by viewModel.movementAnimation.collectAsState()
 
     LockScreenOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE)
 
@@ -188,6 +189,7 @@ fun GameboardScreen(modifier: Modifier = Modifier, viewModel: GameViewModel) {
             onPlayerCardClick = { player -> viewModel.showPlayerOverlay(player) },
             selectedPlayerForOverlay = selectedPlayer,
             onDismissOverlay = { viewModel.hidePlayerOverlay() },
+            movementAnimationState = movementState,
             modifier = Modifier.fillMaxSize()
         )
 
@@ -244,6 +246,7 @@ fun GameboardContent(
     onPlayerCardClick: (Player) -> Unit = {},
     selectedPlayerForOverlay: Player? = null,
     onDismissOverlay: () -> Unit = {},
+    movementAnimationState: MovementAnimationState? = null,
     modifier: Modifier = Modifier
 ) {
     val myPlayer = players.find { it.id == currentPlayerId }
@@ -251,6 +254,10 @@ fun GameboardContent(
 
     val currentField = currentTurnPlayer?.let { p ->
         fields.getOrNull(p.position)
+    }
+
+    val playersByField: Map<Int, List<Player>> = remember(players) {
+        players.groupBy { it.position }
     }
 
     val panelWidth = 280.dp
@@ -297,15 +304,21 @@ fun GameboardContent(
 
                     fields.take(visibleFieldCount).forEachIndexed { index, field ->
                         key(field.id) {
-                            FieldItem(index, field, sw, sh)
+                            FieldItem(
+                                index = index,
+                                field = field,
+                                sw = sw,
+                                sh = sh,
+                                playersOnField = playersByField[field.id] ?: emptyList(),
+                                animatingPlayerId = movementAnimationState?.playerId,
+                                animatingStep = movementAnimationState?.let {
+                                    if (it.currentStepIndex in it.path.indices) it.path[it.currentStepIndex] else null
+                                },
+                                animationComplete = movementAnimationState?.isComplete ?: true
+                            )
                         }
                     }
-
-                    players.forEachIndexed { index, player ->
-                        key(player.id) {
-                            PlayerToken(player = player, playerIndex = index, sw = sw, sh = sh)
-                        }
-                    }
+                    // Old flat PlayerToken loop removed – tokens are now rendered inside FieldItem.
                 }
             }
         }
@@ -375,7 +388,4 @@ fun GameboardContent(
             )
         }
     }
-
-
-
 }

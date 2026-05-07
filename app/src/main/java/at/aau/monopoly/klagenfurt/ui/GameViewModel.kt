@@ -12,11 +12,9 @@ import at.aau.monopoly.klagenfurt.model.field.Field
 import at.aau.monopoly.klagenfurt.model.enums.GamePhase
 import at.aau.monopoly.klagenfurt.networking.GameService
 import at.aau.monopoly.klagenfurt.networking.JacksonProvider
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.mapNotNull
@@ -255,7 +253,18 @@ class GameViewModel(private val gameService: GameService) : ViewModel() {
     fun startGame() = gameService.startGame()
 
     // Use the simpler main-branch behavior for rolling the dice: just forward to service.
-    fun rollDice() = gameService.rollDice()
+    private var isCheatActive = false
+
+    // NEU: Wird von der Activity aufgerufen
+    fun activateCheatForNextRoll() {
+        isCheatActive = true
+    }
+
+    // GEÄNDERT: rollDice gibt den Cheat-Status mit und setzt ihn dann zurück
+    fun rollDice() {
+        gameService.rollDice(isCheating = isCheatActive)
+        isCheatActive = false // Cheat nach dem Würfeln sofort wieder deaktivieren
+    }
 
 
     fun endTurn() = gameService.endTurn()

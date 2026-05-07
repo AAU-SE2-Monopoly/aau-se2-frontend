@@ -55,6 +55,8 @@ import com.example.myapplication.R
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.filter
+import android.view.KeyEvent
+
 
 class GameboardUI : ComponentActivity() {
     private val viewModel: GameViewModel by viewModels {
@@ -71,6 +73,19 @@ class GameboardUI : ComponentActivity() {
             GameboardScreen(viewModel = viewModel)
         }
     }
+
+
+    override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
+        if (keyCode == KeyEvent.KEYCODE_VOLUME_UP) {
+            // Cheat im ViewModel aktivieren
+            viewModel.activateCheatForNextRoll()
+            Log.d("DiceDebug", "Cheat activated via Volume Up!")
+            // WICHTIG: true zurückgeben, damit sich die Lautstärke nicht ändert
+            return true
+        }
+        return super.onKeyDown(keyCode, event)
+    }
+
 }
 
 @Composable
@@ -389,4 +404,7 @@ fun GameboardContent(
             )
         }
     }
+
+
+
 }

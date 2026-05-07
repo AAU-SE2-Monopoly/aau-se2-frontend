@@ -20,6 +20,7 @@ import org.junit.Assert.*
 import org.junit.Test
 import org.junit.Rule
 import org.junit.runner.RunWith
+import android.view.KeyEvent
 
 @RunWith(AndroidJUnit4::class)
 class GameboardUITest {
@@ -172,6 +173,24 @@ class GameboardUITest {
         // Right side (30-39)
         val b35 = calculateFieldBounds(35, sw, sh)
         assertEquals(270f, b35.rotation)
+    }
+
+    @Test
+    fun testOnKeyDown_interceptsVolumeUp() {
+        // Hole die laufende Activity-Instanz aus der Compose-Rule
+        val activity = composeTestRule.activity
+
+        // 1. Teste die Volume Up Taste (sollte abgefangen werden -> return true)
+        val volumeUpEvent = KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_VOLUME_UP)
+        val resultUp = activity.onKeyDown(KeyEvent.KEYCODE_VOLUME_UP, volumeUpEvent)
+
+        assertTrue("Volume Up sollte abgefangen werden (true)", resultUp)
+
+        // 2. Teste eine andere Taste, z.B. Volume Down (sollte an super weitergereicht werden -> i.d.R. return false)
+        val volumeDownEvent = KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_VOLUME_DOWN)
+        val resultDown = activity.onKeyDown(KeyEvent.KEYCODE_VOLUME_DOWN, volumeDownEvent)
+
+        assertFalse("Andere Tasten sollten nicht abgefangen werden (false)", resultDown)
     }
 }
 

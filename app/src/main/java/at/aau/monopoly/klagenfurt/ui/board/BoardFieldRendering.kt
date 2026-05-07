@@ -1,9 +1,13 @@
 package at.aau.monopoly.klagenfurt.ui.board
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -15,6 +19,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -36,6 +41,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import at.aau.monopoly.klagenfurt.model.Player
 import at.aau.monopoly.klagenfurt.model.field.ChanceField
 import at.aau.monopoly.klagenfurt.model.field.CommunityChestField
 import at.aau.monopoly.klagenfurt.model.field.Field
@@ -43,6 +49,7 @@ import at.aau.monopoly.klagenfurt.model.field.OwnableField
 import at.aau.monopoly.klagenfurt.model.field.PropertyField
 import at.aau.monopoly.klagenfurt.model.field.RailroadField
 import at.aau.monopoly.klagenfurt.model.field.TaxField
+import at.aau.monopoly.klagenfurt.ui.util.getPlayerTokenResource
 import at.aau.monopoly.klagenfurt.ui.util.toComposeColor
 import com.example.myapplication.R
 import kotlin.math.max
@@ -137,7 +144,16 @@ private val cornerColors = mapOf(
 )
 private val boardFieldBackground = cornerColors.getValue(10)
 @Composable
-fun FieldItem(index: Int, field: Field, sw: Float, sh: Float) {
+fun FieldItem(
+    index: Int,
+    field: Field,
+    sw: Float,
+    sh: Float,
+    playersOnField: List<Player> = emptyList(),
+    animatingPlayerId: String? = null,
+    animatingStep: Int? = null,
+    animationComplete: Boolean = true
+) {
     val bounds = remember(index, sw, sh) { calculateFieldBounds(index, sw, sh) }
     val side = (index / 10) % 4
     val imageMap = remember(field.name) { getFieldImageMapping(field.name) }
@@ -190,6 +206,20 @@ fun FieldItem(index: Int, field: Field, sw: Float, sh: Float) {
         // Mortgaged overlay watermark
         if (!bounds.isCorner && field is OwnableField && field.isMortgaged) {
             MortgagedOverlay(bounds = bounds)
+        }
+
+        // Player token container on every non-corner field
+        if (!bounds.isCorner) {
+            PlayerTokenContainer(
+                side = side,
+                sw = sw,
+                sh = sh,
+                playersOnField = playersOnField,
+                fieldId = field.id,
+                animatingPlayerId = animatingPlayerId,
+                animatingStep = animatingStep,
+                animationComplete = animationComplete
+            )
         }
 
         FieldTitle(
@@ -465,6 +495,125 @@ fun BoxScope.PropertyColorBar(
     Box(
         modifier = barModifier.background(color)
     )
+}
+@Composable
+private fun MiniPlayerToken(
+    player: Player,
+    isHighlighted: Boolean,
+    modifier: Modifier = Modifier
+) {
+    val imageRes = remember(player.iconId) { getPlayerTokenResource(player.iconId) }
+
+    val alpha = if (isHighlighted) {
+        val anim = remember { Animatable(1f) }
+        LaunchedEffect(isHighlighted) {
+            while (true) {
+                anim.animateTo(0.3f, tween(120))
+                anim.animateTo(1f, tween(120))
+            }
+        }
+        anim.value
+    } else 1f
+
+    Box(
+        modifier = modifier
+            .background(Color.White, CircleShape)
+            .clip(CircleShape),
+        contentAlignment = Alignment.Center
+    ) {
+        Image(
+            painter = painterResource(id = imageRes),
+            contentDescription = player.name,
+            modifier = Modifier
+                .fillMaxSize(0.85f)
+                .clip(CircleShape),
+            contentScale = ContentScale.Fit,
+            alpha = alpha
+        )
+    }
+}
+@Composable
+private fun BoxScope.PlayerTokenContainer(
+    side: Int,
+    sw: Float,
+    sh: Float,
+    playersOnField: List<Player>,
+    fieldId: Int,
+    animatingPlayerId: String?,
+    animatingStep: Int?,
+    animationComplete: Boolean
+) {
+    val containerThickness = 24f  // thin, consistent across all fields
+    val containerModifier = when (side) {
+        0 -> Modifier
+            .fillMaxWidth()
+            .height(((containerThickness / 2160f) * sh).dp)
+            .align(Alignment.BottomCenter)
+            .testTag("PlayerContainer-Bottom")
+        1 -> Modifier
+            .fillMaxHeight()
+            .width(((containerThickness / 3840f) * sw).dp)
+            .align(Alignment.CenterStart)
+            .testTag("PlayerContainer-Left")
+        2 -> Modifier
+            .fillMaxWidth()
+            .height(((containerThickness / 2160f) * sh).dp)
+            .align(Alignment.TopCenter)
+            .testTag("PlayerContainer-Top")
+        3 -> Modifier
+            .fillMaxHeight()
+            .width(((containerThickness / 3840f) * sw).dp)
+            .align(Alignment.CenterEnd)
+            .testTag("PlayerContainer-Right")
+        else -> Modifier
+    }
+
+    val shouldBlink = animatingPlayerId != null &&
+            animatingStep == fieldId &&
+            !animationComplete &&
+            playersOnField.any { it.id == animatingPlayerId }
+
+    val containerAlpha = if (shouldBlink) {
+        val alphaAnim = remember { Animatable(1f) }
+        LaunchedEffect(shouldBlink) {
+            while (true) {
+                alphaAnim.animateTo(0.35f, tween(150))
+                alphaAnim.animateTo(1f, tween(150))
+            }
+        }
+        alphaAnim.value
+    } else 1f
+
+    Box(
+        modifier = containerModifier
+            .background(Color.White.copy(alpha = containerAlpha * 0.55f))
+            .border(0.5.dp, Color.Black.copy(alpha = 0.2f)),
+        contentAlignment = Alignment.Center
+    ) {
+        if (playersOnField.isNotEmpty()) {
+            Row(
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                playersOnField.take(4).forEach { player ->
+                    val isAnimating = player.id == animatingPlayerId && shouldBlink
+                    MiniPlayerToken(
+                        player = player,
+                        isHighlighted = isAnimating,
+                        modifier = Modifier.size(6.dp)
+                    )
+                }
+                if (playersOnField.size > 4) {
+                    Text(
+                        text = "+${playersOnField.size - 4}",
+                        fontSize = 3.sp,
+                        color = Color.Black,
+                        maxLines = 1
+                    )
+                }
+            }
+        }
+    }
 }
 
 @Composable

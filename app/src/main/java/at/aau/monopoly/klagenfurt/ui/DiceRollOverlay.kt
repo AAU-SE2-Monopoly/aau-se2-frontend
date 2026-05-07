@@ -21,17 +21,22 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import android.util.Log
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlin.random.Random
 
 @Composable
 fun DiceRollOverlay(
@@ -204,14 +209,41 @@ private fun DiceDisplay(
         if (animKey > 0) {
             rotation1.snapTo(0f)
             rotation2.snapTo(0f)
-            rotation1.animateTo(
-                targetValue = 360f * 3,
-                animationSpec = tween(1500, easing = LinearEasing)
-            )
-            rotation2.animateTo(
-                targetValue = 360f * 3,
-                animationSpec = tween(1500, easing = LinearEasing)
-            )
+            coroutineScope {
+                launch {
+                    rotation1.animateTo(
+                        targetValue = 360f * 3,
+                        animationSpec = tween(1500, easing = LinearEasing)
+                    )
+                }
+                launch {
+                    rotation2.animateTo(
+                        targetValue = 360f * 3,
+                        animationSpec = tween(1500, easing = LinearEasing)
+                    )
+                }
+            }
+        }
+    }
+
+    // While rolling, animate the displayed numbers to simulate the dice tumbling.
+    // After the roll result is known (displayResult becomes non-null in the parent),
+    // isRolling will be false and the actual die values are shown.
+    var displayDie1 by remember { mutableIntStateOf(1) }
+    var displayDie2 by remember { mutableIntStateOf(1) }
+
+    LaunchedEffect(isRolling) {
+        if (isRolling) {
+            // Rapidly change the shown numbers while rolling to simulate tumbling
+            while (true) {
+                displayDie1 = Random.nextInt(1, 7)
+                displayDie2 = Random.nextInt(1, 7)
+                delay(100L)
+            }
+        } else {
+            // When rolling ends, show the final (actual) values
+            displayDie1 = die1
+            displayDie2 = die2
         }
     }
 
@@ -220,32 +252,34 @@ private fun DiceDisplay(
             .size(200.dp, 100.dp),
         contentAlignment = Alignment.Center
     ) {
-        // Die 1 (Red)
+        // Die 1 (Red) – rotating during rolling
         Box(
             modifier = Modifier
                 .size(80.dp)
                 .offset(x = (-50).dp)
+                .rotate(if (isRolling) rotation1.value else 0f)
                 .background(Color(0xFFE0000F), RoundedCornerShape(4.dp)),
             contentAlignment = Alignment.Center
         ) {
             Text(
-                text = die1.toString(),
+                text = displayDie1.toString(),
                 fontSize = 40.sp,
                 fontWeight = FontWeight.Bold,
                 color = Color.White
             )
         }
 
-        // Die 2 (Blue)
+        // Die 2 (Blue) – rotating during rolling
         Box(
             modifier = Modifier
                 .size(80.dp)
                 .offset(x = 50.dp)
+                .rotate(if (isRolling) rotation2.value else 0f)
                 .background(Color(0xFF000080), RoundedCornerShape(4.dp)),
             contentAlignment = Alignment.Center
         ) {
             Text(
-                text = die2.toString(),
+                text = displayDie2.toString(),
                 fontSize = 40.sp,
                 fontWeight = FontWeight.Bold,
                 color = Color.White

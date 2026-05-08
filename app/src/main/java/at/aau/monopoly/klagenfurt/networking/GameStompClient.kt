@@ -126,6 +126,7 @@ class GameStompClient(
                     session = null
                     _connectionState.value = false
                     emitStatus("Connection error: ${e.message}")
+                    isConnecting = false  // clear BEFORE startReconnectLoop so its guard doesn't bail
                     startReconnectLoop()
                 }
             } finally {

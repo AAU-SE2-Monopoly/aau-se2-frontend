@@ -179,6 +179,168 @@ class GameStompClientTest {
 
         verify { Log.e("GameStomp", "connect error", any()) }
         assertTrue(statuses.contains("Connection error: $errorMessage"))
+        assertTrue(statuses.contains("Connection error: $errorMessage"))
+        job.cancel()
+    }
+
+    // =========================================================================
+    // BUG-FIX: connect() failure must trigger startReconnectLoop().
+    // Before the fix, isConnecting remained true inside the catch block so
+    // startReconnectLoop()'s guard `if (isReconnecting || isConnecting) return`
+    // bailed immediately — the reconnect loop never ran.
+    // =========================================================================
+
+    @Test
+    fun `connect error triggers reconnect loop which retries then succeeds`() = runTest(testDispatcher) {
+        // First connect attempt fails
+        coEvery { stompClient.connect(any<String>()) } throws Exception("Connection refused") andThen stompSession
+
+        // Personal topic subscription: first session will never get here because
+        // connect failed. Second session (reconnected) needs a subscription flow.
+        coEvery { stompSession.subscribeText(match {
+            it.startsWith("/topic/game/")
+        }) } returns MutableSharedFlow()
+
+        val statuses = mutableListOf<String>()
+        val job = launch { gameStompClient.status.collect { statuses.add(it) } }
+
+        gameStompClient.connect()
+        // connect() launched a coroutine that fails → calls startReconnectLoop()
+        // which now actually runs because isConnecting was set to false before the call.
+        advanceTimeBy(1_500)  // past the 1s initial delay
+        advanceUntilIdle()
+
+        // The reconnect loop should have tried again and succeeded
+        assertTrue(statuses.contains("Reconnecting in 1s..."),
+            "Should emit 'Reconnecting in 1s...' but got: $statuses")
+        assertTrue(statuses.contains("Reconnected ✓"),
+            "Should emit 'Reconnected ✓' but got: $statuses")
+        assertTrue(gameStompClient.connectionState.value,
+            "Connection state should be true after successful reconnect")
+
+        job.cancel()
+    }
+
+    @Test
+    fun `reconnect loop runs 5 times then sets reconnectFailed true`() = runTest(testDispatcher) {
+        // All connect attempts fail
+        coEvery { stompClient.connect(any<String>()) } throws Exception("Server unreachable")
+
+        val statuses = mutableListOf<String>()
+        val job = launch { gameStompClient.status.collect { statuses.add(it) } }
+
+        gameStompClient.connect()
+        // Initial connect fails → startReconnectLoop runs
+        // Need to advance through all 5 exponential backoff delays:
+        // 1s, 2s, 4s, 8s, 16s = 31s total
+        advanceTimeBy(1_500)   // attempt 1 after 1s
+        advanceUntilIdle()
+        advanceTimeBy(2_100)   // attempt 2 after 2s
+        advanceUntilIdle()
+        advanceTimeBy(4_100)   // attempt 3 after 4s
+        advanceUntilIdle()
+        advanceTimeBy(8_100)   // attempt 4 after 8s
+        advanceUntilIdle()
+        advanceTimeBy(16_100)  // attempt 5 after 16s
+        advanceUntilIdle()
+
+        assertTrue(gameStompClient.reconnectFailed.value,
+            "reconnectFailed should be true after exhausting all attempts")
+        assertTrue(statuses.contains("Connection lost – please restart"),
+            "Should emit final failure status but got: $statuses")
+        // Should have logged each failed attempt
+        verify(atLeast = 5) { Log.e("GameStomp", match { it.contains("Reconnect attempt") }) }
+
+        job.cancel()
+    }
+
+    @Test
+    fun `pressing reconnect after all attempts exhausted restarts full reconnect cycle`() = runTest(testDispatcher) {
+        // All connect attempts fail — exhaust the first cycle
+        coEvery { stompClient.connect(any<String>()) } throws Exception("Server unreachable")
+
+        val statuses = mutableListOf<String>()
+        val job = launch { gameStompClient.status.collect { statuses.add(it) } }
+
+        // FIRST connect cycle: fails and tries 5 times
+        gameStompClient.connect()
+        advanceTimeBy(1_500)
+        advanceUntilIdle()
+        advanceTimeBy(2_100)
+        advanceUntilIdle()
+        advanceTimeBy(4_100)
+        advanceUntilIdle()
+        advanceTimeBy(8_100)
+        advanceUntilIdle()
+        advanceTimeBy(16_100)
+        advanceUntilIdle()
+
+        // Verify first cycle is exhausted
+        assertTrue(gameStompClient.reconnectFailed.value,
+            "reconnectFailed should be true after first cycle")
+
+        // Clear statuses for the second cycle
+        statuses.clear()
+
+        // User presses RECONNECT button → calls connect() again
+        // This should reset reconnectFailed and start a fresh cycle
+        gameStompClient.connect()
+
+        // Should have reset reconnectFailed
+        assertFalse(gameStompClient.reconnectFailed.value,
+            "reconnectFailed should be false after pressing reconnect")
+
+        // The first connect attempt in the new cycle fails, which triggers
+        // startReconnectLoop() → should emit "Reconnecting in 1s..."
+        advanceTimeBy(1_500)
+        advanceUntilIdle()
+
+        assertTrue(statuses.contains("Reconnecting in 1s..."),
+            "Second cycle should emit reconnect status. Got: $statuses")
+        assertTrue(statuses.contains("Reconnect failed (1/5)"),
+            "Second cycle should show attempt 1 failed. Got: $statuses")
+
+        job.cancel()
+    }
+
+    @Test
+    fun `reconnect cycle succeeds on third attempt then connectionState is true`() = runTest(testDispatcher) {
+        // First two reconnect attempts fail, third succeeds
+        coEvery { stompClient.connect(any<String>()) } throws Exception("Fail 1") andThenThrows Exception("Fail 2") andThen stompSession
+
+        coEvery { stompSession.subscribeText(match {
+            it.startsWith("/topic/game/")
+        }) } returns MutableSharedFlow()
+
+        val statuses = mutableListOf<String>()
+        val job = launch { gameStompClient.status.collect { statuses.add(it) } }
+
+        gameStompClient.connect()
+        // Initial connect fails (Fail 1)
+        // Reconnect: 1s delay → attempt 1 also fails (Fail 1 again, since andThen cycle continues)
+        // Wait — careful with mockk chaining. "throws ... andThenThrows ... andThen ..."
+        // The chain is consumed sequentially:
+        // Call 1 (initial connect): throws "Fail 1"
+        // Call 2 (reconnect attempt 1 after 1s): throws "Fail 2"
+        // Call 3 (reconnect attempt 2 after 2s): returns stompSession (success!)
+
+        // Advance past 1s delay → reconnect attempt 1 fires
+        advanceTimeBy(1_100)
+        advanceUntilIdle()
+        assertTrue(statuses.contains("Reconnect failed (1/5)"),
+            "Attempt 1 should fail. Got: $statuses")
+
+        // Advance past 2s delay → reconnect attempt 2 fires
+        advanceTimeBy(2_100)
+        advanceUntilIdle()
+        assertTrue(statuses.contains("Reconnected ✓"),
+            "Should reconnect on attempt 2. Got: $statuses")
+
+        assertTrue(gameStompClient.connectionState.value,
+            "Connection state should be true after reconnect success")
+        assertFalse(gameStompClient.reconnectFailed.value,
+            "reconnectFailed should be false after success")
+
         job.cancel()
     }
 

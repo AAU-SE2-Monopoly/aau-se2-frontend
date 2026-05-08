@@ -19,27 +19,27 @@ class SubscriptionChannel(
     private val onError: ((Throwable) -> Unit)? = null
 ) {
     private var job: Job? = null
+    private var currentTopic: String? = null
     private val _isReady = MutableStateFlow(false)
     val isReady: StateFlow<Boolean> = _isReady.asStateFlow()
 
     /**
      * Subscribe to [baseTopic] with an optional [topicSuffix].
      *
-     * **Important:** If you are switching to a different topic, you **must** call
-     * [cancel] first, because the guard below only checks whether a job is running,
-     * not whether it's subscribed to the correct topic. See [GameStompClient.subscribeToGameInternal].
+     * Repeated calls with the same topic are ignored while an active job exists.
+     * If the topic changes, the current subscription is cancelled and replaced.
      */
     fun subscribe(topicSuffix: String? = null) {
         val fullTopic = if (topicSuffix != null) "$baseTopic$topicSuffix" else baseTopic
 
-        // Caller is responsible for calling cancel() before subscribe() when switching topics
-        if (job?.isActive == true) {
-            Log.w("SubscriptionChannel", "subscribe skipped – active job already running for topic. Call cancel() first.")
+        if (job?.isActive == true && currentTopic == fullTopic) {
+            Log.w("SubscriptionChannel", "subscribe skipped – already subscribed to $fullTopic")
             return
         }
 
         cancel()
         _isReady.value = false
+        currentTopic = fullTopic
 
         job = scope.launch {
             try {
@@ -56,6 +56,7 @@ class SubscriptionChannel(
                 }
             } finally {
                 _isReady.value = false
+                currentTopic = null
             }
         }
     }
@@ -64,6 +65,7 @@ class SubscriptionChannel(
         job?.cancel()
         job = null
         _isReady.value = false
+        currentTopic = null
     }
 
     private fun isCancellation(e: Throwable): Boolean {

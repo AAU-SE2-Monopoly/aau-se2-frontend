@@ -422,9 +422,7 @@ class SubscriptionChannelTest {
     }
 
     @Test
-    fun `guard check returns early when active job exists even with different topicSuffix`() = runTest(testDispatcher) {
-        // The guard only checks if job is active, not which topic. Per the docs,
-        // the caller must call cancel() first when switching topics.
+    fun `subscribe resubscribes when topic changes while active`() = runTest(testDispatcher) {
         val activeFlow = MutableSharedFlow<String>()
         coEvery { stompSession.subscribeText(any<String>()) } returns activeFlow
 
@@ -434,16 +432,12 @@ class SubscriptionChannelTest {
         advanceUntilIdle()
         assertTrue(channel.isReady.value)
 
-        // Attempt to subscribe to a different topic without calling cancel() first.
-        // The guard should prevent any action.
+        // Switching topics should cancel and re-subscribe.
         channel.subscribe("topic-b")
         advanceUntilIdle()
 
-        // subscribeText should have been called exactly once (with topic-a only)
-        // because the guard prevented the second call
         coVerify(exactly = 1) { stompSession.subscribeText("/topic/game/topic-a") }
-        coVerify(exactly = 0) { stompSession.subscribeText("/topic/game/topic-b") }
-        // isReady should still be true (from the first subscription)
+        coVerify(exactly = 1) { stompSession.subscribeText("/topic/game/topic-b") }
         assertTrue(channel.isReady.value)
     }
 

@@ -107,6 +107,7 @@ class JoinActivity : ComponentActivity() {
                 }
 
                 val isConnected by viewModel.isConnected.collectAsState()
+                val reconnectFailed by viewModel.reconnectFailed.collectAsState()
 
                 JoinScreen(
                     gameId      = gameId,
@@ -115,6 +116,8 @@ class JoinActivity : ComponentActivity() {
                     joinStatus  = joinStatus,
                     isReturningPlayer = isReturningPlayer,
                     isConnected = isConnected,
+                    reconnectFailed = reconnectFailed,
+                    onReconnect = { viewModel.reconnect() },
                     onBackClicked = {
                         viewModel.resetState()
                         finish()
@@ -141,8 +144,10 @@ fun JoinScreen(
     joinStatus: GameJoinStatus,
     isReturningPlayer: Boolean = false,
     isConnected: Boolean = true,
+    reconnectFailed: Boolean = false,
     onBackClicked: () -> Unit,
-    onJoin: (playerName: String, iconIndex: Int) -> Unit
+    onJoin: (playerName: String, iconIndex: Int) -> Unit,
+    onReconnect: () -> Unit = {}
 ) {
     val darkBackground = Color(0xFF0A0A2E)
 
@@ -292,8 +297,29 @@ fun JoinScreen(
 
             // Connection warning – shown only when idle and not connected
             if (!isConnected && joinState is JoinViewModel.JoinState.Idle) {
+                if (reconnectFailed) {
+                    Button(
+                        onClick = onReconnect,
+                        modifier = Modifier
+                            .fillMaxWidth(0.5f)
+                            .height(56.dp)
+                            .testTag("ReconnectButton"),
+                        shape = RoundedCornerShape(16.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = PrimaryBlue),
+                        elevation = ButtonDefaults.buttonElevation(defaultElevation = 8.dp)
+                    ) {
+                        Text(
+                            text = "RECONNECT",
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = 2.sp,
+                            color = Color.White
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
+                }
                 Text(
-                    text = "Connecting to server…",
+                    text = if (reconnectFailed) "Connection lost" else "Connecting to server…",
                     color = Color.White.copy(alpha = 0.5f),
                     fontSize = 13.sp
                 )
@@ -369,7 +395,7 @@ fun JoinScreen(
                     shape = RoundedCornerShape(12.dp)
                 )
 
-            Spacer(modifier = Modifier.height(20.dp))
+                Spacer(modifier = Modifier.height(20.dp))
             }
 
             Button(

@@ -134,9 +134,18 @@ class LobbyViewModelTest {
     }
 
     @Test
-    fun `onConnected calls subscribeToLobby and requestGameList`() {
+    fun `onConnected calls subscribeToLobby and requestGameList`() = runTest(testDispatcher) {
+        fakeService.setConnectionState(true)
         viewModel.onConnected()
+        runCurrent() // let the launched coroutine in refreshLobby run
         assertTrue(fakeService.subscribeToLobbyCalled)
+        // requestGameList should not have been called yet — waiting for lobbySubscriptionReady
+        assertFalse(fakeService.requestGameListCalled)
+
+        // Now make subscription ready
+        fakeService.setLobbySubscriptionReady(true)
+        advanceUntilIdle()
+
         assertTrue(fakeService.requestGameListCalled)
     }
 
@@ -394,4 +403,227 @@ class LobbyViewModelTest {
     }
     // ── End of connection indicator tests ────────────────────────────────────
 
+    // ── Reconnect flow: connection drop → 5 attempts fail → reconnect() → success ──
+
+    @Test
+    fun `reconnect full flow after 5 failed attempts`() = runTest(testDispatcher) {
+        // ============================================================
+        // SCENARIO:
+        // 1. User is on LobbyScreen, connected
+        // 2. Connection drops, 5 reconnect attempts fail
+        // 3. reconnectFailed = true, isConnected = false → "Reconnect" button shown
+        // 4. User clicks "Reconnect" → viewModel.reconnect()
+        // 5. Server starts at this moment
+        // 6. Connect succeeds → isConnected = true → Connected ✓ shown
+        // 7. onConnected() triggers → subscribeToLobby() called
+        // 8. lobbySubscriptionReady becomes true → requestGameList() called
+        // ============================================================
+
+        // Subscribe to flows FIRST. stateIn(WhileSubscribed) only propagates
+        // upstream values while there is at least one subscriber.
+        val isConnectedValues = mutableListOf<Boolean>()
+        val reconnectFailedValues = mutableListOf<Boolean>()
+        val connectedJob = launch { viewModel.isConnected.collect { isConnectedValues.add(it) } }
+        val reconnectJob = launch { viewModel.reconnectFailed.collect { reconnectFailedValues.add(it) } }
+        advanceUntilIdle()
+
+        // --- Phase 1: Initially connected ---
+        fakeService.setConnectionState(true)
+        advanceUntilIdle()
+        assertTrue(isConnectedValues.contains(true), "Phase 1: should become connected")
+        assertFalse(reconnectFailedValues.contains(true), "Phase 1: reconnectFailed should be false")
+
+        // --- Phase 2: Connection drops, all 5 reconnect attempts fail ---
+        fakeService.setConnectionState(false)
+        fakeService.setReconnectFailed(true)
+        advanceUntilIdle()
+
+        // Assert: Connection is lost
+        assertFalse(isConnectedValues.last(), "Phase 2: isConnected should be false")
+        // Assert: Reconnect failed indicator is shown
+        assertTrue(reconnectFailedValues.contains(true), "Phase 2: reconnectFailed should be true")
+        // This is the state where LobbyScreen renders the "Reconnect" button
+        // (in LobbyScreen: if (reconnectFailed && !isConnected) → show Reconnect Button)
+
+        // Record connect calls before user action
+        val connectCallsBefore = fakeService.connectCalls
+
+        // --- Phase 3: User clicks "Reconnect" ---
+        viewModel.reconnect()
+        advanceUntilIdle()
+
+        // Assert: connect() was called on the GameService
+        assertTrue(fakeService.connectCalls == connectCallsBefore + 1,
+            "Phase 3: Reconnect should call connect() on GameService"
+        )
+
+        // --- Phase 4: Server comes up, connection succeeds ---
+        fakeService.setConnectionState(true)
+        fakeService.setReconnectFailed(false)
+        advanceUntilIdle()
+
+        // Assert: isConnected is true → LobbyScreen shows "Connected ✓"
+        assertTrue(isConnectedValues.last(),
+            "Phase 4: After successful reconnect, isConnected should be true"
+        )
+        // Assert: reconnectFailed is cleared
+        assertFalse(reconnectFailedValues.last(),
+            "Phase 4: After successful reconnect, reconnectFailed should be false"
+        )
+
+        // --- Phase 5: LaunchedEffect(isConnected) calls onConnected() ---
+        // The LobbyScreen's LaunchedEffect(isConnected) would call viewModel.onConnected()
+        // when isConnected becomes true. We simulate that here.
+        viewModel.onConnected()
+        runCurrent()
+
+        // Assert: subscribeToLobby was called
+        assertTrue(fakeService.subscribeToLobbyCalled, "Phase 5: subscribeToLobby should be called")
+
+        // --- Phase 6: Lobby subscription becomes ready → requestGameList ---
+        fakeService.setLobbySubscriptionReady(true)
+        advanceUntilIdle()
+
+        // Assert: requestGameList was called after lobby subscription is ready
+        assertTrue(fakeService.requestGameListCalled,
+            "Phase 6: After lobby subscription is ready, requestGameList should be called"
+        )
+
+        // --- Phase 7: Verify the full end state ---
+        assertTrue(isConnectedValues.last(), "Final state: isConnected = true")
+        assertFalse(reconnectFailedValues.last(), "Final state: reconnectFailed = false")
+        assertTrue(fakeService.subscribeToLobbyCalled, "Final state: subscribeToLobby called")
+        assertTrue(fakeService.requestGameListCalled, "Final state: requestGameList called")
+
+        connectedJob.cancel()
+        reconnectJob.cancel()
+    }
+
+    @Test
+    fun `reconnect calls connect on gameService when in failed state`() = runTest(testDispatcher) {
+        // This test verifies that clicking "Reconnect" calls connect() on the GameService
+        // when in the failed state (reconnectFailed = true, isConnected = false).
+
+        // Subscribe to flows first
+        val connectedJob = launch { viewModel.isConnected.collect {} }
+        val reconnectJob = launch { viewModel.reconnectFailed.collect {} }
+        advanceUntilIdle()
+
+        // Simulate failed state
+        fakeService.setConnectionState(false)
+        fakeService.setReconnectFailed(true)
+        advanceUntilIdle()
+
+        assertTrue(viewModel.reconnectFailed.value, "Should be in reconnectFailed state")
+        assertFalse(viewModel.isConnected.value, "Should be disconnected")
+
+        val callsBefore = fakeService.connectCalls
+
+        // User clicks reconnect
+        viewModel.reconnect()
+        advanceUntilIdle()
+
+        assertTrue(fakeService.connectCalls == callsBefore + 1,
+            "connect() should be called on reconnect")
+
+        connectedJob.cancel()
+        reconnectJob.cancel()
+    }
+
+    @Test
+    fun `reconnectFailed becomes true after reconnect loop exhaustion`() = runTest(testDispatcher) {
+        // This test proves the state transition from connected → disconnected
+        // → reconnectFailed = true (simulating 5 failed attempts)
+
+        // Subscribe to flows first
+        val isConnectedValues = mutableListOf<Boolean>()
+        val reconnectFailedValues = mutableListOf<Boolean>()
+        val connectedJob = launch { viewModel.isConnected.collect { isConnectedValues.add(it) } }
+        val reconnectJob = launch { viewModel.reconnectFailed.collect { reconnectFailedValues.add(it) } }
+        advanceUntilIdle()
+
+        // Step 1: Start connected
+        fakeService.setConnectionState(true)
+        advanceUntilIdle()
+        assertTrue(isConnectedValues.contains(true), "Step 1: should be connected")
+        assertFalse(reconnectFailedValues.contains(true), "Step 1: reconnectFailed should be false")
+
+        // Step 2: Connection drops
+        fakeService.setConnectionState(false)
+        advanceUntilIdle()
+        assertFalse(isConnectedValues.last(), "Step 2: isConnected should be false")
+
+        // Step 3: All 5 reconnect attempts have been exhausted
+        fakeService.setReconnectFailed(true)
+        advanceUntilIdle()
+
+        assertTrue(reconnectFailedValues.contains(true), "Step 3: reconnectFailed should be true")
+        assertFalse(isConnectedValues.last(), "Step 3: isConnected should stay false")
+
+        // This is the exact state where LobbyScreen shows the "Reconnect" button
+        // because of: if (reconnectFailed && !isConnected) → button
+
+        connectedJob.cancel()
+        reconnectJob.cancel()
+    }
+
+    @Test
+    fun `reconnect multiple times re-establishes connection each time`() = runTest(testDispatcher) {
+        // This test proves that the reconnect button works repeatedly
+        // (e.g. if the server keeps going down)
+
+        // Subscribe to flows first
+        val isConnectedValues = mutableListOf<Boolean>()
+        val reconnectFailedValues = mutableListOf<Boolean>()
+        val connectedJob = launch { viewModel.isConnected.collect { isConnectedValues.add(it) } }
+        val reconnectJob = launch { viewModel.reconnectFailed.collect { reconnectFailedValues.add(it) } }
+        advanceUntilIdle()
+
+        // --- First failure + reconnect cycle ---
+        // Initial connection
+        fakeService.setConnectionState(true)
+        advanceUntilIdle()
+        assertTrue(isConnectedValues.contains(true), "Initial connection")
+
+        // Drop and exhaust reconnects
+        fakeService.setConnectionState(false)
+        fakeService.setReconnectFailed(true)
+        advanceUntilIdle()
+        assertTrue(reconnectFailedValues.contains(true), "After first drop, reconnectFailed should be true")
+
+        // Reconnect #1
+        val callsBefore1 = fakeService.connectCalls
+        viewModel.reconnect()
+        advanceUntilIdle()
+        assertEquals(callsBefore1 + 1, fakeService.connectCalls, "First reconnect should call connect()")
+
+        fakeService.setConnectionState(true)
+        fakeService.setReconnectFailed(false)
+        advanceUntilIdle()
+        assertTrue(isConnectedValues.last(), "After first reconnect, isConnected should be true")
+        assertFalse(reconnectFailedValues.last(), "After first reconnect, reconnectFailed should be false")
+
+        // --- Second failure + reconnect cycle ---
+        fakeService.setConnectionState(false)
+        fakeService.setReconnectFailed(true)
+        advanceUntilIdle()
+        assertTrue(reconnectFailedValues.contains(true), "After second drop, reconnectFailed should be true")
+
+        // Reconnect #2
+        val callsBefore2 = fakeService.connectCalls
+        viewModel.reconnect()
+        advanceUntilIdle()
+        assertEquals(callsBefore2 + 1, fakeService.connectCalls, "Second reconnect should call connect()")
+
+        fakeService.setConnectionState(true)
+        fakeService.setReconnectFailed(false)
+        advanceUntilIdle()
+        assertTrue(isConnectedValues.last(), "After second reconnect, isConnected should be true")
+        assertFalse(reconnectFailedValues.last(), "After second reconnect, reconnectFailed should be false")
+
+        connectedJob.cancel()
+        reconnectJob.cancel()
+    }
+
+    // ── End of reconnect flow tests ────────────────────────────────────────
 }

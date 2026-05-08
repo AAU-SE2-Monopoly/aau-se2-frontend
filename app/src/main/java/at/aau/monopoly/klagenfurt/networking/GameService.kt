@@ -23,6 +23,9 @@ interface GameService {
     /** Emits `true` when the WebSocket session is established, `false` on disconnect. */
     val connectionState: StateFlow<Boolean>
 
+    /** Emits `true` when all reconnect attempts have been exhausted. */
+    val reconnectFailed: StateFlow<Boolean>
+
     fun connect()
     fun disconnect()
     fun subscribeToGame(gameId: String)

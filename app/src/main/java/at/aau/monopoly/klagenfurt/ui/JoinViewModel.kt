@@ -33,6 +33,8 @@ class JoinViewModel(private val gameService: GameService) : ViewModel() {
 
     val isConnected: StateFlow<Boolean> = gameService.connectionState
 
+    val reconnectFailed: StateFlow<Boolean> = gameService.reconnectFailed
+
     // -------------------------------------------------------------------------
     // Create game
     // -------------------------------------------------------------------------
@@ -94,6 +96,10 @@ class JoinViewModel(private val gameService: GameService) : ViewModel() {
     }
     fun resetState() {
         _joinState.value = JoinState.Idle
+    }
+
+    fun reconnect() {
+        gameService.connect()
     }
 
     // -------------------------------------------------------------------------

@@ -29,6 +29,9 @@ class LobbyViewModel(private val gameService: GameService) : ViewModel() {
     val isConnected: StateFlow<Boolean> = gameService.connectionState
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
+    val reconnectFailed: StateFlow<Boolean> = gameService.reconnectFailed
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+
     private val _games = MutableStateFlow<List<GameLobbyInfo>>(emptyList())
     val games: StateFlow<List<GameLobbyInfo>> = _games.asStateFlow()
 
@@ -79,8 +82,11 @@ class LobbyViewModel(private val gameService: GameService) : ViewModel() {
     }
 
     fun onConnected() {
-        gameService.subscribeToLobby()
-        gameService.requestGameList()
+        refreshLobby()
+    }
+
+    fun reconnect() {
+        gameService.connect()
     }
 
     /** Re-subscribes to lobby and fetches fresh game list (called on Activity resume). */
@@ -126,4 +132,3 @@ class LobbyViewModel(private val gameService: GameService) : ViewModel() {
         }
     }
 }
-

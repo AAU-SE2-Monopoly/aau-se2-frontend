@@ -79,6 +79,9 @@ class GameStompClient(
     private val _connectionState = MutableStateFlow(false)
     override val connectionState: StateFlow<Boolean> = _connectionState.asStateFlow()
 
+    private val _reconnectFailed = MutableStateFlow(false)
+    override val reconnectFailed: StateFlow<Boolean> = _reconnectFailed.asStateFlow()
+
     private var _currentGameId: String = ""
     override val currentGameId: String get() = _currentGameId
 
@@ -88,6 +91,7 @@ class GameStompClient(
     override val currentPlayerId: String = UUID.randomUUID().toString()
 
     override fun connect() {
+        _reconnectFailed.value = false
         reconnectJob?.cancel()
         isReconnecting = false
         reconnectAttempts = 0
@@ -111,6 +115,7 @@ class GameStompClient(
                 session = stompClient.connect(websocketUri)
                 subscribeToPersonalTopic()
                 _connectionState.value = true
+                _reconnectFailed.value = false
                 emitStatus("Connected ✓")
                 Log.d("GameStomp", "Connected successfully")
             } catch (e: Throwable) {
@@ -132,6 +137,7 @@ class GameStompClient(
     private fun startReconnectLoop() {
         if (isReconnecting || isConnecting) return
         isReconnecting = true
+        _reconnectFailed.value = false
         session = null  // discard the stale/dead session
         reconnectJob?.cancel()
         reconnectJob = scope.launch {
@@ -145,6 +151,7 @@ class GameStompClient(
                     _connectionState.value = false
                     session = stompClient.connect(websocketUri)
                     _connectionState.value = true
+                    _reconnectFailed.value = false
                     reconnectAttempts = 0
                     isReconnecting = false
                     emitStatus("Reconnected ✓")
@@ -168,6 +175,7 @@ class GameStompClient(
                 }
             }
             isReconnecting = false
+            _reconnectFailed.value = true
             Log.e("GameStomp", "Max reconnect attempts ($MAX_RECONNECT_ATTEMPTS) reached – giving up")
             emitStatus("Connection lost – please restart")
         }
@@ -198,6 +206,7 @@ class GameStompClient(
         isReconnecting = false
         reconnectAttempts = 0
         _connectionState.value = false
+        _reconnectFailed.value = false
         gameChannel.cancel()
         lobbyChannel.cancel()
         connectJob?.cancel()
@@ -334,7 +343,7 @@ class GameStompClient(
 
         // Collect from _events synchronously in the current coroutine.
         // This guarantees we are subscribed to _events before the server can respond.
-        val result = withTimeoutOrNull(10_000L) {
+        val result = withTimeoutOrNull(15_000L) {
             _events
                 .mapNotNull { json ->
                     try {
@@ -441,7 +450,7 @@ class GameStompClient(
         gameChannel.cancel()
         gameChannel.subscribe(gameId)
 
-        val ready = withTimeoutOrNull(10_000L) {
+        val ready = withTimeoutOrNull(15_000L) {
             gameChannel.isReady.first { it }
         }
         if (ready == null) {

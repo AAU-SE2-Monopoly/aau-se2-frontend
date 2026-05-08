@@ -111,6 +111,7 @@ fun LobbyScreen(
 ) {
     val darkBackground = Color(0xFF0A0A2E)
     val isConnected by viewModel.isConnected.collectAsState()
+    val reconnectFailed by viewModel.reconnectFailed.collectAsState()
     val games by viewModel.games.collectAsState()
 
     // When connected, subscribe to lobby and request game list
@@ -222,39 +223,58 @@ fun LobbyScreen(
         }
 
         // Connection indicator – top-right
-        Box(
-            modifier = Modifier
-                .align(Alignment.TopEnd)
-                .padding(16.dp)
-                .clip(RoundedCornerShape(12.dp))
-                .background(
-                    if (isConnected) Color(0xFF2E7D32).copy(alpha = 0.8f)
-                    else Color(0xFFE65100).copy(alpha = 0.8f)
+        if (reconnectFailed && !isConnected) {
+            Button(
+                onClick = { viewModel.reconnect() },
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(16.dp),
+                shape = RoundedCornerShape(12.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = PrimaryBlue),
+                elevation = ButtonDefaults.buttonElevation(defaultElevation = 4.dp)
+            ) {
+                Text(
+                    text = "Reconnect",
+                    color = Color.White,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Medium
                 )
-                .padding(horizontal = 12.dp, vertical = 8.dp)
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                if (isConnected) {
-                    Icon(
-                        imageVector = Icons.Filled.Check,
-                        contentDescription = "Connected",
-                        tint = Color.White,
-                        modifier = Modifier.size(16.dp)
+            }
+        } else {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(16.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(
+                        if (isConnected) Color(0xFF2E7D32).copy(alpha = 0.8f)
+                        else Color(0xFFE65100).copy(alpha = 0.8f)
                     )
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text(
-                        text = "Connected",
-                        color = Color.White,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Medium
-                    )
-                } else {
-                    Text(
-                        text = "Connecting…",
-                        color = Color.White,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Medium
-                    )
+                    .padding(horizontal = 12.dp, vertical = 8.dp)
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (isConnected) {
+                        Icon(
+                            imageVector = Icons.Filled.Check,
+                            contentDescription = "Connected",
+                            tint = Color.White,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = "Connected",
+                            color = Color.White,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                    } else {
+                        Text(
+                            text = "Connecting…",
+                            color = Color.White,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
                 }
             }
         }
@@ -423,4 +443,3 @@ fun GameCard(
         }
     }
 }
-

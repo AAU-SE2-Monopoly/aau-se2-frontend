@@ -616,4 +616,44 @@ class JoinScreenTest {
         // Just verify the node exists and is displayed – actual text input behavior
         // is covered by the activity-level tests.
     }
+
+    @Test
+    fun `reconnect button is shown when reconnect attempts failed`() {
+        composeTestRule.setContent {
+            JoinScreen(
+                gameId = "game-1",
+                isNewGame = false,
+                joinState = idleState,
+                joinStatus = GameJoinStatus.OPEN,
+                isConnected = false,
+                reconnectFailed = true,
+                onBackClicked = noOp,
+                onJoin = { _, _ -> }
+            )
+        }
+
+        composeTestRule.onNodeWithTag("ReconnectButton").assertIsDisplayed()
+    }
+
+    @Test
+    fun `reconnect button triggers connect action`() {
+        var reconnectCalls = 0
+
+        composeTestRule.setContent {
+            JoinScreen(
+                gameId = "game-1",
+                isNewGame = false,
+                joinState = idleState,
+                joinStatus = GameJoinStatus.OPEN,
+                isConnected = false,
+                reconnectFailed = true,
+                onBackClicked = noOp,
+                onJoin = { _, _ -> },
+                onReconnect = { reconnectCalls++ }
+            )
+        }
+
+        composeTestRule.onNodeWithTag("ReconnectButton").performClick()
+        assertTrue("Reconnect should trigger connect action", reconnectCalls == 1)
+    }
 }

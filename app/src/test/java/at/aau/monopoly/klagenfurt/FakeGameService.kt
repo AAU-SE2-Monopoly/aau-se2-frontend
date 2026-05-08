@@ -30,11 +30,16 @@ class FakeGameService : GameService {
     private val _connectionState = MutableStateFlow(false)
     override val connectionState: StateFlow<Boolean> = _connectionState.asStateFlow()
 
+    private val _reconnectFailed = MutableStateFlow(false)
+    override val reconnectFailed: StateFlow<Boolean> = _reconnectFailed.asStateFlow()
+
     override var currentPlayerId: String = "test-player-id"
     override var currentPlayerName: String = "test-player-name"
     override var currentGameId: String = "test-game-id"
 
     var connectCalled = false
+    var connectCalls = 0
+    var ignoreFirstConnectCall = false
     var lastSubscribedGameId: String? = null
     var lastCreatedPlayerName: String? = null
     var lastJoinedGameId: String? = null
@@ -60,6 +65,11 @@ class FakeGameService : GameService {
 
     override fun connect() {
         connectCalled = true
+        if (ignoreFirstConnectCall) {
+            ignoreFirstConnectCall = false
+            return
+        }
+        connectCalls++
     }
 
     override fun disconnect() {
@@ -150,5 +160,8 @@ class FakeGameService : GameService {
     fun setLobbySubscriptionReady(ready: Boolean) {
         _lobbySubscriptionReady.value = ready
     }
-}
 
+    fun setReconnectFailed(failed: Boolean) {
+        _reconnectFailed.value = failed
+    }
+}

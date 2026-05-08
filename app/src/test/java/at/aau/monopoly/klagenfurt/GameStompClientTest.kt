@@ -108,8 +108,8 @@ class GameStompClientTest {
     fun test_subscribeToGame_when_not_connected() = runTest(testDispatcher) {
         gameStompClient.subscribeToGame("some-id")
         // Session is null so SubscriptionChannel.subscribe() returns early without calling subscribeText.
-        // isReady stays false → withTimeoutOrNull(10s) times out → logs timeout.
-        advanceTimeBy(10_001)
+        // isReady stays false → withTimeoutOrNull(15s) times out → logs timeout.
+        advanceTimeBy(15_001)
         runCurrent()
 
         verify { Log.e("GameStomp", "Subscription timed out for some-id") }
@@ -140,12 +140,12 @@ class GameStompClientTest {
 
         // Mock a specific cancellation for the game subscription
         // SubscriptionChannel catches CancellationException and does NOT call onError,
-        // but isReady stays false → withTimeoutOrNull(10s) times out
+        // but isReady stays false → withTimeoutOrNull(15s) times out
         coEvery { stompSession.subscribeText("/topic/game/test-id") } throws CancellationException("Cancelled by test")
 
         gameStompClient.subscribeToGame("test-id")
-        // Advance past 10s timeout
-        advanceTimeBy(10_001)
+        // Advance past 15s timeout
+        advanceTimeBy(15_001)
         runCurrent()
 
         verify { Log.e("GameStomp", "Subscription timed out for test-id") }
@@ -284,8 +284,8 @@ class GameStompClientTest {
         val statusJob = launch { gameStompClient.status.collect { statuses.add(it) } }
 
         gameStompClient.subscribeToGame("test-id")
-        // Advance past the 10s timeout since SubscriptionChannel never becomes ready
-        advanceTimeBy(10_001)
+        // Advance past the 15s timeout since SubscriptionChannel never becomes ready
+        advanceTimeBy(15_001)
         runCurrent()
 
         verify { Log.e("GameStomp", "Subscription timed out for test-id") }
@@ -393,12 +393,12 @@ class GameStompClientTest {
         gameStompClient.connect()
         advanceUntilIdle()
 
-        // joinGame waits for subscribeToGameInternal which times out after 10s
+        // joinGame waits for subscribeToGameInternal which times out after 15s
         val joinJob = launch {
             val result = gameStompClient.joinGame("game-123", "Alice", "gti")
             assertTrue(result.isFailure)
         }
-        advanceTimeBy(10_001)
+        advanceTimeBy(15_001)
         runCurrent()
 
         coVerify(exactly = 0) { stompSession.sendText("/app/game/join", any<String>()) }
@@ -838,7 +838,7 @@ class GameStompClientTest {
     @Test
     fun `subscribeToGameInternal returns false and starts reconnect loop on timeout`() = runTest(testDispatcher) {
         coEvery { stompClient.connect(any<String>()) } returns stompSession
-        // subscribeText for the game topic must suspend > 10s so isReady never
+        // subscribeText for the game topic must suspend > 15s so isReady never
         // becomes true, causing withTimeoutOrNull to return null.
         coEvery { stompSession.subscribeText("/topic/game/timeout-game") } coAnswers {
             delay(30_000)
@@ -860,8 +860,8 @@ class GameStompClientTest {
         }
 
         gameStompClient.subscribeToGame("timeout-game")
-        // Jump past the 10s timeout.  subscribeText is still at delay(30_000).
-        advanceTimeBy(10_001)
+        // Jump past the 15s timeout.  subscribeText is still at delay(30_000).
+        advanceTimeBy(15_001)
         // Only run tasks ready right now (the timeout callback + emitStatus).
         // Do NOT use advanceUntilIdle — it would try to reach delay(30_000).
         runCurrent()
@@ -879,7 +879,7 @@ class GameStompClientTest {
     @Test
     fun `subscribeToGameInternal sends closeGame on timeout when gameId matches currentGameId`() = runTest(testDispatcher) {
         coEvery { stompClient.connect(any<String>()) } returns stompSession
-        // subscribeText must suspend > 10 s → isReady never becomes true → timeout
+        // subscribeText must suspend > 15s → isReady never becomes true → timeout
         coEvery { stompSession.subscribeText("/topic/game/close-me") } coAnswers {
             delay(30_000)
             MutableSharedFlow<String>()
@@ -894,7 +894,7 @@ class GameStompClientTest {
         advanceUntilIdle()
 
         gameStompClient.subscribeToGame("close-me")
-        advanceTimeBy(10_001)
+        advanceTimeBy(15_001)
         runCurrent()
 
         // The timeout triggers scope.launch { sendRawInternal(...) } followed
@@ -1154,8 +1154,8 @@ class GameStompClientTest {
         personalFlow.emit("""{"event":"GAME_CREATED","gameId":"test-orphan"}""")
         advanceUntilIdle()
 
-        // Advance past the 10s subscription timeout in two stages for robustness
-        advanceTimeBy(10_000)
+        // Advance past the 15s subscription timeout in two stages for robustness
+        advanceTimeBy(15_000)
         advanceTimeBy(1)
         advanceUntilIdle()
 
@@ -1176,3 +1176,6 @@ class GameStompClientTest {
         statusJob.cancel()
     }
 }
+
+
+

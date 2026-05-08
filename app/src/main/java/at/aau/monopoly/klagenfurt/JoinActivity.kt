@@ -48,6 +48,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import at.aau.monopoly.klagenfurt.model.GameJoinStatus
 import at.aau.monopoly.klagenfurt.ui.GameboardUI
 import at.aau.monopoly.klagenfurt.ui.JoinViewModel
 import at.aau.monopoly.klagenfurt.ui.theme.MyApplicationTheme
@@ -55,60 +56,14 @@ import at.aau.monopoly.klagenfurt.ui.theme.PrimaryBlue
 import at.aau.monopoly.klagenfurt.ui.theme.PrimaryBlueLight
 import com.example.myapplication.R
 
-enum class GameJoinStatus {
-    OPEN,
-    FULL,
-    IN_PROGRESS,
-    FINISHED
-}
+/**
+ * Session-scoped set of game IDs the player has joined.
+ * Survives activity restarts within the same process so returning
+ * players are correctly detected even after [JoinActivity] is recreated.
+ */
+private val joinedGameIds = mutableSetOf<String>()
 
 class JoinActivity : ComponentActivity() {
-
-    companion object {
-        /**
-         * Tracks game IDs this player has successfully joined during the session.
-         *
-         * Resets if the process is killed. When that happens and the user returns to a
-         * game that is still open (not yet started), [isReturningPlayer] will be false
-         * and the full join UI will be shown. The IN_PROGRESS status from the server
-         * still correctly triggers the reconnect flow via [GameJoinStatus.IN_PROGRESS].
-         */
-        private val joinedGameIds = mutableSetOf<String>()
-
-        fun mapIndexToIconId(iconIndex: Int): String = when (iconIndex) {
-            0    -> "lindwurm"
-            1    -> "woerthersee"
-            2    -> "gti"
-            3    -> "ironman"
-            4    -> "josef"
-            else -> "lindwurm"
-        }
-
-        /**
-         * Determines the join status for a game based on its current phase,
-         * player count, and whether the current player is already in the game.
-         *
-         * Logic:
-         * - FINISHED phase → always [GameJoinStatus.FINISHED]
-         * - Any non-WAITING, non-FINISHED phase → [GameJoinStatus.IN_PROGRESS]
-         * - WAITING + currentPlayerId in playerIds → [GameJoinStatus.OPEN] (returning player)
-         * - WAITING + full (playerCount >= maxPlayers) + currentPlayerId NOT in playerIds → [GameJoinStatus.FULL]
-         * - WAITING + not full + currentPlayerId NOT in playerIds → [GameJoinStatus.OPEN]
-         */
-        fun computeJoinStatus(
-            phase: String,
-            playerCount: Int,
-            maxPlayers: Int,
-            playerIds: List<String> = emptyList(),
-            currentPlayerId: String = ""
-        ): GameJoinStatus = when {
-            phase == "FINISHED"                             -> GameJoinStatus.FINISHED
-            phase != "WAITING"                              -> GameJoinStatus.IN_PROGRESS
-            currentPlayerId in playerIds                    -> GameJoinStatus.OPEN
-            playerCount >= maxPlayers                       -> GameJoinStatus.FULL
-            else                                            -> GameJoinStatus.OPEN
-        }
-    }
 
 
     private val viewModel: JoinViewModel by viewModels {
@@ -126,7 +81,7 @@ class JoinActivity : ComponentActivity() {
         val maxPlayers   = intent.getIntExtra("MAX_PLAYERS", 4)
         val playerIds    = intent.getStringArrayListExtra("PLAYER_IDS") ?: emptyList()
         val currentPlayerId = ServiceLocator.provideGameService().currentPlayerId
-        val joinStatus   = JoinActivity.computeJoinStatus(gamePhase, playerCount, maxPlayers, playerIds, currentPlayerId)
+        val joinStatus   = GameJoinStatus.compute(gamePhase, playerCount, maxPlayers, playerIds, currentPlayerId)
 
         // Detect returning player – tracked per session
         val isReturningPlayer = !isNewGame && gameId in joinedGameIds
@@ -165,9 +120,9 @@ class JoinActivity : ComponentActivity() {
                         finish()
                     },
                     onJoin = { playerName, iconIndex ->
-                        val iconId = mapIndexToIconId(iconIndex)
+                        val iconId = GameJoinStatus.iconIdForIndex(iconIndex)
                         when {
-                            isNewGame && !isReturningPlayer && joinStatus == GameJoinStatus.OPEN ->
+                            isNewGame && joinStatus == GameJoinStatus.OPEN ->
                                 viewModel.createGame(playerName, iconId)
                             else -> viewModel.joinGame(gameId, playerName, iconId)
                         }

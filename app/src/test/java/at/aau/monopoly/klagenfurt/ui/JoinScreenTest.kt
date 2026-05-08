@@ -10,7 +10,7 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
-import at.aau.monopoly.klagenfurt.GameJoinStatus
+import at.aau.monopoly.klagenfurt.model.GameJoinStatus
 import at.aau.monopoly.klagenfurt.JoinScreen
 import org.junit.Assert.assertTrue
 import org.junit.Rule

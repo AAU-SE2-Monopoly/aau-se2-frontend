@@ -16,6 +16,7 @@ import androidx.test.core.app.ApplicationProvider
 import at.aau.monopoly.klagenfurt.FakeGameService
 import at.aau.monopoly.klagenfurt.JoinActivity
 import at.aau.monopoly.klagenfurt.ServiceLocator
+import at.aau.monopoly.klagenfurt.model.GameJoinStatus
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -207,7 +208,7 @@ class JoinActivityTest {
     fun testIconMapping_elseBranch_coverage() {
         // Explicitly tests the unreachable else-branch for SonarQube.
         // Assumes that JoinActivity.mapIndexToIconId exists.
-        val fallbackIcon = JoinActivity.mapIndexToIconId(99)
+        val fallbackIcon = GameJoinStatus.iconIdForIndex(99)
         assertEquals("lindwurm", fallbackIcon)
     }
 }

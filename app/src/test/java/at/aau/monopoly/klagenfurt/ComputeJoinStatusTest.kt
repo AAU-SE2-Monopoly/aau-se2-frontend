@@ -1,10 +1,11 @@
 package at.aau.monopoly.klagenfurt
 
+import at.aau.monopoly.klagenfurt.model.GameJoinStatus
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 
 /**
- * Unit tests for the companion object function [JoinActivity.computeJoinStatus],
+ * Unit tests for the companion object function [GameJoinStatus.compute],
  * covering all branches of the `when` expression.
  */
 class ComputeJoinStatusTest {
@@ -16,7 +17,7 @@ class ComputeJoinStatusTest {
         // Even with capacity and the player already in the list → FINISHED wins
         assertEquals(
             GameJoinStatus.FINISHED,
-            JoinActivity.computeJoinStatus(
+            GameJoinStatus.compute(
                 phase = "FINISHED",
                 playerCount = 1,
                 maxPlayers = 4,
@@ -28,7 +29,7 @@ class ComputeJoinStatusTest {
         // Edge: empty player list, zero count
         assertEquals(
             GameJoinStatus.FINISHED,
-            JoinActivity.computeJoinStatus(
+            GameJoinStatus.compute(
                 phase = "FINISHED",
                 playerCount = 0,
                 maxPlayers = 4,
@@ -44,7 +45,7 @@ class ComputeJoinStatusTest {
     fun `ROLLING returns IN_PROGRESS`() {
         assertEquals(
             GameJoinStatus.IN_PROGRESS,
-            JoinActivity.computeJoinStatus(
+            GameJoinStatus.compute(
                 phase = "ROLLING",
                 playerCount = 2,
                 maxPlayers = 4,
@@ -58,7 +59,7 @@ class ComputeJoinStatusTest {
     fun `BUYING returns IN_PROGRESS`() {
         assertEquals(
             GameJoinStatus.IN_PROGRESS,
-            JoinActivity.computeJoinStatus(
+            GameJoinStatus.compute(
                 phase = "BUYING",
                 playerCount = 3,
                 maxPlayers = 4,
@@ -72,7 +73,7 @@ class ComputeJoinStatusTest {
     fun `AUCTIONING returns IN_PROGRESS`() {
         assertEquals(
             GameJoinStatus.IN_PROGRESS,
-            JoinActivity.computeJoinStatus(
+            GameJoinStatus.compute(
                 phase = "AUCTIONING",
                 playerCount = 4,
                 maxPlayers = 4,
@@ -86,7 +87,7 @@ class ComputeJoinStatusTest {
     fun `TURN_END returns IN_PROGRESS`() {
         assertEquals(
             GameJoinStatus.IN_PROGRESS,
-            JoinActivity.computeJoinStatus(
+            GameJoinStatus.compute(
                 phase = "TURN_END",
                 playerCount = 2,
                 maxPlayers = 2,
@@ -100,7 +101,7 @@ class ComputeJoinStatusTest {
     fun `arbitrary non-WAITING non-FINISHED phase returns IN_PROGRESS`() {
         assertEquals(
             GameJoinStatus.IN_PROGRESS,
-            JoinActivity.computeJoinStatus(
+            GameJoinStatus.compute(
                 phase = "SOME_FUTURE_PHASE",
                 playerCount = 1,
                 maxPlayers = 4,
@@ -116,7 +117,7 @@ class ComputeJoinStatusTest {
     fun `WAITING with currentPlayerId in playerIds returns OPEN (returning player)`() {
         assertEquals(
             GameJoinStatus.OPEN,
-            JoinActivity.computeJoinStatus(
+            GameJoinStatus.compute(
                 phase = "WAITING",
                 playerCount = 3,
                 maxPlayers = 4,
@@ -132,7 +133,7 @@ class ComputeJoinStatusTest {
     fun `WAITING full with currentPlayerId not in playerIds returns FULL`() {
         assertEquals(
             GameJoinStatus.FULL,
-            JoinActivity.computeJoinStatus(
+            GameJoinStatus.compute(
                 phase = "WAITING",
                 playerCount = 4,
                 maxPlayers = 4,
@@ -147,7 +148,7 @@ class ComputeJoinStatusTest {
         // Defensive case – playerCount > maxPlayers should still resolve to FULL
         assertEquals(
             GameJoinStatus.FULL,
-            JoinActivity.computeJoinStatus(
+            GameJoinStatus.compute(
                 phase = "WAITING",
                 playerCount = 5,
                 maxPlayers = 4,
@@ -163,7 +164,7 @@ class ComputeJoinStatusTest {
     fun `WAITING not full with currentPlayerId not in playerIds returns OPEN`() {
         assertEquals(
             GameJoinStatus.OPEN,
-            JoinActivity.computeJoinStatus(
+            GameJoinStatus.compute(
                 phase = "WAITING",
                 playerCount = 2,
                 maxPlayers = 4,
@@ -177,11 +178,11 @@ class ComputeJoinStatusTest {
     fun `WAITING not full with empty playerIds returns OPEN`() {
         assertEquals(
             GameJoinStatus.OPEN,
-            JoinActivity.computeJoinStatus(
+            GameJoinStatus.compute(
                 phase = "WAITING",
                 playerCount = 0,
                 maxPlayers = 4,
-                playerIds = emptyList(),
+                playerIds = emptyList<String>(),
                 currentPlayerId = "newbie"
             )
         )
@@ -195,7 +196,7 @@ class ComputeJoinStatusTest {
         // they should be able to rejoin → OPEN, not FULL.
         assertEquals(
             GameJoinStatus.OPEN,
-            JoinActivity.computeJoinStatus(
+            GameJoinStatus.compute(
                 phase = "WAITING",
                 playerCount = 4,
                 maxPlayers = 4,
@@ -212,7 +213,7 @@ class ComputeJoinStatusTest {
         // Tests the scenario where neither playerIds nor currentPlayerId are provided
         assertEquals(
             GameJoinStatus.OPEN,
-            JoinActivity.computeJoinStatus(
+            GameJoinStatus.compute(
                 phase = "WAITING",
                 playerCount = 0,
                 maxPlayers = 4
@@ -224,7 +225,7 @@ class ComputeJoinStatusTest {
     fun `default empty playerIds with WAITING and full count returns FULL`() {
         assertEquals(
             GameJoinStatus.FULL,
-            JoinActivity.computeJoinStatus(
+            GameJoinStatus.compute(
                 phase = "WAITING",
                 playerCount = 4,
                 maxPlayers = 4

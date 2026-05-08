@@ -1,5 +1,6 @@
 package at.aau.monopoly.klagenfurt.networking
 
+import at.aau.monopoly.klagenfurt.messaging.GameEvent
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 
@@ -16,14 +17,23 @@ interface GameService {
     /** Emits `true` once the STOMP subscription for the current game topic is active. */
     val subscriptionReady: StateFlow<Boolean>
 
+    /** Emits `true` once the STOMP subscription for the lobby topic is active. */
+    val lobbySubscriptionReady: StateFlow<Boolean>
+
+    /** Emits `true` when the WebSocket session is established, `false` on disconnect. */
+    val connectionState: StateFlow<Boolean>
+
+    /** Emits `true` when all reconnect attempts have been exhausted. */
+    val reconnectFailed: StateFlow<Boolean>
+
     fun connect()
     fun disconnect()
     fun subscribeToGame(gameId: String)
     fun subscribeToLobby()
     fun requestGameList()
     fun closeGame(gameId: String)
-    fun createGame(playerName: String, iconId: String = "lindwurm")
-    fun joinGame(gameId: String, playerName: String, iconId: String = "lindwurm")
+    suspend fun createGame(playerName: String, iconId: String = "lindwurm"): String?
+    suspend fun joinGame(gameId: String, playerName: String, iconId: String = "lindwurm"): Result<GameEvent>
     fun startGame()
     fun rollDice(isCheating: Boolean = false)
     fun endTurn()

@@ -16,6 +16,7 @@ import androidx.test.core.app.ApplicationProvider
 import at.aau.monopoly.klagenfurt.FakeGameService
 import at.aau.monopoly.klagenfurt.JoinActivity
 import at.aau.monopoly.klagenfurt.ServiceLocator
+import at.aau.monopoly.klagenfurt.model.GameJoinStatus
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -40,6 +41,7 @@ class JoinActivityTest {
     @Before
     fun setup() {
         fakeService = FakeGameService()
+        fakeService.setConnectionState(true)
         ServiceLocator.injectGameServiceForTest(fakeService)
     }
 
@@ -67,6 +69,7 @@ class JoinActivityTest {
             // Input and click
             composeTestRule.onNodeWithTag("PlayerNameInput").performTextInput("Alice")
             composeTestRule.onNodeWithTag("ActionButton").performClick()
+            composeTestRule.waitForIdle()
 
             // Verify service calls
             assertEquals(1, fakeService.joinGameCalls)
@@ -91,6 +94,7 @@ class JoinActivityTest {
 
             composeTestRule.onNodeWithTag("PlayerNameInput").performTextInput("Bob")
             composeTestRule.onNodeWithTag("ActionButton").performClick()
+            composeTestRule.waitForIdle()
 
             assertEquals(1, fakeService.createGameCalls)
             assertEquals("Bob", fakeService.lastCreatedPlayerName)
@@ -109,6 +113,7 @@ class JoinActivityTest {
 
             // Intentionally no input -> fallback logic `ifBlank` applies
             composeTestRule.onNodeWithTag("ActionButton").performClick()
+            composeTestRule.waitForIdle()
 
             assertEquals(1, fakeService.createGameCalls)
             assertEquals("Player", fakeService.lastCreatedPlayerName)
@@ -161,6 +166,7 @@ class JoinActivityTest {
             iconButton.performClick() // Index 3: ironman
 
             composeTestRule.onNodeWithTag("ActionButton").performClick()
+            composeTestRule.waitForIdle()
 
             assertEquals(1, fakeService.joinGameCalls)
             assertEquals("", fakeService.lastJoinedGameId)
@@ -190,6 +196,7 @@ class JoinActivityTest {
 
                 // Click button to trigger the onJoin lambda
                 composeTestRule.onNodeWithTag("ActionButton").performClick()
+                composeTestRule.waitForIdle()
 
                 // Verify that the correct ID was passed to the service
                 assertEquals(expectedIconId, fakeService.lastCreatedIconId)
@@ -201,7 +208,7 @@ class JoinActivityTest {
     fun testIconMapping_elseBranch_coverage() {
         // Explicitly tests the unreachable else-branch for SonarQube.
         // Assumes that JoinActivity.mapIndexToIconId exists.
-        val fallbackIcon = JoinActivity.mapIndexToIconId(99)
+        val fallbackIcon = GameJoinStatus.iconIdForIndex(99)
         assertEquals("lindwurm", fallbackIcon)
     }
 }

@@ -6,16 +6,19 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import at.aau.monopoly.klagenfurt.messaging.dtos.GameLobbyInfo
 import at.aau.monopoly.klagenfurt.messaging.dtos.LobbyEvent
+import at.aau.monopoly.klagenfurt.model.cardStatus
+import at.aau.monopoly.klagenfurt.model.sortOrder
 import at.aau.monopoly.klagenfurt.networking.GameService
 import at.aau.monopoly.klagenfurt.networking.JacksonProvider
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 
 class LobbyViewModel(private val gameService: GameService) : ViewModel() {
 
@@ -23,8 +26,10 @@ class LobbyViewModel(private val gameService: GameService) : ViewModel() {
 
     val currentPlayerId: String get() = gameService.currentPlayerId
 
-    val isConnected: StateFlow<Boolean> = gameService.status
-        .map { it.contains("Connected", ignoreCase = true) }
+    val isConnected: StateFlow<Boolean> = gameService.connectionState
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+
+    val reconnectFailed: StateFlow<Boolean> = gameService.reconnectFailed
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
     private val _games = MutableStateFlow<List<GameLobbyInfo>>(emptyList())
@@ -49,7 +54,8 @@ class LobbyViewModel(private val gameService: GameService) : ViewModel() {
             gameService.lobbyEvents.collect { raw ->
                 try {
                     val lobbyEvent = objectMapper.readValue(raw, LobbyEvent::class.java)
-                    _games.value = lobbyEvent.games
+                    // Open games first, then in-progress, full, finished
+                    _games.value = lobbyEvent.games.sortedBy { it.cardStatus().sortOrder }
                 } catch (e: Exception) {
                     Log.e("LobbyViewModel", "Error parsing lobby event: ${e.message}", e)
                 }
@@ -63,11 +69,10 @@ class LobbyViewModel(private val gameService: GameService) : ViewModel() {
                 try {
                     val node = objectMapper.readTree(raw)
                     val event = node.get("event")?.asText() ?: ""
-                    if (event == "GAME_CREATED") {
-                        val gameId = node.get("gameId")?.asText() ?: ""
-                        if (gameId.isNotEmpty()) {
-                            _createdGameId.value = gameId
-                        }
+                    // GAME_CREATED wird jetzt direkt aus dem Rückgabewert von createGame() bezogen
+                    // Eventuell andere Ereignisse später hier behandeln
+                    if (event == "ERROR") {
+                        Log.w("LobbyViewModel", "Server error: ${node.get("message")?.asText()}")
                     }
                 } catch (e: Exception) {
                     Log.e("LobbyViewModel", "Error parsing game event: ${e.message}", e)
@@ -77,13 +82,39 @@ class LobbyViewModel(private val gameService: GameService) : ViewModel() {
     }
 
     fun onConnected() {
-        gameService.subscribeToLobby()
-        gameService.requestGameList()
+        refreshLobby()
+    }
+
+    fun reconnect() {
+        gameService.connect()
+    }
+
+    /** Re-subscribes to lobby and fetches fresh game list (called on Activity resume). */
+    fun refreshLobby() {
+        if (!gameService.connectionState.value) return
+        viewModelScope.launch {
+            gameService.subscribeToLobby()
+
+            // Wait up to 2 seconds for the STOMP subscription to be active
+            val ready = withTimeoutOrNull(2000L) {
+                gameService.lobbySubscriptionReady.first { it }
+            }
+
+            if (ready == null) {
+                Log.w("LobbyViewModel", "Lobby subscription timed out")
+                return@launch
+            }
+
+            gameService.requestGameList()
+        }
     }
 
     fun createGame(playerName: String) {
         _createdGameId.value = null
-        gameService.createGame(playerName)
+        viewModelScope.launch {
+            val gameId = gameService.createGame(playerName)
+            _createdGameId.value = gameId
+        }
     }
 
     fun closeGame(gameId: String) {
@@ -101,4 +132,3 @@ class LobbyViewModel(private val gameService: GameService) : ViewModel() {
         }
     }
 }
-

@@ -36,6 +36,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -52,7 +53,12 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import at.aau.monopoly.klagenfurt.messaging.dtos.GameLobbyInfo
+import at.aau.monopoly.klagenfurt.model.GameCardStatus
+import at.aau.monopoly.klagenfurt.model.cardStatus
 import at.aau.monopoly.klagenfurt.ui.LobbyViewModel
 import at.aau.monopoly.klagenfurt.ui.theme.MyApplicationTheme
 import at.aau.monopoly.klagenfurt.ui.theme.PrimaryBlue
@@ -73,11 +79,15 @@ class LobbyActivity : ComponentActivity() {
                 LobbyScreen(
                     viewModel = viewModel,
                     onBackClicked = { finish() },
-                    onGameClicked = { gameId ->
+                    onGameClicked = { game ->
                         startActivity(
                             Intent(this, JoinActivity::class.java)
-                                .putExtra("gameId", gameId)
+                                .putExtra("gameId", game.gameId)
                                 .putExtra("isNewGame", false)
+                                .putExtra("GAME_PHASE", game.phase)
+                                .putExtra("PLAYER_COUNT", game.playerCount)
+                                .putExtra("MAX_PLAYERS", game.maxPlayers)
+                                .putStringArrayListExtra("PLAYER_IDS", ArrayList(game.playerIds))
                         )
                     },
                     onCreateGame = {
@@ -96,11 +106,12 @@ class LobbyActivity : ComponentActivity() {
 fun LobbyScreen(
     viewModel: LobbyViewModel,
     onBackClicked: () -> Unit,
-    onGameClicked: (String) -> Unit,
+    onGameClicked: (GameLobbyInfo) -> Unit,
     onCreateGame: () -> Unit
 ) {
     val darkBackground = Color(0xFF0A0A2E)
     val isConnected by viewModel.isConnected.collectAsState()
+    val reconnectFailed by viewModel.reconnectFailed.collectAsState()
     val games by viewModel.games.collectAsState()
 
     // When connected, subscribe to lobby and request game list
@@ -108,6 +119,18 @@ fun LobbyScreen(
         if (isConnected) {
             viewModel.onConnected()
         }
+    }
+
+    // Refresh lobby subscription and game list every time we come back to this screen
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                viewModel.refreshLobby()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
     Box(
@@ -157,7 +180,7 @@ fun LobbyScreen(
             ) {
                 // "+" card to create a new game
                 item {
-                    CreateGameCard(onClick = onCreateGame)
+                    CreateGameCard(onClick = onCreateGame, enabled = isConnected)
                 }
 
                 // Existing open games
@@ -165,7 +188,8 @@ fun LobbyScreen(
                     GameCard(
                         game = game,
                         isOwnGame = game.hostPlayerId == viewModel.currentPlayerId,
-                        onClick = { onGameClicked(game.gameId) },
+                        isConnected = isConnected,
+                        onClick = { onGameClicked(game) },
                         onClose = { viewModel.closeGame(game.gameId) }
                     )
                 }
@@ -199,39 +223,58 @@ fun LobbyScreen(
         }
 
         // Connection indicator – top-right
-        Box(
-            modifier = Modifier
-                .align(Alignment.TopEnd)
-                .padding(16.dp)
-                .clip(RoundedCornerShape(12.dp))
-                .background(
-                    if (isConnected) Color(0xFF2E7D32).copy(alpha = 0.8f)
-                    else Color(0xFFE65100).copy(alpha = 0.8f)
+        if (reconnectFailed && !isConnected) {
+            Button(
+                onClick = { viewModel.reconnect() },
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(16.dp),
+                shape = RoundedCornerShape(12.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = PrimaryBlue),
+                elevation = ButtonDefaults.buttonElevation(defaultElevation = 4.dp)
+            ) {
+                Text(
+                    text = "Reconnect",
+                    color = Color.White,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Medium
                 )
-                .padding(horizontal = 12.dp, vertical = 8.dp)
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                if (isConnected) {
-                    Icon(
-                        imageVector = Icons.Filled.Check,
-                        contentDescription = "Connected",
-                        tint = Color.White,
-                        modifier = Modifier.size(16.dp)
+            }
+        } else {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(16.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(
+                        if (isConnected) Color(0xFF2E7D32).copy(alpha = 0.8f)
+                        else Color(0xFFE65100).copy(alpha = 0.8f)
                     )
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text(
-                        text = "Connected",
-                        color = Color.White,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Medium
-                    )
-                } else {
-                    Text(
-                        text = "Connecting…",
-                        color = Color.White,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Medium
-                    )
+                    .padding(horizontal = 12.dp, vertical = 8.dp)
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (isConnected) {
+                        Icon(
+                            imageVector = Icons.Filled.Check,
+                            contentDescription = "Connected",
+                            tint = Color.White,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = "Connected",
+                            color = Color.White,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                    } else {
+                        Text(
+                            text = "Connecting…",
+                            color = Color.White,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
                 }
             }
         }
@@ -239,13 +282,13 @@ fun LobbyScreen(
 }
 
 @Composable
-fun CreateGameCard(onClick: () -> Unit) {
+fun CreateGameCard(onClick: () -> Unit, enabled: Boolean = true) {
     Box(
         modifier = Modifier
             .size(160.dp)
             .clip(RoundedCornerShape(16.dp))
-            .background(PrimaryBlue.copy(alpha = 0.3f))
-            .clickable(onClick = onClick),
+            .background(if (enabled) PrimaryBlue.copy(alpha = 0.3f) else Color(0xFF424242).copy(alpha = 0.5f))
+            .clickable(enabled = enabled, onClick = onClick),
         contentAlignment = Alignment.Center
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -271,10 +314,40 @@ fun CreateGameCard(onClick: () -> Unit) {
 fun GameCard(
     game: GameLobbyInfo,
     isOwnGame: Boolean,
+    isConnected: Boolean = true,
     onClick: () -> Unit,
     onClose: () -> Unit
 ) {
     var showCloseDialog by remember { mutableStateOf(false) }
+
+    val status = game.cardStatus()
+    val isInteractable = when (status) {
+        GameCardStatus.Open       -> true
+        GameCardStatus.Full       -> true
+        GameCardStatus.InProgress -> true
+        GameCardStatus.Finished   -> false
+    }
+
+    val cardBackground = when (status) {
+        GameCardStatus.Open       -> Color(0xFF1A237E).copy(alpha = 0.6f)
+        GameCardStatus.Full       -> Color(0xFF424242).copy(alpha = 0.7f)
+        GameCardStatus.InProgress -> Color(0xFF1B5E20).copy(alpha = 0.7f)
+        GameCardStatus.Finished   -> Color(0xFF212121).copy(alpha = 0.5f)
+    }
+
+    val statusBadgeText = when (status) {
+        GameCardStatus.Open       -> null
+        GameCardStatus.Full       -> "FULL"
+        GameCardStatus.InProgress -> "IN PROGRESS"
+        GameCardStatus.Finished   -> "FINISHED"
+    }
+
+    val statusBadgeColor = when (status) {
+        GameCardStatus.Full       -> Color(0xFFB71C1C).copy(alpha = 0.85f)
+        GameCardStatus.InProgress -> Color(0xFFF57F17).copy(alpha = 0.85f)
+        GameCardStatus.Finished   -> Color(0xFF424242).copy(alpha = 0.85f)
+        else                      -> Color.Transparent
+    }
 
     if (showCloseDialog) {
         AlertDialog(
@@ -297,12 +370,14 @@ fun GameCard(
         )
     }
 
+    val clickable = isInteractable && isConnected
+
     Box(
         modifier = Modifier
             .size(160.dp)
             .clip(RoundedCornerShape(16.dp))
-            .background(Color(0xFF1A237E).copy(alpha = 0.6f))
-            .clickable(onClick = onClick)
+            .background(if (clickable) cardBackground else Color(0xFF424242).copy(alpha = 0.5f))
+            .clickable(enabled = clickable, onClick = onClick)
     ) {
         Column(
             modifier = Modifier
@@ -311,6 +386,21 @@ fun GameCard(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
+            // Status badge
+            if (statusBadgeText != null) {
+                Text(
+                    text = statusBadgeText,
+                    color = Color.White,
+                    fontSize = 9.sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 1.sp,
+                    modifier = Modifier
+                        .background(statusBadgeColor, RoundedCornerShape(4.dp))
+                        .padding(horizontal = 6.dp, vertical = 2.dp)
+                )
+                Spacer(modifier = Modifier.height(6.dp))
+            }
+
             Text(
                 text = "🎲",
                 fontSize = 32.sp
@@ -318,7 +408,7 @@ fun GameCard(
             Spacer(modifier = Modifier.height(8.dp))
             Text(
                 text = game.hostPlayerName.ifBlank { "Unknown" },
-                color = Color.White,
+                color = if (isInteractable) Color.White else Color.White.copy(alpha = 0.5f),
                 fontSize = 14.sp,
                 fontWeight = FontWeight.Bold,
                 maxLines = 1,
@@ -327,13 +417,13 @@ fun GameCard(
             Spacer(modifier = Modifier.height(4.dp))
             Text(
                 text = "${game.playerCount}/${game.maxPlayers} Players",
-                color = Color.White.copy(alpha = 0.7f),
+                color = Color.White.copy(alpha = if (isInteractable) 0.7f else 0.4f),
                 fontSize = 12.sp
             )
         }
 
-        // Close button for own games
-        if (isOwnGame) {
+        // Close button for own games – also requires connection
+        if (isOwnGame && isConnected) {
             IconButton(
                 onClick = { showCloseDialog = true },
                 modifier = Modifier
@@ -353,4 +443,3 @@ fun GameCard(
         }
     }
 }
-

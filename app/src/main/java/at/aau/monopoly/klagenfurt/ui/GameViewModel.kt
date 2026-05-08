@@ -26,7 +26,10 @@ import kotlinx.coroutines.flow.shareIn
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
-class GameViewModel(private val gameService: GameService) : ViewModel() {
+class GameViewModel(
+    private val gameService: GameService,
+    private val currentTimeProvider: () -> Long = { System.currentTimeMillis() }
+) : ViewModel() {
 
     data class LogEntry(
         val text: String,
@@ -35,7 +38,7 @@ class GameViewModel(private val gameService: GameService) : ViewModel() {
         val timestampMs: Long = System.currentTimeMillis()
     )
 
-    private data class LogAccumulator(
+    internal data class LogAccumulator(
         val gameId: String,
         val entries: List<LogEntry>
     )
@@ -191,7 +194,8 @@ class GameViewModel(private val gameService: GameService) : ViewModel() {
                     val entry = LogEntry(
                         text = entryText,
                         eventType = event.event.ifBlank { "UNKNOWN" },
-                        isTechnical = isTechnical
+                        isTechnical = isTechnical,
+                        timestampMs = currentTimeProvider()
                     )
                     LogAccumulator(
                         gameId = incomingGameId,
@@ -264,7 +268,7 @@ class GameViewModel(private val gameService: GameService) : ViewModel() {
     }
 
     fun rollDice() {
-        val now = System.currentTimeMillis()
+        val now = currentTimeProvider()
         // Prevent double-fires from button tap + simultaneous shake sensor event
         if (now - lastDiceRollTimestamp < 1500L) return
         lastDiceRollTimestamp = now

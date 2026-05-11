@@ -14,14 +14,18 @@ data class GameState(
     val chanceCards: MutableList<ChanceCard> = mutableListOf(),
     val communityChestCards: MutableList<CommunityChestCard> = mutableListOf(),
     var freeParkingMoney: Int = 0,
-    var lastDiceRoll: DiceRoll? = null // replaced Pair with serializable DiceRoll
+    var lastDiceRoll: DiceRoll? = null
 ) {
     /** The player whose turn it currently is. */
     val currentPlayer: Player?
         get() = players.getOrNull(currentPlayerIndex)
 
-    /** Advance the turn to the next player (wraps around). */
+    /** Advance the turn to the next player (wraps around) and resets turn-specific stats. */
     fun advanceTurn() {
+        // Zug-Statistiken des aktuellen Spielers zurücksetzen, bevor gewechselt wird
+        currentPlayer?.consecutiveDoublets = 0
+        lastDiceRoll = null
+
         if (players.isNotEmpty()) {
             currentPlayerIndex = (currentPlayerIndex + 1) % players.size
         }

@@ -66,10 +66,10 @@ fun calculateFieldBounds(index: Int, sw: Float, sh: Float): FieldBounds {
     val isCorner = posInSide == 0
 
     val corners = listOf(
-        Offset(2445f, 1720f),
-        Offset(1245f, 1720f),
-        Offset(1245f, 520f),
-        Offset(2445f, 520f)
+        Offset(2520f, 1680f),
+        Offset(1320f, 1680f),
+        Offset(1320f, 480f),
+        Offset(2520f, 480f)
     )
 
     val start = corners[side]

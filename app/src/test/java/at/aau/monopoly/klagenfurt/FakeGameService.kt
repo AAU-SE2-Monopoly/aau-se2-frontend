@@ -1,6 +1,7 @@
 package at.aau.monopoly.klagenfurt
 
 
+import at.aau.monopoly.klagenfurt.messaging.GameEvent
 import at.aau.monopoly.klagenfurt.networking.GameService
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -23,11 +24,22 @@ class FakeGameService : GameService {
     private val _subscriptionReady = MutableStateFlow(false)
     override val subscriptionReady: StateFlow<Boolean> = _subscriptionReady.asStateFlow()
 
-    override val currentPlayerId: String = "test-player-id"
+    private val _lobbySubscriptionReady = MutableStateFlow(false)
+    override val lobbySubscriptionReady: StateFlow<Boolean> = _lobbySubscriptionReady.asStateFlow()
+
+    private val _connectionState = MutableStateFlow(false)
+    override val connectionState: StateFlow<Boolean> = _connectionState.asStateFlow()
+
+    private val _reconnectFailed = MutableStateFlow(false)
+    override val reconnectFailed: StateFlow<Boolean> = _reconnectFailed.asStateFlow()
+
+    override var currentPlayerId: String = "test-player-id"
     override var currentPlayerName: String = "test-player-name"
     override var currentGameId: String = "test-game-id"
 
     var connectCalled = false
+    var connectCalls = 0
+    var ignoreFirstConnectCall = false
     var lastSubscribedGameId: String? = null
     var lastCreatedPlayerName: String? = null
     var lastJoinedGameId: String? = null
@@ -48,8 +60,16 @@ class FakeGameService : GameService {
     var lastClosedGameId: String? = null
     var closeGameCalls = 0
 
+    /** Set to false to simulate a rejected join during tests */
+    var joinGameSuccess: Boolean = true
+
     override fun connect() {
         connectCalled = true
+        if (ignoreFirstConnectCall) {
+            ignoreFirstConnectCall = false
+            return
+        }
+        connectCalls++
     }
 
     override fun disconnect() {
@@ -61,17 +81,29 @@ class FakeGameService : GameService {
         _subscriptionReady.value = true
     }
 
-    override fun createGame(playerName: String, iconId: String) {
+    override suspend fun createGame(playerName: String, iconId: String): String? {
         createGameCalls++
         lastCreatedPlayerName = playerName
         lastCreatedIconId = iconId
+        return "test-created-game-id"
     }
 
-    override fun joinGame(gameId: String, playerName: String, iconId: String) {
+    override suspend fun joinGame(gameId: String, playerName: String, iconId: String): Result<GameEvent> {
         joinGameCalls++
         lastJoinedGameId = gameId
         lastJoinedPlayerName = playerName
         lastJoinedIconId = iconId
+        return if (joinGameSuccess) {
+            Result.success(
+                GameEvent(
+                    gameId = gameId,
+                    event = "PLAYER_JOINED",
+                    message = "$playerName joined the game"
+                )
+            )
+        } else {
+            Result.failure(Exception("Join rejected by server"))
+        }
     }
 
     override fun startGame() {
@@ -127,5 +159,17 @@ class FakeGameService : GameService {
 
     suspend fun emitTestLobbyEvent(jsonMessage: String) {
         _lobbyEvents.emit(jsonMessage)
+    }
+
+    fun setConnectionState(connected: Boolean) {
+        _connectionState.value = connected
+    }
+
+    fun setLobbySubscriptionReady(ready: Boolean) {
+        _lobbySubscriptionReady.value = ready
+    }
+
+    fun setReconnectFailed(failed: Boolean) {
+        _reconnectFailed.value = failed
     }
 }

@@ -18,8 +18,9 @@ class LobbyDtoTest {
         assertEquals("", info.hostPlayerName)
         assertEquals("", info.hostPlayerId)
         assertEquals(0, info.playerCount)
-        assertEquals(4, info.maxPlayers)
+        assertEquals(6, info.maxPlayers)
         assertEquals("WAITING", info.phase)
+        assertEquals(emptyList<String>(), info.playerIds)
     }
 
     @Test
@@ -30,13 +31,15 @@ class LobbyDtoTest {
             hostPlayerId = "player-1",
             playerCount = 2,
             maxPlayers = 4,
-            phase = "WAITING"
+            phase = "WAITING",
+            playerIds = listOf("player-1", "player-2")
         )
         assertEquals("abc-123", info.gameId)
         assertEquals("Alice", info.hostPlayerName)
         assertEquals("player-1", info.hostPlayerId)
         assertEquals(2, info.playerCount)
         assertEquals(4, info.maxPlayers)
+        assertEquals(listOf("player-1", "player-2"), info.playerIds)
     }
 
     @Test
@@ -126,7 +129,8 @@ class LobbyDtoTest {
             hostPlayerId = "host-id",
             playerCount = 2,
             maxPlayers = 4,
-            phase = "WAITING"
+            phase = "WAITING",
+            playerIds = listOf("host-id", "player-2")
         )
         val json = objectMapper.writeValueAsString(info)
         val deserialized = objectMapper.readValue(json, GameLobbyInfo::class.java)

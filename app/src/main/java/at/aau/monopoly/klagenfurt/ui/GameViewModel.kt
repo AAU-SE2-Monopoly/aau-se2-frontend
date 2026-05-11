@@ -45,10 +45,6 @@ class GameViewModel(
 
     private val objectMapper = JacksonProvider.objectMapper
 
-    /**
-     * Primary flow for game state changes. Low replay to avoid re-processing
-     * old technical snapshots for current UI state.
-     */
     private val gameEventFlow: SharedFlow<GameEvent> = gameService.events
         .mapNotNull { jsonString ->
             try {
@@ -64,10 +60,6 @@ class GameViewModel(
             replay = 1
         )
 
-    /**
-     * Dedicated log source from the networking layer. This keeps log replay
-     * independent from state replay.
-     */
     private val logEventFlow: SharedFlow<GameEvent> = gameService.logEvents
         .mapNotNull { jsonString ->
             try {
@@ -83,10 +75,6 @@ class GameViewModel(
             replay = 80
         )
 
-    // ---------------------------------------------------------------------------
-    // Error handling – derived from the already-parsed gameEventFlow.
-    // No extra parsing, no changes to GameStompClient.
-    // ---------------------------------------------------------------------------
     private val _errorMessage = MutableStateFlow<String?>(null)
     val errorMessage: StateFlow<String?> = _errorMessage.asStateFlow()
 
@@ -119,8 +107,8 @@ class GameViewModel(
             val eventGameId = event.gameId
 
             val isDifferentGame = eventGameId.isNotBlank() &&
-                                 gameService.currentGameId.isNotBlank() &&
-                                 eventGameId != gameService.currentGameId
+                    gameService.currentGameId.isNotBlank() &&
+                    eventGameId != gameService.currentGameId
 
             if (isDifferentGame) {
                 lastState
@@ -167,10 +155,10 @@ class GameViewModel(
 
             val shouldIgnore =
                 event.event == "ERROR" ||
-                (event.event != "GAME_CREATED" &&
-                incomingGameId.isNotBlank() &&
-                    gameService.currentGameId.isNotBlank() &&
-                    incomingGameId != gameService.currentGameId)
+                        (event.event != "GAME_CREATED" &&
+                                incomingGameId.isNotBlank() &&
+                                gameService.currentGameId.isNotBlank() &&
+                                incomingGameId != gameService.currentGameId)
 
             if (shouldIgnore) {
                 if (event.event == "ERROR") {
@@ -214,7 +202,7 @@ class GameViewModel(
     val isRollingPhaseForCurrentPlayer: StateFlow<Boolean> = gameState
         .map { state ->
             state?.phase == GamePhase.ROLLING &&
-                state.currentPlayer?.id == gameService.currentPlayerId
+                    state.currentPlayer?.id == gameService.currentPlayerId
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
@@ -269,7 +257,6 @@ class GameViewModel(
 
     fun rollDice() {
         val now = currentTimeProvider()
-        // Prevent double-fires from button tap + simultaneous shake sensor event
         if (now - lastDiceRollTimestamp < 1500L) return
         lastDiceRollTimestamp = now
         gameService.rollDice(isCheating = isCheatActive)
@@ -277,6 +264,10 @@ class GameViewModel(
     }
 
     fun endTurn() = gameService.endTurn()
+
+    fun payJailFine() = gameService.payJailFine()
+    fun useJailCard() = gameService.useJailCard()
+
 
     fun requestState() = gameService.requestState()
 
@@ -308,6 +299,13 @@ class GameViewModel(
             "TURN_ENDED" -> "Turn ended"
             "STATE_UPDATED" -> "Game state updated"
             "STATE_SNAPSHOT" -> "State snapshot synced"
+
+
+            "JAIL_FINE_PAID" -> "Bail paid: 50M"
+            "JAIL_CARD_USED" -> "Used 'Get out of jail free' card"
+            "PLAYER_JAILED" -> "Player went to jail!"
+
+
             else -> eventType.replace("_", " ").lowercase().replaceFirstChar { it.uppercase() }
         }
     }

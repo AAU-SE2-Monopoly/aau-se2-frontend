@@ -325,7 +325,6 @@ fun GameboardScreen(
             onExecuteAction = { viewModel.executeAction() }
         )
 
-        GameboardOverlayLayer(eventLog = eventLog)
     }
 }
 

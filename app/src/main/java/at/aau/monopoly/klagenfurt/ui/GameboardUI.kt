@@ -317,13 +317,7 @@ fun GameboardScreen(
         )
 
         GameboardOverlayLayer(eventLog = bufferedEventLog)
-        // Action Card Overlay - highest priority
-        ActionCardOverlay(
-            isVisible = showActionCardOverlay,
-            card = currentActionCard,
-            isExecuting = isExecutingAction,
-            onExecuteAction = { viewModel.executeAction() }
-        )
+
 
     }
 }

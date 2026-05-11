@@ -17,10 +17,10 @@ import at.aau.monopoly.klagenfurt.ui.util.getPlayerTokenResource
 import at.aau.monopoly.klagenfurt.ui.util.toComposeColor
 import at.aau.monopoly.klagenfurt.ui.zoom.ZoomState
 
+
+import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
 import at.aau.monopoly.klagenfurt.model.field.GoField
-import at.aau.monopoly.klagenfurt.model.field.PropertyField
-import at.aau.monopoly.klagenfurt.model.field.RailroadField
-import at.aau.monopoly.klagenfurt.model.field.TaxField
 import org.junit.Assert.*
 import org.junit.Test
 import org.junit.Rule
@@ -536,6 +536,27 @@ class GameboardUITest {
           assertEquals(1f, state.scale)
           assertEquals(Offset.Zero, state.offset)
       }
+
+    @Test
+    fun testGameboardUIActivityIsLandscapeLocked() {
+        val activity = composeTestRule.activity
+
+        assertEquals(
+            ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE,
+            activity.requestedOrientation
+        )
+    }
+
+    @Test
+    fun testGameboardUIShowsBackgroundAndPathImages() {
+        composeTestRule
+            .onNodeWithContentDescription("Klagenfurt-Map")
+            .assertExists()
+
+        composeTestRule
+            .onNodeWithContentDescription("Path - Klagenfurt-Ring")
+            .assertExists()
+    }
 
 }
 

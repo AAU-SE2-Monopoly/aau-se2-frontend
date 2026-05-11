@@ -5,6 +5,8 @@ import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -16,8 +18,17 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.layout
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Density
+import kotlin.math.roundToInt
+
+/**
+ * The current zoom scale, readable by child composables to adjust
+ * rendering density if needed.
+ */
+val LocalZoomScale = compositionLocalOf { 1f }
 
 class ZoomState(
     initialScale: Float = 1f,
@@ -47,29 +58,54 @@ class ZoomState(
 @Composable
 fun ZoomableWrapper(modifier: Modifier = Modifier, content: @Composable () -> Unit) {
     val zoomState = remember { ZoomState() }
-
+    val baseDensity = LocalDensity.current
     Box(
         modifier = modifier
             .clip(RectangleShape)
             .background(Color.Black)
             .pointerInput(Unit) {
                 detectTransformGestures { _, pan, zoom, _ ->
-                    zoomState.updateTransformation(pan, zoom, Size(size.width.toFloat(), size.height.toFloat()))
+                    zoomState.updateTransformation(
+                        pan, zoom,
+                        Size(size.width.toFloat(), size.height.toFloat())
+                    )
                 }
             }
     ) {
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .graphicsLayer(
-                    scaleX = zoomState.scale,
-                    scaleY = zoomState.scale,
-                    translationX = zoomState.offset.x,
-                    translationY = zoomState.offset.y
-                ),
-            contentAlignment = Alignment.Center
-        ) {
-            content()
+        CompositionLocalProvider(LocalZoomScale provides zoomState.scale) {
+            // Scale the density so that sp/dp values grow with the zoom,
+            // keeping text and spacing proportional to the enlarged layout.
+            val scaledDensity = Density(
+                density = baseDensity.density * zoomState.scale,
+                fontScale = baseDensity.fontScale
+            )
+            CompositionLocalProvider(LocalDensity provides scaledDensity) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .layout { measurable, constraints ->
+                        // Measure content at scaled-up size so vectors render
+                        // at the zoomed resolution (sharp, no bitmap upscale).
+                        val s = zoomState.scale
+                        val scaledConstraints = constraints.copy(
+                            maxWidth = (constraints.maxWidth * s).roundToInt(),
+                            maxHeight = (constraints.maxHeight * s).roundToInt()
+                        )
+                        val placeable = measurable.measure(scaledConstraints)
+                        layout(constraints.maxWidth, constraints.maxHeight) {
+                            // Centre the scaled content, then apply pan offset.
+                            val ox = ((constraints.maxWidth - placeable.width) / 2f +
+                                    zoomState.offset.x).roundToInt()
+                            val oy = ((constraints.maxHeight - placeable.height) / 2f +
+                                    zoomState.offset.y).roundToInt()
+                            placeable.place(ox, oy)
+                        }
+                    },
+                contentAlignment = Alignment.Center
+            ) {
+                content()
+            }
+            }
         }
     }
 }

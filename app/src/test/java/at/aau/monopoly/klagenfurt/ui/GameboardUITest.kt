@@ -42,7 +42,7 @@ class GameboardUITest {
         assertEquals(Color(0xFFD93A96), PropertyColor.PINK.toComposeColor())
         assertEquals(Color(0xFFF7941D), PropertyColor.ORANGE.toComposeColor())
         assertEquals(Color(0xFFED1B24), PropertyColor.RED.toComposeColor())
-        assertEquals(Color(0xFFFEF200), PropertyColor.YELLOW.toComposeColor())
+        assertEquals(Color(0xFFD4A017), PropertyColor.YELLOW.toComposeColor())
         assertEquals(Color(0xFF1FB25A), PropertyColor.GREEN.toComposeColor())
         assertEquals(Color(0xFF0072BB), PropertyColor.DARK_BLUE.toComposeColor())
     }

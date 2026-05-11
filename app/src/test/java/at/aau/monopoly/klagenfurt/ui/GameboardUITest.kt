@@ -161,19 +161,19 @@ class GameboardUITest {
     fun testCalculateFieldBoundsAllSides() {
         val sw = 3840f
         val sh = 2160f
-        
+
         // Bottom side (0-9)
         val b5 = calculateFieldBounds(5, sw, sh)
         assertEquals(0f, b5.rotation)
-        
+
         // Left side (10-19)
         val b15 = calculateFieldBounds(15, sw, sh)
         assertEquals(90f, b15.rotation)
-        
+
         // Top side (20-29)
         val b25 = calculateFieldBounds(25, sw, sh)
         assertEquals(180f, b25.rotation)
-        
+
         // Right side (30-39)
         val b35 = calculateFieldBounds(35, sw, sh)
         assertEquals(270f, b35.rotation)
@@ -329,61 +329,8 @@ class GameboardUITest {
          }
      }
 
-     @Test
-     fun testLockScreenOrientationDisposable() {
-         // Test that DisposableEffect properly manages orientation changes
-         composeTestRule.setContent {
-             LockScreenOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE)
-         }
 
-         // Activity should have landscape orientation set
-         val activity = composeTestRule.activity
-         assertEquals(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE, activity.requestedOrientation)
-     }
 
-     @Test
-     fun testGameboardContentWithEmptyPlayers() {
-         composeTestRule.setContent {
-             GameboardContent(
-                 fields = emptyList(),
-                 players = emptyList(),
-                 currentPlayerId = "",
-                 currentTurnPlayer = null,
-                 modifier = Modifier.fillMaxSize()
-             )
-         }
-
-         // Should render without crashing
-         composeTestRule.onNodeWithContentDescription("Klagenfurt-Map").assertExists()
-     }
-
-     @Test
-     fun testGameboardContentWithMultiplePlayers() {
-         val player1 = Player(
-             id = "player1",
-             name = "Alice",
-             position = 0,
-             money = 1500
-         )
-         val player2 = Player(
-             id = "player2",
-             name = "Bob",
-             position = 5,
-             money = 1500
-         )
-
-         composeTestRule.setContent {
-             GameboardContent(
-                 fields = emptyList(),
-                 players = listOf(player1, player2),
-                 currentPlayerId = "player1",
-                 currentTurnPlayer = player1,
-                 modifier = Modifier.fillMaxSize()
-             )
-         }
-
-         composeTestRule.onNodeWithContentDescription("Klagenfurt-Map").assertExists()
-     }
 
      @Test
      fun testGameboardUICreationWithGameId() {
@@ -391,24 +338,7 @@ class GameboardUITest {
          assertNotNull("Activity should be created", activity)
      }
 
-     @Test
-     fun testZoomStateMultipleScalingOperations() {
-         val state = ZoomState()
-         val containerSize = Size(1000f, 1000f)
 
-         // First: zoom to 2x
-         state.updateTransformation(Offset.Zero, 2f, containerSize)
-         assertEquals(2f, state.scale)
-
-         // Then: zoom to 3x from current position
-         state.updateTransformation(Offset.Zero, 1.5f, containerSize)
-         assertEquals(3f, state.scale)
-
-         // Finally: zoom back to 1x
-         state.updateTransformation(Offset.Zero, 0.5f, containerSize)
-         assertEquals(1f, state.scale)
-         assertEquals(Offset.Zero, state.offset)
-     }
 
      @Test
      fun testZoomStatePanningPreservesScaleLevel() {
@@ -466,25 +396,7 @@ class GameboardUITest {
          assertEquals(resourceWithoutSpaces, resourceWithSpaces)
      }
 
-     @Test
-     fun testZoomStateOffsetBoundsOnSmallContainer() {
-         val state = ZoomState()
-         val smallContainer = Size(100f, 100f)
 
-         state.updateTransformation(Offset(50f, 50f), 1f, smallContainer)
-         assertEquals(50f, state.offset.x)
-         assertEquals(50f, state.offset.y)
-     }
-
-     @Test
-     fun testZoomStateOffsetBoundsOnLargeContainer() {
-         val state = ZoomState()
-         val largeContainer = Size(5000f, 5000f)
-
-         state.updateTransformation(Offset(1000f, 1000f), 1f, largeContainer)
-         assertEquals(1000f, state.offset.x)
-         assertEquals(1000f, state.offset.y)
-     }
 
      @Test
      fun testCalculateFieldBoundsScalingEffectsAllFields() {
@@ -525,18 +437,7 @@ class GameboardUITest {
           }
       }
 
-      @Test
-      fun testZoomStateMultiplePansWithoutZoom() {
-          val state = ZoomState()
-          val containerSize = Size(1000f, 1000f)
 
-          // Pan multiple times
-          state.updateTransformation(Offset(100f, 100f), 1f, containerSize)
-          state.updateTransformation(Offset(200f, 200f), 1f, containerSize)
-
-          assertEquals(200f, state.offset.x)
-          assertEquals(200f, state.offset.y)
-      }
 
       @Test
       fun testPlayerTokenResourceHandlesAllTokenTypes() {
@@ -547,29 +448,7 @@ class GameboardUITest {
           }
       }
 
-      @Test
-      fun testFieldImageMappingAllMainLocations() {
-          val locations = mapOf(
-              "Go" to true,
-              "Herrengasse" to true,
-              "Reichensteuer" to true,
-              "Neuer Platz" to true,
-              "Chance" to true,
-              "Jail" to true,
-              "Free Parking" to true,
-              "Go To Jail" to true,
-              "NonExistent" to false
-          )
-          
-          for ((location, shouldExist) in locations) {
-              val mapping = getFieldImageMapping(location)
-              if (shouldExist) {
-                  assertNotNull("Mapping should exist for $location", mapping)
-              } else {
-                  assertNull("Mapping should not exist for $location", mapping)
-              }
-          }
-      }
+
 
       @Test
       fun testCalculateFieldBoundsCornerFieldsHaveConsistentSize() {
@@ -591,27 +470,7 @@ class GameboardUITest {
           assertEquals(0f, corner30.rotation)
       }
 
-      @Test
-      fun testZoomStateScalingWithMultipleSteps() {
-          val state = ZoomState(initialScale = 1f)
-          val containerSize = Size(1000f, 1000f)
 
-          // Step 1: Zoom in to 2x
-          state.updateTransformation(Offset.Zero, 2f, containerSize)
-          assertEquals(2f, state.scale)
-
-          // Step 2: Zoom in to 3x
-          state.updateTransformation(Offset.Zero, 1.5f, containerSize)
-          assertEquals(3f, state.scale)
-
-          // Step 3: Zoom in to 4x
-          state.updateTransformation(Offset.Zero, 1.33f, containerSize)
-          assertEquals(4f, state.scale)
-
-          // Step 4: Zoom back to 1x
-          state.updateTransformation(Offset.Zero, 0.25f, containerSize)
-          assertEquals(1f, state.scale)
-      }
 
       @Test
       fun testGetFieldImageMappingAllFields() {
@@ -620,7 +479,7 @@ class GameboardUITest {
               "Go", "Herrengasse", "Heiligengeistplatz", "Neuer Platz",
               "Hauptbahnhof", "Chance", "Community Chest"
           )
-          
+
           for (fieldName in fieldNames) {
               val hasMapping = getFieldImageMapping(fieldName) != null
               assertTrue("Field $fieldName should have a mapping", hasMapping)

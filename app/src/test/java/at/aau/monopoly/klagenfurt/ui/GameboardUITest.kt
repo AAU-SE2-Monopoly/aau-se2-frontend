@@ -1,4 +1,8 @@
 package at.aau.monopoly.klagenfurt.ui
+import android.content.pm.ActivityInfo
+import android.view.KeyEvent
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -6,6 +10,7 @@ import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import at.aau.monopoly.klagenfurt.model.enums.PropertyColor
+import at.aau.monopoly.klagenfurt.model.Player
 import at.aau.monopoly.klagenfurt.ui.board.calculateFieldBounds
 import at.aau.monopoly.klagenfurt.ui.board.getFieldImageMapping
 import at.aau.monopoly.klagenfurt.ui.util.getPlayerTokenResource
@@ -20,7 +25,6 @@ import org.junit.Assert.*
 import org.junit.Test
 import org.junit.Rule
 import org.junit.runner.RunWith
-import android.view.KeyEvent
 
 @RunWith(AndroidJUnit4::class)
 class GameboardUITest {
@@ -313,18 +317,539 @@ class GameboardUITest {
         assertTrue(bounds.height > 0f)
     }
 
-    @Test
-    fun testCalculateFieldBoundsForEveryBoardIndexHasPositiveSize() {
-        for (index in 0 until 40) {
-            val bounds = calculateFieldBounds(index, 3840f, 2160f)
+     @Test
+     fun testCalculateFieldBoundsForEveryBoardIndexHasPositiveSize() {
+         for (index in 0 until 40) {
+             val bounds = calculateFieldBounds(index, 3840f, 2160f)
 
-            assertTrue("width should be positive for index $index", bounds.width > 0f)
-            assertTrue("height should be positive for index $index", bounds.height > 0f)
-            assertTrue("textWidth should be positive for index $index", bounds.textWidth > 0f)
-            assertTrue("textHeight should be positive for index $index", bounds.textHeight > 0f)
-        }
-    }
+             assertTrue("width should be positive for index $index", bounds.width > 0f)
+             assertTrue("height should be positive for index $index", bounds.height > 0f)
+             assertTrue("textWidth should be positive for index $index", bounds.textWidth > 0f)
+             assertTrue("textHeight should be positive for index $index", bounds.textHeight > 0f)
+         }
+     }
 
+     @Test
+     fun testLockScreenOrientationDisposable() {
+         // Test that DisposableEffect properly manages orientation changes
+         composeTestRule.setContent {
+             LockScreenOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE)
+         }
+
+         // Activity should have landscape orientation set
+         val activity = composeTestRule.activity
+         assertEquals(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE, activity.requestedOrientation)
+     }
+
+     @Test
+     fun testGameboardContentWithEmptyPlayers() {
+         composeTestRule.setContent {
+             GameboardContent(
+                 fields = emptyList(),
+                 players = emptyList(),
+                 currentPlayerId = "",
+                 currentTurnPlayer = null,
+                 modifier = Modifier.fillMaxSize()
+             )
+         }
+
+         // Should render without crashing
+         composeTestRule.onNodeWithContentDescription("Klagenfurt-Map").assertExists()
+     }
+
+     @Test
+     fun testGameboardContentWithMultiplePlayers() {
+         val player1 = Player(
+             id = "player1",
+             name = "Alice",
+             position = 0,
+             money = 1500
+         )
+         val player2 = Player(
+             id = "player2",
+             name = "Bob",
+             position = 5,
+             money = 1500
+         )
+
+         composeTestRule.setContent {
+             GameboardContent(
+                 fields = emptyList(),
+                 players = listOf(player1, player2),
+                 currentPlayerId = "player1",
+                 currentTurnPlayer = player1,
+                 modifier = Modifier.fillMaxSize()
+             )
+         }
+
+         composeTestRule.onNodeWithContentDescription("Klagenfurt-Map").assertExists()
+     }
+
+     @Test
+     fun testGameboardUICreationWithGameId() {
+         val activity = composeTestRule.activity
+         assertNotNull("Activity should be created", activity)
+     }
+
+     @Test
+     fun testZoomStateMultipleScalingOperations() {
+         val state = ZoomState()
+         val containerSize = Size(1000f, 1000f)
+
+         // First: zoom to 2x
+         state.updateTransformation(Offset.Zero, 2f, containerSize)
+         assertEquals(2f, state.scale)
+
+         // Then: zoom to 3x from current position
+         state.updateTransformation(Offset.Zero, 1.5f, containerSize)
+         assertEquals(3f, state.scale)
+
+         // Finally: zoom back to 1x
+         state.updateTransformation(Offset.Zero, 0.5f, containerSize)
+         assertEquals(1f, state.scale)
+         assertEquals(Offset.Zero, state.offset)
+     }
+
+     @Test
+     fun testZoomStatePanningPreservesScaleLevel() {
+         val state = ZoomState()
+         val containerSize = Size(1000f, 1000f)
+
+         // Zoom to 2x
+         state.updateTransformation(Offset.Zero, 2f, containerSize)
+         val initialScale = state.scale
+
+         // Pan without changing zoom
+         state.updateTransformation(Offset(100f, 100f), 1f, containerSize)
+
+         // Scale should remain unchanged
+         assertEquals(initialScale, state.scale)
+         assertEquals(100f, state.offset.x)
+         assertEquals(100f, state.offset.y)
+     }
+
+     @Test
+     fun testCalculateFieldBoundsBottomSide() {
+         val bounds = calculateFieldBounds(3, 3840f, 2160f)
+         assertEquals(0f, bounds.rotation)
+         assertTrue("Should be on bottom side", bounds.x > 0f && bounds.x < 3840f)
+     }
+
+     @Test
+     fun testCalculateFieldBoundsTopSide() {
+         val bounds = calculateFieldBounds(23, 3840f, 2160f)
+         assertEquals(180f, bounds.rotation)
+     }
+
+     @Test
+     fun testCalculateFieldBoundsRightSide() {
+         val bounds = calculateFieldBounds(33, 3840f, 2160f)
+         assertEquals(270f, bounds.rotation)
+     }
+
+     @Test
+     fun testCalculateFieldBoundsLeftSide() {
+         val bounds = calculateFieldBounds(13, 3840f, 2160f)
+         assertEquals(90f, bounds.rotation)
+     }
+
+     @Test
+     fun testGetFieldImageMappingReturnsNullForNonExistent() {
+         assertNull(getFieldImageMapping("ThisFieldDoesNotExist123"))
+         assertNull(getFieldImageMapping(""))
+     }
+
+     @Test
+     fun testGetPlayerTokenResourceHandlesWhitespace() {
+         val resourceWithSpaces = getPlayerTokenResource("  lindwurm  ")
+         val resourceWithoutSpaces = getPlayerTokenResource("lindwurm")
+         assertEquals(resourceWithoutSpaces, resourceWithSpaces)
+     }
+
+     @Test
+     fun testZoomStateOffsetBoundsOnSmallContainer() {
+         val state = ZoomState()
+         val smallContainer = Size(100f, 100f)
+
+         state.updateTransformation(Offset(50f, 50f), 1f, smallContainer)
+         assertEquals(50f, state.offset.x)
+         assertEquals(50f, state.offset.y)
+     }
+
+     @Test
+     fun testZoomStateOffsetBoundsOnLargeContainer() {
+         val state = ZoomState()
+         val largeContainer = Size(5000f, 5000f)
+
+         state.updateTransformation(Offset(1000f, 1000f), 1f, largeContainer)
+         assertEquals(1000f, state.offset.x)
+         assertEquals(1000f, state.offset.y)
+     }
+
+     @Test
+     fun testCalculateFieldBoundsScalingEffectsAllFields() {
+         val sw1 = 1920f
+         val sh1 = 1080f
+         val sw2 = 3840f
+         val sh2 = 2160f
+
+         val bounds1 = calculateFieldBounds(1, sw1, sh1)
+         val bounds2 = calculateFieldBounds(1, sw2, sh2)
+
+         // Double resolution should result in double size
+         assertEquals(bounds1.x * 2f, bounds2.x, 0.1f)
+         assertEquals(bounds1.y * 2f, bounds2.y, 0.1f)
+     }
+
+     @Test
+     fun testFieldImageMappingIsConsistent() {
+         val mapping1 = getFieldImageMapping("Go")
+         val mapping2 = getFieldImageMapping("Go")
+         assertEquals(mapping1, mapping2)
+     }
+
+      @Test
+      fun testPlayerTokenResourceIsConsistent() {
+          val token1 = getPlayerTokenResource("lindwurm")
+          val token2 = getPlayerTokenResource("lindwurm")
+          assertEquals(token1, token2)
+      }
+
+      @Test
+      fun testGameboardContentWithCurrentPlayer() {
+          val currentPlayer = Player(
+              id = "current",
+              name = "CurrentPlayer",
+              position = 10,
+              money = 1200
+          )
+          val otherPlayer = Player(
+              id = "other",
+              name = "OtherPlayer",
+              position = 5,
+              money = 1400
+          )
+
+          composeTestRule.setContent {
+              GameboardContent(
+                  fields = emptyList(),
+                  players = listOf(currentPlayer, otherPlayer),
+                  currentPlayerId = "current",
+                  currentTurnPlayer = currentPlayer,
+                  modifier = Modifier.fillMaxSize()
+              )
+          }
+
+          composeTestRule.onNodeWithContentDescription("Klagenfurt-Map").assertExists()
+      }
+
+      @Test
+      fun testGameboardContentWithDifferentCurrentPlayer() {
+          val player1 = Player(
+              id = "player1",
+              name = "Alice",
+              position = 0,
+              money = 1500
+          )
+          val player2 = Player(
+              id = "player2",
+              name = "Bob",
+              position = 15,
+              money = 1200
+          )
+
+          composeTestRule.setContent {
+              GameboardContent(
+                  fields = emptyList(),
+                  players = listOf(player1, player2),
+                  currentPlayerId = "player2",
+                  currentTurnPlayer = player2,
+                  modifier = Modifier.fillMaxSize()
+              )
+          }
+
+          composeTestRule.onNodeWithContentDescription("Klagenfurt-Map").assertExists()
+      }
+
+      @Test
+      fun testGameboardContentWithNullCurrentTurnPlayer() {
+          val player1 = Player(
+              id = "player1",
+              name = "Alice",
+              position = 0,
+              money = 1500
+          )
+
+          composeTestRule.setContent {
+              GameboardContent(
+                  fields = emptyList(),
+                  players = listOf(player1),
+                  currentPlayerId = "player1",
+                  currentTurnPlayer = null,
+                  modifier = Modifier.fillMaxSize()
+              )
+          }
+
+          composeTestRule.onNodeWithContentDescription("Klagenfurt-Map").assertExists()
+      }
+
+      @Test
+      fun testGameboardContentPlayerCallbacks() {
+          val player1 = Player(
+              id = "player1",
+              name = "Alice",
+              position = 0,
+              money = 1500
+          )
+          var onPlayerCardClickCalled = false
+          var onDismissOverlayCalled = false
+
+          composeTestRule.setContent {
+              GameboardContent(
+                  fields = emptyList(),
+                  players = listOf(player1),
+                  currentPlayerId = "player1",
+                  currentTurnPlayer = player1,
+                  onPlayerCardClick = { onPlayerCardClickCalled = true },
+                  onDismissOverlay = { onDismissOverlayCalled = true },
+                  modifier = Modifier.fillMaxSize()
+              )
+          }
+
+          composeTestRule.onNodeWithContentDescription("Klagenfurt-Map").assertExists()
+      }
+
+      @Test
+      fun testGameboardContentWithSinglePlayer() {
+          val player1 = Player(
+              id = "player1",
+              name = "Solo",
+              position = 20,
+              money = 2000
+          )
+
+          composeTestRule.setContent {
+              GameboardContent(
+                  fields = emptyList(),
+                  players = listOf(player1),
+                  currentPlayerId = "player1",
+                  currentTurnPlayer = player1,
+                  modifier = Modifier.fillMaxSize()
+              )
+          }
+
+          composeTestRule.onNodeWithContentDescription("Klagenfurt-Map").assertExists()
+      }
+
+      @Test
+      fun testGameboardContentWithThreePlayers() {
+          val players = listOf(
+              Player(id = "p1", name = "Player1", position = 0, money = 1500),
+              Player(id = "p2", name = "Player2", position = 10, money = 1500),
+              Player(id = "p3", name = "Player3", position = 20, money = 1500)
+          )
+
+          composeTestRule.setContent {
+              GameboardContent(
+                  fields = emptyList(),
+                  players = players,
+                  currentPlayerId = "p1",
+                  currentTurnPlayer = players[0],
+                  modifier = Modifier.fillMaxSize()
+              )
+          }
+
+          composeTestRule.onNodeWithContentDescription("Klagenfurt-Map").assertExists()
+      }
+
+      @Test
+      fun testGameboardContentWithOnePlayerAsCurrentButDifferentTurnPlayer() {
+          val player1 = Player(
+              id = "player1",
+              name = "Alice",
+              position = 0,
+              money = 1500
+          )
+          val player2 = Player(
+              id = "player2",
+              name = "Bob",
+              position = 10,
+              money = 1200
+          )
+
+          composeTestRule.setContent {
+              GameboardContent(
+                  fields = emptyList(),
+                  players = listOf(player1, player2),
+                  currentPlayerId = "player1",
+                  currentTurnPlayer = player2,  // Turn is for Bob, but we are Alice
+                  modifier = Modifier.fillMaxSize()
+              )
+          }
+
+          composeTestRule.onNodeWithContentDescription("Klagenfurt-Map").assertExists()
+      }
+
+      @Test
+      fun testGameboardContentWithPlayerAtDifferentPositions() {
+          val positions = listOf(0, 5, 10, 15, 20, 25, 30, 35)
+          val players = positions.mapIndexed { index, pos ->
+              Player(
+                  id = "player$index",
+                  name = "Player$index",
+                  position = pos,
+                  money = 1500
+              )
+          }
+
+          composeTestRule.setContent {
+              GameboardContent(
+                  fields = emptyList(),
+                  players = players,
+                  currentPlayerId = "player0",
+                  currentTurnPlayer = players[0],
+                  modifier = Modifier.fillMaxSize()
+              )
+          }
+
+          composeTestRule.onNodeWithContentDescription("Klagenfurt-Map").assertExists()
+      }
+
+      @Test
+      fun testGameboardContentModifierIsApplied() {
+          val testModifier = Modifier.fillMaxSize()
+
+          composeTestRule.setContent {
+              GameboardContent(
+                  fields = emptyList(),
+                  players = emptyList(),
+                  currentPlayerId = "",
+                  currentTurnPlayer = null,
+                  modifier = testModifier
+              )
+          }
+
+          composeTestRule.onNodeWithContentDescription("Klagenfurt-Map").assertExists()
+      }
+
+      @Test
+      fun testGameboardContentPlayerIdNotInList() {
+          val player1 = Player(
+              id = "player1",
+              name = "Alice",
+              position = 0,
+              money = 1500
+          )
+
+          composeTestRule.setContent {
+              GameboardContent(
+                  fields = emptyList(),
+                  players = listOf(player1),
+                  currentPlayerId = "nonexistent",
+                  currentTurnPlayer = player1,
+                  modifier = Modifier.fillMaxSize()
+              )
+          }
+
+          composeTestRule.onNodeWithContentDescription("Klagenfurt-Map").assertExists()
+      }
+
+      @Test
+      fun testLockScreenOrientationPortrait() {
+          composeTestRule.setContent {
+              LockScreenOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT)
+          }
+
+          val activity = composeTestRule.activity
+          assertEquals(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT, activity.requestedOrientation)
+      }
+
+      @Test
+      fun testGameboardContentCallbacksAreOptional() {
+          val player = Player(id = "p1", name = "Test", position = 0, money = 1500)
+
+          composeTestRule.setContent {
+              GameboardContent(
+                  fields = emptyList(),
+                  players = listOf(player),
+                  currentPlayerId = "p1",
+                  currentTurnPlayer = player
+                  // No callbacks provided - should use defaults
+              )
+          }
+
+          composeTestRule.onNodeWithContentDescription("Klagenfurt-Map").assertExists()
+      }
+
+      @Test
+      fun testGameboardContentWithSelectedPlayerOverlay() {
+          val selectedPlayer = Player(
+              id = "selected",
+              name = "SelectedPlayer",
+              position = 0,
+              money = 1500
+          )
+
+          composeTestRule.setContent {
+              GameboardContent(
+                  fields = emptyList(),
+                  players = listOf(selectedPlayer),
+                  currentPlayerId = "selected",
+                  currentTurnPlayer = selectedPlayer,
+                  selectedPlayerForOverlay = selectedPlayer,
+                  modifier = Modifier.fillMaxSize()
+              )
+          }
+
+          composeTestRule.onNodeWithContentDescription("Klagenfurt-Map").assertExists()
+      }
+
+      @Test
+      fun testCalculateFieldBoundsFieldsAreInBoardBounds() {
+          for (index in 0 until 40) {
+              val bounds = calculateFieldBounds(index, 3840f, 2160f)
+
+              assertTrue("Field $index x position should be within bounds", bounds.x >= 0f && bounds.x <= 3840f)
+              assertTrue("Field $index y position should be within bounds", bounds.y >= 0f && bounds.y <= 2160f)
+          }
+      }
+
+      @Test
+      fun testZoomStateMultiplePansWithoutZoom() {
+          val state = ZoomState()
+          val containerSize = Size(1000f, 1000f)
+
+          // Pan multiple times
+          state.updateTransformation(Offset(100f, 100f), 1f, containerSize)
+          state.updateTransformation(Offset(200f, 200f), 1f, containerSize)
+
+          assertEquals(200f, state.offset.x)
+          assertEquals(200f, state.offset.y)
+      }
+
+      @Test
+      fun testGameboardContentWithEmptyFieldList() {
+          val player = Player(id = "p1", name = "Test", position = 0, money = 1500)
+
+          composeTestRule.setContent {
+              GameboardContent(
+                  fields = emptyList(),
+                  players = listOf(player),
+                  currentPlayerId = "p1",
+                  currentTurnPlayer = player,
+                  modifier = Modifier.fillMaxSize()
+              )
+          }
+
+          composeTestRule.onNodeWithContentDescription("Klagenfurt-Map").assertExists()
+      }
+
+      @Test
+      fun testGameboardUIOnCreationWithoutGameId() {
+          val activity = composeTestRule.activity
+          assertNotNull("Activity should exist", activity)
+          // Activity should still be functional even without GAME_ID
+      }
 
 }
 

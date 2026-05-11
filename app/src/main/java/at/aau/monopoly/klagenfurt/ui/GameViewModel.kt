@@ -89,6 +89,11 @@ class GameViewModel(
     private val _selectedPlayerForOverlay = MutableStateFlow<Player?>(null)
     val selectedPlayerForOverlay: StateFlow<Player?> = _selectedPlayerForOverlay.asStateFlow()
 
+    private val _cardDrawnThisTurn = MutableStateFlow(false)
+    val cardDrawnThisTurn: StateFlow<Boolean> = _cardDrawnThisTurn.asStateFlow()
+
+    private var lastCurrentPlayerIdForCardDraw: String? = null
+
     init {
         gameEventFlow
             .onEach { event ->
@@ -102,11 +107,26 @@ class GameViewModel(
 
                 if (event.event == "ACTION_DRAWN" && event.gameState?.currentActionCard != null) {
                     _currentActionCard.value = event.gameState.currentActionCard
+                    _cardDrawnThisTurn.value = true
+                    lastCurrentPlayerIdForCardDraw = event.gameState.currentPlayer?.id
                 }
 
                 if (event.event == "ACTION_EXECUTED") {
                     _currentActionCard.value = null
                     _isExecutingAction.value = false
+                    _cardDrawnThisTurn.value = false
+                }
+
+                if (event.event == "TURN_ENDED") {
+                    _cardDrawnThisTurn.value = false
+                    lastCurrentPlayerIdForCardDraw = null
+                }
+
+                // Reset the flag if the current player has changed (e.g., new turn starts)
+                val currentPlayerId = event.gameState?.currentPlayer?.id
+                if (currentPlayerId != null && currentPlayerId != lastCurrentPlayerIdForCardDraw) {
+                    _cardDrawnThisTurn.value = false
+                    lastCurrentPlayerIdForCardDraw = null
                 }
 
                 if (event.event == "ERROR") {

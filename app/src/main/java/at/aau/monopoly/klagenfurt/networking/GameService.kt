@@ -1,5 +1,6 @@
 package at.aau.monopoly.klagenfurt.networking
 
+import at.aau.monopoly.klagenfurt.messaging.GameAction
 import at.aau.monopoly.klagenfurt.messaging.GameEvent
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -41,4 +42,6 @@ interface GameService {
     fun setGameId(gameId: String)
     fun executeAction(playerId: String)
     fun drawCard(cardType: String = "CHANCE")
+
+
 }

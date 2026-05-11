@@ -135,6 +135,7 @@ fun GameboardScreen(
     val lastDiceRoll by viewModel.lastDiceRoll.collectAsState()
     val isGameStarted by viewModel.isGameStarted.collectAsState()
     val isHost by viewModel.isHost.collectAsState()
+    val cardDrawnThisTurn by viewModel.cardDrawnThisTurn.collectAsState()
 
     // Action Card states
     val currentActionCard by viewModel.currentActionCard.collectAsState()
@@ -144,6 +145,7 @@ fun GameboardScreen(
     val context = LocalContext.current
 
     var showOverlay by remember { mutableStateOf(false) }
+    var showDebugButtons by remember { mutableStateOf(false) }
 
     // Filter DICE_ROLLED entries from the log while the overlay is visible,
     // so the dice result appears in chat only after the animation finishes.
@@ -255,20 +257,46 @@ fun GameboardScreen(
             if (isOnChanceField) {
                 Button(
                     onClick = { viewModel.drawCard("CHANCE") },
-                    enabled = !showActionCardOverlay,
+                    enabled = !showActionCardOverlay && !cardDrawnThisTurn,
                     modifier = Modifier.padding(top = 8.dp)
                 ) {
-                    Text("Draw Chance")
+                    Text(if (cardDrawnThisTurn) "✓ Card Drawn" else "🎰 Draw Chance")
                 }
             }
 
             if (isOnCommunityChestField) {
                 Button(
                     onClick = { viewModel.drawCard("COMMUNITY_CHEST") },
-                    enabled = !showActionCardOverlay,
+                    enabled = !showActionCardOverlay && !cardDrawnThisTurn,
                     modifier = Modifier.padding(top = 8.dp)
                 ) {
-                    Text("Draw Community")
+                    Text(if (cardDrawnThisTurn) "✓ Card Drawn" else "⭐ Draw Community")
+                }
+            }
+
+            // DEBUG: Test buttons for card drawing functionality
+            Button(
+                onClick = { showDebugButtons = !showDebugButtons },
+                modifier = Modifier.padding(top = 8.dp)
+            ) {
+                Text(if (showDebugButtons) "🐛 Hide Debug" else "🐛 Show Debug")
+            }
+
+            if (showDebugButtons) {
+                Button(
+                    onClick = { viewModel.drawCard("CHANCE") },
+                    enabled = !showActionCardOverlay && !cardDrawnThisTurn,
+                    modifier = Modifier.padding(top = 8.dp)
+                ) {
+                    Text(if (cardDrawnThisTurn) "✓ Test Chance" else "🎰 TEST: Draw Chance")
+                }
+
+                Button(
+                    onClick = { viewModel.drawCard("COMMUNITY_CHEST") },
+                    enabled = !showActionCardOverlay && !cardDrawnThisTurn,
+                    modifier = Modifier.padding(top = 8.dp)
+                ) {
+                    Text(if (cardDrawnThisTurn) "✓ Test Community" else "⭐ TEST: Draw Community")
                 }
             }
         }

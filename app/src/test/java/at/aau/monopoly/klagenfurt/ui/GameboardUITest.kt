@@ -192,6 +192,140 @@ class GameboardUITest {
 
         assertFalse("Andere Tasten sollten nicht abgefangen werden (false)", resultDown)
     }
+
+    @Test
+    fun testZoomStateDoesNotGoBelowMinimumScale() {
+        val state = ZoomState(initialScale = 1f)
+        val containerSize = Size(1000f, 1000f)
+
+        state.updateTransformation(
+            pan = Offset(200f, 200f),
+            zoom = 0.2f,
+            containerSize = containerSize
+        )
+
+        assertEquals(1f, state.scale)
+        assertEquals(Offset.Zero, state.offset)
+    }
+
+    @Test
+    fun testZoomStateDoesNotGoAboveMaximumScale() {
+        val state = ZoomState(initialScale = 4f)
+        val containerSize = Size(1000f, 1000f)
+
+        state.updateTransformation(
+            pan = Offset.Zero,
+            zoom = 10f,
+            containerSize = containerSize
+        )
+
+        assertEquals(5f, state.scale)
+    }
+
+    @Test
+    fun testZoomStateNegativePanIsClamped() {
+        val state = ZoomState(initialScale = 2f)
+        val containerSize = Size(1000f, 1000f)
+
+        state.updateTransformation(
+            pan = Offset(-1000f, -1000f),
+            zoom = 1f,
+            containerSize = containerSize
+        )
+
+        assertEquals(-500f, state.offset.x)
+        assertEquals(-500f, state.offset.y)
+    }
+
+    @Test
+    fun testZoomStateInitialValues() {
+        val state = ZoomState(
+            initialScale = 3f,
+            initialOffset = Offset(50f, -40f)
+        )
+
+        assertEquals(3f, state.scale)
+        assertEquals(50f, state.offset.x)
+        assertEquals(-40f, state.offset.y)
+    }
+
+    @Test
+    fun testPlayerTokenResourceIsCaseInsensitive() {
+        assertEquals(
+            com.example.myapplication.R.drawable.lindwurm,
+            getPlayerTokenResource("LINDWURM")
+        )
+
+        assertEquals(
+            com.example.myapplication.R.drawable.gti,
+            getPlayerTokenResource("GTI")
+        )
+    }
+
+    @Test
+    fun testUnknownPlayerTokenFallsBackToLindwurmForBlankString() {
+        assertEquals(
+            com.example.myapplication.R.drawable.lindwurm,
+            getPlayerTokenResource("")
+        )
+
+        assertEquals(
+            com.example.myapplication.R.drawable.lindwurm,
+            getPlayerTokenResource("   ")
+        )
+    }
+
+
+    @Test
+    fun testCalculateFieldBoundsTextSizeForCorner() {
+        val bounds = calculateFieldBounds(0, 3840f, 2160f)
+
+        assertTrue(bounds.isCorner)
+        assertEquals(bounds.width, bounds.textWidth, 0.1f)
+        assertEquals(bounds.height, bounds.textHeight, 0.1f)
+    }
+
+    @Test
+    fun testCalculateFieldBoundsTextSizeForHorizontalField() {
+        val bounds = calculateFieldBounds(1, 3840f, 2160f)
+
+        assertFalse(bounds.isCorner)
+        assertEquals(bounds.width, bounds.textWidth, 0.1f)
+        assertEquals(bounds.height, bounds.textHeight, 0.1f)
+    }
+
+    @Test
+    fun testCalculateFieldBoundsTextSizeForVerticalField() {
+        val bounds = calculateFieldBounds(11, 3840f, 2160f)
+
+        assertFalse(bounds.isCorner)
+        assertEquals(bounds.height, bounds.textWidth, 0.1f)
+        assertEquals(bounds.width, bounds.textHeight, 0.1f)
+    }
+
+    @Test
+    fun testCalculateFieldBoundsForLastField() {
+        val bounds = calculateFieldBounds(39, 3840f, 2160f)
+
+        assertFalse(bounds.isCorner)
+        assertEquals(270f, bounds.rotation)
+        assertTrue(bounds.width > 0f)
+        assertTrue(bounds.height > 0f)
+    }
+
+    @Test
+    fun testCalculateFieldBoundsForEveryBoardIndexHasPositiveSize() {
+        for (index in 0 until 40) {
+            val bounds = calculateFieldBounds(index, 3840f, 2160f)
+
+            assertTrue("width should be positive for index $index", bounds.width > 0f)
+            assertTrue("height should be positive for index $index", bounds.height > 0f)
+            assertTrue("textWidth should be positive for index $index", bounds.textWidth > 0f)
+            assertTrue("textHeight should be positive for index $index", bounds.textHeight > 0f)
+        }
+    }
+
+
 }
 
 

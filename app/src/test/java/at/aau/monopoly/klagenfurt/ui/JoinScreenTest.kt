@@ -110,59 +110,6 @@ class JoinScreenTest {
         joinButton().assertIsNotEnabled()
     }
 
-    // 3. IN_PROGRESS status
-
-    @Test
-    fun `IN_PROGRESS status shows RECONNECT title`() {
-        composeTestRule.setContent {
-            JoinScreen(
-                gameId = "game-1",
-                isNewGame = false,
-                joinState = idleState,
-                joinStatus = GameJoinStatus.IN_PROGRESS,
-                onBackClicked = noOp,
-                onJoin = { _, _ -> }
-            )
-        }
-
-        screenTitle().assertTextEquals("RECONNECT")
-    }
-
-    @Test
-    fun `IN_PROGRESS status shows reconnect message`() {
-        composeTestRule.setContent {
-            JoinScreen(
-                gameId = "game-1",
-                isNewGame = false,
-                joinState = idleState,
-                joinStatus = GameJoinStatus.IN_PROGRESS,
-                onBackClicked = noOp,
-                onJoin = { _, _ -> }
-            )
-        }
-
-        composeTestRule.onNodeWithText(
-            "Game already in progress – you can rejoin as your previous player."
-        ).assertIsDisplayed()
-    }
-
-    @Test
-    fun `IN_PROGRESS status hides icon chooser and name input`() {
-        composeTestRule.setContent {
-            JoinScreen(
-                gameId = "game-1",
-                isNewGame = false,
-                joinState = idleState,
-                joinStatus = GameJoinStatus.IN_PROGRESS,
-                onBackClicked = noOp,
-                onJoin = { _, _ -> }
-            )
-        }
-
-        iconChooser().assertDoesNotExist()
-        nameInput().assertDoesNotExist()
-    }
-
     // 4. OPEN status with isNewGame=true -> "CREATE GAME"
 
     @Test
@@ -199,73 +146,16 @@ class JoinScreenTest {
         screenTitle().assertTextEquals("JOIN GAME")
     }
 
-    // 6. isReconnectFlow=true hides icon chooser and name field
+    // 6. Open status always shows icon chooser and name input
 
     @Test
-    fun `isReturningPlayer true hides icon chooser and name input`() {
+    fun `open status shows icon chooser and name input`() {
         composeTestRule.setContent {
             JoinScreen(
                 gameId = "game-1",
                 isNewGame = false,
                 joinState = idleState,
                 joinStatus = GameJoinStatus.OPEN,
-                isReturningPlayer = true,
-                onBackClicked = noOp,
-                onJoin = { _, _ -> }
-            )
-        }
-
-        iconChooser().assertDoesNotExist()
-        nameInput().assertDoesNotExist()
-    }
-
-    @Test
-    fun `isReturningPlayer true shows RECONNECT title`() {
-        composeTestRule.setContent {
-            JoinScreen(
-                gameId = "game-1",
-                isNewGame = false,
-                joinState = idleState,
-                joinStatus = GameJoinStatus.OPEN,
-                isReturningPlayer = true,
-                onBackClicked = noOp,
-                onJoin = { _, _ -> }
-            )
-        }
-
-        screenTitle().assertTextEquals("RECONNECT")
-    }
-
-    @Test
-    fun `isReturningPlayer true shows rejoin message`() {
-        composeTestRule.setContent {
-            JoinScreen(
-                gameId = "game-1",
-                isNewGame = false,
-                joinState = idleState,
-                joinStatus = GameJoinStatus.OPEN,
-                isReturningPlayer = true,
-                onBackClicked = noOp,
-                onJoin = { _, _ -> }
-            )
-        }
-
-        composeTestRule.onNodeWithText(
-            "You have already joined this game. You can rejoin."
-        ).assertIsDisplayed()
-    }
-
-    // 7. isReconnectFlow=false shows icon chooser and name field
-
-    @Test
-    fun `isReconnectFlow false shows icon chooser and name input`() {
-        composeTestRule.setContent {
-            JoinScreen(
-                gameId = "game-1",
-                isNewGame = false,
-                joinState = idleState,
-                joinStatus = GameJoinStatus.OPEN,
-                isReturningPlayer = false,
                 onBackClicked = noOp,
                 onJoin = { _, _ -> }
             )
@@ -276,14 +166,13 @@ class JoinScreenTest {
     }
 
     @Test
-    fun `isReconnectFlow false with isNewGame true shows icon chooser and name input`() {
+    fun `open status with isNewGame true shows icon chooser and name input`() {
         composeTestRule.setContent {
             JoinScreen(
                 gameId = "game-1",
                 isNewGame = true,
                 joinState = idleState,
                 joinStatus = GameJoinStatus.OPEN,
-                isReturningPlayer = false,
                 onBackClicked = noOp,
                 onJoin = { _, _ -> }
             )
@@ -293,7 +182,7 @@ class JoinScreenTest {
         nameInput().assertIsDisplayed()
     }
 
-    // 8. Back button is always rendered regardless of joinStatus
+    // 7. Back button is always rendered regardless of joinStatus
 
     @Test
     fun `back button is shown for FINISHED status`() {
@@ -484,25 +373,6 @@ class JoinScreenTest {
         // The button text is "CREATE & JOIN"
         composeTestRule.onNode(
             hasTestTag("ActionButton") and hasText("CREATE & JOIN")
-        ).assertExists()
-    }
-
-    @Test
-    fun `IN_PROGRESS status shows RECONNECT button text`() {
-        composeTestRule.setContent {
-            JoinScreen(
-                gameId = "game-1",
-                isNewGame = false,
-                joinState = idleState,
-                joinStatus = GameJoinStatus.IN_PROGRESS,
-                onBackClicked = noOp,
-                onJoin = { _, _ -> }
-            )
-        }
-
-        composeTestRule.onNodeWithTag("ActionButton").assertExists()
-        composeTestRule.onNode(
-            hasTestTag("ActionButton") and hasText("RECONNECT")
         ).assertExists()
     }
 

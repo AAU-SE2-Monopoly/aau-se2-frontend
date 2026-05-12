@@ -60,7 +60,7 @@ class LobbyActivityTest {
     }
 
     @Test
-    fun `game card click opens JoinActivity with lobby extras`() {
+    fun `game card click opens JoinActivity with JOIN_STATUS and game extras`() {
         ActivityScenario.launch<LobbyActivity>(Intent(ApplicationProvider.getApplicationContext(), LobbyActivity::class.java)).use { scenario ->
             val lobbyJson = """
             {
@@ -92,11 +92,7 @@ class LobbyActivityTest {
                 assertEquals(JoinActivity::class.java.name, startedIntent?.component?.className)
                 assertEquals("game-1", startedIntent?.getStringExtra("gameId"))
                 assertTrue(startedIntent?.getBooleanExtra("isNewGame", true) == false)
-                assertEquals("WAITING", startedIntent?.getStringExtra("GAME_PHASE"))
-                assertEquals(2, startedIntent?.getIntExtra("PLAYER_COUNT", -1))
-                assertEquals(4, startedIntent?.getIntExtra("MAX_PLAYERS", -1))
-                val playerIds = startedIntent?.getStringArrayListExtra("PLAYER_IDS")
-                assertEquals(listOf("p1", "p2"), playerIds)
+                assertEquals("OPEN", startedIntent?.getStringExtra("JOIN_STATUS"))
             }
         }
     }

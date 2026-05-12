@@ -56,13 +56,6 @@ import at.aau.monopoly.klagenfurt.ui.theme.PrimaryBlue
 import at.aau.monopoly.klagenfurt.ui.theme.PrimaryBlueLight
 import com.example.myapplication.R
 
-/**
- * Session-scoped set of game IDs the player has joined.
- * Survives activity restarts within the same process so returning
- * players are correctly detected even after [JoinActivity] is recreated.
- */
-
-
 class JoinActivity : ComponentActivity() {
 
 
@@ -298,65 +291,76 @@ fun JoinScreen(
                     fontWeight = FontWeight.Medium
                 )
             }
+            // Status-specific messages
+            if (isFull) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = "This game is currently full.",
+                    color = Color(0xFFEF9A9A),
+                    fontSize = 14.sp,
+                    textAlign = TextAlign.Center,
+                    fontWeight = FontWeight.Medium
+                )
+            }
+
             Spacer(modifier = Modifier.height(16.dp))
             // Icon chooser and name input
             // Icon chooser
-                Button(
-                    onClick = { selectedIconIndex = (selectedIconIndex + 1) % playerIcons.size },
-                    enabled = !interactionDisabled,
-                    modifier = Modifier.size(90.dp),
-                    shape = RoundedCornerShape(20.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFF1A237E).copy(alpha = 0.6f)
-                    ),
-                    elevation = ButtonDefaults.buttonElevation(defaultElevation = 4.dp),
-                    contentPadding = PaddingValues(0.dp)
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .background(Color.White),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Image(
-                            painter = painterResource(id = playerIcons[selectedIconIndex]),
-                            contentDescription = "Selected Icon",
-                            modifier = Modifier.size(64.dp)
-                        )
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = "Tap to change icon",
-                    color = Color.White.copy(alpha = 0.4f),
-                    fontSize = 11.sp
-                )
-                Spacer(modifier = Modifier.height(16.dp))
-                // Player name text field
-                OutlinedTextField(
-                    value = playerName,
-                    onValueChange = { playerName = it },
-                    label = { Text("Player Name") },
-                    singleLine = true,
-                    enabled = !interactionDisabled,
+            Button(
+                onClick = { selectedIconIndex = (selectedIconIndex + 1) % playerIcons.size },
+                enabled = !interactionDisabled,
+                modifier = Modifier.size(90.dp),
+                shape = RoundedCornerShape(20.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color(0xFF1A237E).copy(alpha = 0.6f)
+                ),
+                elevation = ButtonDefaults.buttonElevation(defaultElevation = 4.dp),
+                contentPadding = PaddingValues(0.dp)
+            ) {
+                Box(
                     modifier = Modifier
-                        .fillMaxWidth(0.5f)
-                        .testTag("PlayerNameInput"),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = PrimaryBlueLight,
-                        unfocusedBorderColor = Color.White.copy(alpha = 0.3f),
-                        focusedLabelColor = PrimaryBlueLight,
-                        unfocusedLabelColor = Color.White.copy(alpha = 0.5f),
-                        cursorColor = PrimaryBlueLight,
-                        focusedTextColor = Color.White,
-                        unfocusedTextColor = Color.White
-                    ),
-                    shape = RoundedCornerShape(12.dp)
-                )
-
-                Spacer(modifier = Modifier.height(20.dp))
+                        .fillMaxSize()
+                        .background(Color.White),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Image(
+                        painter = painterResource(id = playerIcons[selectedIconIndex]),
+                        contentDescription = "Selected Icon",
+                        modifier = Modifier.size(64.dp)
+                    )
+                }
             }
+
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = "Tap to change icon",
+                color = Color.White.copy(alpha = 0.4f),
+                fontSize = 11.sp
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+            // Player name text field
+            OutlinedTextField(
+                value = playerName,
+                onValueChange = { playerName = it },
+                label = { Text("Player Name") },
+                singleLine = true,
+                enabled = !interactionDisabled,
+                modifier = Modifier
+                    .fillMaxWidth(0.5f)
+                    .testTag("PlayerNameInput"),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = PrimaryBlueLight,
+                    unfocusedBorderColor = Color.White.copy(alpha = 0.3f),
+                    focusedLabelColor = PrimaryBlueLight,
+                    unfocusedLabelColor = Color.White.copy(alpha = 0.5f),
+                    cursorColor = PrimaryBlueLight,
+                    focusedTextColor = Color.White,
+                    unfocusedTextColor = Color.White
+                ),
+                shape = RoundedCornerShape(12.dp)
+            )
+
+            Spacer(modifier = Modifier.height(20.dp))
 
             Button(
                 onClick = {
@@ -391,6 +395,8 @@ fun JoinScreen(
                     )
                 }
             }
+
+        }
 
 
         // Back button – always rendered and functional

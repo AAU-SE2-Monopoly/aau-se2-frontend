@@ -378,8 +378,7 @@ class GameViewModel(
     private var previousGameState: GameState? = null
     private var animationJob: Job? = null
 
-    private val _selectedPlayerForOverlay = MutableStateFlow<Player?>(null)
-    val selectedPlayerForOverlay: StateFlow<Player?> = _selectedPlayerForOverlay
+
 
     fun drawCard(cardType: String = "CHANCE") =
         gameService.drawCard(cardType)

@@ -1337,6 +1337,152 @@ class GameStompClientTest {
 
         statusJob.cancel()
     }
+
+
+    @Test
+    fun rollDice_sends_roll_dice_action_with_cheat() = runTest(testDispatcher) {
+        coEvery { stompClient.connect(any<String>()) } returns stompSession
+        coEvery { stompSession.subscribeText(any<String>()) } returns flowOf()
+        coEvery { stompSession.sendText(any<String>(), any<String>()) } returns mockk()
+
+        gameStompClient.connect()
+        advanceUntilIdle()
+
+        gameStompClient.setGameId("game-1")
+        gameStompClient.rollDice(true)
+        advanceUntilIdle()
+
+        coVerify {
+            stompSession.sendText(
+                "/app/game/action",
+                match {
+                    it.contains("\"action\":\"ROLL_DICE\"") &&
+                            it.contains("\"cheat\":\"true\"")
+                }
+            )
+        }
+    }
+
+    @Test
+    fun endTurn_sends_end_turn_action() = runTest(testDispatcher) {
+        coEvery { stompClient.connect(any<String>()) } returns stompSession
+        coEvery { stompSession.subscribeText(any<String>()) } returns flowOf()
+        coEvery { stompSession.sendText(any<String>(), any<String>()) } returns mockk()
+
+        gameStompClient.connect()
+        advanceUntilIdle()
+
+        gameStompClient.setGameId("game-1")
+        gameStompClient.endTurn()
+        advanceUntilIdle()
+
+        coVerify {
+            stompSession.sendText(
+                "/app/game/action",
+                match { it.contains("\"action\":\"END_TURN\"") }
+            )
+        }
+    }
+
+
+
+    @Test
+    fun drawCard_sends_chance_payload() = runTest(testDispatcher) {
+        coEvery { stompClient.connect(any<String>()) } returns stompSession
+        coEvery { stompSession.subscribeText(any<String>()) } returns flowOf()
+        coEvery { stompSession.sendText(any<String>(), any<String>()) } returns mockk()
+
+        gameStompClient.connect()
+        advanceUntilIdle()
+
+        gameStompClient.setGameId("game-1")
+        gameStompClient.drawCard("CHANCE")
+        advanceUntilIdle()
+
+        coVerify {
+            stompSession.sendText(
+                "/app/game/action",
+                match {
+                    it.contains("\"action\":\"DRAW_CARD\"") &&
+                            it.contains("\"cardType\":\"CHANCE\"")
+                }
+            )
+        }
+    }
+
+    @Test
+    fun drawCard_sends_community_chest_payload() = runTest(testDispatcher) {
+        coEvery { stompClient.connect(any<String>()) } returns stompSession
+        coEvery { stompSession.subscribeText(any<String>()) } returns flowOf()
+        coEvery { stompSession.sendText(any<String>(), any<String>()) } returns mockk()
+
+        gameStompClient.connect()
+        advanceUntilIdle()
+
+        gameStompClient.setGameId("game-1")
+        gameStompClient.drawCard("COMMUNITY_CHEST")
+        advanceUntilIdle()
+
+        coVerify {
+            stompSession.sendText(
+                "/app/game/action",
+                match {
+                    it.contains("\"action\":\"DRAW_CARD\"") &&
+                            it.contains("\"cardType\":\"COMMUNITY_CHEST\"")
+                }
+            )
+        }
+    }
+
+    @Test
+    fun executeAction_sends_execute_action_with_player_id() = runTest(testDispatcher) {
+        coEvery { stompClient.connect(any<String>()) } returns stompSession
+        coEvery { stompSession.subscribeText(any<String>()) } returns flowOf()
+        coEvery { stompSession.sendText(any<String>(), any<String>()) } returns mockk()
+
+        gameStompClient.connect()
+        advanceUntilIdle()
+
+        gameStompClient.setGameId("game-1")
+        gameStompClient.executeAction("player-1")
+        advanceUntilIdle()
+
+        coVerify {
+            stompSession.sendText(
+                "/app/game/action",
+                match {
+                    it.contains("\"action\":\"EXECUTE_ACTION\"") &&
+                            it.contains("\"playerId\":\"player-1\"")
+                }
+            )
+        }
+    }
+
+    @Test
+    fun requestGameList_when_not_connected_emits_not_connected_status() = runTest(testDispatcher) {
+        val statuses = mutableListOf<String>()
+        val job = launch { gameStompClient.status.collect { statuses.add(it) } }
+
+        gameStompClient.requestGameList()
+        advanceUntilIdle()
+
+        assertTrue(statuses.contains("Not connected"))
+
+        job.cancel()
+    }
+
+    @Test
+    fun closeGame_when_not_connected_emits_not_connected_status() = runTest(testDispatcher) {
+        val statuses = mutableListOf<String>()
+        val job = launch { gameStompClient.status.collect { statuses.add(it) } }
+
+        gameStompClient.closeGame("game-1")
+        advanceUntilIdle()
+
+        assertTrue(statuses.contains("Not connected"))
+
+        job.cancel()
+    }
 }
 
 

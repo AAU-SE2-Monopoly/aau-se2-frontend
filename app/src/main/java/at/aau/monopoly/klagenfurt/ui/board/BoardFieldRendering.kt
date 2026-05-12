@@ -793,7 +793,7 @@ private fun BoxScope.CornerFieldTitle(
 }
 
 @Composable
-private fun BoxScope.PropertyFieldTitle(text: String, side: Int) {
+private fun PropertyFieldTitle(text: String, side: Int) {
     val textAlign = when (side) {
         1 -> TextAlign.Start   // left column: text at start (top after rotation = inner edge)
         3 -> TextAlign.End     // right column: text at end (bottom after rotation = inner edge)
@@ -811,7 +811,7 @@ private fun BoxScope.PropertyFieldTitle(text: String, side: Int) {
 }
 
 @Composable
-private fun BoxScope.ActionFieldTitle(text: String, side: Int) {
+private fun ActionFieldTitle(text: String, side: Int) {
     val textAlign = when (side) {
         1 -> TextAlign.Start
         3 -> TextAlign.End
@@ -829,7 +829,7 @@ private fun BoxScope.ActionFieldTitle(text: String, side: Int) {
 }
 
 @Composable
-private fun BoxScope.StandardFieldTitle(text: String, side: Int) {
+private fun StandardFieldTitle(text: String, side: Int) {
     val textAlign = when (side) {
         1 -> TextAlign.Start
         3 -> TextAlign.End
@@ -847,7 +847,7 @@ private fun BoxScope.StandardFieldTitle(text: String, side: Int) {
 }
 
 @Composable
-private fun BoxScope.BaseFieldTitleText(
+private fun BaseFieldTitleText(
     text: String,
     modifier: Modifier,
     fontSize: androidx.compose.ui.unit.TextUnit,

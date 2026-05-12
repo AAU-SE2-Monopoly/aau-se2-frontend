@@ -12,7 +12,9 @@ import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.unit.dp
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import at.aau.monopoly.klagenfurt.model.Player
 import at.aau.monopoly.klagenfurt.model.enums.FieldType
 import at.aau.monopoly.klagenfurt.model.enums.PropertyColor
 import at.aau.monopoly.klagenfurt.model.field.ChanceField
@@ -88,6 +90,83 @@ class BoardFieldRenderingCoverageTest {
         val vertical = calculateFieldBounds(index = 11, sw = 3840f, sh = 2160f)
         assertEquals(vertical.height, vertical.textWidth, 0.01f)
         assertEquals(vertical.width, vertical.textHeight, 0.01f)
+    }
+
+    @Test
+    fun `player token sizes shrink only when multiple players share a field`() {
+        assertEquals(8.dp, nonCornerPlayerTokenSize(1))
+        assertEquals(7.dp, nonCornerPlayerTokenSize(2))
+        assertEquals(6.25.dp, nonCornerPlayerTokenSize(3))
+        assertEquals(5.5.dp, nonCornerPlayerTokenSize(4))
+        assertEquals(5.dp, nonCornerPlayerTokenSize(5))
+        assertEquals(5.dp, nonCornerPlayerTokenSize(6))
+
+        assertEquals(11.dp, cornerPlayerTokenSize(1))
+        assertEquals(10.dp, cornerPlayerTokenSize(2))
+        assertEquals(9.dp, cornerPlayerTokenSize(3))
+        assertEquals(8.dp, cornerPlayerTokenSize(4))
+        assertEquals(7.dp, cornerPlayerTokenSize(5))
+        assertEquals(7.dp, cornerPlayerTokenSize(6))
+    }
+
+    @Test
+    fun `non corner token container renders up to five players before overflow`() {
+        val players = (1..6).map {
+            Player(id = "p$it", name = "Player $it", iconId = "lindwurm", position = 1)
+        }
+
+        composeTestRule.setContent {
+            Box {
+                FieldItem(
+                    index = 1,
+                    field = PropertyField(
+                        id = 1,
+                        name = "Benediktiner Platz",
+                        color = PropertyColor.LIGHT_BLUE,
+                        price = 60,
+                        rent = listOf(2, 4, 8, 16, 32, 64),
+                        houseCost = 50,
+                        hotelCost = 50
+                    ),
+                    sw = 3840f,
+                    sh = 2160f,
+                    playersOnField = players
+                )
+            }
+        }
+
+        composeTestRule.onAllNodesWithTag("MiniPlayerToken").assertCountEquals(5)
+        composeTestRule.onNodeWithText("+1").assertExists()
+    }
+
+    @Test
+    fun `vertical non corner token container renders five players without overflow indicator`() {
+        val players = (1..5).map {
+            Player(id = "p$it", name = "Player $it", iconId = "lindwurm", position = 11)
+        }
+
+        composeTestRule.setContent {
+            Box {
+                FieldItem(
+                    index = 11,
+                    field = PropertyField(
+                        id = 11,
+                        name = "Strandbad",
+                        color = PropertyColor.GREEN,
+                        price = 220,
+                        rent = listOf(18, 90, 250, 700, 875, 1050),
+                        houseCost = 150,
+                        hotelCost = 150
+                    ),
+                    sw = 3840f,
+                    sh = 2160f,
+                    playersOnField = players
+                )
+            }
+        }
+
+        composeTestRule.onAllNodesWithTag("MiniPlayerToken").assertCountEquals(5)
+        composeTestRule.onAllNodesWithText("+1").assertCountEquals(0)
     }
 
     @Test

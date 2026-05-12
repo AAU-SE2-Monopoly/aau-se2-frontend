@@ -131,6 +131,7 @@ fun GameboardScreen(
     val eventLog by viewModel.eventLog.collectAsState()
 
     val isRollingPhaseForCurrentPlayer by viewModel.isRollingPhaseForCurrentPlayer.collectAsState()
+    val isBuyingPhaseForCurrentPlayer by viewModel.isBuyingPhaseForCurrentPlayer.collectAsState()
     val lastDiceRoll by viewModel.lastDiceRoll.collectAsState()
     val isGameStarted by viewModel.isGameStarted.collectAsState()
     val isHost by viewModel.isHost.collectAsState()
@@ -252,6 +253,17 @@ fun GameboardScreen(
                     modifier = Modifier.testTag("roll_dice_button")
                 ) {
                     Text("🎲 Roll Dice")
+                }
+            }
+
+            if (isBuyingPhaseForCurrentPlayer) {
+                Button(
+                    onClick = { viewModel.endTurn() },
+                    modifier = Modifier
+                        .padding(top = 8.dp)
+                        .testTag("end_turn_button")
+                ) {
+                    Text("End Turn")
                 }
             }
 

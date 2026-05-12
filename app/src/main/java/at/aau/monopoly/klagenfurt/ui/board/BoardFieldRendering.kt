@@ -7,6 +7,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
@@ -44,6 +45,7 @@ import androidx.compose.ui.text.style.Hyphens
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.sp
 import at.aau.monopoly.klagenfurt.model.Player
 import at.aau.monopoly.klagenfurt.model.field.ChanceField
@@ -283,6 +285,22 @@ private fun cornerTokenAlignment(index: Int): Alignment = when (index) {
 private fun normalContentWidth(bounds: FieldBounds): Float = max(bounds.width, bounds.height)
 
 private fun normalContentHeight(bounds: FieldBounds): Float = min(bounds.width, bounds.height)
+
+internal fun nonCornerPlayerTokenSize(playerCount: Int): Dp = when {
+    playerCount <= 1 -> 8.dp
+    playerCount == 2 -> 7.dp
+    playerCount == 3 -> 6.25.dp
+    playerCount == 4 -> 5.5.dp
+    else -> 5.dp
+}
+
+internal fun cornerPlayerTokenSize(playerCount: Int): Dp = when {
+    playerCount <= 1 -> 11.dp
+    playerCount == 2 -> 10.dp
+    playerCount == 3 -> 9.dp
+    playerCount == 4 -> 8.dp
+    else -> 7.dp
+}
 
 private fun outerEdgeTextOffset(side: Int) = when (side) {
     0 -> Modifier.offset(y = 5.dp)
@@ -548,6 +566,7 @@ private fun MiniPlayerToken(
 
     Box(
         modifier = modifier
+            .testTag("MiniPlayerToken")
             .background(Color.White, CircleShape)
             .clip(CircleShape),
         contentAlignment = Alignment.Center
@@ -622,25 +641,52 @@ private fun BoxScope.PlayerTokenContainer(
         contentAlignment = Alignment.Center
     ) {
         if (playersOnField.isNotEmpty()) {
-            Row(
-                horizontalArrangement = Arrangement.Center,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                playersOnField.take(5).forEach { player ->
-                    val isAnimating = player.id == animatingPlayerId && shouldBlink
-                    MiniPlayerToken(
-                        player = player,
-                        isHighlighted = isAnimating,
-                        modifier = Modifier.size(8.dp)
-                    )
+            val tokenSize = nonCornerPlayerTokenSize(playersOnField.size)
+            val playersToRender = playersOnField.take(5)
+
+            if (side == 1 || side == 3) {
+                Column(
+                    verticalArrangement = Arrangement.Center,
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    playersToRender.forEach { player ->
+                        val isAnimating = player.id == animatingPlayerId && shouldBlink
+                        MiniPlayerToken(
+                            player = player,
+                            isHighlighted = isAnimating,
+                            modifier = Modifier.size(tokenSize)
+                        )
+                    }
+                    if (playersOnField.size > 5) {
+                        Text(
+                            text = "+${playersOnField.size - 5}",
+                            fontSize = 3.sp,
+                            color = Color.Black,
+                            maxLines = 1
+                        )
+                    }
                 }
-                if (playersOnField.size > 5) {
-                    Text(
-                        text = "+${playersOnField.size - 5}",
-                        fontSize = 3.sp,
-                        color = Color.Black,
-                        maxLines = 1
-                    )
+            } else {
+                Row(
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    playersToRender.forEach { player ->
+                        val isAnimating = player.id == animatingPlayerId && shouldBlink
+                        MiniPlayerToken(
+                            player = player,
+                            isHighlighted = isAnimating,
+                            modifier = Modifier.size(tokenSize)
+                        )
+                    }
+                    if (playersOnField.size > 5) {
+                        Text(
+                            text = "+${playersOnField.size - 5}",
+                            fontSize = 3.sp,
+                            color = Color.Black,
+                            maxLines = 1
+                        )
+                    }
                 }
             }
         }
@@ -688,6 +734,8 @@ private fun BoxScope.CornerPlayerTokenContainer(
         contentAlignment = Alignment.Center
     ) {
         if (playersOnField.isNotEmpty()) {
+            val tokenSize = cornerPlayerTokenSize(playersOnField.size)
+
             Row(
                 horizontalArrangement = Arrangement.Center,
                 verticalAlignment = Alignment.CenterVertically
@@ -697,7 +745,7 @@ private fun BoxScope.CornerPlayerTokenContainer(
                     MiniPlayerToken(
                         player = player,
                         isHighlighted = isAnimating,
-                        modifier = Modifier.size(11.dp)
+                        modifier = Modifier.size(tokenSize)
                     )
                 }
                 if (playersOnField.size > 6) {

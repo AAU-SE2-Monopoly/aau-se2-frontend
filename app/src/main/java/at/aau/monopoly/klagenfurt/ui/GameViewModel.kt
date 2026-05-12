@@ -297,6 +297,13 @@ class GameViewModel(
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
+    val isBuyingPhaseForCurrentPlayer: StateFlow<Boolean> = gameState
+        .map { state ->
+            state?.phase == GamePhase.BUYING &&
+                    state.currentPlayer?.id == gameService.currentPlayerId
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+
     val diceResultForCurrentPlayer: StateFlow<DiceRoll?> = gameState
         .map { state ->
             if (

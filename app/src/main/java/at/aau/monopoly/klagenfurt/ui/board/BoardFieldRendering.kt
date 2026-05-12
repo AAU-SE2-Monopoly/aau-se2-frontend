@@ -7,7 +7,6 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
@@ -215,7 +214,9 @@ fun FieldItem(
                 painter = imagePainter,
                 imageTint = imageTint,
                 field = field,
-                side = side
+                side = side,
+                sw = sw,
+                sh = sh
             )
 
             if (field is PropertyField) {
@@ -573,7 +574,7 @@ private fun BoxScope.PlayerTokenContainer(
     animatingStep: Int?,
     animationComplete: Boolean
 ) {
-    val containerThickness = 32f  // larger to comfortably fit up to 5 player tokens
+    val containerThickness = 44f  // larger to comfortably fit up to 5 player tokens
     val containerModifier = when (side) {
         0 -> Modifier
             .fillMaxWidth()
@@ -630,7 +631,7 @@ private fun BoxScope.PlayerTokenContainer(
                     MiniPlayerToken(
                         player = player,
                         isHighlighted = isAnimating,
-                        modifier = Modifier.size(6.5.dp)
+                        modifier = Modifier.size(8.dp)
                     )
                 }
                 if (playersOnField.size > 5) {
@@ -658,7 +659,7 @@ private fun BoxScope.CornerPlayerTokenContainer(
 ) {
     // Position token bar opposite the title to avoid overlap
     val alignment = cornerTokenAlignment(index)
-    val containerThickness = 36f
+    val containerThickness = 48f
 
     val shouldBlink = animatingPlayerId != null &&
             animatingStep == index &&
@@ -696,7 +697,7 @@ private fun BoxScope.CornerPlayerTokenContainer(
                     MiniPlayerToken(
                         player = player,
                         isHighlighted = isAnimating,
-                        modifier = Modifier.size(9.dp)
+                        modifier = Modifier.size(11.dp)
                     )
                 }
                 if (playersOnField.size > 6) {
@@ -719,22 +720,80 @@ private fun BoxScope.NonCornerFieldContent(
     painter: Painter?,
     imageTint: Color?,
     field: Field,
-    side: Int
+    side: Int,
+    sw: Float,
+    sh: Float
 ) {
-    val propertyImageOffset = if (hasColorBar) 4.dp else 0.dp
+    val barThickness = if (hasColorBar) {
+        when (side) {
+            0, 2 -> ((35f / 2160f) * sh).dp
+            1, 3 -> ((35f / 3840f) * sw).dp
+            else -> 0.dp
+        }
+    } else {
+        0.dp
+    }
+    val tokenThickness = when (side) {
+        0, 2 -> ((44f / 2160f) * sh).dp
+        1, 3 -> ((44f / 3840f) * sw).dp
+        else -> 0.dp
+    }
+    val titleBandHeight = 11.dp
+    val titleGapFromToken = if (side == 0 || side == 2) (-8).dp else 0.dp
+    val iconGapFromToken = when (side) {
+        0, 2 -> (-3).dp
+        1, 3 -> (-3).dp
+        else -> 0.dp
+    }
+    val iconGapFromTitle = 0.dp
     val fieldName = field.name
 
-    val iconWidthFactor = when (fieldName.trim()) {
-        "Chance" -> 0.95f
-        "Community Chest", "Reichensteuer", "Hauptbahnhof", "Ostbahnhof", "Westbahnhof", "Lendbahnhof" -> 0.88f
-        else -> 0.78f
+    val iconSize = when (fieldName.trim()) {
+        "Chance" -> 12.dp
+        "Community Chest", "Reichensteuer", "Hauptbahnhof", "Ostbahnhof", "Westbahnhof", "Lendbahnhof" -> 11.dp
+        else -> 10.dp
     }
-    val iconHeightFactor = when (fieldName.trim()) {
-        "Chance" -> 0.68f
-        "Community Chest", "Reichensteuer", "Hauptbahnhof", "Ostbahnhof", "Westbahnhof", "Lendbahnhof" -> 0.58f
-        else -> 0.50f
+    val contentFromTokenEdge = side == 1 || side == 3
+    val tokenEdgeAlignment = if (contentFromTokenEdge) Alignment.TopCenter else Alignment.BottomCenter
+    val titleOffset = if (contentFromTokenEdge) {
+        tokenThickness + titleGapFromToken
+    } else {
+        -(tokenThickness + titleGapFromToken)
     }
+    val iconDistanceFromToken = tokenThickness + iconGapFromToken + titleBandHeight + iconGapFromTitle
     val displayText = remember(field.name) { getDisplayFieldName(field.name) }
+
+    if (painter != null) {
+        val imageModifier = when (side) {
+            0 -> Modifier
+                .align(Alignment.BottomCenter)
+                .offset(y = -iconDistanceFromToken)
+
+            1 -> Modifier
+                .align(Alignment.CenterStart)
+                .offset(x = iconDistanceFromToken)
+
+            2 -> Modifier
+                .align(Alignment.TopCenter)
+                .offset(y = iconDistanceFromToken)
+
+            3 -> Modifier
+                .align(Alignment.CenterEnd)
+                .offset(x = -iconDistanceFromToken)
+
+            else -> Modifier.align(Alignment.Center)
+        }
+
+        Image(
+            painter = painter,
+            contentDescription = fieldName,
+            modifier = imageModifier
+                .size(iconSize)
+                .rotate(bounds.rotation),
+            contentScale = ContentScale.Fit,
+            colorFilter = imageTint?.let { ColorFilter.tint(it, BlendMode.SrcAtop) }
+        )
+    }
 
     Box(
         modifier = Modifier
@@ -746,30 +805,19 @@ private fun BoxScope.NonCornerFieldContent(
             .rotate(bounds.rotation),
         contentAlignment = Alignment.Center
     ) {
-        Column(
-            modifier = Modifier.fillMaxSize(),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(titleBandHeight)
+                .align(tokenEdgeAlignment)
+                .offset(y = titleOffset)
+                .padding(start = 2.dp, end = 2.dp),
+            contentAlignment = Alignment.Center
         ) {
-            // Image (flexible space)
-            if (painter != null) {
-                Image(
-                    painter = painter,
-                    contentDescription = fieldName,
-                    modifier = Modifier
-                        .fillMaxWidth(iconWidthFactor)
-                        .fillMaxHeight(iconHeightFactor)
-                        .offset(y = (-4).dp + propertyImageOffset),
-                    contentScale = ContentScale.Fit,
-                    colorFilter = imageTint?.let { ColorFilter.tint(it, BlendMode.SrcAtop) }
-                )
-            }
-
-            // Title (automatically shrinks to fit with softWrap + maxLines)
             when (field) {
-                is PropertyField -> PropertyFieldTitle(text = displayText, side = side)
-                is ChanceField, is CommunityChestField, is TaxField -> ActionFieldTitle(text = displayText, side = side)
-                else -> StandardFieldTitle(text = displayText, side = side)
+                is PropertyField -> PropertyFieldTitle(text = displayText, modifier = Modifier.fillMaxWidth())
+                is ChanceField, is CommunityChestField, is TaxField -> ActionFieldTitle(text = displayText, modifier = Modifier.fillMaxWidth())
+                else -> StandardFieldTitle(text = displayText, modifier = Modifier.fillMaxWidth())
             }
         }
     }
@@ -818,56 +866,35 @@ private fun BoxScope.CornerFieldTitle(
 }
 
 @Composable
-private fun PropertyFieldTitle(text: String, side: Int) {
-    val textAlign = when (side) {
-        1 -> TextAlign.Start   // left column: text at start (top after rotation = inner edge)
-        3 -> TextAlign.End     // right column: text at end (bottom after rotation = inner edge)
-        else -> TextAlign.Center
-    }
+private fun PropertyFieldTitle(text: String, modifier: Modifier = Modifier.fillMaxWidth(0.995f)) {
     BaseFieldTitleText(
         text = text,
-        modifier = Modifier
-            .fillMaxWidth(0.995f)
-            .then(outerEdgeTextOffset(side)),
-        fontSize = 3.5.sp,
-        lineHeight = 4.2.sp,
-        textAlign = textAlign
+        modifier = modifier,
+        fontSize = 2.5.sp,
+        lineHeight = 3.1.sp,
+        textAlign = TextAlign.Center
     )
 }
 
 @Composable
-private fun ActionFieldTitle(text: String, side: Int) {
-    val textAlign = when (side) {
-        1 -> TextAlign.Start
-        3 -> TextAlign.End
-        else -> TextAlign.Center
-    }
+private fun ActionFieldTitle(text: String, modifier: Modifier = Modifier.fillMaxWidth(0.97f)) {
     BaseFieldTitleText(
         text = text,
-        modifier = Modifier
-            .fillMaxWidth(0.97f)
-            .then(outerEdgeTextOffset(side)),
-        fontSize = 3.5.sp,
-        lineHeight = 4.2.sp,
-        textAlign = textAlign
+        modifier = modifier,
+        fontSize = 2.5.sp,
+        lineHeight = 3.1.sp,
+        textAlign = TextAlign.Center
     )
 }
 
 @Composable
-private fun StandardFieldTitle(text: String, side: Int) {
-    val textAlign = when (side) {
-        1 -> TextAlign.Start
-        3 -> TextAlign.End
-        else -> TextAlign.Center
-    }
+private fun StandardFieldTitle(text: String, modifier: Modifier = Modifier.fillMaxWidth(0.985f)) {
     BaseFieldTitleText(
         text = text,
-        modifier = Modifier
-            .fillMaxWidth(0.985f)
-            .then(outerEdgeTextOffset(side)),
-        fontSize = 3.5.sp,
-        lineHeight = 4.2.sp,
-        textAlign = textAlign
+        modifier = modifier,
+        fontSize = 2.5.sp,
+        lineHeight = 3.1.sp,
+        textAlign = TextAlign.Center
     )
 }
 
@@ -889,7 +916,7 @@ private fun BaseFieldTitleText(
         textAlign = textAlign,
         softWrap = true,
         overflow = TextOverflow.Clip,
-        maxLines = 3,
+        maxLines = 4,
         style = TextStyle(hyphens = Hyphens.Auto),
         modifier = modifier
     )

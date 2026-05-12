@@ -758,8 +758,8 @@ private fun BoxScope.NonCornerFieldContent(
                     contentDescription = fieldName,
                     modifier = Modifier
                         .fillMaxWidth(iconWidthFactor)
-                        .fillMaxHeight(0.65f)
-                        .offset(y = (-2).dp + propertyImageOffset),
+                        .fillMaxHeight(iconHeightFactor)
+                        .offset(y = (-4).dp + propertyImageOffset),
                     contentScale = ContentScale.Fit,
                     colorFilter = imageTint?.let { ColorFilter.tint(it, BlendMode.SrcAtop) }
                 )

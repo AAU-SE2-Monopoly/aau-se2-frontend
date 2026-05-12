@@ -61,7 +61,7 @@ import com.example.myapplication.R
  * Survives activity restarts within the same process so returning
  * players are correctly detected even after [JoinActivity] is recreated.
  */
-private val joinedGameIds = mutableSetOf<String>()
+
 
 class JoinActivity : ComponentActivity() {
 
@@ -81,8 +81,6 @@ class JoinActivity : ComponentActivity() {
 
 
 
-        // Detect returning player – tracked per session
-        val isReturningPlayer = !isNewGame && gameId in joinedGameIds
 
         setContent {
             MyApplicationTheme(dynamicColor = false) {
@@ -92,8 +90,6 @@ class JoinActivity : ComponentActivity() {
                 LaunchedEffect(joinState) {
                     when (val state = joinState) {
                         is JoinViewModel.JoinState.Success -> {
-                            // Track this game as joined for future reconnection detection
-                            joinedGameIds.add(state.gameId)
                             startActivity(
                                 Intent(this@JoinActivity, GameboardUI::class.java)
                                     .putExtra("GAME_ID", state.gameId)
@@ -112,7 +108,6 @@ class JoinActivity : ComponentActivity() {
                     isNewGame   = isNewGame,
                     joinState   = joinState,
                     joinStatus  = joinStatus,
-                    isReturningPlayer = isReturningPlayer,
                     isConnected = isConnected,
                     reconnectFailed = reconnectFailed,
                     onReconnect = { viewModel.reconnect() },
@@ -140,7 +135,6 @@ fun JoinScreen(
     isNewGame: Boolean,
     joinState: JoinViewModel.JoinState,
     joinStatus: GameJoinStatus,
-    isReturningPlayer: Boolean = false,
     isConnected: Boolean = true,
     reconnectFailed: Boolean = false,
     onBackClicked: () -> Unit,
@@ -210,9 +204,6 @@ fun JoinScreen(
     }
 
     val isFull = joinStatus == GameJoinStatus.FULL
-    val isInProgress = joinStatus == GameJoinStatus.IN_PROGRESS
-    val isReconnectFlow = isInProgress || isReturningPlayer
-
     val playerIcons = listOf(
         R.drawable.lindwurm,
         R.drawable.woertherseemandl,
@@ -246,7 +237,6 @@ fun JoinScreen(
         ) {
             Text(
                 text = when {
-                    isReconnectFlow -> "RECONNECT"
                     isNewGame -> "CREATE GAME"
                     else -> "JOIN GAME"
                 },
@@ -266,33 +256,6 @@ fun JoinScreen(
                     fontSize = 12.sp
                 )
             }
-
-            // Status-specific messages
-            if (isFull) {
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = "This game is currently full.",
-                    color = Color(0xFFEF9A9A),
-                    fontSize = 14.sp,
-                    textAlign = TextAlign.Center,
-                    fontWeight = FontWeight.Medium
-                )
-            }
-
-            if (isReconnectFlow) {
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = if (isInProgress) {
-                        "Game already in progress – you can rejoin as your previous player."
-                    } else {
-                        "You have already joined this game. You can rejoin."
-                    },
-                    color = Color.White.copy(alpha = 0.7f),
-                    fontSize = 14.sp,
-                    textAlign = TextAlign.Center
-                )
-            }
-
             // Connection warning – shown only when idle and not connected
             if (!isConnected && joinState is JoinViewModel.JoinState.Idle) {
                 if (reconnectFailed) {
@@ -307,7 +270,7 @@ fun JoinScreen(
                         elevation = ButtonDefaults.buttonElevation(defaultElevation = 8.dp)
                     ) {
                         Text(
-                            text = "RECONNECT",
+                            text = "Reconnect",
                             fontSize = 18.sp,
                             fontWeight = FontWeight.Bold,
                             letterSpacing = 2.sp,
@@ -336,9 +299,8 @@ fun JoinScreen(
                 )
             }
             Spacer(modifier = Modifier.height(16.dp))
-            // Icon chooser and name input – hidden during reconnect flow
-            if (!isReconnectFlow) {
-                // Icon chooser
+            // Icon chooser and name input
+            // Icon chooser
                 Button(
                     onClick = { selectedIconIndex = (selectedIconIndex + 1) % playerIcons.size },
                     enabled = !interactionDisabled,
@@ -398,7 +360,7 @@ fun JoinScreen(
 
             Button(
                 onClick = {
-                    val name = if (isReconnectFlow) "" else playerName.ifBlank { "Player" }
+                    val name = playerName.ifBlank { "Player" }
                     onJoin(name, selectedIconIndex)
                 },
                 enabled = !interactionDisabled,
@@ -419,7 +381,6 @@ fun JoinScreen(
                 } else {
                     Text(
                         text = when {
-                            isReconnectFlow -> "RECONNECT"
                             isNewGame -> "CREATE & JOIN"
                             else -> "JOIN GAME"
                         },
@@ -430,7 +391,7 @@ fun JoinScreen(
                     )
                 }
             }
-        }
+
 
         // Back button – always rendered and functional
         Button(

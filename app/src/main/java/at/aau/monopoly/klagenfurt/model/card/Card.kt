@@ -1,8 +1,11 @@
 package at.aau.monopoly.klagenfurt.model.card
 
 import at.aau.monopoly.klagenfurt.model.enums.CardAction
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize
 
-
+@JsonIgnoreProperties(ignoreUnknown = true)
+@JsonDeserialize(using = CardDeserializer::class)
 abstract class Card(
     open val id: Int,
     open val description: String,

@@ -73,15 +73,13 @@ class JoinActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-
+        val joinStatus = intent.getStringExtra("JOIN_STATUS")
+            ?.let { try { GameJoinStatus.valueOf(it) } catch (_: Exception) {null} }
+            ?: GameJoinStatus.OPEN
         val gameId    = intent.getStringExtra("GAME_ID") ?: intent.getStringExtra("gameId") ?: ""
         val isNewGame = intent.getBooleanExtra("isNewGame", false)
-        val gamePhase    = intent.getStringExtra("GAME_PHASE") ?: "WAITING"
-        val playerCount  = intent.getIntExtra("PLAYER_COUNT", 0)
-        val maxPlayers   = intent.getIntExtra("MAX_PLAYERS", 4)
-        val playerIds    = intent.getStringArrayListExtra("PLAYER_IDS") ?: emptyList()
-        val currentPlayerId = ServiceLocator.provideGameService().currentPlayerId
-        val joinStatus   = GameJoinStatus.compute(gamePhase, playerCount, maxPlayers, playerIds, currentPlayerId)
+
+
 
         // Detect returning player – tracked per session
         val isReturningPlayer = !isNewGame && gameId in joinedGameIds

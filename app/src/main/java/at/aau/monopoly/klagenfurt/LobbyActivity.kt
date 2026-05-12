@@ -57,8 +57,11 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import at.aau.monopoly.klagenfurt.messaging.dtos.GameLobbyInfo
+import at.aau.monopoly.klagenfurt.messaging.dtos.joinStatusFor
 import at.aau.monopoly.klagenfurt.model.GameCardStatus
+import at.aau.monopoly.klagenfurt.model.GameJoinStatus
 import at.aau.monopoly.klagenfurt.model.cardStatus
+import at.aau.monopoly.klagenfurt.ui.GameboardUI
 import at.aau.monopoly.klagenfurt.ui.LobbyViewModel
 import at.aau.monopoly.klagenfurt.ui.theme.MyApplicationTheme
 import at.aau.monopoly.klagenfurt.ui.theme.PrimaryBlue
@@ -80,15 +83,22 @@ class LobbyActivity : ComponentActivity() {
                     viewModel = viewModel,
                     onBackClicked = { finish() },
                     onGameClicked = { game ->
-                        startActivity(
-                            Intent(this, JoinActivity::class.java)
-                                .putExtra("gameId", game.gameId)
-                                .putExtra("isNewGame", false)
-                                .putExtra("GAME_PHASE", game.phase)
-                                .putExtra("PLAYER_COUNT", game.playerCount)
-                                .putExtra("MAX_PLAYERS", game.maxPlayers)
-                                .putStringArrayListExtra("PLAYER_IDS", ArrayList(game.playerIds))
-                        )
+                        val isInGame = game.playerIds.contains(viewModel.currentPlayerId)
+                        if(isInGame){
+                            viewModel.rejoinGame(game.gameId) // Ensure we're in the game before navigating to the gameboard
+                            startActivity(
+                                Intent(this, GameboardUI::class.java)
+                                .putExtra("GAME_ID", game.gameId)
+                            )
+                        }else {
+                            startActivity(
+                                Intent(this,JoinActivity::class.java)
+                                    .putExtra("gameId", game.gameId)
+                                    .putExtra("isNewGame", false)
+                                    .putExtra("JOIN_STATUS", game.joinStatusFor(viewModel.currentPlayerId).name)
+                            )
+                        }
+
                     },
                     onCreateGame = {
                         startActivity(
@@ -188,6 +198,7 @@ fun LobbyScreen(
                     GameCard(
                         game = game,
                         isOwnGame = game.hostPlayerId == viewModel.currentPlayerId,
+                        currentPlayerId = viewModel.currentPlayerId,
                         isConnected = isConnected,
                         onClick = { onGameClicked(game) },
                         onClose = { viewModel.closeGame(game.gameId) }
@@ -314,17 +325,19 @@ fun CreateGameCard(onClick: () -> Unit, enabled: Boolean = true) {
 fun GameCard(
     game: GameLobbyInfo,
     isOwnGame: Boolean,
+    currentPlayerId: String,
     isConnected: Boolean = true,
     onClick: () -> Unit,
     onClose: () -> Unit
 ) {
     var showCloseDialog by remember { mutableStateOf(false) }
-
+    val joinStatus = game.joinStatusFor(currentPlayerId)
+    val isInGame = game.playerIds.contains(currentPlayerId)
     val status = game.cardStatus()
     val isInteractable = when (status) {
         GameCardStatus.Open       -> true
-        GameCardStatus.Full       -> true
-        GameCardStatus.InProgress -> true
+        GameCardStatus.Full       -> isInGame
+        GameCardStatus.InProgress -> isInGame
         GameCardStatus.Finished   -> false
     }
 

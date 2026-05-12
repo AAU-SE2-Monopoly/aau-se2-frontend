@@ -7,6 +7,7 @@ import androidx.lifecycle.viewModelScope
 import at.aau.monopoly.klagenfurt.messaging.dtos.GameLobbyInfo
 import at.aau.monopoly.klagenfurt.messaging.dtos.LobbyEvent
 import at.aau.monopoly.klagenfurt.model.GameCardStatus
+import at.aau.monopoly.klagenfurt.model.GameJoinStatus
 import at.aau.monopoly.klagenfurt.model.cardStatus
 import at.aau.monopoly.klagenfurt.model.sortOrder
 import at.aau.monopoly.klagenfurt.networking.GameService
@@ -40,6 +41,7 @@ class LobbyViewModel(private val gameService: GameService) : ViewModel() {
     /** Tracks the gameId of a game we just created, so LobbyActivity can navigate. */
     private val _createdGameId = MutableStateFlow<String?>(null)
     val createdGameId: StateFlow<String?> = _createdGameId.asStateFlow()
+
 
 
 
@@ -125,6 +127,18 @@ class LobbyViewModel(private val gameService: GameService) : ViewModel() {
         viewModelScope.launch {
             val gameId = gameService.createGame(playerName)
             _createdGameId.value = gameId
+        }
+    }
+    fun rejoinGame(gameId: String) {
+        viewModelScope.launch {
+            val status = gameService.joinGame(gameId,
+             playerName=gameService.currentPlayerName ?: "Player",
+             iconId="lindwurm"
+             )
+             status.fold(
+                onSuccess = { gameId -> Log.d("LobbyViewModel", "Rejoined game $gameId") },
+                onFailure = { error -> Log.w("LobbyViewModel", "Failed to rejoin game: ${error.message}") }
+             )
         }
     }
 

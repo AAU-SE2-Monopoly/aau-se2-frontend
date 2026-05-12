@@ -7,8 +7,10 @@ import androidx.lifecycle.viewModelScope
 import at.aau.monopoly.klagenfurt.messaging.GameEvent
 import at.aau.monopoly.klagenfurt.model.DiceRoll
 import at.aau.monopoly.klagenfurt.model.GameState
-import at.aau.monopoly.klagenfurt.model.field.Field
+import at.aau.monopoly.klagenfurt.model.Player
+import at.aau.monopoly.klagenfurt.model.card.Card
 import at.aau.monopoly.klagenfurt.model.enums.GamePhase
+import at.aau.monopoly.klagenfurt.model.field.Field
 import at.aau.monopoly.klagenfurt.networking.GameService
 import at.aau.monopoly.klagenfurt.networking.JacksonProvider
 import at.aau.monopoly.klagenfurt.ui.board.MovementAnimationState
@@ -19,6 +21,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.mapNotNull
@@ -28,7 +31,10 @@ import kotlinx.coroutines.flow.shareIn
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
-class GameViewModel(private val gameService: GameService) : ViewModel() {
+class GameViewModel(
+    private val gameService: GameService,
+    private val currentTimeProvider: () -> Long = { System.currentTimeMillis() }
+) : ViewModel() {
 
     data class LogEntry(
         val text: String,
@@ -37,17 +43,13 @@ class GameViewModel(private val gameService: GameService) : ViewModel() {
         val timestampMs: Long = System.currentTimeMillis()
     )
 
-    private data class LogAccumulator(
+    internal data class LogAccumulator(
         val gameId: String,
         val entries: List<LogEntry>
     )
 
     private val objectMapper = JacksonProvider.objectMapper
 
-    /**
-     * Primary flow for game state changes. Low replay to avoid re-processing
-     * old technical snapshots for current UI state.
-     */
     private val gameEventFlow: SharedFlow<GameEvent> = gameService.events
         .mapNotNull { jsonString ->
             try {
@@ -63,10 +65,6 @@ class GameViewModel(private val gameService: GameService) : ViewModel() {
             replay = 1
         )
 
-    /**
-     * Dedicated log source from the networking layer. This keeps log replay
-     * independent from state replay.
-     */
     private val logEventFlow: SharedFlow<GameEvent> = gameService.logEvents
         .mapNotNull { jsonString ->
             try {
@@ -79,14 +77,29 @@ class GameViewModel(private val gameService: GameService) : ViewModel() {
         .shareIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5000),
-            replay = 1
+            replay = 80
         )
+
+    private val _errorMessage = MutableStateFlow<String?>(null)
+    val errorMessage: StateFlow<String?> = _errorMessage.asStateFlow()
+
+    private val _currentActionCard = MutableStateFlow<Card?>(null)
+    val currentActionCard: StateFlow<Card?> = _currentActionCard.asStateFlow()
+
+    private val _isExecutingAction = MutableStateFlow(false)
+    val isExecutingAction: StateFlow<Boolean> = _isExecutingAction.asStateFlow()
+
+    private val _selectedPlayerForOverlay = MutableStateFlow<Player?>(null)
+    val selectedPlayerForOverlay: StateFlow<Player?> = _selectedPlayerForOverlay.asStateFlow()
+
+    private val _cardDrawnThisTurn = MutableStateFlow(false)
+    val cardDrawnThisTurn: StateFlow<Boolean> = _cardDrawnThisTurn.asStateFlow()
+
+    private var lastCurrentPlayerIdForCardDraw: String? = null
 
     init {
         gameEventFlow
             .onEach { event ->
-                // Only auto-capture the gameId if we don't have one yet.
-                // This prevents replayed events from switching the game context unexpectedly.
                 if (
                     event.event == "GAME_CREATED" &&
                     event.gameId.isNotBlank() &&
@@ -137,6 +150,35 @@ class GameViewModel(private val gameService: GameService) : ViewModel() {
                     }
                 }
 
+                if (event.event == "ACTION_DRAWN" && event.gameState?.currentActionCard != null) {
+                    _currentActionCard.value = event.gameState.currentActionCard
+                    _cardDrawnThisTurn.value = true
+                    lastCurrentPlayerIdForCardDraw = event.gameState.currentPlayer?.id
+                }
+
+                if (event.event == "ACTION_EXECUTED") {
+                    _currentActionCard.value = null
+                    _isExecutingAction.value = false
+                    _cardDrawnThisTurn.value = false
+                }
+
+                if (event.event == "TURN_ENDED") {
+                    _cardDrawnThisTurn.value = false
+                    lastCurrentPlayerIdForCardDraw = null
+                }
+
+                // Reset the flag if the current player has changed (e.g., new turn starts)
+                val currentPlayerId = event.gameState?.currentPlayer?.id
+                if (currentPlayerId != null && currentPlayerId != lastCurrentPlayerIdForCardDraw) {
+                    _cardDrawnThisTurn.value = false
+                    lastCurrentPlayerIdForCardDraw = null
+                }
+
+                if (event.event == "ERROR") {
+                    _errorMessage.value = event.message ?: "An unknown error occurred"
+                    delay(5_000)
+                    _errorMessage.value = null
+                }
             }
             .launchIn(viewModelScope)
     }
@@ -145,9 +187,10 @@ class GameViewModel(private val gameService: GameService) : ViewModel() {
         .runningFold<GameEvent, GameState?>(null) { lastState, event ->
             val eventGameId = event.gameId
 
-            val isDifferentGame = eventGameId.isNotBlank() &&
-                                 gameService.currentGameId.isNotBlank() &&
-                                 eventGameId != gameService.currentGameId
+            val isDifferentGame =
+                eventGameId.isNotBlank() &&
+                        gameService.currentGameId.isNotBlank() &&
+                        eventGameId != gameService.currentGameId
 
             if (isDifferentGame) {
                 lastState
@@ -163,11 +206,7 @@ class GameViewModel(private val gameService: GameService) : ViewModel() {
 
     val fields: StateFlow<List<Field>> = gameState
         .map { it?.fields ?: emptyList() }
-        .stateIn(
-            scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(5000),
-            initialValue = emptyList()
-        )
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     val isGameReady: StateFlow<Boolean> = gameState
         .map { it != null }
@@ -183,13 +222,6 @@ class GameViewModel(private val gameService: GameService) : ViewModel() {
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
-    /**
-    * Displays user-facing game events such as joining, creating a game, and rolling dice.
-    *
-    * State snapshots and other technical log entries are excluded from the normal log.
-    * Technical logs are shown separately in the expanded chat bar view.
-    */
-
     val eventLog: StateFlow<List<LogEntry>> = logEventFlow
         .runningFold(LogAccumulator(gameId = "", entries = emptyList())) { acc, event ->
             val eventGameId = event.gameId
@@ -200,23 +232,39 @@ class GameViewModel(private val gameService: GameService) : ViewModel() {
             }
 
             val shouldIgnore =
-                event.event != "GAME_CREATED" &&
-                incomingGameId.isNotBlank() &&
-                    gameService.currentGameId.isNotBlank() &&
-                    incomingGameId != gameService.currentGameId
+                event.event == "ERROR" ||
+                        (
+                                event.event != "GAME_CREATED" &&
+                                        incomingGameId.isNotBlank() &&
+                                        gameService.currentGameId.isNotBlank() &&
+                                        incomingGameId != gameService.currentGameId
+                                )
 
             if (shouldIgnore) {
+                if (event.event == "ERROR") {
+                    Log.w("GameViewModel", "Server ERROR [game=${event.gameId}]: ${event.message}")
+                }
                 acc
             } else {
-                val isGameSwitch = incomingGameId.isNotBlank() &&
-                        acc.gameId.isNotBlank() &&
-                        incomingGameId != acc.gameId
+                val isGameSwitch =
+                    incomingGameId.isNotBlank() &&
+                            acc.gameId.isNotBlank() &&
+                            incomingGameId != acc.gameId
 
-                val baseEntries = if (isGameSwitch || event.event == "GAME_CREATED") emptyList() else acc.entries
+                val baseEntries =
+                    if (isGameSwitch || event.event == "GAME_CREATED") {
+                        emptyList()
+                    } else {
+                        acc.entries
+                    }
 
-                val isTechnical = event.event == "STATE_SNAPSHOT" || event.event == "STATE_UPDATED"
-                val entryText = event.message?.takeIf { it.isNotBlank() }
-                    ?: humanReadableEvent(event.event, event.gameId)
+                val isTechnical =
+                    event.event == "STATE_SNAPSHOT" ||
+                            event.event == "STATE_UPDATED"
+
+                val entryText =
+                    event.message?.takeIf { it.isNotBlank() }
+                        ?: humanReadableEvent(event.event, event.gameId)
 
                 if (entryText.isBlank()) {
                     LogAccumulator(gameId = incomingGameId, entries = baseEntries)
@@ -224,8 +272,10 @@ class GameViewModel(private val gameService: GameService) : ViewModel() {
                     val entry = LogEntry(
                         text = entryText,
                         eventType = event.event.ifBlank { "UNKNOWN" },
-                        isTechnical = isTechnical
+                        isTechnical = isTechnical,
+                        timestampMs = currentTimeProvider()
                     )
+
                     LogAccumulator(
                         gameId = incomingGameId,
                         entries = (baseEntries + entry).takeLast(MAX_LOG_ENTRIES)
@@ -236,16 +286,14 @@ class GameViewModel(private val gameService: GameService) : ViewModel() {
         .map { it.entries }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    //  Dice Roll states
     val lastDiceRoll: StateFlow<DiceRoll?> = gameState
         .map { it?.lastDiceRoll }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
 
-
     val isRollingPhaseForCurrentPlayer: StateFlow<Boolean> = gameState
         .map { state ->
             state?.phase == GamePhase.ROLLING &&
-                state.currentPlayer?.id == gameService.currentPlayerId
+                    state.currentPlayer?.id == gameService.currentPlayerId
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
@@ -272,32 +320,51 @@ class GameViewModel(private val gameService: GameService) : ViewModel() {
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
+    val showActionCardOverlay: StateFlow<Boolean> = currentActionCard
+        .map { card ->
+            val isCurrentPlayer =
+                gameState.value?.currentPlayer?.id == gameService.currentPlayerId
+
+            isCurrentPlayer && card != null
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+
     val events: SharedFlow<String> = gameService.events
     val status: SharedFlow<String> = gameService.status
     val currentPlayerId: String get() = gameService.currentPlayerId
 
+    private var isCheatActive = false
+    private var lastDiceRollTimestamp = 0L
+
     fun connect() = gameService.connect()
 
-    fun createGame(playerName: String) = gameService.createGame(playerName)
+    fun createGame(playerName: String) {
+        viewModelScope.launch {
+            gameService.createGame(playerName)
+        }
+    }
 
-    fun joinGame(gameId: String, playerName: String) = gameService.joinGame(gameId, playerName)
+    fun joinGame(gameId: String, playerName: String) {
+        viewModelScope.launch {
+            gameService.joinGame(gameId, playerName)
+        }
+    }
 
     fun startGame() = gameService.startGame()
 
-    // Use the simpler main-branch behavior for rolling the dice: just forward to service.
-    private var isCheatActive = false
-
-    // NEU: Wird von der Activity aufgerufen
     fun activateCheatForNextRoll() {
         isCheatActive = true
     }
 
-    // GE�NDERT: rollDice gibt den Cheat-Status mit und setzt ihn dann zur�ck
     fun rollDice() {
-        gameService.rollDice(isCheating = isCheatActive)
-        isCheatActive = false // Cheat nach dem W�rfeln sofort wieder deaktivieren
-    }
+        val now = currentTimeProvider()
 
+        if (now - lastDiceRollTimestamp < 1500L) return
+
+        lastDiceRollTimestamp = now
+        gameService.rollDice(isCheating = isCheatActive)
+        isCheatActive = false
+    }
 
     fun endTurn() = gameService.endTurn()
 
@@ -311,10 +378,28 @@ class GameViewModel(private val gameService: GameService) : ViewModel() {
     private var previousGameState: GameState? = null
     private var animationJob: Job? = null
 
-    private val _selectedPlayerForOverlay = kotlinx.coroutines.flow.MutableStateFlow<at.aau.monopoly.klagenfurt.model.Player?>(null)
-    val selectedPlayerForOverlay: StateFlow<at.aau.monopoly.klagenfurt.model.Player?> = _selectedPlayerForOverlay
+    private val _selectedPlayerForOverlay = MutableStateFlow<Player?>(null)
+    val selectedPlayerForOverlay: StateFlow<Player?> = _selectedPlayerForOverlay
 
-    fun showPlayerOverlay(player: at.aau.monopoly.klagenfurt.model.Player) {
+    fun drawCard(cardType: String = "CHANCE") =
+        gameService.drawCard(cardType)
+
+    fun executeAction() {
+        _isExecutingAction.value = true
+        Log.d("ActionCard", "Executing action for player: $currentPlayerId")
+        gameService.executeAction(currentPlayerId)
+    }
+
+    fun setCurrentActionCard(card: Card?) {
+        Log.d("ActionCard", "Setting current action card: ${card?.description}")
+        _currentActionCard.value = card
+    }
+
+    fun dismissActionCard() {
+        _currentActionCard.value = null
+    }
+
+    fun showPlayerOverlay(player: Player) {
         _selectedPlayerForOverlay.value = player
     }
 
@@ -324,7 +409,9 @@ class GameViewModel(private val gameService: GameService) : ViewModel() {
 
     fun syncGameboardEntryState() {
         val currentGameId = gameService.currentGameId
+
         if (currentGameId.isBlank()) return
+
         gameService.requestState()
     }
 
@@ -337,11 +424,14 @@ class GameViewModel(private val gameService: GameService) : ViewModel() {
             "TURN_ENDED" -> "Turn ended"
             "STATE_UPDATED" -> "Game state updated"
             "STATE_SNAPSHOT" -> "State snapshot synced"
-            else -> eventType.replace("_", " ").lowercase().replaceFirstChar { it.uppercase() }
+            "ACTION_DRAWN" -> "Action card drawn!"
+            "ACTION_EXECUTED" -> "Action executed"
+            else -> eventType.replace("_", " ")
+                .lowercase()
+                .replaceFirstChar { it.uppercase() }
         }
     }
 
-    // Factory to create ViewModel with dependencies
     class Factory(private val gameService: GameService) : ViewModelProvider.Factory {
         override fun <T : ViewModel> create(modelClass: Class<T>): T {
             @Suppress("UNCHECKED_CAST")

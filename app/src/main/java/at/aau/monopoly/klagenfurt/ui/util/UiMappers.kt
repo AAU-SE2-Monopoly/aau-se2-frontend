@@ -13,7 +13,7 @@ fun PropertyColor.toComposeColor(): Color = when (this) {
     PropertyColor.PINK -> Color(0xFFD93A96)
     PropertyColor.ORANGE -> Color(0xFFF7941D)
     PropertyColor.RED -> Color(0xFFED1B24)
-    PropertyColor.YELLOW -> Color(0xFFFEF200)
+    PropertyColor.YELLOW -> Color(0xFFD4A017)
     PropertyColor.GREEN -> Color(0xFF1FB25A)
     PropertyColor.DARK_BLUE -> Color(0xFF0072BB)
 }

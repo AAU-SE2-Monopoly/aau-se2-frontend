@@ -8,6 +8,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -15,7 +16,10 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.yield
+import kotlinx.coroutines.withTimeoutOrNull
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.mapNotNull
+import at.aau.monopoly.klagenfurt.messaging.GameEvent
 import org.hildan.krossbow.stomp.StompClient
 import org.hildan.krossbow.stomp.StompSession
 import org.hildan.krossbow.stomp.sendText
@@ -29,15 +33,9 @@ class GameStompClient(
 ) : GameService {
 
     private var session: StompSession? = null
-    private var subscriptionJob: Job? = null
-    private var personalSubscriptionJob: Job? = null
-    private var lobbySubscriptionJob: Job? = null
-    private var connectJob: Job? = null
-    private var isConnecting = false
 
-    private val _events = MutableSharedFlow<String>(replay = 1)
+    private val _events = MutableSharedFlow<String>()
     override val events: SharedFlow<String> = _events.asSharedFlow()
-
 
     private val _logEvents = MutableSharedFlow<String>(replay = 80)
     override val logEvents: SharedFlow<String> = _logEvents.asSharedFlow()
@@ -48,10 +46,41 @@ class GameStompClient(
     private val _lobbyEvents = MutableSharedFlow<String>(replay = 1)
     override val lobbyEvents: SharedFlow<String> = _lobbyEvents.asSharedFlow()
 
-    // Tracks whether the STOMP subscription for the active game topic is ready.
-    // Set to true after subscribeToGameInternal succeeds, reset on disconnect/subscribe.
-    private val _subscriptionReady = MutableStateFlow(false)
-    override val subscriptionReady: StateFlow<Boolean> = _subscriptionReady.asStateFlow()
+    private val lobbyChannel = SubscriptionChannel(
+        scope, { session }, "/topic/lobby", _lobbyEvents,
+        onError = { startReconnectLoop() }
+    )
+    private val gameChannel = SubscriptionChannel(
+        scope, { session }, "/topic/game/", _events,
+        onError = { startReconnectLoop() }
+    )
+    private var personalSubscriptionJob: Job? = null
+    private var connectJob: Job? = null
+    private var isConnecting = false
+    private var reconnectJob: Job? = null
+    private var isReconnecting = false
+    private var reconnectAttempts = 0
+
+    init {
+        // Forward all game events to the log events shared flow (used by UI event log)
+        scope.launch {
+            _events.collect { _logEvents.emit(it) }
+        }
+    }
+
+    companion object {
+        private const val MAX_RECONNECT_ATTEMPTS = 5
+        private const val INITIAL_RECONNECT_DELAY_MS = 1000L
+    }
+
+    override val subscriptionReady: StateFlow<Boolean> = gameChannel.isReady
+    override val lobbySubscriptionReady: StateFlow<Boolean> = lobbyChannel.isReady
+
+    private val _connectionState = MutableStateFlow(false)
+    override val connectionState: StateFlow<Boolean> = _connectionState.asStateFlow()
+
+    private val _reconnectFailed = MutableStateFlow(false)
+    override val reconnectFailed: StateFlow<Boolean> = _reconnectFailed.asStateFlow()
 
     private var _currentGameId: String = ""
     override val currentGameId: String get() = _currentGameId
@@ -62,6 +91,11 @@ class GameStompClient(
     override val currentPlayerId: String = UUID.randomUUID().toString()
 
     override fun connect() {
+        _reconnectFailed.value = false
+        reconnectJob?.cancel()
+        isReconnecting = false
+        reconnectAttempts = 0
+
         if (session != null) {
             Log.d("GameStomp", "Already connected (session=$session)")
             tryEmitStatus("Already connected")
@@ -79,9 +113,9 @@ class GameStompClient(
             try {
                 Log.d("GameStomp", "Connecting to $websocketUri...")
                 session = stompClient.connect(websocketUri)
-
                 subscribeToPersonalTopic()
-                
+                _connectionState.value = true
+                _reconnectFailed.value = false
                 emitStatus("Connected ✓")
                 Log.d("GameStomp", "Connected successfully")
             } catch (e: Throwable) {
@@ -90,11 +124,61 @@ class GameStompClient(
                 } else {
                     Log.e("GameStomp", "connect error", e)
                     session = null
+                    _connectionState.value = false
                     emitStatus("Connection error: ${e.message}")
+                    isConnecting = false  // clear BEFORE startReconnectLoop so its guard doesn't bail
+                    startReconnectLoop()
                 }
             } finally {
                 isConnecting = false
             }
+        }
+    }
+
+    private fun startReconnectLoop() {
+        if (isReconnecting || isConnecting) return
+        isReconnecting = true
+        _reconnectFailed.value = false
+        session = null  // discard the stale/dead session
+        reconnectJob?.cancel()
+        reconnectJob = scope.launch {
+            while (reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
+                val delayMs = INITIAL_RECONNECT_DELAY_MS * (1L shl reconnectAttempts)
+                Log.d("GameStomp", "Reconnecting in ${delayMs}ms (attempt ${reconnectAttempts + 1}/$MAX_RECONNECT_ATTEMPTS)...")
+                emitStatus("Reconnecting in ${delayMs / 1000}s...")
+                delay(delayMs)
+                reconnectAttempts++
+                try {
+                    _connectionState.value = false
+                    session = stompClient.connect(websocketUri)
+                    _connectionState.value = true
+                    _reconnectFailed.value = false
+                    reconnectAttempts = 0
+                    isReconnecting = false
+                    emitStatus("Reconnected ✓")
+                    Log.d("GameStomp", "Reconnected successfully")
+
+                    subscribeToPersonalTopic()
+                    if (_currentGameId.isNotBlank()) {
+                        gameChannel.cancel()
+                        gameChannel.subscribe(_currentGameId)
+                    } else {
+                        lobbyChannel.subscribe()
+                    }
+                    return@launch
+                } catch (e: CancellationException) {
+                    isReconnecting = false
+                    throw e
+                } catch (e: Throwable) {
+                    Log.e("GameStomp", "Reconnect attempt $reconnectAttempts/$MAX_RECONNECT_ATTEMPTS failed: ${e.message}")
+                    emitStatus("Reconnect failed ($reconnectAttempts/$MAX_RECONNECT_ATTEMPTS)")
+                    _connectionState.value = false
+                }
+            }
+            isReconnecting = false
+            _reconnectFailed.value = true
+            Log.e("GameStomp", "Max reconnect attempts ($MAX_RECONNECT_ATTEMPTS) reached – giving up")
+            emitStatus("Connection lost – please restart")
         }
     }
 
@@ -111,16 +195,22 @@ class GameStompClient(
             } catch (e: Throwable) {
                 if (!isCancellation(e)) {
                     Log.e("GameStomp", "personal subscription error", e)
+                    personalSubscriptionJob = null
+                    startReconnectLoop()
                 }
-                personalSubscriptionJob = null
             }
         }
     }
 
     override fun disconnect() {
-        _subscriptionReady.value = false
+        reconnectJob?.cancel()
+        isReconnecting = false
+        reconnectAttempts = 0
+        _connectionState.value = false
+        _reconnectFailed.value = false
+        gameChannel.cancel()
+        lobbyChannel.cancel()
         connectJob?.cancel()
-        subscriptionJob?.cancel()
         personalSubscriptionJob?.cancel()
         val currentSession = session
         session = null
@@ -138,7 +228,6 @@ class GameStompClient(
 
     override fun subscribeToGame(gameId: String) {
         scope.launch {
-
             val success = subscribeToGameInternal(gameId = gameId, requestStateAfterSubscribe = true)
             if (!success) {
                 emitStatus("Subscription failed for $gameId")
@@ -148,32 +237,7 @@ class GameStompClient(
 
 
     override fun subscribeToLobby() {
-        if (lobbySubscriptionJob?.isActive == true) {
-            Log.d("GameStomp", "Already subscribed to lobby")
-            return
-        }
-        lobbySubscriptionJob = scope.launch {
-            try {
-                val currentSession = session
-                if (currentSession == null) {
-                    Log.w("GameStomp", "Cannot subscribe to lobby: not connected")
-                    emitStatus("Lobby sub failed: Not connected")
-                    return@launch
-                }
-                Log.d("GameStomp", "Subscribing to /topic/lobby")
-                currentSession.subscribeText("/topic/lobby").collect { msg ->
-                    _lobbyEvents.emit(msg)
-                }
-            } catch (e: Throwable) {
-                if (isCancellation(e)) {
-                    Log.d("GameStomp", "Lobby subscription cancelled")
-                } else {
-                    Log.e("GameStomp", "lobby subscription error", e)
-                    emitStatus("Lobby subscription error: ${e.message}")
-                }
-                lobbySubscriptionJob = null
-            }
-        }
+        lobbyChannel.subscribe()
     }
 
     override fun requestGameList() {
@@ -190,7 +254,7 @@ class GameStompClient(
 
     private val objectMapper = JacksonProvider.objectMapper
 
-    override fun createGame(playerName: String, iconId: String) {
+    override suspend fun createGame(playerName: String, iconId: String): String? {
         _currentPlayerName = playerName
         val player = Player(
             id = currentPlayerId,
@@ -200,24 +264,136 @@ class GameStompClient(
         val playerJson = objectMapper.writeValueAsString(player)
 
         Log.d("GameStomp", "Sending create command for player: $playerName with icon: $iconId")
-        sendRaw("/app/game/create", playerJson)
+
+        // Launch the send asynchronously so we can start collecting events before the
+        // server responds. By collecting synchronously on _events (instead of via
+        // scope.launch) we eliminate the race condition where the GAME_CREATED event
+        // could arrive before our collector is active.
+        scope.launch {
+            sendRawInternal("/app/game/create", playerJson)
+        }
+
+        // Collect from _events synchronously in the current coroutine.
+        // This guarantees we are subscribed to _events before the server can respond.
+        val createEvent = withTimeoutOrNull(10_000L) {
+            _events
+                .mapNotNull { json ->
+                    try {
+                        val event = objectMapper.readValue(json, GameEvent::class.java)
+                        if (event.event == "GAME_CREATED") event else null
+                    } catch (_: Exception) {
+                        // Ignore parse errors
+                        null
+                    }
+                }
+                .first()
+        }
+
+        if (createEvent == null) {
+            emitStatus("Create game failed: no response from server (timeout)")
+            // Note: the game may still have been created on the server.
+            // Server-side TTL on empty WAITING games is the proper mitigation.
+            return null
+        }
+
+        val gameId = createEvent.gameId
+        if (gameId.isNullOrBlank()) {
+            emitStatus("Create game failed: no gameId in response")
+            return null
+        }
+
+
+        val subscribed = subscribeToGameInternal(
+            gameId = gameId,
+            requestStateAfterSubscribe = true,
+            isNewlyCreated = true
+        )
+        if (!subscribed) {
+            emitStatus("Create game failed: could not subscribe to game topic")
+            return null
+        }
+
+        return gameId
     }
 
-    override fun joinGame(gameId: String, playerName: String, iconId: String) {
+    override suspend fun joinGame(gameId: String, playerName: String, iconId: String): Result<GameEvent> {
         _currentPlayerName = playerName
-        scope.launch {
 
-            val subscribed = subscribeToGameInternal(gameId = gameId, requestStateAfterSubscribe = true)
-            if (!subscribed) {
-                emitStatus("Join failed: Could not subscribe to game topic")
-                return@launch
-            }
-            yield()
-            Log.d("GameStomp", "Sending join command for game: $gameId with icon: $iconId")
+
+        val subscribed = subscribeToGameInternal(
+            gameId = gameId,
+            requestStateAfterSubscribe = true
+        )
+        if (!subscribed) {
+            emitStatus("Join failed: Could not subscribe to game topic")
+            return Result.failure(Exception("Join failed: Could not subscribe to game topic"))
+        }
+
+        Log.d("GameStomp", "Sending join command for game: $gameId with icon: $iconId")
+
+        // Launch the send asynchronously so we can start collecting events before the
+        // server responds. By collecting synchronously on _events (instead of via
+        // scope.launch) we eliminate the race condition where the PLAYER_JOINED event
+        // could arrive before our collector is active.
+        scope.launch {
             sendRawInternal(
                 "/app/game/join",
                 buildAction(extra = mapOf("name" to playerName, "iconId" to iconId))
             )
+        }
+
+        // Collect from _events synchronously in the current coroutine.
+        // This guarantees we are subscribed to _events before the server can respond.
+        val result = withTimeoutOrNull(15_000L) {
+            _events
+                .mapNotNull { json ->
+                    try {
+                        val event = objectMapper.readValue(json, GameEvent::class.java)
+
+                        // Ignore events from other games
+                        if (event.gameId != gameId) return@mapNotNull null
+
+                        when (event.event) {
+                            "PLAYER_JOINED" -> {
+                                val isOurJoin = event.gameState?.players
+                                    ?.any { it.id == currentPlayerId } == true
+                                if (isOurJoin) event else null
+                            }
+                            "ERROR" -> {
+                                event
+                            }
+                            else -> null
+                        }
+                    } catch (_: Exception) {
+                        // Ignore parse errors
+                        null
+                    }
+                }
+                .first()
+        }
+
+        if (result == null) {
+            val msg = "Join timeout: no server response for game $gameId"
+            Log.w("GameStomp", msg)
+            emitStatus(msg)
+            return Result.failure(Exception(msg))
+        }
+
+        return when (result.event) {
+            "PLAYER_JOINED" -> {
+                Log.d("GameStomp", "Join confirmed for game $gameId")
+                Result.success(result)
+            }
+            "ERROR" -> {
+                val errMsg = result.message ?: "Join rejected by server"
+                Log.w("GameStomp", "Join rejected for game $gameId: $errMsg")
+                emitStatus(errMsg)
+                Result.failure(Exception(errMsg))
+            }
+            else -> {
+                // Should not happen since waitForEventOnGameTopic only returns on these
+                Result.failure(Exception("Unexpected event: ${result.event}"))
+            }
         }
     }
 
@@ -243,9 +419,13 @@ class GameStompClient(
         subscribeToGame(gameId)
     }
 
-    private fun buildAction(action: String = "", extra: Map<String, String> = emptyMap()): String {
+    private fun buildAction(
+        action: String = "",
+        extra: Map<String, String> = emptyMap(),
+        gameId: String = _currentGameId
+    ): String {
         val gameAction = GameAction(
-            gameId = _currentGameId,
+            gameId = gameId,
             playerId = currentPlayerId,
             action = action,
             payload = extra
@@ -255,11 +435,11 @@ class GameStompClient(
 
     private suspend fun subscribeToGameInternal(
         gameId: String,
-        requestStateAfterSubscribe: Boolean
+        requestStateAfterSubscribe: Boolean,
+        isNewlyCreated: Boolean = false
     ): Boolean {
-        if (subscriptionJob?.isActive == true && gameId == _currentGameId) {
+        if (gameChannel.isReady.value && gameId == _currentGameId) {
             Log.d("GameStomp", "Already subscribed to $gameId")
-            _subscriptionReady.value = true
             emitStatus("SUBSCRIBED:$gameId")
             if (requestStateAfterSubscribe) {
                 sendRawInternal("/app/game/state", buildAction())
@@ -267,50 +447,40 @@ class GameStompClient(
             return true
         }
 
-        _subscriptionReady.value = false
         _currentGameId = gameId
-        subscriptionJob?.cancel()
+        gameChannel.cancel()
+        gameChannel.subscribe(gameId)
 
-        return try {
-            val currentSession = session
-            if (currentSession == null) {
-                Log.w("GameStomp", "Cannot subscribe: not connected")
-                return false
-            }
-
-            Log.d("GameStomp", "Subscribing to /topic/game/$gameId")
-            val subscription = currentSession.subscribeText("/topic/game/$gameId")
-
-            subscriptionJob = scope.launch {
+        val ready = withTimeoutOrNull(15_000L) {
+            gameChannel.isReady.first { it }
+        }
+        if (ready == null) {
+            Log.e("GameStomp", "Subscription timed out for $gameId")
+            // Only attempt to close games that were newly created by us.
+            // Capture the session NOW before startReconnectLoop() nulls it.
+            if (isNewlyCreated && gameId.isNotEmpty() && gameId == _currentGameId) {
+                val capturedSession = session
                 try {
-                    subscription.collect { msg ->
-                        _events.emit(msg)
-                        _logEvents.emit(msg)
+                    if (capturedSession != null) {
+                        capturedSession.sendText("/app/game/close", buildAction(gameId = gameId))
                     }
-                } catch (e: Throwable) {
-                    if (!isCancellation(e)) Log.e("GameStomp", "collect error", e)
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (_: Exception) {
+                    // best-effort close; do not prevent reconnect
                 }
             }
-
-            _subscriptionReady.value = true
-            emitStatus("SUBSCRIBED:$gameId")
-
-            if (requestStateAfterSubscribe) {
-                sendRawInternal("/app/game/state", buildAction())
-            }
-
-            true
-        } catch (e: Throwable) {
-            _subscriptionReady.value = false
-            subscriptionJob = null
-            if (isCancellation(e)) {
-                Log.d("GameStomp", "Subscription job cancelled for $gameId")
-            } else {
-                Log.e("GameStomp", "subscription error", e)
-                emitStatus("Subscription error: ${e.message}")
-            }
-            false
+            startReconnectLoop()
+            return false
         }
+
+        emitStatus("SUBSCRIBED:$gameId")
+
+        if (requestStateAfterSubscribe) {
+            sendRawInternal("/app/game/state", buildAction())
+        }
+
+        return true
     }
 
     private suspend fun sendRawInternal(destination: String, json: String) {
@@ -346,8 +516,34 @@ class GameStompClient(
     }
 
     private fun isCancellation(e: Throwable): Boolean {
-        return e is CancellationException || 
-               (e is IllegalStateException && e.message?.contains("cancelled", ignoreCase = true) == true) ||
-               (e.cause is CancellationException)
+        return e is CancellationException ||
+                (e is IllegalStateException && e.message?.contains("cancelled", ignoreCase = true) == true) ||
+                (e.cause is CancellationException)
+    }
+
+
+
+    override fun executeAction(playerId: String) {
+        Log.d("GameStomp", "Executing action for player: $playerId")
+        val action = GameAction(
+            gameId = _currentGameId,
+            playerId = playerId,
+            action = "EXECUTE_ACTION",
+            payload = emptyMap()
+        )
+        val json = JacksonProvider.objectMapper.writeValueAsString(action)
+        sendRaw("/app/game/action", json)
+    }
+
+    override fun drawCard(cardType: String) {
+        Log.d("GameStomp", "Drawing card for player: $currentPlayerId with type: $cardType")
+        val action = GameAction(
+            gameId = _currentGameId,
+            playerId = currentPlayerId,
+            action = "DRAW_CARD",
+            payload = mapOf("cardType" to cardType)
+        )
+        val json = JacksonProvider.objectMapper.writeValueAsString(action)
+        sendRaw("/app/game/action", json)
     }
 }

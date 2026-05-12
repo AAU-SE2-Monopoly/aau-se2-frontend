@@ -8,6 +8,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.viewModels
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
@@ -35,9 +36,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalInspectionMode
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
@@ -53,10 +56,13 @@ import at.aau.monopoly.klagenfurt.ui.chat.ChatOverlay
 import at.aau.monopoly.klagenfurt.ui.zoom.ZoomableWrapper
 import com.example.myapplication.R
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.filter
 import android.view.KeyEvent
 import at.aau.monopoly.klagenfurt.model.enums.GamePhase
+import androidx.compose.runtime.derivedStateOf
+import at.aau.monopoly.klagenfurt.model.field.ChanceField
+import at.aau.monopoly.klagenfurt.model.field.CommunityChestField
 
 class GameboardUI : ComponentActivity() {
     private val viewModel: GameViewModel by viewModels {
@@ -102,7 +108,11 @@ fun LockScreenOrientation(orientation: Int) {
 }
 
 @Composable
-fun GameboardScreen(modifier: Modifier = Modifier, viewModel: GameViewModel) {
+fun GameboardScreen(
+    modifier: Modifier = Modifier,
+    viewModel: GameViewModel,
+    shakeEventsOverride: Flow<Unit>? = null
+) {
     LaunchedEffect(Unit) {
         viewModel.syncGameboardEntryState()
     }
@@ -112,62 +122,92 @@ fun GameboardScreen(modifier: Modifier = Modifier, viewModel: GameViewModel) {
     val players = gameState?.players ?: emptyList()
     val currentPlayerId = viewModel.currentPlayerId
     val currentTurnPlayer = gameState?.currentPlayer
+    val currentField = currentTurnPlayer?.let { player ->
+        fields.getOrNull(player.position)
+    }
+
+    val isOnChanceField = currentField is ChanceField
+    val isOnCommunityChestField = currentField is CommunityChestField
     val eventLog by viewModel.eventLog.collectAsState()
 
     val isRollingPhaseForCurrentPlayer by viewModel.isRollingPhaseForCurrentPlayer.collectAsState()
     val lastDiceRoll by viewModel.lastDiceRoll.collectAsState()
     val isGameStarted by viewModel.isGameStarted.collectAsState()
     val isHost by viewModel.isHost.collectAsState()
+    val cardDrawnThisTurn by viewModel.cardDrawnThisTurn.collectAsState()
+
+    // Action Card states
+    val currentActionCard by viewModel.currentActionCard.collectAsState()
+    val isExecutingAction by viewModel.isExecutingAction.collectAsState()
+    val showActionCardOverlay by viewModel.showActionCardOverlay.collectAsState()
 
     val context = LocalContext.current
 
-    // ShakeDetector lifecycle
-    val shakeDetector = remember { ShakeDetector(context) }
+    var showOverlay by remember { mutableStateOf(false) }
+    var showDebugButtons by remember { mutableStateOf(false) }
 
-    LaunchedEffect(Unit) {
-        viewModel.isRollingPhaseForCurrentPlayer.collect { isRolling ->
-            if (isRolling) shakeDetector.startListening()
-            else shakeDetector.stopListening()
+    // Filter DICE_ROLLED entries from the log while the overlay is visible,
+    // so the dice result appears in chat only after the animation finishes.
+    val bufferedEventLog by remember {
+        derivedStateOf {
+            if (showOverlay) eventLog.filter { it.eventType != "DICE_ROLLED" }
+            else eventLog
         }
     }
 
-    var shakeFired by remember { mutableStateOf(false) }
+    // ═══════════════════════════════════════════════
+    // ShakeDetector lifecycle – only used when no override provided (production path)
+    // ═══════════════════════════════════════════════
+    val shakeDetector = remember(shakeEventsOverride) {
+        if (shakeEventsOverride == null) ShakeDetector(context) else null
+    }
 
+    if (shakeDetector != null) {
+        DisposableEffect(shakeDetector) {
+            shakeDetector.startListening()
+            onDispose { shakeDetector.stopListening() }
+        }
+
+        val lifecycleOwner = LocalLifecycleOwner.current
+        DisposableEffect(lifecycleOwner, shakeDetector) {
+            val observer = LifecycleEventObserver { _, event ->
+                when (event) {
+                    Lifecycle.Event.ON_PAUSE -> shakeDetector.stopListening()
+                    Lifecycle.Event.ON_RESUME -> shakeDetector.startListening()
+                    else -> {}
+                }
+            }
+            lifecycleOwner.lifecycle.addObserver(observer)
+            onDispose {
+                lifecycleOwner.lifecycle.removeObserver(observer)
+                shakeDetector.stopListening()
+            }
+        }
+    }
+
+    val shakeFlow: Flow<Unit> = shakeEventsOverride ?: shakeDetector!!.shakeEvents
+
+    // Tracks whether the user has shaken to trigger the actual roll.
+    // Drives the dice animation in the overlay (animation starts on shake, not on overlay open).
+    var hasShaken by remember { mutableStateOf(false) }
+
+    // Reset on overlay open and on phase changes so each turn starts fresh.
+    LaunchedEffect(showOverlay) {
+        if (showOverlay) hasShaken = false
+    }
     LaunchedEffect(isRollingPhaseForCurrentPlayer) {
-        if (isRollingPhaseForCurrentPlayer) shakeFired = false
+        if (isRollingPhaseForCurrentPlayer) hasShaken = false
     }
 
-    LaunchedEffect(Unit) {
-        shakeDetector.shakeEvents
-            .combine(viewModel.isRollingPhaseForCurrentPlayer) { _, isRolling -> isRolling }
-            .filter { it }
+    // Only consume shakes while the overlay is open AND it is the current player's rolling phase.
+    // Guard against double-rolls via hasShaken.
+    LaunchedEffect(shakeFlow, viewModel) {
+        shakeFlow
+            .filter { showOverlay && isRollingPhaseForCurrentPlayer && !hasShaken }
             .collect {
-                if (!shakeFired) {
-                    shakeFired = true
-                    viewModel.rollDice()
-                }
+                hasShaken = true
+                viewModel.rollDice()
             }
-    }
-
-    val lifecycleOwner = LocalLifecycleOwner.current
-    DisposableEffect(lifecycleOwner) {
-        val observer = LifecycleEventObserver { _, event ->
-            when (event) {
-                Lifecycle.Event.ON_PAUSE -> shakeDetector.stopListening()
-                Lifecycle.Event.ON_RESUME -> {
-                    if (viewModel.isRollingPhaseForCurrentPlayer.value) {
-                        shakeDetector.startListening()
-                    }
-                    else {}
-                }
-                else -> {}
-            }
-        }
-        lifecycleOwner.lifecycle.addObserver(observer)
-        onDispose {
-            lifecycleOwner.lifecycle.removeObserver(observer)
-            shakeDetector.stopListening()
-        }
     }
 
     val selectedPlayer by viewModel.selectedPlayerForOverlay.collectAsState()
@@ -203,48 +243,88 @@ fun GameboardScreen(modifier: Modifier = Modifier, viewModel: GameViewModel) {
                 }
             }
 
-            // Only show Roll Dice when it's the current player's rolling phase
             if (isRollingPhaseForCurrentPlayer) {
                 Button(
-                    onClick = { viewModel.rollDice() }
+                    onClick = {
+                        // Only open the overlay – the actual dice roll is triggered by a shake.
+                        showOverlay = true
+                    },
+                    modifier = Modifier.testTag("roll_dice_button")
                 ) {
-                    Text("ðŸŽ² Roll Dice")
+                    Text("🎲 Roll Dice")
                 }
             }
 
-            // Show End Turn when it's the current player's turn and phase is BUYING
-            val phase = gameState?.phase
-            val isMyTurn = gameState?.currentPlayer?.id == currentPlayerId
-            if (isMyTurn && phase == GamePhase.BUYING) {
+            if (isOnChanceField) {
                 Button(
-                    onClick = { viewModel.endTurn() },
+                    onClick = { viewModel.drawCard("CHANCE") },
+                    enabled = !showActionCardOverlay && !cardDrawnThisTurn,
                     modifier = Modifier.padding(top = 8.dp)
                 ) {
-                    Text("âœ… End Turn")
+                    Text(if (cardDrawnThisTurn) "✓ Card Drawn" else "🎰 Draw Chance")
+                }
+            }
+
+            if (isOnCommunityChestField) {
+                Button(
+                    onClick = { viewModel.drawCard("COMMUNITY_CHEST") },
+                    enabled = !showActionCardOverlay && !cardDrawnThisTurn,
+                    modifier = Modifier.padding(top = 8.dp)
+                ) {
+                    Text(if (cardDrawnThisTurn) "✓ Card Drawn" else "⭐ Draw Community")
+                }
+            }
+
+            // DEBUG: Test buttons for card drawing functionality
+            Button(
+                onClick = { showDebugButtons = !showDebugButtons },
+                modifier = Modifier.padding(top = 8.dp)
+            ) {
+                Text(if (showDebugButtons) "🐛 Hide Debug" else "🐛 Show Debug")
+            }
+
+            if (showDebugButtons) {
+                Button(
+                    onClick = { viewModel.drawCard("CHANCE") },
+                    enabled = !showActionCardOverlay && !cardDrawnThisTurn,
+                    modifier = Modifier.padding(top = 8.dp)
+                ) {
+                    Text(if (cardDrawnThisTurn) "✓ Test Chance" else "🎰 TEST: Draw Chance")
+                }
+
+                Button(
+                    onClick = { viewModel.drawCard("COMMUNITY_CHEST") },
+                    enabled = !showActionCardOverlay && !cardDrawnThisTurn,
+                    modifier = Modifier.padding(top = 8.dp)
+                ) {
+                    Text(if (cardDrawnThisTurn) "✓ Test Community" else "⭐ TEST: Draw Community")
                 }
             }
         }
 
-        // Wire DiceRollOverlay to ViewModel-derived states
-        val showDiceOverlay by viewModel.showDiceOverlayForCurrentPlayer.collectAsState()
-        val diceResultForCurrentPlayer by viewModel.diceResultForCurrentPlayer.collectAsState()
-        val isMyTurn = gameState?.currentPlayer?.id == currentPlayerId
-        if (showDiceOverlay) {
-            DiceRollOverlay(
-                isVisible = true,
-                diceResult = diceResultForCurrentPlayer?.let { Pair(it.die1, it.die2) },
-                isRolling = isRollingPhaseForCurrentPlayer,
-                onClose = { /* overlay auto-hides via showDiceOverlayForCurrentPlayer */ },
-                forceDismiss = !isMyTurn
-            )
-        }
+        DiceRollOverlay(
+            isVisible = showOverlay,
+            diceResult = lastDiceRoll?.let { Pair(it.die1, it.die2) },
+            isRolling = isRollingPhaseForCurrentPlayer,
+            hasShaken = hasShaken,
+            onClose = { showOverlay = false }
+        )
 
-        GameboardOverlayLayer(eventLog = eventLog)
+        ActionCardOverlay(
+            isVisible = showActionCardOverlay,
+            card = currentActionCard,
+            isExecuting = isExecutingAction,
+            onExecuteAction = { viewModel.executeAction() }
+        )
+
+        GameboardOverlayLayer(eventLog = bufferedEventLog)
+
+
     }
 }
 
 @Composable
-private fun BoxScope.GameboardOverlayLayer(eventLog: List<GameViewModel.LogEntry>) {
+fun BoxScope.GameboardOverlayLayer(eventLog: List<GameViewModel.LogEntry>) {
     ChatOverlay(
         entries = eventLog,
         modifier = Modifier.align(Alignment.TopCenter)
@@ -301,6 +381,12 @@ fun GameboardContent(
                         modifier = Modifier.fillMaxSize(),
                         contentScale = ContentScale.FillBounds
                     )
+                    // Semi-transparent warm overlay to match field backgrounds
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(Color(0xFFFFF3E0).copy(alpha = 0.40f))
+                    )
 
                     // Stagger field rendering
                     var visibleFieldCount by remember { mutableIntStateOf(0) }
@@ -332,12 +418,12 @@ fun GameboardContent(
                             )
                         }
                     }
-                    // Old flat PlayerToken loop removed â€“ tokens are now rendered inside FieldItem.
+                    // Old flat PlayerToken loop removed – tokens are now rendered inside FieldItem.
                 }
             }
         }
 
-        // Overlay: Left panel â€“ other players
+        // Overlay: Left panel – other players
         if (otherPlayers.isNotEmpty()) {
             Column(
                 modifier = Modifier
@@ -360,7 +446,7 @@ fun GameboardContent(
             }
         }
 
-        // Overlay: Center â€“ current field card
+        // Overlay: Center – current field card
         if (currentField != null) {
             Box(
                 modifier = Modifier
@@ -371,7 +457,7 @@ fun GameboardContent(
             }
         }
 
-        // Overlay: Right panel â€“ own player
+        // Overlay: Right panel – own player
         if (myPlayer != null) {
             Column(
                 modifier = Modifier

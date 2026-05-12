@@ -2,7 +2,9 @@
 package at.aau.monopoly.klagenfurt.model.card
 
 import at.aau.monopoly.klagenfurt.model.enums.CardAction
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties
 
+@JsonIgnoreProperties(ignoreUnknown = true)
 data class CommunityChestCard(
     override val id: Int,
     override val description: String,

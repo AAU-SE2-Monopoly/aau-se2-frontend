@@ -23,6 +23,9 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.graphics.vector.rememberVectorPainter
+import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.shadow
@@ -33,7 +36,7 @@ import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.Hyphens
@@ -73,10 +76,10 @@ fun calculateFieldBounds(index: Int, sw: Float, sh: Float): FieldBounds {
     val isCorner = posInSide == 0
 
     val corners = listOf(
-        Offset(2445f, 1720f),
-        Offset(1245f, 1720f),
-        Offset(1245f, 520f),
-        Offset(2445f, 520f)
+        Offset(2520f, 1680f),
+        Offset(1320f, 1680f),
+        Offset(1320f, 480f),
+        Offset(2520f, 480f)
     )
 
     val start = corners[side]
@@ -156,14 +159,17 @@ fun FieldItem(
 ) {
     val bounds = remember(index, sw, sh) { calculateFieldBounds(index, sw, sh) }
     val side = (index / 10) % 4
-    val imageMap = remember(field.name) { getFieldImageMapping(field.name) }
+    val imageRes = remember(field.name) { getFieldImageMapping(field.name) }
+    val imagePainter: Painter? = imageRes?.let {
+        rememberVectorPainter(ImageVector.vectorResource(it))
+    }
     val containerMod = remember(bounds, index) { fieldItemContainerMod(bounds, index) }
 
     val imageTint = remember(field) {
         when (field) {
             is PropertyField -> field.color.toComposeColor()
             is ChanceField -> Color(0xFFFFB900)       // yellow-amber
-            is CommunityChestField -> Color(0xFF1E88E5) // blue
+            is CommunityChestField -> Color(0xFFFFB900) // yellow-amber (same as Chance)
             is RailroadField -> Color(0xFF5D4037)     // dark brown
             else -> null
         }
@@ -177,7 +183,7 @@ fun FieldItem(
             index = index,
             side = side,
             hasColorBar = !bounds.isCorner && field is PropertyField,
-            imageRes = imageMap,
+            painter = imagePainter,
             fieldName = field.name,
             bounds = bounds,
             tint = imageTint
@@ -369,21 +375,26 @@ private fun BoxScope.FieldImage(
     index: Int,
     side: Int,
     hasColorBar: Boolean,
-    imageRes: Int?,
+    painter: Painter?,
     fieldName: String,
     bounds: FieldBounds,
     tint: Color? = null
 ) {
-    if (imageRes == null) return
+    if (painter == null) return
 
     if (bounds.isCorner) {
+        val iconYOffset = when (index) {
+            0, 10 -> (-4).dp   // bottom corners (Go, Jail): shift up
+            else -> 4.dp       // top corners: shift down
+        }
         Image(
-            painter = painterResource(id = imageRes),
+            painter = painter,
             contentDescription = fieldName,
             modifier = Modifier
-                .fillMaxSize(0.92f)
-                .align(innerCornerAlignment(index))
-                .padding(3.dp)
+                .fillMaxSize(0.75f)
+                .align(Alignment.Center)
+                .offset(y = iconYOffset)
+                .padding(6.dp)
                 .rotate(bounds.rotation),
             contentScale = ContentScale.Fit,
             colorFilter = tint?.let { ColorFilter.tint(it, BlendMode.SrcAtop) }
@@ -393,12 +404,14 @@ private fun BoxScope.FieldImage(
 
     val propertyImageOffset = if (hasColorBar) 4.dp else 0.dp
     val iconWidthFactor = when (fieldName.trim()) {
-        "Chance", "Community Chest", "Reichensteuer", "Hauptbahnhof", "Ostbahnhof", "Westbahnhof", "Lendbahnhof" -> 0.85f
-        else -> 0.75f
+        "Chance" -> 0.95f
+        "Community Chest", "Reichensteuer", "Hauptbahnhof", "Ostbahnhof", "Westbahnhof", "Lendbahnhof" -> 0.88f
+        else -> 0.78f
     }
     val iconHeightFactor = when (fieldName.trim()) {
-        "Chance", "Community Chest", "Reichensteuer", "Hauptbahnhof", "Ostbahnhof", "Westbahnhof", "Lendbahnhof" -> 0.55f
-        else -> 0.48f
+        "Chance" -> 0.68f
+        "Community Chest", "Reichensteuer", "Hauptbahnhof", "Ostbahnhof", "Westbahnhof", "Lendbahnhof" -> 0.58f
+        else -> 0.50f
     }
 
     Box(
@@ -412,7 +425,7 @@ private fun BoxScope.FieldImage(
         contentAlignment = Alignment.Center
     ) {
         Image(
-            painter = painterResource(id = imageRes),
+            painter = painter,
             contentDescription = fieldName,
             modifier = Modifier
                 .fillMaxWidth(iconWidthFactor)
@@ -772,8 +785,8 @@ private fun BoxScope.CornerFieldTitle(
         BaseFieldTitleText(
             text = text,
             modifier = Modifier.fillMaxWidth(),
-            fontSize = 4.5.sp,
-            lineHeight = 5.0.sp
+            fontSize = 5.5.sp,
+            lineHeight = 6.0.sp
         )
     }
 }
@@ -790,8 +803,8 @@ private fun BoxScope.PropertyFieldTitle(text: String, side: Int) {
         modifier = Modifier
             .fillMaxWidth(0.995f)
             .then(outerEdgeTextOffset(side)),
-        fontSize = 3.0.sp,
-        lineHeight = 3.4.sp,
+        fontSize = 3.5.sp,
+        lineHeight = 4.2.sp,
         textAlign = textAlign
     )
 }
@@ -808,8 +821,8 @@ private fun BoxScope.ActionFieldTitle(text: String, side: Int) {
         modifier = Modifier
             .fillMaxWidth(0.97f)
             .then(outerEdgeTextOffset(side)),
-        fontSize = 3.0.sp,
-        lineHeight = 3.4.sp,
+        fontSize = 3.5.sp,
+        lineHeight = 4.2.sp,
         textAlign = textAlign
     )
 }
@@ -826,8 +839,8 @@ private fun BoxScope.StandardFieldTitle(text: String, side: Int) {
         modifier = Modifier
             .fillMaxWidth(0.985f)
             .then(outerEdgeTextOffset(side)),
-        fontSize = 3.0.sp,
-        lineHeight = 3.4.sp,
+        fontSize = 3.5.sp,
+        lineHeight = 4.2.sp,
         textAlign = textAlign
     )
 }
@@ -845,7 +858,7 @@ private fun BoxScope.BaseFieldTitleText(
         color = Color.Black,
         fontSize = fontSize,
         lineHeight = lineHeight,
-        letterSpacing = (-0.12).sp,
+        letterSpacing = 0.2.sp,
         fontWeight = FontWeight.Bold,
         textAlign = textAlign,
         softWrap = true,

@@ -10,6 +10,13 @@ plugins {
     id("org.sonarqube") version "5.0.0.4638"
 }
 
+// Enable dependency locking for all projects
+subprojects {
+    dependencyLocking {
+        lockAllConfigurations()
+    }
+}
+
 // Der Sonar-Konfigurationsblock kommt ganz normal auf die oberste Ebene, NACH den Plugins
 sonar {
     properties {

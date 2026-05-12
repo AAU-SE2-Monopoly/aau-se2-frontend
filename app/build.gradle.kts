@@ -8,7 +8,7 @@ plugins {
 android {
 
     namespace = "com.example.myapplication"
-    compileSdk = 36 // Changed to 35 for stability as per comment
+    compileSdk = 36 // Reverted to 36 because dependencies require it
 
     testOptions {
         unitTests {
@@ -16,7 +16,14 @@ android {
             isReturnDefaultValues = true
             all {
                 it.useJUnitPlatform()
-                it.jvmArgs("-noverify")
+                it.jvmArgs("-Xss8m", "-Xmx4g", "-XX:MaxMetaspaceSize=1g")
+                it.testLogging {
+                    events("failed", "standardOut", "standardError")
+                    exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL
+                    showExceptions = true
+                    showCauses = true
+                    showStackTraces = true
+                }
                 it.configure<JacocoTaskExtension> {
                     isIncludeNoLocationClasses = true
                     excludes = listOf("jdk.internal.*")

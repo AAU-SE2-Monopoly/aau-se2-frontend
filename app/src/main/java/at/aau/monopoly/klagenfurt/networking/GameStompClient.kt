@@ -399,14 +399,14 @@ class GameStompClient(
 
     override fun startGame() = sendRaw("/app/game/start", buildAction())
     override fun rollDice(isCheating: Boolean) {
-        // 1. Die Cheat-Info als Map vorbereiten
+        // Prepare cheat info as a map
         val actionPayload = if (isCheating) {
             mapOf("cheat" to "true")
         } else {
             emptyMap()
         }
 
-        // 2. Die Payload an buildAction übergeben (hier musst du buildAction evtl. anpassen!)
+        // Pass the payload to buildAction
         val payload = buildAction("ROLL_DICE", actionPayload)
 
         Log.d("DiceDebug", "rollDice gameId=$_currentGameId playerId=$currentPlayerId isCheating=$isCheating payload=$payload")

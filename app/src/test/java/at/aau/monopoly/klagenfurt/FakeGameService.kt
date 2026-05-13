@@ -164,4 +164,8 @@ class FakeGameService : GameService {
     fun setReconnectFailed(failed: Boolean) {
         _reconnectFailed.value = failed
     }
+
+    override fun payJailFine(){}
+
+    override fun useJailCard(){}
 }

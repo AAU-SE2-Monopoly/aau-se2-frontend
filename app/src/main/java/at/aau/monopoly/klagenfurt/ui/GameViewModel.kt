@@ -116,6 +116,7 @@ class GameViewModel(
                 event.gameState ?: lastState
             }
         }
+
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5000),

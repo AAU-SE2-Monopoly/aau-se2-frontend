@@ -164,7 +164,6 @@ fun GameboardScreen(
     val context = LocalContext.current
 
     var showOverlay by remember { mutableStateOf(false) }
-    var showDebugButtons by remember { mutableStateOf(false) }
 
     // Filter DICE_ROLLED entries from the log while the overlay is visible,
     // so the dice result appears in chat only after the animation finishes.
@@ -319,31 +318,6 @@ fun GameboardScreen(
                 }
             }
 
-            // DEBUG: Test buttons for card drawing functionality
-            Button(
-                onClick = { showDebugButtons = !showDebugButtons },
-                modifier = Modifier.padding(top = 8.dp)
-            ) {
-                Text(if (showDebugButtons) "🐛 Hide Debug" else "🐛 Show Debug")
-            }
-
-            if (showDebugButtons) {
-                Button(
-                    onClick = { viewModel.drawCard("CHANCE") },
-                    enabled = !showActionCardOverlay && !cardDrawnThisTurn,
-                    modifier = Modifier.padding(top = 8.dp)
-                ) {
-                    Text(if (cardDrawnThisTurn) "✓ Test Chance" else "🎰 TEST: Draw Chance")
-                }
-
-                Button(
-                    onClick = { viewModel.drawCard("COMMUNITY_CHEST") },
-                    enabled = !showActionCardOverlay && !cardDrawnThisTurn,
-                    modifier = Modifier.padding(top = 8.dp)
-                ) {
-                    Text(if (cardDrawnThisTurn) "✓ Test Community" else "⭐ TEST: Draw Community")
-                }
-            }
         }
 
         DiceRollOverlay(

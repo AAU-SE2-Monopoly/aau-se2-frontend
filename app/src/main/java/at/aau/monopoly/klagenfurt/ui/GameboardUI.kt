@@ -17,7 +17,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
@@ -59,8 +58,8 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.filter
 import android.view.KeyEvent
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.derivedStateOf
-
 
 class GameboardUI : ComponentActivity() {
     private val viewModel: GameViewModel by viewModels {
@@ -217,7 +216,8 @@ fun GameboardScreen(
             modifier = Modifier
                 .align(Alignment.BottomEnd)
                 .padding(20.dp),
-            horizontalAlignment = Alignment.End
+            horizontalAlignment = Alignment.End,
+            verticalArrangement = Arrangement.spacedBy(8.dp) // WICHTIG: Abstand zwischen den Buttons
         ) {
             if (isHost && !isGameStarted) {
                 Button(
@@ -228,15 +228,55 @@ fun GameboardScreen(
                 }
             }
 
-            if (isRollingPhaseForCurrentPlayer) {
-                Button(
-                    onClick = {
-                        // Only open the overlay – the actual dice roll is triggered by a shake.
-                        showOverlay = true
-                    },
-                    modifier = Modifier.testTag("roll_dice_button")
-                ) {
-                    Text("🎲 Roll Dice")
+            if (isRollingPhaseForCurrentPlayer && currentTurnPlayer != null) {
+                // GEFÄNGNIS LOGIK
+                if (currentTurnPlayer.inJail) {
+                    // Status-Text, damit der Spieler weiß, im wievielten Versuch er ist
+                    Text(
+                        text = "Im Gefängnis (Versuch ${currentTurnPlayer.jailTurns + 1}/3)",
+                        modifier = Modifier
+                            .background(Color.White.copy(alpha = 0.8f), shape = RoundedCornerShape(4.dp))
+                            .padding(horizontal = 8.dp, vertical = 4.dp),
+                        color = Color.Black
+                    )
+
+                    Button(
+                        onClick = { viewModel.payJailFine() },
+                        enabled = currentTurnPlayer.money >= 50,
+                        modifier = Modifier.testTag("pay_jail_fine_button")
+                    ) {
+                        Text("💰 50 M zahlen")
+                    }
+
+                    // Karte-Nutzen-Button nur anzeigen, wenn der Spieler eine hat
+                    if (currentTurnPlayer.getOutOfJailCards > 0) {
+                        Button(
+                            onClick = { viewModel.useJailCard() },
+                            modifier = Modifier.testTag("use_jail_card_button")
+                        ) {
+                            Text("🃏 Karte nutzen (${currentTurnPlayer.getOutOfJailCards})")
+                        }
+                    }
+
+                    // Der Roll-Button wird für den Pasch-Versuch umbenannt
+                    Button(
+                        onClick = { showOverlay = true },
+                        modifier = Modifier.testTag("roll_dice_button")
+                    ) {
+                        Text("🎲 Pasch versuchen")
+                    }
+                }
+                // NORMALE WÜRFEL LOGIK
+                else {
+                    Button(
+                        onClick = {
+                            // Only open the overlay – the actual dice roll is triggered by a shake.
+                            showOverlay = true
+                        },
+                        modifier = Modifier.testTag("roll_dice_button")
+                    ) {
+                        Text("🎲 Roll Dice")
+                    }
                 }
             }
         }
@@ -407,7 +447,4 @@ fun GameboardContent(
             )
         }
     }
-
-
-
 }

@@ -42,6 +42,7 @@ interface GameService {
     fun setGameId(gameId: String)
     fun executeAction(playerId: String)
     fun drawCard(cardType: String = "CHANCE")
+    fun buyProperty(fieldId: Int)
 
 
 }

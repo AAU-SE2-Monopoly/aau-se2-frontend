@@ -63,6 +63,9 @@ import at.aau.monopoly.klagenfurt.model.enums.GamePhase
 import androidx.compose.runtime.derivedStateOf
 import at.aau.monopoly.klagenfurt.model.field.ChanceField
 import at.aau.monopoly.klagenfurt.model.field.CommunityChestField
+import at.aau.monopoly.klagenfurt.model.field.PropertyField
+import at.aau.monopoly.klagenfurt.model.field.RailroadField
+import at.aau.monopoly.klagenfurt.model.field.UtilityField
 
 class GameboardUI : ComponentActivity() {
     private val viewModel: GameViewModel by viewModels {
@@ -125,6 +128,16 @@ fun GameboardScreen(
     val currentField = currentTurnPlayer?.let { player ->
         fields.getOrNull(player.position)
     }
+    val isBuyableField = currentField is PropertyField ||
+            currentField is RailroadField ||
+            currentField is UtilityField
+
+    val isUnownedField = when (currentField) {
+        is PropertyField -> currentField.ownerId == null
+        is RailroadField -> currentField.ownerId == null
+        is UtilityField -> currentField.ownerId == null
+        else -> false
+    }
 
     val isOnChanceField = currentField is ChanceField
     val isOnCommunityChestField = currentField is CommunityChestField
@@ -136,6 +149,12 @@ fun GameboardScreen(
     val isGameStarted by viewModel.isGameStarted.collectAsState()
     val isHost by viewModel.isHost.collectAsState()
     val cardDrawnThisTurn by viewModel.cardDrawnThisTurn.collectAsState()
+
+    val canBuyCurrentField =
+        isBuyingPhaseForCurrentPlayer &&
+                isBuyableField &&
+                isUnownedField &&
+                (currentTurnPlayer?.id == currentPlayerId)
 
     // Action Card states
     val currentActionCard by viewModel.currentActionCard.collectAsState()
@@ -264,6 +283,19 @@ fun GameboardScreen(
                         .testTag("end_turn_button")
                 ) {
                     Text("End Turn")
+                }
+            }
+
+            if (canBuyCurrentField && currentTurnPlayer != null) {
+                Button(
+                    onClick = {
+                        viewModel.buyProperty(currentTurnPlayer.position)
+                    },
+                    modifier = Modifier
+                        .padding(top = 8.dp)
+                        .testTag("buy_property_button")
+                ) {
+                    Text("Buy Property")
                 }
             }
 

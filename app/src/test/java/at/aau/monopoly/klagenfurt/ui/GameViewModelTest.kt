@@ -33,7 +33,7 @@ class GameViewModelTest {
         fakeService.currentPlayerId = "p1"
         fakeService.currentGameId = ""
         fakeTime = 2000L // Increased to avoid rollDice debounce (1500ms)
-        
+
         viewModel = GameViewModel(fakeService, currentTimeProvider = { fakeTime })
     }
 
@@ -62,7 +62,7 @@ class GameViewModelTest {
         viewModel.hidePlayerOverlay()
         assertNull(viewModel.selectedPlayerForOverlay.value)
     }
-    
+
     @Test
     fun `connect should call gameService connect`() {
         viewModel.connect()
@@ -133,11 +133,11 @@ class GameViewModelTest {
         viewModel.activateCheatForNextRoll()
         viewModel.rollDice()
         assertTrue(fakeService.rollDiceCalled)
-        
+
         // Reset flag in fake and advance time
         fakeService.rollDiceCalled = false
         fakeTime += 1600L
-        
+
         viewModel.rollDice()
         assertTrue(fakeService.rollDiceCalled)
     }
@@ -291,6 +291,314 @@ class GameViewModelTest {
         fakeService.emitTestEvent("""{"event":"SOME_EVENT","gameId":"g1","message":"Direct message"}""")
         advanceUntilIdle()
         assertEquals("Direct message", viewModel.eventLog.value.last().text)
+
+        job.cancel()
+    }
+
+
+    @Test
+    fun `dismissActionCard should clear current action card`() {
+        val card = at.aau.monopoly.klagenfurt.model.card.ChanceCard(
+            id = 1,
+            description = "Collect money",
+            action = at.aau.monopoly.klagenfurt.model.enums.CardAction.COLLECT_MONEY,
+            amount = 100
+        )
+
+        viewModel.setCurrentActionCard(card)
+        assertEquals(card, viewModel.currentActionCard.value)
+
+        viewModel.dismissActionCard()
+
+        assertNull(viewModel.currentActionCard.value)
+    }
+
+    @Test
+    fun `setCurrentActionCard should update current action card`() {
+        val card = at.aau.monopoly.klagenfurt.model.card.CommunityChestCard(
+            id = 2,
+            description = "Pay money",
+            action = at.aau.monopoly.klagenfurt.model.enums.CardAction.PAY_MONEY,
+            amount = 50
+        )
+
+        viewModel.setCurrentActionCard(card)
+
+        assertEquals(card, viewModel.currentActionCard.value)
+    }
+
+    @Test
+    fun `ACTION_DRAWN event should update currentActionCard`() = runTest {
+        val job = launch { viewModel.currentActionCard.collect {} }
+
+        fakeService.emitTestEvent(
+            """
+        {
+          "event": "ACTION_DRAWN",
+          "gameId": "g1",
+          "gameState": {
+            "gameId": "g1",
+            "fields": [],
+            "players": [],
+            "phase": "BUYING",
+            "currentActionCard": {
+              "type": "CHANCE",
+              "id": 1,
+              "description": "Collect 100",
+              "action": "COLLECT_MONEY",
+              "amount": 100
+            }
+          }
+        }
+        """.trimIndent()
+        )
+
+        advanceUntilIdle()
+
+        assertEquals("Collect 100", viewModel.currentActionCard.value?.description)
+
+        job.cancel()
+    }
+
+    @Test
+    fun `isGameStarted should be false for WAITING phase`() = runTest {
+        val job = launch { viewModel.isGameStarted.collect {} }
+
+        fakeService.emitTestEvent(
+            """
+        {
+          "event": "STATE_UPDATED",
+          "gameId": "g1",
+          "gameState": {
+            "gameId": "g1",
+            "fields": [],
+            "players": [],
+            "phase": "WAITING"
+          }
+        }
+        """.trimIndent()
+        )
+
+        advanceUntilIdle()
+
+        assertFalse(viewModel.isGameStarted.value)
+
+        job.cancel()
+    }
+
+    @Test
+    fun `isGameStarted should be true for ROLLING phase`() = runTest {
+        val job = launch { viewModel.isGameStarted.collect {} }
+
+        fakeService.emitTestEvent(
+            """
+        {
+          "event": "STATE_UPDATED",
+          "gameId": "g1",
+          "gameState": {
+            "gameId": "g1",
+            "fields": [],
+            "players": [],
+            "phase": "ROLLING"
+          }
+        }
+        """.trimIndent()
+        )
+
+        advanceUntilIdle()
+
+        assertTrue(viewModel.isGameStarted.value)
+
+        job.cancel()
+    }
+
+    @Test
+    fun `isHost should be true when current player is first player`() = runTest {
+        val job = launch { viewModel.isHost.collect {} }
+
+        fakeService.currentPlayerId = "p1"
+
+        fakeService.emitTestEvent(
+            """
+        {
+          "event": "STATE_UPDATED",
+          "gameId": "g1",
+          "gameState": {
+            "gameId": "g1",
+            "fields": [],
+            "players": [
+              { "id": "p1", "name": "Alice" },
+              { "id": "p2", "name": "Bob" }
+            ],
+            "phase": "WAITING"
+          }
+        }
+        """.trimIndent()
+        )
+
+        advanceUntilIdle()
+
+        assertTrue(viewModel.isHost.value)
+
+        job.cancel()
+    }
+
+    @Test
+    fun `isHost should be false when current player is not first player`() = runTest {
+        val job = launch { viewModel.isHost.collect {} }
+
+        fakeService.currentPlayerId = "p2"
+
+        fakeService.emitTestEvent(
+            """
+        {
+          "event": "STATE_UPDATED",
+          "gameId": "g1",
+          "gameState": {
+            "gameId": "g1",
+            "fields": [],
+            "players": [
+              { "id": "p1", "name": "Alice" },
+              { "id": "p2", "name": "Bob" }
+            ],
+            "phase": "WAITING"
+          }
+        }
+        """.trimIndent()
+        )
+
+        advanceUntilIdle()
+
+        assertFalse(viewModel.isHost.value)
+
+        job.cancel()
+    }
+
+    @Test
+    fun `isRollingPhaseForCurrentPlayer should be true for current player in ROLLING phase`() = runTest {
+        val job = launch { viewModel.isRollingPhaseForCurrentPlayer.collect {} }
+
+        fakeService.currentPlayerId = "p1"
+
+        fakeService.emitTestEvent(
+            """
+        {
+          "event": "STATE_UPDATED",
+          "gameId": "g1",
+          "gameState": {
+            "gameId": "g1",
+            "fields": [],
+            "players": [
+              { "id": "p1", "name": "Alice" }
+            ],
+            "currentPlayerIndex": 0,
+            "phase": "ROLLING"
+          }
+        }
+        """.trimIndent()
+        )
+
+        advanceUntilIdle()
+
+        assertTrue(viewModel.isRollingPhaseForCurrentPlayer.value)
+
+        job.cancel()
+    }
+
+    @Test
+    fun `isRollingPhaseForCurrentPlayer should be false for BUYING phase`() = runTest {
+        val job = launch { viewModel.isRollingPhaseForCurrentPlayer.collect {} }
+
+        fakeService.currentPlayerId = "p1"
+
+        fakeService.emitTestEvent(
+            """
+        {
+          "event": "STATE_UPDATED",
+          "gameId": "g1",
+          "gameState": {
+            "gameId": "g1",
+            "fields": [],
+            "players": [
+              { "id": "p1", "name": "Alice" }
+            ],
+            "currentPlayerIndex": 0,
+            "phase": "BUYING"
+          }
+        }
+        """.trimIndent()
+        )
+
+        advanceUntilIdle()
+
+        assertFalse(viewModel.isRollingPhaseForCurrentPlayer.value)
+
+        job.cancel()
+    }
+
+    @Test
+    fun `showDiceOverlayForCurrentPlayer should be true during rolling phase`() = runTest {
+        val job = launch { viewModel.showDiceOverlayForCurrentPlayer.collect {} }
+
+        fakeService.currentPlayerId = "p1"
+
+        fakeService.emitTestEvent(
+            """
+        {
+          "event": "STATE_UPDATED",
+          "gameId": "g1",
+          "gameState": {
+            "gameId": "g1",
+            "fields": [],
+            "players": [
+              { "id": "p1", "name": "Alice" }
+            ],
+            "currentPlayerIndex": 0,
+            "phase": "ROLLING"
+          }
+        }
+        """.trimIndent()
+        )
+
+        advanceUntilIdle()
+
+        assertTrue(viewModel.showDiceOverlayForCurrentPlayer.value)
+
+        job.cancel()
+    }
+
+
+    @Test
+    fun `diceResultForCurrentPlayer should return dice roll in buying phase`() = runTest {
+        val job = launch { viewModel.diceResultForCurrentPlayer.collect {} }
+
+        fakeService.currentPlayerId = "p1"
+
+        fakeService.emitTestEvent(
+            """
+        {
+          "event": "STATE_UPDATED",
+          "gameId": "g1",
+          "gameState": {
+            "gameId": "g1",
+            "fields": [],
+            "players": [
+              { "id": "p1", "name": "Alice" }
+            ],
+            "currentPlayerIndex": 0,
+            "phase": "BUYING",
+            "lastDiceRoll": {
+              "die1": 5,
+              "die2": 6
+            }
+          }
+        }
+        """.trimIndent()
+        )
+
+        advanceUntilIdle()
+
+        assertEquals(11, viewModel.diceResultForCurrentPlayer.value?.total)
 
         job.cancel()
     }

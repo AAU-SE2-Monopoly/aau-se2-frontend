@@ -60,6 +60,9 @@ import kotlinx.coroutines.flow.filter
 import android.view.KeyEvent
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.derivedStateOf
+import at.aau.monopoly.klagenfurt.model.field.ChanceField
+import at.aau.monopoly.klagenfurt.model.field.CommunityChestField
+
 
 class GameboardUI : ComponentActivity() {
     private val viewModel: GameViewModel by viewModels {
@@ -121,16 +124,29 @@ fun GameboardScreen(
     val players = gameState?.players ?: emptyList()
     val currentPlayerId = viewModel.currentPlayerId
     val currentTurnPlayer = gameState?.currentPlayer
+    val currentField = currentTurnPlayer?.let { player ->
+        fields.getOrNull(player.position)
+    }
+
+    val isOnChanceField = currentField is ChanceField
+    val isOnCommunityChestField = currentField is CommunityChestField
     val eventLog by viewModel.eventLog.collectAsState()
 
     val isRollingPhaseForCurrentPlayer by viewModel.isRollingPhaseForCurrentPlayer.collectAsState()
     val lastDiceRoll by viewModel.lastDiceRoll.collectAsState()
     val isGameStarted by viewModel.isGameStarted.collectAsState()
     val isHost by viewModel.isHost.collectAsState()
+    val cardDrawnThisTurn by viewModel.cardDrawnThisTurn.collectAsState()
+
+    // Action Card states
+    val currentActionCard by viewModel.currentActionCard.collectAsState()
+    val isExecutingAction by viewModel.isExecutingAction.collectAsState()
+    val showActionCardOverlay by viewModel.showActionCardOverlay.collectAsState()
 
     val context = LocalContext.current
 
     var showOverlay by remember { mutableStateOf(false) }
+    var showDebugButtons by remember { mutableStateOf(false) }
 
     // Filter DICE_ROLLED entries from the log while the overlay is visible,
     // so the dice result appears in chat only after the animation finishes.
@@ -279,6 +295,52 @@ fun GameboardScreen(
                     }
                 }
             }
+
+            if (isOnChanceField) {
+                Button(
+                    onClick = { viewModel.drawCard("CHANCE") },
+                    enabled = !showActionCardOverlay && !cardDrawnThisTurn,
+                    modifier = Modifier.padding(top = 8.dp)
+                ) {
+                    Text(if (cardDrawnThisTurn) "✓ Card Drawn" else "🎰 Draw Chance")
+                }
+            }
+
+            if (isOnCommunityChestField) {
+                Button(
+                    onClick = { viewModel.drawCard("COMMUNITY_CHEST") },
+                    enabled = !showActionCardOverlay && !cardDrawnThisTurn,
+                    modifier = Modifier.padding(top = 8.dp)
+                ) {
+                    Text(if (cardDrawnThisTurn) "✓ Card Drawn" else "⭐ Draw Community")
+                }
+            }
+
+            // DEBUG: Test buttons for card drawing functionality
+            Button(
+                onClick = { showDebugButtons = !showDebugButtons },
+                modifier = Modifier.padding(top = 8.dp)
+            ) {
+                Text(if (showDebugButtons) "🐛 Hide Debug" else "🐛 Show Debug")
+            }
+
+            if (showDebugButtons) {
+                Button(
+                    onClick = { viewModel.drawCard("CHANCE") },
+                    enabled = !showActionCardOverlay && !cardDrawnThisTurn,
+                    modifier = Modifier.padding(top = 8.dp)
+                ) {
+                    Text(if (cardDrawnThisTurn) "✓ Test Chance" else "🎰 TEST: Draw Chance")
+                }
+
+                Button(
+                    onClick = { viewModel.drawCard("COMMUNITY_CHEST") },
+                    enabled = !showActionCardOverlay && !cardDrawnThisTurn,
+                    modifier = Modifier.padding(top = 8.dp)
+                ) {
+                    Text(if (cardDrawnThisTurn) "✓ Test Community" else "⭐ TEST: Draw Community")
+                }
+            }
         }
 
         DiceRollOverlay(
@@ -289,12 +351,21 @@ fun GameboardScreen(
             onClose = { showOverlay = false }
         )
 
+        ActionCardOverlay(
+            isVisible = showActionCardOverlay,
+            card = currentActionCard,
+            isExecuting = isExecutingAction,
+            onExecuteAction = { viewModel.executeAction() }
+        )
+
         GameboardOverlayLayer(eventLog = bufferedEventLog)
+
+
     }
 }
 
 @Composable
-private fun BoxScope.GameboardOverlayLayer(eventLog: List<GameViewModel.LogEntry>) {
+fun BoxScope.GameboardOverlayLayer(eventLog: List<GameViewModel.LogEntry>) {
     ChatOverlay(
         entries = eventLog,
         modifier = Modifier.align(Alignment.TopCenter)

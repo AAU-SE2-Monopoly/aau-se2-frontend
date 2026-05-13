@@ -1,5 +1,6 @@
 package at.aau.monopoly.klagenfurt.model
 
+import at.aau.monopoly.klagenfurt.model.card.Card
 import at.aau.monopoly.klagenfurt.model.card.ChanceCard
 import at.aau.monopoly.klagenfurt.model.card.CommunityChestCard
 import at.aau.monopoly.klagenfurt.model.enums.GamePhase
@@ -14,7 +15,8 @@ data class GameState(
     val chanceCards: MutableList<ChanceCard> = mutableListOf(),
     val communityChestCards: MutableList<CommunityChestCard> = mutableListOf(),
     var freeParkingMoney: Int = 0,
-    var lastDiceRoll: DiceRoll? = null
+    var lastDiceRoll: DiceRoll? = null, // replaced Pair with serializable DiceRoll
+    var currentActionCard: Card? = null // Current action card (drawn from deck, pending execution)
 ) {
     /** The player whose turn it currently is. */
     val currentPlayer: Player?

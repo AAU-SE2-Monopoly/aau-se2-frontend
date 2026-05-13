@@ -62,4 +62,119 @@ class ChanceCardTest {
         assertTrue(toString.contains("description=Test"))
         assertTrue(toString.contains("moveSpaces=3"))
     }
+    @Test
+    fun `test chance card with pay money action`() {
+        val card = ChanceCard(
+            id = 20,
+            description = "Pay tax",
+            action = CardAction.PAY_MONEY,
+            amount = 100
+        )
+
+        assertEquals(CardAction.PAY_MONEY, card.action)
+        assertEquals(100, card.amount)
+        assertNull(card.targetFieldId)
+        assertEquals(0, card.moveSpaces)
+    }
+
+    @Test
+    fun `test chance card with collect from each player action`() {
+        val card = ChanceCard(
+            id = 21,
+            description = "Collect from each player",
+            action = CardAction.COLLECT_FROM_EACH,
+            amount = 50
+        )
+
+        assertEquals(CardAction.COLLECT_FROM_EACH, card.action)
+        assertEquals(50, card.amount)
+    }
+
+    @Test
+    fun `test chance card with pay each player action`() {
+        val card = ChanceCard(
+            id = 22,
+            description = "Pay each player",
+            action = CardAction.PAY_EACH_PLAYER,
+            amount = 25
+        )
+
+        assertEquals(CardAction.PAY_EACH_PLAYER, card.action)
+        assertEquals(25, card.amount)
+    }
+
+    @Test
+    fun `test chance card go to jail action`() {
+        val card = ChanceCard(
+            id = 23,
+            description = "Go to jail",
+            action = CardAction.GO_TO_JAIL
+        )
+
+        assertEquals(CardAction.GO_TO_JAIL, card.action)
+        assertEquals(0, card.amount)
+        assertNull(card.targetFieldId)
+        assertEquals(0, card.moveSpaces)
+    }
+
+    @Test
+    fun `test chance card get out of jail action`() {
+        val card = ChanceCard(
+            id = 24,
+            description = "Get out of jail free",
+            action = CardAction.GET_OUT_OF_JAIL
+        )
+
+        assertEquals(CardAction.GET_OUT_OF_JAIL, card.action)
+        assertEquals(0, card.amount)
+        assertNull(card.targetFieldId)
+        assertEquals(0, card.moveSpaces)
+    }
+
+    @Test
+    fun `test chance card component functions`() {
+        val card = ChanceCard(
+            id = 25,
+            description = "Move forward",
+            action = CardAction.MOVE_FORWARD,
+            amount = 10,
+            targetFieldId = 4,
+            moveSpaces = 3
+        )
+
+        assertEquals(25, card.component1())
+        assertEquals("Move forward", card.component2())
+        assertEquals(CardAction.MOVE_FORWARD, card.component3())
+        assertEquals(10, card.component4())
+        assertEquals(4, card.component5())
+        assertEquals(3, card.component6())
+    }
+
+    @Test
+    fun `test chance card copy with all fields changed`() {
+        val original = ChanceCard(
+            id = 1,
+            description = "Original",
+            action = CardAction.COLLECT_MONEY,
+            amount = 100,
+            targetFieldId = null,
+            moveSpaces = 0
+        )
+
+        val copy = original.copy(
+            id = 2,
+            description = "Changed",
+            action = CardAction.MOVE_TO,
+            amount = 0,
+            targetFieldId = 10,
+            moveSpaces = 0
+        )
+
+        assertEquals(2, copy.id)
+        assertEquals("Changed", copy.description)
+        assertEquals(CardAction.MOVE_TO, copy.action)
+        assertEquals(0, copy.amount)
+        assertEquals(10, copy.targetFieldId)
+        assertEquals(0, copy.moveSpaces)
+    }
 }

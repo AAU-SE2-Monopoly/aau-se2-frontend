@@ -7,8 +7,10 @@ import androidx.lifecycle.viewModelScope
 import at.aau.monopoly.klagenfurt.messaging.GameEvent
 import at.aau.monopoly.klagenfurt.model.DiceRoll
 import at.aau.monopoly.klagenfurt.model.GameState
-import at.aau.monopoly.klagenfurt.model.field.Field
+import at.aau.monopoly.klagenfurt.model.Player
+import at.aau.monopoly.klagenfurt.model.card.Card
 import at.aau.monopoly.klagenfurt.model.enums.GamePhase
+import at.aau.monopoly.klagenfurt.model.field.Field
 import at.aau.monopoly.klagenfurt.networking.GameService
 import at.aau.monopoly.klagenfurt.networking.JacksonProvider
 import kotlinx.coroutines.delay
@@ -78,6 +80,20 @@ class GameViewModel(
     private val _errorMessage = MutableStateFlow<String?>(null)
     val errorMessage: StateFlow<String?> = _errorMessage.asStateFlow()
 
+    private val _currentActionCard = MutableStateFlow<Card?>(null)
+    val currentActionCard: StateFlow<Card?> = _currentActionCard.asStateFlow()
+
+    private val _isExecutingAction = MutableStateFlow(false)
+    val isExecutingAction: StateFlow<Boolean> = _isExecutingAction.asStateFlow()
+
+    private val _selectedPlayerForOverlay = MutableStateFlow<Player?>(null)
+    val selectedPlayerForOverlay: StateFlow<Player?> = _selectedPlayerForOverlay.asStateFlow()
+
+    private val _cardDrawnThisTurn = MutableStateFlow(false)
+    val cardDrawnThisTurn: StateFlow<Boolean> = _cardDrawnThisTurn.asStateFlow()
+
+    private var lastCurrentPlayerIdForCardDraw: String? = null
+
     init {
         gameEventFlow
             .onEach { event ->
@@ -88,11 +104,31 @@ class GameViewModel(
                 ) {
                     gameService.setGameId(event.gameId)
                 }
-            }
-            .launchIn(viewModelScope)
 
-        gameEventFlow
-            .onEach { event ->
+                if (event.event == "ACTION_DRAWN" && event.gameState?.currentActionCard != null) {
+                    _currentActionCard.value = event.gameState.currentActionCard
+                    _cardDrawnThisTurn.value = true
+                    lastCurrentPlayerIdForCardDraw = event.gameState.currentPlayer?.id
+                }
+
+                if (event.event == "ACTION_EXECUTED") {
+                    _currentActionCard.value = null
+                    _isExecutingAction.value = false
+                    _cardDrawnThisTurn.value = false
+                }
+
+                if (event.event == "TURN_ENDED") {
+                    _cardDrawnThisTurn.value = false
+                    lastCurrentPlayerIdForCardDraw = null
+                }
+
+                // Reset the flag if the current player has changed (e.g., new turn starts)
+                val currentPlayerId = event.gameState?.currentPlayer?.id
+                if (currentPlayerId != null && currentPlayerId != lastCurrentPlayerIdForCardDraw) {
+                    _cardDrawnThisTurn.value = false
+                    lastCurrentPlayerIdForCardDraw = null
+                }
+
                 if (event.event == "ERROR") {
                     _errorMessage.value = event.message ?: "An unknown error occurred"
                     delay(5_000)
@@ -125,11 +161,7 @@ class GameViewModel(
 
     val fields: StateFlow<List<Field>> = gameState
         .map { it?.fields ?: emptyList() }
-        .stateIn(
-            scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(5000),
-            initialValue = emptyList()
-        )
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     val isGameReady: StateFlow<Boolean> = gameState
         .map { it != null }
@@ -167,15 +199,25 @@ class GameViewModel(
                 }
                 acc
             } else {
-                val isGameSwitch = incomingGameId.isNotBlank() &&
-                        acc.gameId.isNotBlank() &&
-                        incomingGameId != acc.gameId
+                val isGameSwitch =
+                    incomingGameId.isNotBlank() &&
+                            acc.gameId.isNotBlank() &&
+                            incomingGameId != acc.gameId
 
-                val baseEntries = if (isGameSwitch || event.event == "GAME_CREATED") emptyList() else acc.entries
+                val baseEntries =
+                    if (isGameSwitch || event.event == "GAME_CREATED") {
+                        emptyList()
+                    } else {
+                        acc.entries
+                    }
 
-                val isTechnical = event.event == "STATE_SNAPSHOT" || event.event == "STATE_UPDATED"
-                val entryText = event.message?.takeIf { it.isNotBlank() }
-                    ?: humanReadableEvent(event.event, event.gameId)
+                val isTechnical =
+                    event.event == "STATE_SNAPSHOT" ||
+                            event.event == "STATE_UPDATED"
+
+                val entryText =
+                    event.message?.takeIf { it.isNotBlank() }
+                        ?: humanReadableEvent(event.event, event.gameId)
 
                 if (entryText.isBlank()) {
                     LogAccumulator(gameId = incomingGameId, entries = baseEntries)
@@ -186,6 +228,7 @@ class GameViewModel(
                         isTechnical = isTechnical,
                         timestampMs = currentTimeProvider()
                     )
+
                     LogAccumulator(
                         gameId = incomingGameId,
                         entries = (baseEntries + entry).takeLast(MAX_LOG_ENTRIES)
@@ -225,13 +268,26 @@ class GameViewModel(
             val isCurrentPlayer = state?.currentPlayer?.id == gameService.currentPlayerId
             val isRollingPhase = state?.phase == GamePhase.ROLLING
             val hasResult = state?.phase == GamePhase.BUYING && state.lastDiceRoll != null
+
             isCurrentPlayer && (isRollingPhase || hasResult)
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+
+    val showActionCardOverlay: StateFlow<Boolean> = currentActionCard
+        .map { card ->
+            val isCurrentPlayer =
+                gameState.value?.currentPlayer?.id == gameService.currentPlayerId
+
+            isCurrentPlayer && card != null
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
     val events: SharedFlow<String> = gameService.events
     val status: SharedFlow<String> = gameService.status
     val currentPlayerId: String get() = gameService.currentPlayerId
+
+    private var isCheatActive = false
+    private var lastDiceRollTimestamp = 0L
 
     fun connect() = gameService.connect()
 
@@ -249,16 +305,15 @@ class GameViewModel(
 
     fun startGame() = gameService.startGame()
 
-    private var isCheatActive = false
-    private var lastDiceRollTimestamp = 0L
-
     fun activateCheatForNextRoll() {
         isCheatActive = true
     }
 
     fun rollDice() {
         val now = currentTimeProvider()
+
         if (now - lastDiceRollTimestamp < 1500L) return
+
         lastDiceRollTimestamp = now
         gameService.rollDice(isCheating = isCheatActive)
         isCheatActive = false
@@ -274,10 +329,25 @@ class GameViewModel(
 
     fun setGameId(gameId: String) = gameService.setGameId(gameId)
 
-    private val _selectedPlayerForOverlay = kotlinx.coroutines.flow.MutableStateFlow<at.aau.monopoly.klagenfurt.model.Player?>(null)
-    val selectedPlayerForOverlay: StateFlow<at.aau.monopoly.klagenfurt.model.Player?> = _selectedPlayerForOverlay
+    fun drawCard(cardType: String = "CHANCE") =
+        gameService.drawCard(cardType)
 
-    fun showPlayerOverlay(player: at.aau.monopoly.klagenfurt.model.Player) {
+    fun executeAction() {
+        _isExecutingAction.value = true
+        Log.d("ActionCard", "Executing action for player: $currentPlayerId")
+        gameService.executeAction(currentPlayerId)
+    }
+
+    fun setCurrentActionCard(card: Card?) {
+        Log.d("ActionCard", "Setting current action card: ${card?.description}")
+        _currentActionCard.value = card
+    }
+
+    fun dismissActionCard() {
+        _currentActionCard.value = null
+    }
+
+    fun showPlayerOverlay(player: Player) {
         _selectedPlayerForOverlay.value = player
     }
 
@@ -287,7 +357,9 @@ class GameViewModel(
 
     fun syncGameboardEntryState() {
         val currentGameId = gameService.currentGameId
+
         if (currentGameId.isBlank()) return
+
         gameService.requestState()
     }
 
@@ -305,9 +377,11 @@ class GameViewModel(
             "JAIL_FINE_PAID" -> "Bail paid: 50M"
             "JAIL_CARD_USED" -> "Used 'Get out of jail free' card"
             "PLAYER_JAILED" -> "Player went to jail!"
-
-
-            else -> eventType.replace("_", " ").lowercase().replaceFirstChar { it.uppercase() }
+            "ACTION_DRAWN" -> "Action card drawn!"
+            "ACTION_EXECUTED" -> "Action executed"
+            else -> eventType.replace("_", " ")
+                .lowercase()
+                .replaceFirstChar { it.uppercase() }
         }
     }
 

@@ -625,5 +625,285 @@ class LobbyViewModelTest {
         reconnectJob.cancel()
     }
 
-    // ── End of reconnect flow tests ────────────────────────────────────────
+    // ── rejoinGame() tests ──────────────────────────────────────────────────
+
+    @Test
+    fun `rejoinGame calls joinGame on gameService`() = runTest(testDispatcher) {
+        fakeService.setConnectionState(true)
+        viewModel.rejoinGame("game-42")
+        advanceUntilIdle()
+        assertEquals(1, fakeService.joinGameCalls)
+        assertEquals("game-42", fakeService.lastJoinedGameId)
+        assertEquals("test-player-name", fakeService.lastJoinedPlayerName)
+        assertEquals("lindwurm", fakeService.lastJoinedIconId)
+    }
+
+    @Test
+    fun `rejoinGame logs on success`() = runTest(testDispatcher) {
+        mockkStatic(Log::class)
+        every { Log.d(any<String>(), any<String>()) } returns 0
+        every { Log.w(any<String>(), any<String>()) } returns 0
+
+        fakeService.setConnectionState(true)
+        fakeService.joinGameSuccess = true
+        viewModel.rejoinGame("game-42")
+        advanceUntilIdle()
+
+        verify(exactly = 1) { Log.d("LobbyViewModel", match { it.startsWith("Rejoined game game-42") }) }
+    }
+
+    @Test
+    fun `rejoinGame logs warning on failure`() = runTest(testDispatcher) {
+        mockkStatic(Log::class)
+        every { Log.d(any<String>(), any<String>()) } returns 0
+        every { Log.w(any<String>(), any<String>()) } returns 0
+
+        fakeService.setConnectionState(true)
+        fakeService.joinGameSuccess = false
+        viewModel.rejoinGame("game-42")
+        advanceUntilIdle()
+
+        verify(exactly = 1) { Log.w(eq("LobbyViewModel"), match<String> { it.startsWith("Failed to rejoin game:") }) }
+    }
+
+    @Test
+    fun `rejoinGame emits error when not connected`() = runTest(testDispatcher) {
+        val messages = mutableListOf<String>()
+        val job = launch { viewModel.rejoinErrors.collect { messages.add(it) } }
+        advanceUntilIdle()
+
+        viewModel.rejoinGame("game-42")
+        advanceUntilIdle()
+
+        assertEquals(listOf("Not connected to server. Please wait..."), messages)
+        assertEquals(0, fakeService.joinGameCalls)
+        job.cancel()
+    }
+
+    @Test
+    fun `rejoinGame emits error when joinGame fails`() = runTest(testDispatcher) {
+        val messages = mutableListOf<String>()
+        val job = launch { viewModel.rejoinErrors.collect { messages.add(it) } }
+        advanceUntilIdle()
+
+        fakeService.setConnectionState(true)
+        fakeService.joinGameSuccess = false
+        viewModel.rejoinGame("game-42")
+        advanceUntilIdle()
+
+        assertEquals(listOf("Join rejected by server"), messages)
+        job.cancel()
+    }
+
+    @Test
+    fun `rejoinGame emits navigation on success`() = runTest(testDispatcher) {
+        val gameIds = mutableListOf<String>()
+        val job = launch { viewModel.rejoinNavigation.collect { gameIds.add(it) } }
+        advanceUntilIdle()
+
+        fakeService.setConnectionState(true)
+        fakeService.joinGameSuccess = true
+        viewModel.rejoinGame("game-42")
+        advanceUntilIdle()
+
+        assertEquals(listOf("game-42"), gameIds)
+        job.cancel()
+    }
+
+    // ── Game card filtering tests ──────────────────────────────────────────
+
+    @Test
+    fun `lobby filtering shows open games always`() = runTest(testDispatcher) {
+        val lobbyJson = """
+        {
+            "event": "LOBBY_UPDATE",
+            "games": [
+                {
+                    "gameId": "g1",
+                    "hostPlayerName": "Alice",
+                    "hostPlayerId": "p1",
+                    "playerCount": 1,
+                    "maxPlayers": 4,
+                    "phase": "WAITING",
+                    "playerIds": ["p1"]
+                }
+            ]
+        }
+        """.trimIndent()
+
+        fakeService.emitTestLobbyEvent(lobbyJson)
+        advanceUntilIdle()
+
+        val games = viewModel.games.value
+        assertEquals(1, games.size)
+        assertEquals("g1", games[0].gameId)
+    }
+
+    @Test
+    fun `lobby filtering hides finished games`() = runTest(testDispatcher) {
+        val lobbyJson = """
+        {
+            "event": "LOBBY_UPDATE",
+            "games": [
+                {
+                    "gameId": "g1",
+                    "hostPlayerName": "Alice",
+                    "hostPlayerId": "p1",
+                    "playerCount": 3,
+                    "maxPlayers": 4,
+                    "phase": "FINISHED",
+                    "playerIds": ["p1", "p2", "p3"]
+                }
+            ]
+        }
+        """.trimIndent()
+
+        fakeService.emitTestLobbyEvent(lobbyJson)
+        advanceUntilIdle()
+
+        assertEquals(0, viewModel.games.value.size)
+    }
+
+    @Test
+    fun `lobby filtering shows full game when player is member`() = runTest(testDispatcher) {
+        val lobbyJson = """
+        {
+            "event": "LOBBY_UPDATE",
+            "games": [
+                {
+                    "gameId": "g1",
+                    "hostPlayerName": "Alice",
+                    "hostPlayerId": "test-player-id",
+                    "playerCount": 4,
+                    "maxPlayers": 4,
+                    "phase": "WAITING",
+                    "playerIds": ["test-player-id", "p2", "p3", "p4"]
+                }
+            ]
+        }
+        """.trimIndent()
+
+        fakeService.emitTestLobbyEvent(lobbyJson)
+        advanceUntilIdle()
+
+        val games = viewModel.games.value
+        assertEquals(1, games.size)
+        assertEquals("g1", games[0].gameId)
+    }
+
+    @Test
+    fun `lobby filtering hides full game when player is not member`() = runTest(testDispatcher) {
+        val lobbyJson = """
+        {
+            "event": "LOBBY_UPDATE",
+            "games": [
+                {
+                    "gameId": "g1",
+                    "hostPlayerName": "Alice",
+                    "hostPlayerId": "p1",
+                    "playerCount": 4,
+                    "maxPlayers": 4,
+                    "phase": "WAITING",
+                    "playerIds": ["p1", "p2", "p3", "p4"]
+                }
+            ]
+        }
+        """.trimIndent()
+
+        fakeService.emitTestLobbyEvent(lobbyJson)
+        advanceUntilIdle()
+
+        assertEquals(0, viewModel.games.value.size)
+    }
+
+    @Test
+    fun `lobby filtering shows in-progress game when player is member`() = runTest(testDispatcher) {
+        val lobbyJson = """
+        {
+            "event": "LOBBY_UPDATE",
+            "games": [
+                {
+                    "gameId": "g1",
+                    "hostPlayerName": "Alice",
+                    "hostPlayerId": "test-player-id",
+                    "playerCount": 2,
+                    "maxPlayers": 4,
+                    "phase": "ROLLING",
+                    "playerIds": ["test-player-id", "p2"]
+                }
+            ]
+        }
+        """.trimIndent()
+
+        fakeService.emitTestLobbyEvent(lobbyJson)
+        advanceUntilIdle()
+
+        val games = viewModel.games.value
+        assertEquals(1, games.size)
+        assertEquals("g1", games[0].gameId)
+    }
+
+    @Test
+    fun `lobby filtering hides in-progress game when player is not member`() = runTest(testDispatcher) {
+        val lobbyJson = """
+        {
+            "event": "LOBBY_UPDATE",
+            "games": [
+                {
+                    "gameId": "g1",
+                    "hostPlayerName": "Alice",
+                    "hostPlayerId": "p1",
+                    "playerCount": 2,
+                    "maxPlayers": 4,
+                    "phase": "ROLLING",
+                    "playerIds": ["p1", "p2"]
+                }
+            ]
+        }
+        """.trimIndent()
+
+        fakeService.emitTestLobbyEvent(lobbyJson)
+        advanceUntilIdle()
+
+        assertEquals(0, viewModel.games.value.size)
+    }
+
+    @Test
+    fun `lobby filtering sorts games open first then in progress`() = runTest(testDispatcher) {
+        val lobbyJson = """
+        {
+            "event": "LOBBY_UPDATE",
+            "games": [
+                {
+                    "gameId": "g-in-progress",
+                    "hostPlayerName": "Bob",
+                    "hostPlayerId": "test-player-id",
+                    "playerCount": 2,
+                    "maxPlayers": 4,
+                    "phase": "ROLLING",
+                    "playerIds": ["test-player-id", "p1"]
+                },
+                {
+                    "gameId": "g-open",
+                    "hostPlayerName": "Alice",
+                    "hostPlayerId": "p2",
+                    "playerCount": 1,
+                    "maxPlayers": 4,
+                    "phase": "WAITING",
+                    "playerIds": ["p2"]
+                }
+            ]
+        }
+        """.trimIndent()
+
+        fakeService.emitTestLobbyEvent(lobbyJson)
+        advanceUntilIdle()
+
+        val games = viewModel.games.value
+        assertEquals(2, games.size)
+        assertEquals("g-open", games[0].gameId)
+        assertEquals("g-in-progress", games[1].gameId)
+    }
+
+    // ── End of lobby filtering tests ──────────────────────────────────────
 }

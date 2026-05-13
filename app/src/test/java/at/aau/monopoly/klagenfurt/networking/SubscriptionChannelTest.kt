@@ -4,15 +4,22 @@ import io.mockk.*
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.emptyFlow
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
+import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.advanceUntilIdle
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.withContext
 import org.hildan.krossbow.stomp.StompSession
 import org.hildan.krossbow.stomp.subscribeText
 import org.junit.jupiter.api.AfterEach
@@ -438,6 +445,35 @@ class SubscriptionChannelTest {
 
         coVerify(exactly = 1) { stompSession.subscribeText("/topic/game/topic-a") }
         coVerify(exactly = 1) { stompSession.subscribeText("/topic/game/topic-b") }
+        assertTrue(channel.isReady.value)
+    }
+
+    @Test
+    fun `cancelling previous subscription does not clear new readiness`() = runTest(testDispatcher) {
+        val slowCancelFlow = flow<String> {
+            try {
+                awaitCancellation()
+            } finally {
+                withContext(NonCancellable) { delay(100) }
+            }
+        }
+        val newFlow = MutableSharedFlow<String>()
+        coEvery { stompSession.subscribeText("${baseTopic}slow") } returns slowCancelFlow
+        coEvery { stompSession.subscribeText("${baseTopic}new") } returns newFlow
+
+        channel = createChannel()
+
+        channel.subscribe("slow")
+        runCurrent()
+        assertTrue(channel.isReady.value)
+
+        channel.subscribe("new")
+        runCurrent()
+        assertTrue(channel.isReady.value)
+
+        advanceTimeBy(150)
+        runCurrent()
+
         assertTrue(channel.isReady.value)
     }
 

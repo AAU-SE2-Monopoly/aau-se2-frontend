@@ -13,6 +13,9 @@ import at.aau.monopoly.klagenfurt.model.enums.GamePhase
 import at.aau.monopoly.klagenfurt.model.field.Field
 import at.aau.monopoly.klagenfurt.networking.GameService
 import at.aau.monopoly.klagenfurt.networking.JacksonProvider
+import at.aau.monopoly.klagenfurt.ui.board.MovementAnimationState
+import at.aau.monopoly.klagenfurt.ui.board.computeMovementPath
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -103,6 +106,48 @@ class GameViewModel(
                     gameService.currentGameId.isBlank()
                 ) {
                     gameService.setGameId(event.gameId)
+                }
+
+                // Capture old state before updating, then remember the new state.
+                val oldState = previousGameState
+                event.gameState?.let { previousGameState = it }
+
+                // Detect position changes on DICE_ROLLED events and drive animation.
+                if (event.event == "DICE_ROLLED") {
+                    val newState = event.gameState ?: return@onEach
+
+                    if (oldState != null) {
+                        val currentPlayerId = newState.currentPlayer?.id ?: return@onEach
+                        val prevPlayer = oldState.players.find { it.id == currentPlayerId } ?: return@onEach
+                        val newPlayer = newState.players.find { it.id == currentPlayerId } ?: return@onEach
+
+                        if (prevPlayer.position != newPlayer.position) {
+                            val diceTotal = newState.lastDiceRoll?.total
+                                ?: ((newPlayer.position - prevPlayer.position + newState.fields.size) % newState.fields.size)
+                            val path = computeMovementPath(prevPlayer.position, diceTotal, newState.fields.size)
+
+                            animationJob?.cancel()
+                            animationJob = viewModelScope.launch {
+                                _movementAnimation.value = MovementAnimationState(
+                                    playerId = currentPlayerId,
+                                    startPosition = prevPlayer.position,
+                                    path = path,
+                                    currentStepIndex = -1,
+                                    isComplete = false
+                                )
+                                path.forEachIndexed { stepIdx, _ ->
+                                    delay(250)
+                                    _movementAnimation.value = _movementAnimation.value?.copy(
+                                        currentStepIndex = stepIdx
+                                    )
+                                }
+                                _movementAnimation.value = _movementAnimation.value?.copy(
+                                    currentStepIndex = path.size,
+                                    isComplete = true
+                                )
+                            }
+                        }
+                    }
                 }
 
                 if (event.event == "ACTION_DRAWN" && event.gameState?.currentActionCard != null) {
@@ -252,6 +297,13 @@ class GameViewModel(
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
+    val isBuyingPhaseForCurrentPlayer: StateFlow<Boolean> = gameState
+        .map { state ->
+            state?.phase == GamePhase.BUYING &&
+                    state.currentPlayer?.id == gameService.currentPlayerId
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+
     val diceResultForCurrentPlayer: StateFlow<DiceRoll?> = gameState
         .map { state ->
             if (
@@ -270,8 +322,8 @@ class GameViewModel(
             val isCurrentPlayer = state?.currentPlayer?.id == gameService.currentPlayerId
             val isRollingPhase = state?.phase == GamePhase.ROLLING
             val hasResult = state?.phase == GamePhase.BUYING && state.lastDiceRoll != null
-
-            isCurrentPlayer && (isRollingPhase || hasResult)
+            val isTurnEnd = state?.phase == GamePhase.TURN_END
+            isCurrentPlayer && !isTurnEnd && (isRollingPhase || hasResult)
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
@@ -326,6 +378,14 @@ class GameViewModel(
     fun requestState() = gameService.requestState()
 
     fun setGameId(gameId: String) = gameService.setGameId(gameId)
+
+    private val _movementAnimation = MutableStateFlow<MovementAnimationState?>(null)
+    val movementAnimation: StateFlow<MovementAnimationState?> = _movementAnimation
+
+    private var previousGameState: GameState? = null
+    private var animationJob: Job? = null
+
+
 
     fun drawCard(cardType: String = "CHANCE") =
         gameService.drawCard(cardType)

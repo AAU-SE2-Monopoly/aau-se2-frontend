@@ -51,7 +51,7 @@ import at.aau.monopoly.klagenfurt.model.Player
 import at.aau.monopoly.klagenfurt.model.field.Field
 import at.aau.monopoly.klagenfurt.sensors.ShakeDetector
 import at.aau.monopoly.klagenfurt.ui.board.FieldItem
-import at.aau.monopoly.klagenfurt.ui.board.PlayerToken
+import at.aau.monopoly.klagenfurt.ui.board.MovementAnimationState
 import at.aau.monopoly.klagenfurt.ui.chat.ChatOverlay
 import at.aau.monopoly.klagenfurt.ui.zoom.ZoomableWrapper
 import com.example.myapplication.R
@@ -59,11 +59,10 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.filter
 import android.view.KeyEvent
+import at.aau.monopoly.klagenfurt.model.enums.GamePhase
 import androidx.compose.runtime.derivedStateOf
 import at.aau.monopoly.klagenfurt.model.field.ChanceField
 import at.aau.monopoly.klagenfurt.model.field.CommunityChestField
-
-
 
 class GameboardUI : ComponentActivity() {
     private val viewModel: GameViewModel by viewModels {
@@ -81,7 +80,6 @@ class GameboardUI : ComponentActivity() {
         }
     }
 
-
     override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
         if (keyCode == KeyEvent.KEYCODE_VOLUME_UP) {
             // Cheat im ViewModel aktivieren
@@ -92,7 +90,6 @@ class GameboardUI : ComponentActivity() {
         }
         return super.onKeyDown(keyCode, event)
     }
-
 }
 
 @Composable
@@ -134,6 +131,7 @@ fun GameboardScreen(
     val eventLog by viewModel.eventLog.collectAsState()
 
     val isRollingPhaseForCurrentPlayer by viewModel.isRollingPhaseForCurrentPlayer.collectAsState()
+    val isBuyingPhaseForCurrentPlayer by viewModel.isBuyingPhaseForCurrentPlayer.collectAsState()
     val lastDiceRoll by viewModel.lastDiceRoll.collectAsState()
     val isGameStarted by viewModel.isGameStarted.collectAsState()
     val isHost by viewModel.isHost.collectAsState()
@@ -214,6 +212,7 @@ fun GameboardScreen(
     }
 
     val selectedPlayer by viewModel.selectedPlayerForOverlay.collectAsState()
+    val movementState by viewModel.movementAnimation.collectAsState()
 
     LockScreenOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE)
 
@@ -226,6 +225,7 @@ fun GameboardScreen(
             onPlayerCardClick = { player -> viewModel.showPlayerOverlay(player) },
             selectedPlayerForOverlay = selectedPlayer,
             onDismissOverlay = { viewModel.hidePlayerOverlay() },
+            movementAnimationState = movementState,
             modifier = Modifier.fillMaxSize()
         )
 
@@ -253,6 +253,17 @@ fun GameboardScreen(
                     modifier = Modifier.testTag("roll_dice_button")
                 ) {
                     Text("🎲 Roll Dice")
+                }
+            }
+
+            if (isBuyingPhaseForCurrentPlayer) {
+                Button(
+                    onClick = { viewModel.endTurn() },
+                    modifier = Modifier
+                        .padding(top = 8.dp)
+                        .testTag("end_turn_button")
+                ) {
+                    Text("End Turn")
                 }
             }
 
@@ -341,6 +352,7 @@ fun GameboardContent(
     onPlayerCardClick: (Player) -> Unit = {},
     selectedPlayerForOverlay: Player? = null,
     onDismissOverlay: () -> Unit = {},
+    movementAnimationState: MovementAnimationState? = null,
     modifier: Modifier = Modifier
 ) {
     val myPlayer = players.find { it.id == currentPlayerId }
@@ -348,6 +360,10 @@ fun GameboardContent(
 
     val currentField = currentTurnPlayer?.let { p ->
         fields.getOrNull(p.position)
+    }
+
+    val playersByField: Map<Int, List<Player>> = remember(players) {
+        players.groupBy { it.position }
     }
 
     val panelWidth = 280.dp
@@ -400,15 +416,21 @@ fun GameboardContent(
 
                     fields.take(visibleFieldCount).forEachIndexed { index, field ->
                         key(field.id) {
-                            FieldItem(index, field, sw, sh)
+                            FieldItem(
+                                index = index,
+                                field = field,
+                                sw = sw,
+                                sh = sh,
+                                playersOnField = playersByField[field.id] ?: emptyList(),
+                                animatingPlayerId = movementAnimationState?.playerId,
+                                animatingStep = movementAnimationState?.let {
+                                    if (it.currentStepIndex in it.path.indices) it.path[it.currentStepIndex] else null
+                                },
+                                animationComplete = movementAnimationState?.isComplete ?: true
+                            )
                         }
                     }
-
-                    players.forEachIndexed { index, player ->
-                        key(player.id) {
-                            PlayerToken(player = player, playerIndex = index, sw = sw, sh = sh)
-                        }
-                    }
+                    // Old flat PlayerToken loop removed – tokens are now rendered inside FieldItem.
                 }
             }
         }
@@ -478,7 +500,4 @@ fun GameboardContent(
             )
         }
     }
-
-
-
 }

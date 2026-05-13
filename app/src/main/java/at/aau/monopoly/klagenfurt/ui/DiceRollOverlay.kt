@@ -46,7 +46,15 @@ fun DiceRollOverlay(
     hasShaken: Boolean = false,
     onClose: () -> Unit
 ) {
-    if (!isVisible) return
+    // Allow user to manually dismiss the overlay; resets when overlay reappears
+    var userDismissed by remember { mutableStateOf(false) }
+
+    // Reset userDismissed when overlay reappears
+    LaunchedEffect(isVisible) {
+        if (isVisible) userDismissed = false
+    }
+
+    if (!isVisible || userDismissed) return
 
     // Three visual states:
     //   1. Idle    – overlay open, waiting for the user to shake (no animation, no result).
@@ -174,7 +182,10 @@ fun DiceRollOverlay(
                 // Close button: enabled in idle state (no shake yet) or after the result is shown,
                 // disabled while the dice animation/network roundtrip is in progress.
                 Button(
-                    onClick = onClose,
+                    onClick = {
+                        userDismissed = true
+                        onClose()
+                    },
                     enabled = !displayRolling || !hasShaken,
                     modifier = Modifier
                         .size(width = 150.dp, height = 40.dp)

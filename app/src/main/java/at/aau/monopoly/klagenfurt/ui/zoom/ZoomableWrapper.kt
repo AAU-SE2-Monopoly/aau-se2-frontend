@@ -87,9 +87,13 @@ fun ZoomableWrapper(modifier: Modifier = Modifier, content: @Composable () -> Un
                         // Measure content at scaled-up size so vectors render
                         // at the zoomed resolution (sharp, no bitmap upscale).
                         val s = zoomState.scale
+                        // Guard against unbounded constraints (e.g. Constraints.Infinity)
+                        // multiplying by zoom scale, which would overflow Int.
+                        val maxW = if (constraints.hasBoundedWidth) constraints.maxWidth else 4096
+                        val maxH = if (constraints.hasBoundedHeight) constraints.maxHeight else 4096
                         val scaledConstraints = constraints.copy(
-                            maxWidth = (constraints.maxWidth * s).roundToInt(),
-                            maxHeight = (constraints.maxHeight * s).roundToInt()
+                            maxWidth = (maxW * s).roundToInt().coerceAtMost(16384),
+                            maxHeight = (maxH * s).roundToInt().coerceAtMost(16384)
                         )
                         val placeable = measurable.measure(scaledConstraints)
                         layout(constraints.maxWidth, constraints.maxHeight) {

@@ -451,13 +451,19 @@ class GameStompClient(
         gameChannel.cancel()
         gameChannel.subscribe(gameId)
 
-        val ready = withTimeoutOrNull(15_000L) {
+        var ready = withTimeoutOrNull(8_000L) {
             gameChannel.isReady.first { it }
         }
         if (ready == null) {
-            Log.e("GameStomp", "Subscription timed out for $gameId")
-            // Only attempt to close games that were newly created by us.
-            // Capture the session NOW before startReconnectLoop() nulls it.
+            Log.w("GameStomp", "Subscription timed out for $gameId (attempt 1/2) – retrying")
+            gameChannel.cancel()
+            gameChannel.subscribe(gameId)
+            ready = withTimeoutOrNull(8_000L) {
+                gameChannel.isReady.first { it }
+            }
+        }
+        if (ready == null) {
+            Log.e("GameStomp", "Subscription timed out for $gameId (attempt 2/2)")
             if (isNewlyCreated && gameId.isNotEmpty() && gameId == _currentGameId) {
                 val capturedSession = session
                 try {
@@ -466,9 +472,7 @@ class GameStompClient(
                     }
                 } catch (e: CancellationException) {
                     throw e
-                } catch (_: Exception) {
-                    // best-effort close; do not prevent reconnect
-                }
+                } catch (_: Exception) { }
             }
             startReconnectLoop()
             return false

@@ -504,9 +504,6 @@ class GameStompClient(
                 (e is IllegalStateException && e.message?.contains("cancelled", ignoreCase = true) == true) ||
                 (e.cause is CancellationException)
     }
-}
-
-
 
     override fun executeAction(playerId: String) {
         Log.d("GameStomp", "Executing action for player: $playerId")

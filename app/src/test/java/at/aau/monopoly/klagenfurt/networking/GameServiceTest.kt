@@ -31,6 +31,11 @@ class GameServiceTest {
         override fun requestGameList() {}
         override fun closeGame(gameId: String) {}
 
+        override fun payJailFine() {
+        }
+
+        override fun useJailCard() { }
+
         override suspend fun createGame(
             playerName: String,
             iconId: String

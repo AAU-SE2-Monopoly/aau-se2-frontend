@@ -151,7 +151,7 @@ class LobbyViewModel(private val gameService: GameService) : ViewModel() {
             try {
                 val status = gameService.joinGame(
                     gameId,
-                    playerName = gameService.currentPlayerName ?: "Player",
+                    playerName = gameService.currentPlayerName.ifBlank { "Player" },
                     iconId = "lindwurm"
                 )
                 status.fold(

@@ -4,6 +4,7 @@ import android.util.Log
 import at.aau.monopoly.klagenfurt.networking.GameStompClient
 import io.mockk.*
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -56,6 +57,7 @@ class GameStompClientTest {
 
     @AfterEach
     fun tearDown() {
+        testScope.cancel()
         unmockkAll()
     }
 
@@ -80,7 +82,7 @@ class GameStompClientTest {
         coEvery { stompSession.subscribeText(any<String>()) } returns kotlinx.coroutines.flow.flowOf()
 
         gameStompClient.connect()
-        advanceUntilIdle()
+        runCurrent()
 
         gameStompClient.subscribeToGame("test-id")
         advanceUntilIdle()
@@ -96,7 +98,7 @@ class GameStompClientTest {
         coEvery { stompSession.subscribeText(any<String>()) } returns flowOf()
 
         gameStompClient.connect()
-        advanceUntilIdle()
+        runCurrent()
 
         coVerify { stompClient.connect(any<String>()) }
         // Verify that we automatically subscribe to our personal topic upon connection
@@ -208,7 +210,7 @@ class GameStompClientTest {
         // connect() launched a coroutine that fails → calls startReconnectLoop()
         // which now actually runs because isConnecting was set to false before the call.
         advanceTimeBy(1_500)  // past the 1s initial delay
-        advanceUntilIdle()
+        runCurrent()
 
         // The reconnect loop should have tried again and succeeded
         assertTrue(statuses.contains("Reconnecting in 1s..."),
@@ -234,15 +236,15 @@ class GameStompClientTest {
         // Need to advance through all 5 exponential backoff delays:
         // 1s, 2s, 4s, 8s, 16s = 31s total
         advanceTimeBy(1_500)   // attempt 1 after 1s
-        advanceUntilIdle()
+        runCurrent()
         advanceTimeBy(2_100)   // attempt 2 after 2s
-        advanceUntilIdle()
+        runCurrent()
         advanceTimeBy(4_100)   // attempt 3 after 4s
-        advanceUntilIdle()
+        runCurrent()
         advanceTimeBy(8_100)   // attempt 4 after 8s
-        advanceUntilIdle()
+        runCurrent()
         advanceTimeBy(16_100)  // attempt 5 after 16s
-        advanceUntilIdle()
+        runCurrent()
 
         assertTrue(gameStompClient.reconnectFailed.value,
             "reconnectFailed should be true after exhausting all attempts")
@@ -265,15 +267,15 @@ class GameStompClientTest {
         // FIRST connect cycle: fails and tries 5 times
         gameStompClient.connect()
         advanceTimeBy(1_500)
-        advanceUntilIdle()
+        runCurrent()
         advanceTimeBy(2_100)
-        advanceUntilIdle()
+        runCurrent()
         advanceTimeBy(4_100)
-        advanceUntilIdle()
+        runCurrent()
         advanceTimeBy(8_100)
-        advanceUntilIdle()
+        runCurrent()
         advanceTimeBy(16_100)
-        advanceUntilIdle()
+        runCurrent()
 
         // Verify first cycle is exhausted
         assertTrue(gameStompClient.reconnectFailed.value,
@@ -293,7 +295,7 @@ class GameStompClientTest {
         // The first connect attempt in the new cycle fails, which triggers
         // startReconnectLoop() → should emit "Reconnecting in 1s..."
         advanceTimeBy(1_500)
-        advanceUntilIdle()
+        runCurrent()
 
         assertTrue(statuses.contains("Reconnecting in 1s..."),
             "Second cycle should emit reconnect status. Got: $statuses")
@@ -326,13 +328,13 @@ class GameStompClientTest {
 
         // Advance past 1s delay → reconnect attempt 1 fires
         advanceTimeBy(1_100)
-        advanceUntilIdle()
+        runCurrent()
         assertTrue(statuses.contains("Reconnect failed (1/5)"),
             "Attempt 1 should fail. Got: $statuses")
 
         // Advance past 2s delay → reconnect attempt 2 fires
         advanceTimeBy(2_100)
-        advanceUntilIdle()
+        runCurrent()
         assertTrue(statuses.contains("Reconnected ✓"),
             "Should reconnect on attempt 2. Got: $statuses")
 
@@ -391,8 +393,9 @@ class GameStompClientTest {
     @Test
     fun subscribeToGame_sends_events() = runTest(testDispatcher) {
         coEvery { stompClient.connect(any<String>()) } returns stompSession
-        val eventFlow = MutableSharedFlow<String>()
-        coEvery { stompSession.subscribeText(any<String>()) } returns eventFlow
+        val eventFlow = MutableSharedFlow<String>(extraBufferCapacity = 1)
+        coEvery { stompSession.subscribeText(match { it.startsWith("/topic/game/") && it != "/topic/game/test-id" }) } returns flowOf()
+        coEvery { stompSession.subscribeText("/topic/game/test-id") } returns eventFlow
 
         val receivedEvents = mutableListOf<String>()
         val collectJob = launch {
@@ -400,15 +403,15 @@ class GameStompClientTest {
         }
 
         gameStompClient.connect()
-        advanceUntilIdle()
+        runCurrent()
 
         gameStompClient.subscribeToGame("test-id")
-        advanceUntilIdle()
+        runCurrent()
 
         coVerify { stompSession.subscribeText("/topic/game/test-id") }
 
         eventFlow.emit("Test Message")
-        advanceUntilIdle()
+        runCurrent()
 
         assertEquals("Test Message", receivedEvents.last())
         collectJob.cancel()
@@ -418,16 +421,17 @@ class GameStompClientTest {
     fun subscribeToGame_already_subscribed() = runTest(testDispatcher) {
         coEvery { stompClient.connect(any<String>()) } returns stompSession
         val activeFlow = MutableSharedFlow<String>()
-        coEvery { stompSession.subscribeText(any<String>()) } returns activeFlow
+        coEvery { stompSession.subscribeText(match { it.startsWith("/topic/game/") && it != "/topic/game/test-id" }) } returns flowOf()
+        coEvery { stompSession.subscribeText("/topic/game/test-id") } returns activeFlow
 
         gameStompClient.connect()
-        advanceUntilIdle()
+        runCurrent()
 
         gameStompClient.subscribeToGame("test-id")
-        advanceUntilIdle()
+        runCurrent()
 
         gameStompClient.subscribeToGame("test-id")
-        advanceUntilIdle()
+        runCurrent()
 
         verify { Log.d("GameStomp", "Already subscribed to test-id") }
     }
@@ -438,7 +442,7 @@ class GameStompClientTest {
         coEvery { stompSession.subscribeText(any<String>()) } returns flowOf()
         
         gameStompClient.connect()
-        advanceUntilIdle()
+        runCurrent()
 
         coEvery { stompSession.subscribeText("/topic/game/test-id") } throws Exception("Subscribe Error")
 
@@ -451,6 +455,8 @@ class GameStompClientTest {
         runCurrent()
 
         verify { Log.e("GameStomp", "Subscription timed out for test-id") }
+        gameStompClient.disconnect()
+        runCurrent()
         statusJob.cancel()
     }
 
@@ -474,23 +480,23 @@ class GameStompClientTest {
         coEvery { stompClient.connect(any<String>()) } returns stompSession
         // Use a real MutableSharedFlow so we can emit the PLAYER_JOINED event
         // that joinGame now waits for before returning.
-        val gameTopicFlow = MutableSharedFlow<String>()
+        val gameTopicFlow = MutableSharedFlow<String>(extraBufferCapacity = 1)
         coEvery { stompSession.subscribeText(any<String>()) } returns gameTopicFlow
         coEvery { stompSession.sendText(any<String>(), any<String>()) } returns mockk()
 
         gameStompClient.connect()
-        advanceUntilIdle()
+        runCurrent()
 
         val joinJob = launch {
             gameStompClient.joinGame("game-123", "Alice", "gti")
         }
-        advanceUntilIdle()
+        runCurrent()
 
         // Emit PLAYER_JOINED with the current player in game state to unblock joinGame
         gameTopicFlow.emit(
             """{"event":"PLAYER_JOINED","gameId":"game-123","gameState":{"players":[{"id":"${gameStompClient.currentPlayerId}"}]}}"""
         )
-        advanceUntilIdle()
+        runCurrent()
 
         coVerifyOrder {
             stompSession.subscribeText("/topic/game/game-123")
@@ -503,12 +509,12 @@ class GameStompClientTest {
     fun joinGame_does_not_send_join_before_subscription_and_state_request_complete() = runTest(testDispatcher) {
         coEvery { stompClient.connect(any<String>()) } returns stompSession
         // For non-game-123 subscriptions, use a real flow so we can emit events
-        coEvery { stompSession.subscribeText(match { it.startsWith("/topic/game/") && it != "/topic/game/game-123" }) } returns MutableSharedFlow()
+        coEvery { stompSession.subscribeText(match { it.startsWith("/topic/game/") && it != "/topic/game/game-123" }) } returns flowOf()
 
         // For the game-123 subscription, delay then return a flow that emits PLAYER_JOINED
         coEvery { stompSession.subscribeText("/topic/game/game-123") } coAnswers {
             delay(1000)
-            val flow = MutableSharedFlow<String>()
+            val flow = MutableSharedFlow<String>(extraBufferCapacity = 1)
             // Schedule emission after the subscription is ready so joinGame can proceed
             launch {
                 flow.emit(
@@ -520,7 +526,7 @@ class GameStompClientTest {
         coEvery { stompSession.sendText(any<String>(), any<String>()) } returns mockk()
 
         gameStompClient.connect()
-        advanceUntilIdle()
+        runCurrent()
 
         val joinJob = launch {
             gameStompClient.joinGame("game-123", "Alice", "gti")
@@ -534,7 +540,7 @@ class GameStompClientTest {
 
         // Advance past the 1000ms delay so subscription completes
         advanceTimeBy(1000)
-        advanceUntilIdle()
+        runCurrent()
 
         // Now the subscription is done, state was requested, join was sent, and
         // PLAYER_JOINED was received, so joinGame completed.
@@ -564,12 +570,14 @@ class GameStompClientTest {
         runCurrent()
 
         coVerify(exactly = 0) { stompSession.sendText("/app/game/join", any<String>()) }
+        gameStompClient.disconnect()
+        runCurrent()
     }
 
     @Test
     fun subscribeToLobby_when_not_connected_logs_warning() = runTest(testDispatcher) {
         gameStompClient.subscribeToLobby()
-        advanceUntilIdle()
+        runCurrent()
 
         // When session is null, SubscriptionChannel returns early without subscribing
         coVerify(exactly = 0) { stompSession.subscribeText(any<String>()) }
@@ -578,7 +586,7 @@ class GameStompClientTest {
     @Test
     fun subscribeToLobby_success_emits_lobby_events() = runTest(testDispatcher) {
         coEvery { stompClient.connect(any<String>()) } returns stompSession
-        val lobbyFlow = MutableSharedFlow<String>()
+        val lobbyFlow = MutableSharedFlow<String>(extraBufferCapacity = 1)
         coEvery { stompSession.subscribeText(any<String>()) } returns flowOf()
         coEvery { stompSession.subscribeText("/topic/lobby") } returns lobbyFlow
 
@@ -586,15 +594,15 @@ class GameStompClientTest {
         val collectJob = launch { gameStompClient.lobbyEvents.collect { receivedLobbyEvents.add(it) } }
 
         gameStompClient.connect()
-        advanceUntilIdle()
+        runCurrent()
 
         gameStompClient.subscribeToLobby()
-        advanceUntilIdle()
+        runCurrent()
 
         coVerify { stompSession.subscribeText("/topic/lobby") }
 
         lobbyFlow.emit("LOBBY_UPDATE")
-        advanceUntilIdle()
+        runCurrent()
 
         assertEquals("LOBBY_UPDATE", receivedLobbyEvents.last())
         collectJob.cancel()
@@ -603,18 +611,18 @@ class GameStompClientTest {
     @Test
     fun subscribeToLobby_already_subscribed_logs_and_returns() = runTest(testDispatcher) {
         coEvery { stompClient.connect(any<String>()) } returns stompSession
-        val neverEndingLobbyFlow = MutableSharedFlow<String>()
+        val neverEndingLobbyFlow = MutableSharedFlow<String>(extraBufferCapacity = 1)
         coEvery { stompSession.subscribeText(any<String>()) } returns flowOf()
         coEvery { stompSession.subscribeText("/topic/lobby") } returns neverEndingLobbyFlow
 
         gameStompClient.connect()
-        advanceUntilIdle()
+        runCurrent()
 
         gameStompClient.subscribeToLobby()
-        advanceUntilIdle()
+        runCurrent()
 
         gameStompClient.subscribeToLobby()
-        advanceUntilIdle()
+        runCurrent()
 
         // SubscriptionChannel guard prevents duplicate subscription
         coVerify(exactly = 1) { stompSession.subscribeText("/topic/lobby") }
@@ -630,7 +638,7 @@ class GameStompClientTest {
         val collectJob = launch { gameStompClient.status.collect { statuses.add(it) } }
 
         gameStompClient.connect()
-        advanceUntilIdle()
+        runCurrent()
 
         gameStompClient.subscribeToLobby()
         // SubscriptionChannel catches error, onError → startReconnectLoop() → emits reconnect status
@@ -639,6 +647,8 @@ class GameStompClientTest {
 
         assertTrue(statuses.contains("Reconnecting in 1s..."),
             "Should emit reconnect status when lobby subscription fails")
+        gameStompClient.disconnect()
+        runCurrent()
         collectJob.cancel()
     }
     @Test
@@ -648,10 +658,10 @@ class GameStompClientTest {
         coEvery { stompSession.subscribeText("/topic/lobby") } throws CancellationException("cancel")
 
         gameStompClient.connect()
-        advanceUntilIdle()
+        runCurrent()
 
         gameStompClient.subscribeToLobby()
-        advanceUntilIdle()
+        runCurrent()
 
         // SubscriptionChannel catches CancellationException and does NOT call onError
         verify(exactly = 0) { Log.e(any(), any(), any<Throwable>()) }
@@ -733,7 +743,7 @@ class GameStompClientTest {
     fun test_all_game_actions() = runTest(testDispatcher) {
         coEvery { stompClient.connect(any<String>()) } returns stompSession
         // Use MutableSharedFlow so the joinGame wait can be unblocked
-        val gameTopicFlow = MutableSharedFlow<String>()
+        val gameTopicFlow = MutableSharedFlow<String>(extraBufferCapacity = 1)
         coEvery { stompSession.subscribeText(any<String>()) } returns gameTopicFlow
         coEvery { stompSession.sendText(any<String>(), any<String>()) } returns mockk()
 
@@ -808,7 +818,7 @@ class GameStompClientTest {
     @Test
     fun disconnect_cancels_lobby_subscription_and_prevents_lobby_reconnect() = runTest(testDispatcher) {
         coEvery { stompClient.connect(any<String>()) } returns stompSession
-        val lobbyFlow = MutableSharedFlow<String>()
+        val lobbyFlow = MutableSharedFlow<String>(extraBufferCapacity = 1)
         coEvery { stompSession.subscribeText(any<String>()) } returns flowOf()
         coEvery { stompSession.subscribeText("/topic/lobby") } returns lobbyFlow
 
@@ -860,7 +870,7 @@ class GameStompClientTest {
     fun subscribeToGame_does_not_cancel_lobby_if_already_subscribed_to_same_game() = runTest(testDispatcher) {
         coEvery { stompClient.connect(any<String>()) } returns stompSession
         val lobbyFlow = MutableSharedFlow<String>()
-        val gameFlow = MutableSharedFlow<String>()
+        val gameFlow = MutableSharedFlow<String>(extraBufferCapacity = 1)
         coEvery { stompSession.subscribeText(any<String>()) } returns flowOf()
         coEvery { stompSession.subscribeText("/topic/lobby") } returns lobbyFlow
         coEvery { stompSession.subscribeText("/topic/game/same-game") } returns gameFlow
@@ -951,8 +961,8 @@ class GameStompClientTest {
     @Test
     fun `subscribeToGameInternal cancels previous gameChannel before resubscribing`() = runTest(testDispatcher) {
         coEvery { stompClient.connect(any<String>()) } returns stompSession
-        val gameFlow1 = MutableSharedFlow<String>()
-        val gameFlow2 = MutableSharedFlow<String>()
+        val gameFlow1 = MutableSharedFlow<String>(extraBufferCapacity = 1)
+        val gameFlow2 = MutableSharedFlow<String>(extraBufferCapacity = 1)
         // First subscription to /topic/game/game-a
         coEvery { stompSession.subscribeText("/topic/game/game-a") } returns gameFlow1
         // Second subscription to /topic/game/game-b
@@ -1071,7 +1081,7 @@ class GameStompClientTest {
     @Test
     fun `events flow has replay 0 so new collector does not receive past events`() = runTest(testDispatcher) {
         coEvery { stompClient.connect(any<String>()) } returns stompSession
-        val gameFlow = MutableSharedFlow<String>()
+        val gameFlow = MutableSharedFlow<String>(extraBufferCapacity = 1)
         coEvery { stompSession.subscribeText(any<String>()) } returns gameFlow
 
         gameStompClient.connect()
@@ -1106,7 +1116,7 @@ class GameStompClientTest {
     @Test
     fun `logEvents receives forwarded events from events flow`() = runTest(testDispatcher) {
         coEvery { stompClient.connect(any<String>()) } returns stompSession
-        val gameFlow = MutableSharedFlow<String>()
+        val gameFlow = MutableSharedFlow<String>(extraBufferCapacity = 1)
         coEvery { stompSession.subscribeText(any<String>()) } returns gameFlow
 
         gameStompClient.connect()
@@ -1224,7 +1234,7 @@ class GameStompClientTest {
         val session: StompSession = mockk(relaxed = true)
 
         // Personal subscription forwards events to _events
-        val personalFlow = MutableSharedFlow<String>()
+        val personalFlow = MutableSharedFlow<String>(extraBufferCapacity = 1)
         coEvery { session.subscribeText(match { it.startsWith("/topic/game/") && !it.startsWith("/topic/game/test-id") }) } returns personalFlow
 
         // Game topic subscription resolves immediately → isReady=true quickly
@@ -1278,7 +1288,7 @@ class GameStompClientTest {
         val session: StompSession = mockk(relaxed = true)
 
         // Personal subscription forwards events
-        val personalFlow = MutableSharedFlow<String>()
+        val personalFlow = MutableSharedFlow<String>(extraBufferCapacity = 1)
         coEvery { session.subscribeText(match { it.startsWith("/topic/game/") && !it.startsWith("/topic/game/test-orphan") }) } returns personalFlow
 
         // Game topic subscription delays >10s → isReady stays false → timeout
@@ -1484,6 +1494,3 @@ class GameStompClientTest {
         job.cancel()
     }
 }
-
-
-

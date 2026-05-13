@@ -59,7 +59,6 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import at.aau.monopoly.klagenfurt.messaging.dtos.GameLobbyInfo
 import at.aau.monopoly.klagenfurt.messaging.dtos.joinStatusFor
 import at.aau.monopoly.klagenfurt.model.GameCardStatus
-import at.aau.monopoly.klagenfurt.model.GameJoinStatus
 import at.aau.monopoly.klagenfurt.model.cardStatus
 import at.aau.monopoly.klagenfurt.ui.GameboardUI
 import at.aau.monopoly.klagenfurt.ui.LobbyViewModel
@@ -85,7 +84,11 @@ class LobbyActivity : ComponentActivity() {
                     onGameClicked = { game ->
                         val isInGame = game.playerIds.contains(viewModel.currentPlayerId)
                         if(isInGame){
-                            viewModel.rejoinGame(game.gameId) // Ensure we're in the game before navigating to the gameboard
+                            // Rejoin the game to register with the server.
+                            // This is fire-and-forget: GameboardUI calls subscribeToGame()
+                            // independently, but subscribeToGameInternal() copes with
+                            // double-subscription (already-subscribed early-return).
+                            viewModel.rejoinGame(game.gameId)
                             startActivity(
                                 Intent(this, GameboardUI::class.java)
                                 .putExtra("GAME_ID", game.gameId)
@@ -331,7 +334,6 @@ fun GameCard(
     onClose: () -> Unit
 ) {
     var showCloseDialog by remember { mutableStateOf(false) }
-    val joinStatus = game.joinStatusFor(currentPlayerId)
     val isInGame = game.playerIds.contains(currentPlayerId)
     val status = game.cardStatus()
     val isInteractable = when (status) {

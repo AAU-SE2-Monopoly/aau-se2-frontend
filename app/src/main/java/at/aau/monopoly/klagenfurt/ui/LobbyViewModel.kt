@@ -7,7 +7,6 @@ import androidx.lifecycle.viewModelScope
 import at.aau.monopoly.klagenfurt.messaging.dtos.GameLobbyInfo
 import at.aau.monopoly.klagenfurt.messaging.dtos.LobbyEvent
 import at.aau.monopoly.klagenfurt.model.GameCardStatus
-import at.aau.monopoly.klagenfurt.model.GameJoinStatus
 import at.aau.monopoly.klagenfurt.model.cardStatus
 import at.aau.monopoly.klagenfurt.model.sortOrder
 import at.aau.monopoly.klagenfurt.networking.GameService
@@ -136,7 +135,7 @@ class LobbyViewModel(private val gameService: GameService) : ViewModel() {
              iconId="lindwurm"
              )
              status.fold(
-                onSuccess = { gameId -> Log.d("LobbyViewModel", "Rejoined game $gameId") },
+                onSuccess = { event -> Log.d("LobbyViewModel", "Rejoined game ${event.gameId}") },
                 onFailure = { error -> Log.w("LobbyViewModel", "Failed to rejoin game: ${error.message}") }
              )
         }

@@ -450,7 +450,7 @@ class SubscriptionChannelTest {
 
     @Test
     fun `cancelling previous subscription does not clear new readiness`() = runTest(testDispatcher) {
-        val slowCancelFlow = flow {
+        val slowCancelFlow = flow<String> {
             try {
                 awaitCancellation()
             } finally {

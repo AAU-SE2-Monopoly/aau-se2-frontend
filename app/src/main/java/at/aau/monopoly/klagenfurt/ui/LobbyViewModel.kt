@@ -11,10 +11,14 @@ import at.aau.monopoly.klagenfurt.model.cardStatus
 import at.aau.monopoly.klagenfurt.model.sortOrder
 import at.aau.monopoly.klagenfurt.networking.GameService
 import at.aau.monopoly.klagenfurt.networking.JacksonProvider
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.first
@@ -40,6 +44,12 @@ class LobbyViewModel(private val gameService: GameService) : ViewModel() {
     /** Tracks the gameId of a game we just created, so LobbyActivity can navigate. */
     private val _createdGameId = MutableStateFlow<String?>(null)
     val createdGameId: StateFlow<String?> = _createdGameId.asStateFlow()
+
+    private val _rejoinNavigation = MutableSharedFlow<String>(extraBufferCapacity = 1)
+    val rejoinNavigation: SharedFlow<String> = _rejoinNavigation.asSharedFlow()
+    private val _rejoinErrors = MutableSharedFlow<String>(extraBufferCapacity = 1)
+    val rejoinErrors: SharedFlow<String> = _rejoinErrors.asSharedFlow()
+    private var rejoinJob: Job? = null
 
 
 
@@ -129,15 +139,36 @@ class LobbyViewModel(private val gameService: GameService) : ViewModel() {
         }
     }
     fun rejoinGame(gameId: String) {
-        viewModelScope.launch {
-            val status = gameService.joinGame(gameId,
-             playerName=gameService.currentPlayerName ?: "Player",
-             iconId="lindwurm"
-             )
-             status.fold(
-                onSuccess = { event -> Log.d("LobbyViewModel", "Rejoined game ${event.gameId}") },
-                onFailure = { error -> Log.w("LobbyViewModel", "Failed to rejoin game: ${error.message}") }
-             )
+        if (rejoinJob?.isActive == true) return
+
+        if (!gameService.connectionState.value) {
+            Log.w("LobbyViewModel", "Cannot rejoin game: not connected")
+            _rejoinErrors.tryEmit("Not connected to server. Please wait...")
+            return
+        }
+
+        rejoinJob = viewModelScope.launch {
+            try {
+                val status = gameService.joinGame(
+                    gameId,
+                    playerName = gameService.currentPlayerName ?: "Player",
+                    iconId = "lindwurm"
+                )
+                status.fold(
+                    onSuccess = { event ->
+                        Log.d("LobbyViewModel", "Rejoined game ${event.gameId}")
+                        val resolvedGameId = event.gameId.ifBlank { gameId }
+                        _rejoinNavigation.emit(resolvedGameId)
+                    },
+                    onFailure = { error ->
+                        Log.w("LobbyViewModel", "Failed to rejoin game: ${error.message}")
+                        val message = error.message ?: "Failed to rejoin game"
+                        _rejoinErrors.emit(message)
+                    }
+                )
+            } finally {
+                rejoinJob = null
+            }
         }
     }
 

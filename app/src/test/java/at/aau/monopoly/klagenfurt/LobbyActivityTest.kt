@@ -22,6 +22,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
+import org.robolectric.shadows.ShadowToast
 import java.util.concurrent.TimeUnit
 
 @RunWith(RobolectricTestRunner::class)
@@ -136,6 +137,41 @@ class LobbyActivityTest {
                 assertEquals(GameboardUI::class.java.name, startedIntent?.component?.className)
                 assertEquals("game-rejoin", startedIntent?.getStringExtra("GAME_ID"))
             }
+        }
+    }
+
+    @Test
+    fun `rejoin failure shows toast message`() {
+        fakeService.currentPlayerId = "p-in-game"
+        fakeService.joinGameSuccess = false
+
+        ActivityScenario.launch<LobbyActivity>(Intent(ApplicationProvider.getApplicationContext(), LobbyActivity::class.java)).use {
+            val lobbyJson = """
+            {
+              "event": "LOBBY_UPDATE",
+              "games": [
+                {
+                  "gameId": "game-rejoin",
+                  "hostPlayerName": "Bob",
+                  "hostPlayerId": "p1",
+                  "playerCount": 2,
+                  "maxPlayers": 4,
+                  "phase": "ROLLING",
+                  "playerIds": ["p-in-game", "p1"]
+                }
+              ]
+            }
+            """.trimIndent()
+
+            runBlocking { fakeService.emitTestLobbyEvent(lobbyJson) }
+            shadowOf(Looper.getMainLooper()).idleFor(200, TimeUnit.MILLISECONDS)
+            composeTestRule.waitForIdle()
+
+            composeTestRule.onNodeWithText("Bob").performClick()
+            shadowOf(Looper.getMainLooper()).idleFor(200, TimeUnit.MILLISECONDS)
+            composeTestRule.waitForIdle()
+
+            assertEquals("Join rejected by server", ShadowToast.getTextOfLatestToast())
         }
     }
 

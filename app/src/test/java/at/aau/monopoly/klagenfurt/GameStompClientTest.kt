@@ -6,6 +6,7 @@ import io.mockk.*
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.flow
@@ -556,12 +557,13 @@ class GameStompClientTest {
         advanceUntilIdle()
 
         // joinGame waits for subscribeToGameInternal which times out after 16s (2×8s)
-        val joinJob = launch {
-            val result = gameStompClient.joinGame("game-123", "Alice", "gti")
-            assertTrue(result.isFailure)
+        val resultDeferred = async {
+            gameStompClient.joinGame("game-123", "Alice", "gti")
         }
         advanceTimeBy(16_001)
         runCurrent()
+
+        assertTrue(resultDeferred.await().isFailure)
 
         coVerify(exactly = 0) { stompSession.sendText("/app/game/join", any<String>()) }
     }

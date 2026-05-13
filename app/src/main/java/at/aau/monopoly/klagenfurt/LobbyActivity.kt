@@ -2,6 +2,7 @@ package at.aau.monopoly.klagenfurt
 
 import android.content.Intent
 import android.os.Bundle
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -56,6 +57,8 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
 import at.aau.monopoly.klagenfurt.messaging.dtos.GameLobbyInfo
 import at.aau.monopoly.klagenfurt.messaging.dtos.joinStatusFor
 import at.aau.monopoly.klagenfurt.model.GameCardStatus
@@ -65,6 +68,7 @@ import at.aau.monopoly.klagenfurt.ui.LobbyViewModel
 import at.aau.monopoly.klagenfurt.ui.theme.MyApplicationTheme
 import at.aau.monopoly.klagenfurt.ui.theme.PrimaryBlue
 import at.aau.monopoly.klagenfurt.ui.theme.PrimaryBlueLight
+import kotlinx.coroutines.launch
 
 class LobbyActivity : ComponentActivity() {
 
@@ -76,6 +80,24 @@ class LobbyActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                launch {
+                    viewModel.rejoinNavigation.collect { gameId ->
+                        startActivity(
+                            Intent(this@LobbyActivity, GameboardUI::class.java)
+                                .putExtra("GAME_ID", gameId)
+                        )
+                    }
+                }
+                launch {
+                    viewModel.rejoinErrors.collect { message ->
+                        Toast.makeText(this@LobbyActivity, message, Toast.LENGTH_SHORT).show()
+                    }
+                }
+            }
+        }
+
         setContent {
             MyApplicationTheme(dynamicColor = false) {
                 LobbyScreen(
@@ -84,15 +106,7 @@ class LobbyActivity : ComponentActivity() {
                     onGameClicked = { game ->
                         val isInGame = game.playerIds.contains(viewModel.currentPlayerId)
                         if(isInGame){
-                            // Rejoin the game to register with the server.
-                            // This is fire-and-forget: GameboardUI calls subscribeToGame()
-                            // independently, but subscribeToGameInternal() copes with
-                            // double-subscription (already-subscribed early-return).
                             viewModel.rejoinGame(game.gameId)
-                            startActivity(
-                                Intent(this, GameboardUI::class.java)
-                                .putExtra("GAME_ID", game.gameId)
-                            )
                         }else {
                             startActivity(
                                 Intent(this,JoinActivity::class.java)
@@ -293,6 +307,7 @@ fun LobbyScreen(
             }
         }
     }
+
 }
 
 @Composable

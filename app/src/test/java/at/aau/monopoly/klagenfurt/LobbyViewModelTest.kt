@@ -629,6 +629,7 @@ class LobbyViewModelTest {
 
     @Test
     fun `rejoinGame calls joinGame on gameService`() = runTest(testDispatcher) {
+        fakeService.setConnectionState(true)
         viewModel.rejoinGame("game-42")
         advanceUntilIdle()
         assertEquals(1, fakeService.joinGameCalls)
@@ -643,6 +644,7 @@ class LobbyViewModelTest {
         every { Log.d(any<String>(), any<String>()) } returns 0
         every { Log.w(any<String>(), any<String>()) } returns 0
 
+        fakeService.setConnectionState(true)
         fakeService.joinGameSuccess = true
         viewModel.rejoinGame("game-42")
         advanceUntilIdle()
@@ -656,11 +658,56 @@ class LobbyViewModelTest {
         every { Log.d(any<String>(), any<String>()) } returns 0
         every { Log.w(any<String>(), any<String>()) } returns 0
 
+        fakeService.setConnectionState(true)
         fakeService.joinGameSuccess = false
         viewModel.rejoinGame("game-42")
         advanceUntilIdle()
 
         verify(exactly = 1) { Log.w(eq("LobbyViewModel"), match<String> { it.startsWith("Failed to rejoin game:") }) }
+    }
+
+    @Test
+    fun `rejoinGame emits error when not connected`() = runTest(testDispatcher) {
+        val messages = mutableListOf<String>()
+        val job = launch { viewModel.rejoinErrors.collect { messages.add(it) } }
+        advanceUntilIdle()
+
+        viewModel.rejoinGame("game-42")
+        advanceUntilIdle()
+
+        assertEquals(listOf("Not connected to server. Please wait..."), messages)
+        assertEquals(0, fakeService.joinGameCalls)
+        job.cancel()
+    }
+
+    @Test
+    fun `rejoinGame emits error when joinGame fails`() = runTest(testDispatcher) {
+        val messages = mutableListOf<String>()
+        val job = launch { viewModel.rejoinErrors.collect { messages.add(it) } }
+        advanceUntilIdle()
+
+        fakeService.setConnectionState(true)
+        fakeService.joinGameSuccess = false
+        viewModel.rejoinGame("game-42")
+        advanceUntilIdle()
+
+        assertEquals(listOf("Join rejected by server"), messages)
+        job.cancel()
+    }
+
+    @Test
+    fun `rejoinGame emits navigation on success`() = runTest(testDispatcher) {
+        val gameIds = mutableListOf<String>()
+        val job = launch { viewModel.rejoinNavigation.collect { gameIds.add(it) } }
+        advanceUntilIdle()
+
+        fakeService.setConnectionState(true)
+        fakeService.joinGameSuccess = true
+        viewModel.rejoinGame("game-42")
+        advanceUntilIdle()
+
+        assertEquals(listOf("game-42"), gameIds)
+        job.cancel()
     }
 
     // ── Game card filtering tests ──────────────────────────────────────────

@@ -140,6 +140,14 @@ class FakeGameService : GameService {
         TODO("Not yet implemented")
     }
 
+    var buyPropertyCalled = false
+    var lastBoughtFieldId: Int? = null
+
+    override fun buyProperty(fieldId: Int) {
+        buyPropertyCalled = true
+        lastBoughtFieldId = fieldId
+    }
+
     override fun subscribeToLobby() {
         subscribeToLobbyCalled = true
     }
@@ -176,4 +184,5 @@ class FakeGameService : GameService {
     fun setReconnectFailed(failed: Boolean) {
         _reconnectFailed.value = failed
     }
+
 }

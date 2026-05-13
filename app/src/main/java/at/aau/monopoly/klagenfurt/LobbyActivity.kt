@@ -2,6 +2,7 @@ package at.aau.monopoly.klagenfurt
 
 import android.content.Intent
 import android.os.Bundle
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -56,13 +57,18 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
 import at.aau.monopoly.klagenfurt.messaging.dtos.GameLobbyInfo
+import at.aau.monopoly.klagenfurt.messaging.dtos.joinStatusFor
 import at.aau.monopoly.klagenfurt.model.GameCardStatus
 import at.aau.monopoly.klagenfurt.model.cardStatus
+import at.aau.monopoly.klagenfurt.ui.GameboardUI
 import at.aau.monopoly.klagenfurt.ui.LobbyViewModel
 import at.aau.monopoly.klagenfurt.ui.theme.MyApplicationTheme
 import at.aau.monopoly.klagenfurt.ui.theme.PrimaryBlue
 import at.aau.monopoly.klagenfurt.ui.theme.PrimaryBlueLight
+import kotlinx.coroutines.launch
 
 class LobbyActivity : ComponentActivity() {
 
@@ -74,21 +80,42 @@ class LobbyActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                launch {
+                    viewModel.rejoinNavigation.collect { gameId ->
+                        startActivity(
+                            Intent(this@LobbyActivity, GameboardUI::class.java)
+                                .putExtra("GAME_ID", gameId)
+                        )
+                    }
+                }
+                launch {
+                    viewModel.rejoinErrors.collect { message ->
+                        Toast.makeText(this@LobbyActivity, message, Toast.LENGTH_SHORT).show()
+                    }
+                }
+            }
+        }
+
         setContent {
             MyApplicationTheme(dynamicColor = false) {
                 LobbyScreen(
                     viewModel = viewModel,
                     onBackClicked = { finish() },
                     onGameClicked = { game ->
-                        startActivity(
-                            Intent(this, JoinActivity::class.java)
-                                .putExtra("gameId", game.gameId)
-                                .putExtra("isNewGame", false)
-                                .putExtra("GAME_PHASE", game.phase)
-                                .putExtra("PLAYER_COUNT", game.playerCount)
-                                .putExtra("MAX_PLAYERS", game.maxPlayers)
-                                .putStringArrayListExtra("PLAYER_IDS", ArrayList(game.playerIds))
-                        )
+                        val isInGame = game.playerIds.contains(viewModel.currentPlayerId)
+                        if(isInGame){
+                            viewModel.rejoinGame(game.gameId)
+                        }else {
+                            startActivity(
+                                Intent(this,JoinActivity::class.java)
+                                    .putExtra("gameId", game.gameId)
+                                    .putExtra("isNewGame", false)
+                                    .putExtra("JOIN_STATUS", game.joinStatusFor(viewModel.currentPlayerId).name)
+                            )
+                        }
+
                     },
                     onCreateGame = {
                         startActivity(
@@ -188,6 +215,7 @@ fun LobbyScreen(
                     GameCard(
                         game = game,
                         isOwnGame = game.hostPlayerId == viewModel.currentPlayerId,
+                        currentPlayerId = viewModel.currentPlayerId,
                         isConnected = isConnected,
                         onClick = { onGameClicked(game) },
                         onClose = { viewModel.closeGame(game.gameId) }
@@ -279,6 +307,7 @@ fun LobbyScreen(
             }
         }
     }
+
 }
 
 @Composable
@@ -314,17 +343,18 @@ fun CreateGameCard(onClick: () -> Unit, enabled: Boolean = true) {
 fun GameCard(
     game: GameLobbyInfo,
     isOwnGame: Boolean,
+    currentPlayerId: String,
     isConnected: Boolean = true,
     onClick: () -> Unit,
     onClose: () -> Unit
 ) {
     var showCloseDialog by remember { mutableStateOf(false) }
-
+    val isInGame = game.playerIds.contains(currentPlayerId)
     val status = game.cardStatus()
     val isInteractable = when (status) {
         GameCardStatus.Open       -> true
-        GameCardStatus.Full       -> true
-        GameCardStatus.InProgress -> true
+        GameCardStatus.Full       -> isInGame
+        GameCardStatus.InProgress -> isInGame
         GameCardStatus.Finished   -> false
     }
 

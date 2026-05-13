@@ -16,7 +16,7 @@ android {
             isReturnDefaultValues = true
             all {
                 it.useJUnitPlatform()
-                it.jvmArgs("-Xss8m", "-Xmx4g", "-XX:MaxMetaspaceSize=1g")
+                it.jvmArgs("-Xss8m", "-Xmx4g", "-XX:MaxMetaspaceSize=1g", "-noverify")
                 it.testLogging {
                     events("failed", "standardOut", "standardError")
                     exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL

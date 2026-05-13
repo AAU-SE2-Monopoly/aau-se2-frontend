@@ -62,6 +62,7 @@ class FakeGameService : GameService {
 
     /** Set to false to simulate a rejected join during tests */
     var joinGameSuccess: Boolean = true
+    var joinGameDelayMs: Long = 0
 
     override fun connect() {
         connectCalled = true
@@ -89,6 +90,9 @@ class FakeGameService : GameService {
     }
 
     override suspend fun joinGame(gameId: String, playerName: String, iconId: String): Result<GameEvent> {
+        if (joinGameDelayMs > 0) {
+            kotlinx.coroutines.delay(joinGameDelayMs)
+        }
         joinGameCalls++
         lastJoinedGameId = gameId
         lastJoinedPlayerName = playerName

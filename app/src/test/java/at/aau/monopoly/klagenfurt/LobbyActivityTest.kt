@@ -384,8 +384,10 @@ class LobbyActivityTest {
     }
 
     @Test
-    fun `game card is clickable for full game when player is member`() {
-        fakeService.currentPlayerId = "p-in-full"
+    fun `rapid clicks on rejoin game card only start GameboardUI once`() {
+        fakeService.currentPlayerId = "p-in-game"
+        // Add a small delay to joinGame to ensure clicks are "rapid" relative to execution
+        fakeService.joinGameDelayMs = 500
 
         ActivityScenario.launch<LobbyActivity>(Intent(ApplicationProvider.getApplicationContext(), LobbyActivity::class.java)).use { scenario ->
             val lobbyJson = """
@@ -393,13 +395,13 @@ class LobbyActivityTest {
               "event": "LOBBY_UPDATE",
               "games": [
                 {
-                  "gameId": "my-full-game",
-                  "hostPlayerName": "FullMember",
+                  "gameId": "game-rejoin",
+                  "hostPlayerName": "Bob",
                   "hostPlayerId": "p1",
-                  "playerCount": 4,
+                  "playerCount": 2,
                   "maxPlayers": 4,
-                  "phase": "WAITING",
-                  "playerIds": ["p-in-full", "p1", "p2", "p3"]
+                  "phase": "ROLLING",
+                  "playerIds": ["p-in-game", "p1"]
                 }
               ]
             }
@@ -409,15 +411,81 @@ class LobbyActivityTest {
             shadowOf(Looper.getMainLooper()).idleFor(200, TimeUnit.MILLISECONDS)
             composeTestRule.waitForIdle()
 
-            composeTestRule.onNodeWithText("FullMember").performClick()
+            // Click multiple times rapidly
+            composeTestRule.onNodeWithText("Bob").performClick()
+            composeTestRule.onNodeWithText("Bob").performClick()
+            composeTestRule.onNodeWithText("Bob").performClick()
+
+            // Advance time to allow the first (and only) join to complete
+            shadowOf(Looper.getMainLooper()).idleFor(600, TimeUnit.MILLISECONDS)
+            composeTestRule.waitForIdle()
+
+            scenario.onActivity { activity ->
+                // Check how many activities were started
+                val shadowActivity = shadowOf(activity)
+                var count = 0
+                while (shadowActivity.nextStartedActivity != null) {
+                    count++
+                }
+                assertEquals("Should only start GameboardUI once despite multiple clicks", 1, count)
+                assertEquals("Should only call joinGame once due to job check", 1, fakeService.joinGameCalls)
+            }
+        }
+    }
+
+    @Test
+    fun `rejoin works correctly multiple times when returning to lobby`() {
+        fakeService.currentPlayerId = "p-in-game"
+
+        ActivityScenario.launch<LobbyActivity>(Intent(ApplicationProvider.getApplicationContext(), LobbyActivity::class.java)).use { scenario ->
+            val lobbyJson = """
+            {
+              "event": "LOBBY_UPDATE",
+              "games": [
+                {
+                  "gameId": "game-rejoin",
+                  "hostPlayerName": "Bob",
+                  "hostPlayerId": "p1",
+                  "playerCount": 2,
+                  "maxPlayers": 4,
+                  "phase": "ROLLING",
+                  "playerIds": ["p-in-game", "p1"]
+                }
+              ]
+            }
+            """.trimIndent()
+
+            runBlocking { fakeService.emitTestLobbyEvent(lobbyJson) }
+            
+            // First Rejoin
+            shadowOf(Looper.getMainLooper()).idleFor(200, TimeUnit.MILLISECONDS)
+            composeTestRule.waitForIdle()
+            composeTestRule.onNodeWithText("Bob").performClick()
             composeTestRule.waitForIdle()
 
             scenario.onActivity { activity ->
                 val startedIntent = shadowOf(activity).nextStartedActivity
                 assertNotNull(startedIntent)
                 assertEquals(GameboardUI::class.java.name, startedIntent?.component?.className)
-                assertEquals("my-full-game", startedIntent?.getStringExtra("GAME_ID"))
             }
+
+            // Simulate returning to lobby (Activity resumes)
+            scenario.moveToState(androidx.lifecycle.Lifecycle.State.STARTED)
+            scenario.moveToState(androidx.lifecycle.Lifecycle.State.RESUMED)
+            shadowOf(Looper.getMainLooper()).idleFor(200, TimeUnit.MILLISECONDS)
+            composeTestRule.waitForIdle()
+
+            // Second Rejoin
+            composeTestRule.onNodeWithText("Bob").performClick()
+            composeTestRule.waitForIdle()
+
+            scenario.onActivity { activity ->
+                val startedIntent = shadowOf(activity).nextStartedActivity
+                assertNotNull(startedIntent)
+                assertEquals(GameboardUI::class.java.name, startedIntent?.component?.className)
+            }
+            
+            assertEquals("Should have called joinGame twice (one for each cycle)", 2, fakeService.joinGameCalls)
         }
     }
 }

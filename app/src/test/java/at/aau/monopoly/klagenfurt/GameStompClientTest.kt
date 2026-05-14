@@ -1519,4 +1519,52 @@ class GameStompClientTest {
             )
         }
     }
+
+    @Test
+    fun payJailFine_sends_pay_jail_fine_action() = runTest(testDispatcher) {
+        coEvery { stompClient.connect(any<String>()) } returns stompSession
+        coEvery { stompSession.subscribeText(any<String>()) } returns flowOf()
+        coEvery { stompSession.sendText(any<String>(), any<String>()) } returns mockk()
+
+
+        gameStompClient.connect()
+        advanceUntilIdle()
+        gameStompClient.setGameId("game-1")
+
+
+        gameStompClient.payJailFine()
+        advanceUntilIdle()
+
+
+        coVerify {
+            stompSession.sendText(
+                "/app/game/action",
+                match { it.contains("\"action\":\"PAY_JAIL_FINE\"") }
+            )
+        }
+    }
+
+    @Test
+    fun useJailCard_sends_use_jail_card_action() = runTest(testDispatcher) {
+        coEvery { stompClient.connect(any<String>()) } returns stompSession
+        coEvery { stompSession.subscribeText(any<String>()) } returns flowOf()
+        coEvery { stompSession.sendText(any<String>(), any<String>()) } returns mockk()
+
+
+        gameStompClient.connect()
+        advanceUntilIdle()
+        gameStompClient.setGameId("game-1")
+
+
+        gameStompClient.useJailCard()
+        advanceUntilIdle()
+
+
+        coVerify {
+            stompSession.sendText(
+                "/app/game/action",
+                match { it.contains("\"action\":\"USE_JAIL_CARD\"") }
+            )
+        }
+    }
 }

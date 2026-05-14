@@ -361,8 +361,10 @@ class GameViewModelTest {
     }
 
     @Test
-    fun `isGameStarted should be false for WAITING phase`() = runTest {
-        val job = launch { viewModel.isGameStarted.collect {} }
+    fun `canStartGame should be false for host with only 1 player in WAITING phase`() = runTest {
+        val job = launch { viewModel.canStartGame.collect {} }
+
+        fakeService.currentPlayerId = "p1"
 
         fakeService.emitTestEvent(
             """
@@ -372,7 +374,9 @@ class GameViewModelTest {
           "gameState": {
             "gameId": "g1",
             "fields": [],
-            "players": [],
+            "players": [
+              { "id": "p1", "name": "Alice" }
+            ],
             "phase": "WAITING"
           }
         }
@@ -381,40 +385,14 @@ class GameViewModelTest {
 
         advanceUntilIdle()
 
-        assertFalse(viewModel.isGameStarted.value)
+        assertFalse(viewModel.canStartGame.value)
 
         job.cancel()
     }
 
     @Test
-    fun `isGameStarted should be true for ROLLING phase`() = runTest {
-        val job = launch { viewModel.isGameStarted.collect {} }
-
-        fakeService.emitTestEvent(
-            """
-        {
-          "event": "STATE_UPDATED",
-          "gameId": "g1",
-          "gameState": {
-            "gameId": "g1",
-            "fields": [],
-            "players": [],
-            "phase": "ROLLING"
-          }
-        }
-        """.trimIndent()
-        )
-
-        advanceUntilIdle()
-
-        assertTrue(viewModel.isGameStarted.value)
-
-        job.cancel()
-    }
-
-    @Test
-    fun `isHost should be true when current player is first player`() = runTest {
-        val job = launch { viewModel.isHost.collect {} }
+    fun `canStartGame should be true for host with 2 players in WAITING phase`() = runTest {
+        val job = launch { viewModel.canStartGame.collect {} }
 
         fakeService.currentPlayerId = "p1"
 
@@ -438,14 +416,14 @@ class GameViewModelTest {
 
         advanceUntilIdle()
 
-        assertTrue(viewModel.isHost.value)
+        assertTrue(viewModel.canStartGame.value)
 
         job.cancel()
     }
 
     @Test
-    fun `isHost should be false when current player is not first player`() = runTest {
-        val job = launch { viewModel.isHost.collect {} }
+    fun `canStartGame should be false for non-host even with 2 players in WAITING phase`() = runTest {
+        val job = launch { viewModel.canStartGame.collect {} }
 
         fakeService.currentPlayerId = "p2"
 
@@ -469,7 +447,70 @@ class GameViewModelTest {
 
         advanceUntilIdle()
 
-        assertFalse(viewModel.isHost.value)
+        assertFalse(viewModel.canStartGame.value)
+
+        job.cancel()
+    }
+
+    @Test
+    fun `canStartGame should be false for host with 2 players in ROLLING phase`() = runTest {
+        val job = launch { viewModel.canStartGame.collect {} }
+
+        fakeService.currentPlayerId = "p1"
+
+        fakeService.emitTestEvent(
+            """
+        {
+          "event": "STATE_UPDATED",
+          "gameId": "g1",
+          "gameState": {
+            "gameId": "g1",
+            "fields": [],
+            "players": [
+              { "id": "p1", "name": "Alice" },
+              { "id": "p2", "name": "Bob" }
+            ],
+            "phase": "ROLLING"
+          }
+        }
+        """.trimIndent()
+        )
+
+        advanceUntilIdle()
+
+        assertFalse(viewModel.canStartGame.value)
+
+        job.cancel()
+    }
+
+    @Test
+    fun `canStartGame should be true for host with 3 players in WAITING phase`() = runTest {
+        val job = launch { viewModel.canStartGame.collect {} }
+
+        fakeService.currentPlayerId = "p1"
+
+        fakeService.emitTestEvent(
+            """
+        {
+          "event": "STATE_UPDATED",
+          "gameId": "g1",
+          "gameState": {
+            "gameId": "g1",
+            "fields": [],
+            "players": [
+              { "id": "p1", "name": "Alice" },
+              { "id": "p2", "name": "Bob" },
+              { "id": "p3", "name": "Charlie" }
+            ],
+            "phase": "WAITING"
+          }
+        }
+        """.trimIndent()
+        )
+
+        advanceUntilIdle()
+
+        assertTrue(viewModel.canStartGame.value)
 
         job.cancel()
     }

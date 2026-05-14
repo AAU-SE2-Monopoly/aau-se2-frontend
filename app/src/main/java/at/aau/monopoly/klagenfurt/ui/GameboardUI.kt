@@ -154,7 +154,7 @@ fun GameboardScreen(
         isBuyingPhaseForCurrentPlayer &&
                 isBuyableField &&
                 isUnownedField &&
-                (currentTurnPlayer?.id == currentPlayerId)
+                (currentTurnPlayer!!.id == currentPlayerId)
 
     // Action Card states
     val currentActionCard by viewModel.currentActionCard.collectAsState()
@@ -285,10 +285,10 @@ fun GameboardScreen(
                 }
             }
 
-            if (canBuyCurrentField && currentTurnPlayer != null) {
+            if (canBuyCurrentField) {
                 Button(
                     onClick = {
-                        viewModel.buyProperty(currentTurnPlayer.position)
+                        viewModel.buyProperty(currentTurnPlayer!!.position)
                     },
                     modifier = Modifier
                         .padding(top = 8.dp)

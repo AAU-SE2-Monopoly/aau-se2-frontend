@@ -608,4 +608,20 @@ class GameStompClient(
         val json = JacksonProvider.objectMapper.writeValueAsString(action)
         sendRaw("/app/game/action", json)
     }
+
+    override fun buyProperty(fieldId: Int) {
+        Log.d("GameStomp", "Buying property for player: $currentPlayerId on field: $fieldId")
+
+        val action = GameAction(
+            gameId = _currentGameId,
+            playerId = currentPlayerId,
+            action = "BUY_PROPERTY",
+            payload = mapOf(
+                "fieldId" to fieldId.toString()
+            )
+        )
+
+        val json = JacksonProvider.objectMapper.writeValueAsString(action)
+        sendRaw("/app/game/action", json)
+    }
 }

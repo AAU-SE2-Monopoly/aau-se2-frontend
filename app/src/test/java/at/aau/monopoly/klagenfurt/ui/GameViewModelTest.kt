@@ -696,4 +696,15 @@ class GameViewModelTest {
 
         job.cancel()
     }
+
+    @Test
+    fun `buyProperty should call gameService with correct field id`() {
+        val fakeService = FakeGameService()
+        val viewModel = GameViewModel(fakeService)
+
+        viewModel.buyProperty(5)
+
+        assertTrue(fakeService.buyPropertyCalled)
+        assertEquals(5, fakeService.lastBoughtFieldId)
+    }
 }

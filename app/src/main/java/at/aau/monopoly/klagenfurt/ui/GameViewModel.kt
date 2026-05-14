@@ -448,4 +448,7 @@ class GameViewModel(
     companion object {
         private const val MAX_LOG_ENTRIES = 80
     }
+    fun buyProperty(fieldId: Int) {
+        gameService.buyProperty(fieldId)
+    }
 }

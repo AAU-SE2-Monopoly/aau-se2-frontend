@@ -64,6 +64,9 @@ import at.aau.monopoly.klagenfurt.model.enums.GamePhase
 import androidx.compose.runtime.derivedStateOf
 import at.aau.monopoly.klagenfurt.model.field.ChanceField
 import at.aau.monopoly.klagenfurt.model.field.CommunityChestField
+import at.aau.monopoly.klagenfurt.model.field.PropertyField
+import at.aau.monopoly.klagenfurt.model.field.RailroadField
+import at.aau.monopoly.klagenfurt.model.field.UtilityField
 
 class GameboardUI : ComponentActivity() {
     private val viewModel: GameViewModel by viewModels {
@@ -126,6 +129,16 @@ fun GameboardScreen(
     val currentField = currentTurnPlayer?.let { player ->
         fields.getOrNull(player.position)
     }
+    val isBuyableField = currentField is PropertyField ||
+            currentField is RailroadField ||
+            currentField is UtilityField
+
+    val isUnownedField = when (currentField) {
+        is PropertyField -> currentField.ownerId == null
+        is RailroadField -> currentField.ownerId == null
+        is UtilityField -> currentField.ownerId == null
+        else -> false
+    }
 
     val isOnChanceField = currentField is ChanceField
     val isOnCommunityChestField = currentField is CommunityChestField
@@ -138,6 +151,11 @@ fun GameboardScreen(
     val isHost by viewModel.isHost.collectAsState()
     val cardDrawnThisTurn by viewModel.cardDrawnThisTurn.collectAsState()
 
+    val canBuyCurrentField =
+        isBuyingPhaseForCurrentPlayer &&
+                isBuyableField &&
+                isUnownedField
+
     // Action Card states
     val currentActionCard by viewModel.currentActionCard.collectAsState()
     val isExecutingAction by viewModel.isExecutingAction.collectAsState()
@@ -146,7 +164,6 @@ fun GameboardScreen(
     val context = LocalContext.current
 
     var showOverlay by remember { mutableStateOf(false) }
-    var showDebugButtons by remember { mutableStateOf(false) }
 
     // Filter DICE_ROLLED entries from the log while the overlay is visible,
     // so the dice result appears in chat only after the animation finishes.
@@ -268,6 +285,19 @@ fun GameboardScreen(
                 }
             }
 
+            if (canBuyCurrentField) {
+                Button(
+                    onClick = {
+                        viewModel.buyProperty(currentTurnPlayer.position)
+                    },
+                    modifier = Modifier
+                        .padding(top = 8.dp)
+                        .testTag("buy_property_button")
+                ) {
+                    Text("Buy Property")
+                }
+            }
+
             if (isOnChanceField) {
                 Button(
                     onClick = { viewModel.drawCard("CHANCE") },
@@ -288,31 +318,6 @@ fun GameboardScreen(
                 }
             }
 
-            // DEBUG: Test buttons for card drawing functionality
-            Button(
-                onClick = { showDebugButtons = !showDebugButtons },
-                modifier = Modifier.padding(top = 8.dp)
-            ) {
-                Text(if (showDebugButtons) "🐛 Hide Debug" else "🐛 Show Debug")
-            }
-
-            if (showDebugButtons) {
-                Button(
-                    onClick = { viewModel.drawCard("CHANCE") },
-                    enabled = !showActionCardOverlay && !cardDrawnThisTurn,
-                    modifier = Modifier.padding(top = 8.dp)
-                ) {
-                    Text(if (cardDrawnThisTurn) "✓ Test Chance" else "🎰 TEST: Draw Chance")
-                }
-
-                Button(
-                    onClick = { viewModel.drawCard("COMMUNITY_CHEST") },
-                    enabled = !showActionCardOverlay && !cardDrawnThisTurn,
-                    modifier = Modifier.padding(top = 8.dp)
-                ) {
-                    Text(if (cardDrawnThisTurn) "✓ Test Community" else "⭐ TEST: Draw Community")
-                }
-            }
         }
 
         GameboardOverlayLayer(eventLog = bufferedEventLog)

@@ -153,8 +153,7 @@ fun GameboardScreen(
     val canBuyCurrentField =
         isBuyingPhaseForCurrentPlayer &&
                 isBuyableField &&
-                isUnownedField &&
-                (currentTurnPlayer!!.id == currentPlayerId)
+                isUnownedField
 
     // Action Card states
     val currentActionCard by viewModel.currentActionCard.collectAsState()
@@ -288,7 +287,7 @@ fun GameboardScreen(
             if (canBuyCurrentField) {
                 Button(
                     onClick = {
-                        viewModel.buyProperty(currentTurnPlayer!!.position)
+                        viewModel.buyProperty(currentTurnPlayer.position)
                     },
                     modifier = Modifier
                         .padding(top = 8.dp)

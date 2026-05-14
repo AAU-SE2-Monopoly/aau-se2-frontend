@@ -16,6 +16,7 @@ import at.aau.monopoly.klagenfurt.ui.board.getFieldImageMapping
 import at.aau.monopoly.klagenfurt.ui.util.getPlayerTokenResource
 import at.aau.monopoly.klagenfurt.ui.util.toComposeColor
 import at.aau.monopoly.klagenfurt.ui.zoom.ZoomState
+import androidx.compose.ui.test.onNodeWithTag
 
 
 import androidx.compose.ui.test.onNodeWithText
@@ -556,6 +557,13 @@ class GameboardUITest {
         composeTestRule
             .onNodeWithContentDescription("Path - Klagenfurt-Ring")
             .assertExists()
+    }
+
+    @Test
+    fun testBuyPropertyButtonIsNotVisibleInitially() {
+        composeTestRule
+            .onNodeWithTag("buy_property_button")
+            .assertDoesNotExist()
     }
 
 }

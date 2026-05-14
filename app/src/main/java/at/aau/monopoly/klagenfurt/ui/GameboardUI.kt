@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
@@ -314,13 +315,7 @@ fun GameboardScreen(
             }
         }
 
-        DiceRollOverlay(
-            isVisible = showOverlay,
-            diceResult = lastDiceRoll?.let { Pair(it.die1, it.die2) },
-            isRolling = isRollingPhaseForCurrentPlayer,
-            hasShaken = hasShaken,
-            onClose = { showOverlay = false }
-        )
+        GameboardOverlayLayer(eventLog = bufferedEventLog)
 
         ActionCardOverlay(
             isVisible = showActionCardOverlay,
@@ -329,7 +324,13 @@ fun GameboardScreen(
             onExecuteAction = { viewModel.executeAction() }
         )
 
-        GameboardOverlayLayer(eventLog = bufferedEventLog)
+        DiceRollOverlay(
+            isVisible = showOverlay,
+            diceResult = lastDiceRoll?.let { Pair(it.die1, it.die2) },
+            isRolling = isRollingPhaseForCurrentPlayer,
+            hasShaken = hasShaken,
+            onClose = { showOverlay = false }
+        )
 
 
     }
@@ -432,6 +433,16 @@ fun GameboardContent(
                     }
                     // Old flat PlayerToken loop removed – tokens are now rendered inside FieldItem.
                 }
+
+                
+                // Field card centered on the board — inside ZoomableWrapper so it
+                // inherits the same zoom/pan transforms as the board fields.
+                if (currentField != null) {
+                    FieldCardUI(
+                        field = currentField,
+                        modifier = Modifier.padding(8.dp)
+                    )
+                }
             }
         }
 
@@ -442,7 +453,7 @@ fun GameboardContent(
                     .align(Alignment.CenterStart)
                     .width(panelWidth)
                     .padding(start = 4.dp, top = 4.dp, bottom = 4.dp)
-                    .fillMaxHeight()
+                    .wrapContentHeight()
                     .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterVertically)
             ) {
@@ -458,16 +469,6 @@ fun GameboardContent(
             }
         }
 
-        // Overlay: Center – current field card
-        if (currentField != null) {
-            Box(
-                modifier = Modifier
-                    .align(Alignment.Center)
-                    .padding(8.dp)
-            ) {
-                FieldCardUI(field = currentField)
-            }
-        }
 
         // Overlay: Right panel – own player
         if (myPlayer != null) {
@@ -476,7 +477,7 @@ fun GameboardContent(
                     .align(Alignment.CenterEnd)
                     .width(panelWidth)
                     .padding(end = 4.dp, top = 4.dp, bottom = 4.dp)
-                    .fillMaxHeight()
+                    .wrapContentHeight()
                     .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.Center
             ) {

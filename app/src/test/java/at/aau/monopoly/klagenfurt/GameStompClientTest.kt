@@ -1493,4 +1493,30 @@ class GameStompClientTest {
 
         job.cancel()
     }
+
+    @Test
+    fun buyProperty_sends_buy_property_action() = runTest(testDispatcher) {
+        coEvery { stompClient.connect(any<String>()) } returns stompSession
+        coEvery { stompSession.subscribeText(any<String>()) } returns flowOf()
+        coEvery { stompSession.sendText(any<String>(), any<String>()) } returns mockk()
+
+        gameStompClient.connect()
+        advanceUntilIdle()
+
+        gameStompClient.setGameId("game-1")
+
+        gameStompClient.buyProperty(5)
+
+        advanceUntilIdle()
+
+        coVerify {
+            stompSession.sendText(
+                "/app/game/action",
+                match {
+                    it.contains("\"action\":\"BUY_PROPERTY\"") &&
+                            it.contains("\"fieldId\":\"5\"")
+                }
+            )
+        }
+    }
 }

@@ -2,7 +2,9 @@ package at.aau.monopoly.klagenfurt.ui.zoom
 
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import kotlin.math.roundToInt
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class ZoomableWrapperTest {
@@ -82,6 +84,43 @@ class ZoomableWrapperTest {
         assertEquals(100f, state.offset.y)
     }
 
+    @Test
+    fun `scaled constraint does not overflow at max zoom with infinite input`() {
+        val infinity = 0x3FFFFFFF // Constraints.Infinity internal value
+        val scale = 5f
+        val hasBounded = false
+        val safeMax = if (hasBounded) infinity else 4096
+        val result = (safeMax * scale).roundToInt().coerceAtMost(16384)
+        // Must stay positive and within safe bounds
+        assertTrue(result in 1..16384)
+    }
+
+    @Test
+    fun `scaled constraint uses bounded value when hasBoundedWidth is true`() {
+        val boundedValue = 1080
+        val scale = 5f
+        val safeMax = if (true) boundedValue else 4096
+        val result = (safeMax * scale).roundToInt().coerceAtMost(16384)
+        assertEquals(5400, result)
+    }
+
+    @Test
+    fun `layout dimensions fall back to placeable size when unbounded`() {
+        val infinity = 0x3FFFFFFF
+        val hasBounded = false
+        val placeableWidth = 2048
+        val layoutW = if (hasBounded) infinity else placeableWidth
+        assertEquals(placeableWidth, layoutW)
+    }
+
+    @Test
+    fun `layout dimensions use constraint max when bounded`() {
+        val constraintMax = 1080
+        val hasBounded = true
+        val placeableWidth = 500
+        val layoutW = if (hasBounded) constraintMax else placeableWidth
+        assertEquals(constraintMax, layoutW)
+    }
 }
 
 

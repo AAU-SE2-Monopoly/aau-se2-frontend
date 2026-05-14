@@ -56,13 +56,6 @@ import at.aau.monopoly.klagenfurt.ui.theme.PrimaryBlue
 import at.aau.monopoly.klagenfurt.ui.theme.PrimaryBlueLight
 import com.example.myapplication.R
 
-/**
- * Session-scoped set of game IDs the player has joined.
- * Survives activity restarts within the same process so returning
- * players are correctly detected even after [JoinActivity] is recreated.
- */
-private val joinedGameIds = mutableSetOf<String>()
-
 class JoinActivity : ComponentActivity() {
 
 
@@ -73,18 +66,14 @@ class JoinActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-
+        val joinStatus = intent.getStringExtra("JOIN_STATUS")
+            ?.let { try { GameJoinStatus.valueOf(it) } catch (_: Exception) {null} }
+            ?: GameJoinStatus.OPEN
         val gameId    = intent.getStringExtra("GAME_ID") ?: intent.getStringExtra("gameId") ?: ""
         val isNewGame = intent.getBooleanExtra("isNewGame", false)
-        val gamePhase    = intent.getStringExtra("GAME_PHASE") ?: "WAITING"
-        val playerCount  = intent.getIntExtra("PLAYER_COUNT", 0)
-        val maxPlayers   = intent.getIntExtra("MAX_PLAYERS", 4)
-        val playerIds    = intent.getStringArrayListExtra("PLAYER_IDS") ?: emptyList()
-        val currentPlayerId = ServiceLocator.provideGameService().currentPlayerId
-        val joinStatus   = GameJoinStatus.compute(gamePhase, playerCount, maxPlayers, playerIds, currentPlayerId)
 
-        // Detect returning player – tracked per session
-        val isReturningPlayer = !isNewGame && gameId in joinedGameIds
+
+
 
         setContent {
             MyApplicationTheme(dynamicColor = false) {
@@ -94,8 +83,6 @@ class JoinActivity : ComponentActivity() {
                 LaunchedEffect(joinState) {
                     when (val state = joinState) {
                         is JoinViewModel.JoinState.Success -> {
-                            // Track this game as joined for future reconnection detection
-                            joinedGameIds.add(state.gameId)
                             startActivity(
                                 Intent(this@JoinActivity, GameboardUI::class.java)
                                     .putExtra("GAME_ID", state.gameId)
@@ -114,7 +101,6 @@ class JoinActivity : ComponentActivity() {
                     isNewGame   = isNewGame,
                     joinState   = joinState,
                     joinStatus  = joinStatus,
-                    isReturningPlayer = isReturningPlayer,
                     isConnected = isConnected,
                     reconnectFailed = reconnectFailed,
                     onReconnect = { viewModel.reconnect() },
@@ -142,7 +128,6 @@ fun JoinScreen(
     isNewGame: Boolean,
     joinState: JoinViewModel.JoinState,
     joinStatus: GameJoinStatus,
-    isReturningPlayer: Boolean = false,
     isConnected: Boolean = true,
     reconnectFailed: Boolean = false,
     onBackClicked: () -> Unit,
@@ -212,9 +197,6 @@ fun JoinScreen(
     }
 
     val isFull = joinStatus == GameJoinStatus.FULL
-    val isInProgress = joinStatus == GameJoinStatus.IN_PROGRESS
-    val isReconnectFlow = isInProgress || isReturningPlayer
-
     val playerIcons = listOf(
         R.drawable.lindwurm,
         R.drawable.woertherseemandl,
@@ -248,7 +230,6 @@ fun JoinScreen(
         ) {
             Text(
                 text = when {
-                    isReconnectFlow -> "RECONNECT"
                     isNewGame -> "CREATE GAME"
                     else -> "JOIN GAME"
                 },
@@ -268,33 +249,6 @@ fun JoinScreen(
                     fontSize = 12.sp
                 )
             }
-
-            // Status-specific messages
-            if (isFull) {
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = "This game is currently full.",
-                    color = Color(0xFFEF9A9A),
-                    fontSize = 14.sp,
-                    textAlign = TextAlign.Center,
-                    fontWeight = FontWeight.Medium
-                )
-            }
-
-            if (isReconnectFlow) {
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = if (isInProgress) {
-                        "Game already in progress – you can rejoin as your previous player."
-                    } else {
-                        "You have already joined this game. You can rejoin."
-                    },
-                    color = Color.White.copy(alpha = 0.7f),
-                    fontSize = 14.sp,
-                    textAlign = TextAlign.Center
-                )
-            }
-
             // Connection warning – shown only when idle and not connected
             if (!isConnected && joinState is JoinViewModel.JoinState.Idle) {
                 if (reconnectFailed) {
@@ -309,7 +263,7 @@ fun JoinScreen(
                         elevation = ButtonDefaults.buttonElevation(defaultElevation = 8.dp)
                     ) {
                         Text(
-                            text = "RECONNECT",
+                            text = "Reconnect",
                             fontSize = 18.sp,
                             fontWeight = FontWeight.Bold,
                             letterSpacing = 2.sp,
@@ -337,70 +291,80 @@ fun JoinScreen(
                     fontWeight = FontWeight.Medium
                 )
             }
-            Spacer(modifier = Modifier.height(16.dp))
-            // Icon chooser and name input – hidden during reconnect flow
-            if (!isReconnectFlow) {
-                // Icon chooser
-                Button(
-                    onClick = { selectedIconIndex = (selectedIconIndex + 1) % playerIcons.size },
-                    enabled = !interactionDisabled,
-                    modifier = Modifier.size(90.dp),
-                    shape = RoundedCornerShape(20.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFF1A237E).copy(alpha = 0.6f)
-                    ),
-                    elevation = ButtonDefaults.buttonElevation(defaultElevation = 4.dp),
-                    contentPadding = PaddingValues(0.dp)
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .background(Color.White),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Image(
-                            painter = painterResource(id = playerIcons[selectedIconIndex]),
-                            contentDescription = "Selected Icon",
-                            modifier = Modifier.size(64.dp)
-                        )
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(4.dp))
+            // Status-specific messages
+            if (isFull) {
+                Spacer(modifier = Modifier.height(8.dp))
                 Text(
-                    text = "Tap to change icon",
-                    color = Color.White.copy(alpha = 0.4f),
-                    fontSize = 11.sp
+                    text = "This game is currently full.",
+                    color = Color(0xFFEF9A9A),
+                    fontSize = 14.sp,
+                    textAlign = TextAlign.Center,
+                    fontWeight = FontWeight.Medium
                 )
-                Spacer(modifier = Modifier.height(16.dp))
-                // Player name text field
-                OutlinedTextField(
-                    value = playerName,
-                    onValueChange = { playerName = it },
-                    label = { Text("Player Name") },
-                    singleLine = true,
-                    enabled = !interactionDisabled,
-                    modifier = Modifier
-                        .fillMaxWidth(0.5f)
-                        .testTag("PlayerNameInput"),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = PrimaryBlueLight,
-                        unfocusedBorderColor = Color.White.copy(alpha = 0.3f),
-                        focusedLabelColor = PrimaryBlueLight,
-                        unfocusedLabelColor = Color.White.copy(alpha = 0.5f),
-                        cursorColor = PrimaryBlueLight,
-                        focusedTextColor = Color.White,
-                        unfocusedTextColor = Color.White
-                    ),
-                    shape = RoundedCornerShape(12.dp)
-                )
-
-                Spacer(modifier = Modifier.height(20.dp))
             }
+
+            Spacer(modifier = Modifier.height(16.dp))
+            // Icon chooser and name input
+            // Icon chooser
+            Button(
+                onClick = { selectedIconIndex = (selectedIconIndex + 1) % playerIcons.size },
+                enabled = !interactionDisabled,
+                modifier = Modifier.size(90.dp),
+                shape = RoundedCornerShape(20.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color(0xFF1A237E).copy(alpha = 0.6f)
+                ),
+                elevation = ButtonDefaults.buttonElevation(defaultElevation = 4.dp),
+                contentPadding = PaddingValues(0.dp)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(Color.White),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Image(
+                        painter = painterResource(id = playerIcons[selectedIconIndex]),
+                        contentDescription = "Selected Icon",
+                        modifier = Modifier.size(64.dp)
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = "Tap to change icon",
+                color = Color.White.copy(alpha = 0.4f),
+                fontSize = 11.sp
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+            // Player name text field
+            OutlinedTextField(
+                value = playerName,
+                onValueChange = { playerName = it },
+                label = { Text("Player Name") },
+                singleLine = true,
+                enabled = !interactionDisabled,
+                modifier = Modifier
+                    .fillMaxWidth(0.5f)
+                    .testTag("PlayerNameInput"),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = PrimaryBlueLight,
+                    unfocusedBorderColor = Color.White.copy(alpha = 0.3f),
+                    focusedLabelColor = PrimaryBlueLight,
+                    unfocusedLabelColor = Color.White.copy(alpha = 0.5f),
+                    cursorColor = PrimaryBlueLight,
+                    focusedTextColor = Color.White,
+                    unfocusedTextColor = Color.White
+                ),
+                shape = RoundedCornerShape(12.dp)
+            )
+
+            Spacer(modifier = Modifier.height(20.dp))
 
             Button(
                 onClick = {
-                    val name = if (isReconnectFlow) "" else playerName.ifBlank { "Player" }
+                    val name = playerName.ifBlank { "Player" }
                     onJoin(name, selectedIconIndex)
                 },
                 enabled = !interactionDisabled,
@@ -421,7 +385,6 @@ fun JoinScreen(
                 } else {
                     Text(
                         text = when {
-                            isReconnectFlow -> "RECONNECT"
                             isNewGame -> "CREATE & JOIN"
                             else -> "JOIN GAME"
                         },
@@ -432,7 +395,9 @@ fun JoinScreen(
                     )
                 }
             }
+
         }
+
 
         // Back button – always rendered and functional
         Button(

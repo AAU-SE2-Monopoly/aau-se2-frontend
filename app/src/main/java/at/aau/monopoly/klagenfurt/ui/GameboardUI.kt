@@ -17,6 +17,8 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.wrapContentHeight
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
@@ -50,7 +52,7 @@ import at.aau.monopoly.klagenfurt.model.Player
 import at.aau.monopoly.klagenfurt.model.field.Field
 import at.aau.monopoly.klagenfurt.sensors.ShakeDetector
 import at.aau.monopoly.klagenfurt.ui.board.FieldItem
-import at.aau.monopoly.klagenfurt.ui.board.PlayerToken
+import at.aau.monopoly.klagenfurt.ui.board.MovementAnimationState
 import at.aau.monopoly.klagenfurt.ui.chat.ChatOverlay
 import at.aau.monopoly.klagenfurt.ui.zoom.ZoomableWrapper
 import com.example.myapplication.R
@@ -58,10 +60,15 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.filter
 import android.view.KeyEvent
+import at.aau.monopoly.klagenfurt.model.enums.GamePhase
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.derivedStateOf
 import at.aau.monopoly.klagenfurt.model.field.ChanceField
 import at.aau.monopoly.klagenfurt.model.field.CommunityChestField
+import at.aau.monopoly.klagenfurt.model.field.PropertyField
+import at.aau.monopoly.klagenfurt.model.field.RailroadField
+import at.aau.monopoly.klagenfurt.model.field.UtilityField
+
 
 
 class GameboardUI : ComponentActivity() {
@@ -80,7 +87,6 @@ class GameboardUI : ComponentActivity() {
         }
     }
 
-
     override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
         if (keyCode == KeyEvent.KEYCODE_VOLUME_UP) {
             // Cheat im ViewModel aktivieren
@@ -91,7 +97,6 @@ class GameboardUI : ComponentActivity() {
         }
         return super.onKeyDown(keyCode, event)
     }
-
 }
 
 @Composable
@@ -127,16 +132,32 @@ fun GameboardScreen(
     val currentField = currentTurnPlayer?.let { player ->
         fields.getOrNull(player.position)
     }
+    val isBuyableField = currentField is PropertyField ||
+            currentField is RailroadField ||
+            currentField is UtilityField
+
+    val isUnownedField = when (currentField) {
+        is PropertyField -> currentField.ownerId == null
+        is RailroadField -> currentField.ownerId == null
+        is UtilityField -> currentField.ownerId == null
+        else -> false
+    }
 
     val isOnChanceField = currentField is ChanceField
     val isOnCommunityChestField = currentField is CommunityChestField
     val eventLog by viewModel.eventLog.collectAsState()
 
     val isRollingPhaseForCurrentPlayer by viewModel.isRollingPhaseForCurrentPlayer.collectAsState()
+    val isBuyingPhaseForCurrentPlayer by viewModel.isBuyingPhaseForCurrentPlayer.collectAsState()
     val lastDiceRoll by viewModel.lastDiceRoll.collectAsState()
     val isGameStarted by viewModel.isGameStarted.collectAsState()
     val isHost by viewModel.isHost.collectAsState()
     val cardDrawnThisTurn by viewModel.cardDrawnThisTurn.collectAsState()
+
+    val canBuyCurrentField =
+        isBuyingPhaseForCurrentPlayer &&
+                isBuyableField &&
+                isUnownedField
 
     // Action Card states
     val currentActionCard by viewModel.currentActionCard.collectAsState()
@@ -146,7 +167,6 @@ fun GameboardScreen(
     val context = LocalContext.current
 
     var showOverlay by remember { mutableStateOf(false) }
-    var showDebugButtons by remember { mutableStateOf(false) }
 
     // Filter DICE_ROLLED entries from the log while the overlay is visible,
     // so the dice result appears in chat only after the animation finishes.
@@ -213,6 +233,7 @@ fun GameboardScreen(
     }
 
     val selectedPlayer by viewModel.selectedPlayerForOverlay.collectAsState()
+    val movementState by viewModel.movementAnimation.collectAsState()
 
     LockScreenOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE)
 
@@ -225,6 +246,7 @@ fun GameboardScreen(
             onPlayerCardClick = { player -> viewModel.showPlayerOverlay(player) },
             selectedPlayerForOverlay = selectedPlayer,
             onDismissOverlay = { viewModel.hidePlayerOverlay() },
+            movementAnimationState = movementState,
             modifier = Modifier.fillMaxSize()
         )
 
@@ -245,9 +267,9 @@ fun GameboardScreen(
             }
 
             if (isRollingPhaseForCurrentPlayer && currentTurnPlayer != null) {
-                // GEFÄNGNIS LOGIK
+                // Jail Logic
                 if (currentTurnPlayer.inJail) {
-                    // Status-Text, damit der Spieler weiß, im wievielten Versuch er ist
+
                     Text(
                         text = "Im Gefängnis (Versuch ${currentTurnPlayer.jailTurns + 1}/3)",
                         modifier = Modifier
@@ -264,7 +286,7 @@ fun GameboardScreen(
                         Text("💰 50 M zahlen")
                     }
 
-                    // Karte-Nutzen-Button nur anzeigen, wenn der Spieler eine hat
+
                     if (currentTurnPlayer.getOutOfJailCards > 0) {
                         Button(
                             onClick = { viewModel.useJailCard() },
@@ -274,7 +296,7 @@ fun GameboardScreen(
                         }
                     }
 
-                    // Der Roll-Button wird für den Pasch-Versuch umbenannt
+
                     Button(
                         onClick = { showOverlay = true },
                         modifier = Modifier.testTag("roll_dice_button")
@@ -282,17 +304,41 @@ fun GameboardScreen(
                         Text("🎲 Pasch versuchen")
                     }
                 }
-                // NORMALE WÜRFEL LOGIK
+
                 else {
                     Button(
                         onClick = {
-                            // Only open the overlay – the actual dice roll is triggered by a shake.
+
                             showOverlay = true
                         },
                         modifier = Modifier.testTag("roll_dice_button")
                     ) {
                         Text("🎲 Roll Dice")
                     }
+                }
+            }
+
+            if (isBuyingPhaseForCurrentPlayer) {
+                Button(
+                    onClick = { viewModel.endTurn() },
+                    modifier = Modifier
+                        .padding(top = 8.dp)
+                        .testTag("end_turn_button")
+                ) {
+                    Text("End Turn")
+                }
+            }
+
+            if (canBuyCurrentField) {
+                Button(
+                    onClick = {
+                        viewModel.buyProperty(currentTurnPlayer.position)
+                    },
+                    modifier = Modifier
+                        .padding(top = 8.dp)
+                        .testTag("buy_property_button")
+                ) {
+                    Text("Buy Property")
                 }
             }
 
@@ -316,40 +362,9 @@ fun GameboardScreen(
                 }
             }
 
-            // DEBUG: Test buttons for card drawing functionality
-            Button(
-                onClick = { showDebugButtons = !showDebugButtons },
-                modifier = Modifier.padding(top = 8.dp)
-            ) {
-                Text(if (showDebugButtons) "🐛 Hide Debug" else "🐛 Show Debug")
-            }
-
-            if (showDebugButtons) {
-                Button(
-                    onClick = { viewModel.drawCard("CHANCE") },
-                    enabled = !showActionCardOverlay && !cardDrawnThisTurn,
-                    modifier = Modifier.padding(top = 8.dp)
-                ) {
-                    Text(if (cardDrawnThisTurn) "✓ Test Chance" else "🎰 TEST: Draw Chance")
-                }
-
-                Button(
-                    onClick = { viewModel.drawCard("COMMUNITY_CHEST") },
-                    enabled = !showActionCardOverlay && !cardDrawnThisTurn,
-                    modifier = Modifier.padding(top = 8.dp)
-                ) {
-                    Text(if (cardDrawnThisTurn) "✓ Test Community" else "⭐ TEST: Draw Community")
-                }
-            }
         }
 
-        DiceRollOverlay(
-            isVisible = showOverlay,
-            diceResult = lastDiceRoll?.let { Pair(it.die1, it.die2) },
-            isRolling = isRollingPhaseForCurrentPlayer,
-            hasShaken = hasShaken,
-            onClose = { showOverlay = false }
-        )
+        GameboardOverlayLayer(eventLog = bufferedEventLog)
 
         ActionCardOverlay(
             isVisible = showActionCardOverlay,
@@ -358,7 +373,13 @@ fun GameboardScreen(
             onExecuteAction = { viewModel.executeAction() }
         )
 
-        GameboardOverlayLayer(eventLog = bufferedEventLog)
+        DiceRollOverlay(
+            isVisible = showOverlay,
+            diceResult = lastDiceRoll?.let { Pair(it.die1, it.die2) },
+            isRolling = isRollingPhaseForCurrentPlayer,
+            hasShaken = hasShaken,
+            onClose = { showOverlay = false }
+        )
 
 
     }
@@ -381,6 +402,7 @@ fun GameboardContent(
     onPlayerCardClick: (Player) -> Unit = {},
     selectedPlayerForOverlay: Player? = null,
     onDismissOverlay: () -> Unit = {},
+    movementAnimationState: MovementAnimationState? = null,
     modifier: Modifier = Modifier
 ) {
     val myPlayer = players.find { it.id == currentPlayerId }
@@ -388,6 +410,10 @@ fun GameboardContent(
 
     val currentField = currentTurnPlayer?.let { p ->
         fields.getOrNull(p.position)
+    }
+
+    val playersByField: Map<Int, List<Player>> = remember(players) {
+        players.groupBy { it.position }
     }
 
     val panelWidth = 280.dp
@@ -440,15 +466,31 @@ fun GameboardContent(
 
                     fields.take(visibleFieldCount).forEachIndexed { index, field ->
                         key(field.id) {
-                            FieldItem(index, field, sw, sh)
+                            FieldItem(
+                                index = index,
+                                field = field,
+                                sw = sw,
+                                sh = sh,
+                                playersOnField = playersByField[field.id] ?: emptyList(),
+                                animatingPlayerId = movementAnimationState?.playerId,
+                                animatingStep = movementAnimationState?.let {
+                                    if (it.currentStepIndex in it.path.indices) it.path[it.currentStepIndex] else null
+                                },
+                                animationComplete = movementAnimationState?.isComplete ?: true
+                            )
                         }
                     }
+                    // Old flat PlayerToken loop removed – tokens are now rendered inside FieldItem.
+                }
 
-                    players.forEachIndexed { index, player ->
-                        key(player.id) {
-                            PlayerToken(player = player, playerIndex = index, sw = sw, sh = sh)
-                        }
-                    }
+
+                // Field card centered on the board — inside ZoomableWrapper so it
+                // inherits the same zoom/pan transforms as the board fields.
+                if (currentField != null) {
+                    FieldCardUI(
+                        field = currentField,
+                        modifier = Modifier.padding(8.dp)
+                    )
                 }
             }
         }
@@ -460,7 +502,7 @@ fun GameboardContent(
                     .align(Alignment.CenterStart)
                     .width(panelWidth)
                     .padding(start = 4.dp, top = 4.dp, bottom = 4.dp)
-                    .fillMaxHeight()
+                    .wrapContentHeight()
                     .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterVertically)
             ) {
@@ -476,16 +518,6 @@ fun GameboardContent(
             }
         }
 
-        // Overlay: Center – current field card
-        if (currentField != null) {
-            Box(
-                modifier = Modifier
-                    .align(Alignment.Center)
-                    .padding(8.dp)
-            ) {
-                FieldCardUI(field = currentField)
-            }
-        }
 
         // Overlay: Right panel – own player
         if (myPlayer != null) {
@@ -494,7 +526,7 @@ fun GameboardContent(
                     .align(Alignment.CenterEnd)
                     .width(panelWidth)
                     .padding(end = 4.dp, top = 4.dp, bottom = 4.dp)
-                    .fillMaxHeight()
+                    .wrapContentHeight()
                     .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.Center
             ) {

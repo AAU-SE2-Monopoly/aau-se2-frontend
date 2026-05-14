@@ -44,6 +44,7 @@ interface GameService {
     fun useJailCard()
     fun executeAction(playerId: String)
     fun drawCard(cardType: String = "CHANCE")
+    fun buyProperty(fieldId: Int)
 
 
 }

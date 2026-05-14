@@ -10,6 +10,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import org.hildan.krossbow.stomp.StompSession
 import org.hildan.krossbow.stomp.subscribeText
+import java.util.concurrent.atomic.AtomicLong
 
 class SubscriptionChannel(
     private val scope: CoroutineScope,
@@ -20,6 +21,8 @@ class SubscriptionChannel(
 ) {
     private var job: Job? = null
     private var currentTopic: String? = null
+    private val subscriptionCounter = AtomicLong(0)
+    @Volatile private var currentSubscriptionId: Long = 0
     private val _isReady = MutableStateFlow(false)
     val isReady: StateFlow<Boolean> = _isReady.asStateFlow()
 
@@ -38,13 +41,17 @@ class SubscriptionChannel(
         }
 
         cancel()
+        val subscriptionId = subscriptionCounter.incrementAndGet()
+        currentSubscriptionId = subscriptionId
         _isReady.value = false
         currentTopic = fullTopic
 
         job = scope.launch {
+            val localSubscriptionId = subscriptionId
             try {
                 Log.d("SubscriptionChannel", "Subscribing to $fullTopic")
                 val sub = session()?.subscribeText(fullTopic) ?: return@launch
+                if (currentSubscriptionId != localSubscriptionId) return@launch
                 _isReady.value = true
                 sub.collect { events.emit(it) }
             } catch (e: Throwable) {
@@ -55,8 +62,10 @@ class SubscriptionChannel(
                     onError?.invoke(e)
                 }
             } finally {
-                _isReady.value = false
-                currentTopic = null
+                if (currentSubscriptionId == localSubscriptionId) {
+                    _isReady.value = false
+                    currentTopic = null
+                }
             }
         }
     }
@@ -64,6 +73,7 @@ class SubscriptionChannel(
     fun cancel() {
         job?.cancel()
         job = null
+        currentSubscriptionId = subscriptionCounter.incrementAndGet()
         _isReady.value = false
         currentTopic = null
     }

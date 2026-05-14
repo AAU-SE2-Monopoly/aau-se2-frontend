@@ -537,6 +537,100 @@ class GameViewModelTest {
     }
 
     @Test
+    fun `isBuyingPhaseForCurrentPlayer should be true for current player in BUYING phase`() = runTest {
+        val job = launch { viewModel.isBuyingPhaseForCurrentPlayer.collect {} }
+
+        fakeService.currentPlayerId = "p1"
+
+        fakeService.emitTestEvent(
+            """
+        {
+          "event": "STATE_UPDATED",
+          "gameId": "g1",
+          "gameState": {
+            "gameId": "g1",
+            "fields": [],
+            "players": [
+              { "id": "p1", "name": "Alice" }
+            ],
+            "currentPlayerIndex": 0,
+            "phase": "BUYING"
+          }
+        }
+        """.trimIndent()
+        )
+
+        advanceUntilIdle()
+
+        assertTrue(viewModel.isBuyingPhaseForCurrentPlayer.value)
+
+        job.cancel()
+    }
+
+    @Test
+    fun `isBuyingPhaseForCurrentPlayer should be false for non current player in BUYING phase`() = runTest {
+        val job = launch { viewModel.isBuyingPhaseForCurrentPlayer.collect {} }
+
+        fakeService.currentPlayerId = "p2"
+
+        fakeService.emitTestEvent(
+            """
+        {
+          "event": "STATE_UPDATED",
+          "gameId": "g1",
+          "gameState": {
+            "gameId": "g1",
+            "fields": [],
+            "players": [
+              { "id": "p1", "name": "Alice" },
+              { "id": "p2", "name": "Bob" }
+            ],
+            "currentPlayerIndex": 0,
+            "phase": "BUYING"
+          }
+        }
+        """.trimIndent()
+        )
+
+        advanceUntilIdle()
+
+        assertFalse(viewModel.isBuyingPhaseForCurrentPlayer.value)
+
+        job.cancel()
+    }
+
+    @Test
+    fun `isBuyingPhaseForCurrentPlayer should be false for current player in ROLLING phase`() = runTest {
+        val job = launch { viewModel.isBuyingPhaseForCurrentPlayer.collect {} }
+
+        fakeService.currentPlayerId = "p1"
+
+        fakeService.emitTestEvent(
+            """
+        {
+          "event": "STATE_UPDATED",
+          "gameId": "g1",
+          "gameState": {
+            "gameId": "g1",
+            "fields": [],
+            "players": [
+              { "id": "p1", "name": "Alice" }
+            ],
+            "currentPlayerIndex": 0,
+            "phase": "ROLLING"
+          }
+        }
+        """.trimIndent()
+        )
+
+        advanceUntilIdle()
+
+        assertFalse(viewModel.isBuyingPhaseForCurrentPlayer.value)
+
+        job.cancel()
+    }
+
+    @Test
     fun `showDiceOverlayForCurrentPlayer should be true during rolling phase`() = runTest {
         val job = launch { viewModel.showDiceOverlayForCurrentPlayer.collect {} }
 
@@ -601,5 +695,16 @@ class GameViewModelTest {
         assertEquals(11, viewModel.diceResultForCurrentPlayer.value?.total)
 
         job.cancel()
+    }
+
+    @Test
+    fun `buyProperty should call gameService with correct field id`() {
+        val fakeService = FakeGameService()
+        val viewModel = GameViewModel(fakeService)
+
+        viewModel.buyProperty(5)
+
+        assertTrue(fakeService.buyPropertyCalled)
+        assertEquals(5, fakeService.lastBoughtFieldId)
     }
 }

@@ -456,6 +456,53 @@ class DiceRollIntegrationTest {
     }
 
     @Test
+    fun currentPlayer_seesEndTurnButton_inBuyingPhase_andClickEndsTurn() {
+        setContentWithViewModel()
+
+        emitDiceResult(fakeService.currentPlayerId, die1 = 3, die2 = 4)
+
+        composeTestRule.onNodeWithTag("end_turn_button").assertIsDisplayed()
+        composeTestRule.onNodeWithTag("end_turn_button").performClick()
+        composeTestRule.waitForIdle()
+
+        assertTrue("End Turn should call GameService.endTurn", fakeService.endTurnCalled)
+    }
+
+    @Test
+    fun nonCurrentPlayer_doesNotSeeEndTurnButton_inBuyingPhase() {
+        fakeService.currentPlayerId = "guest-player-id"
+        setContentWithViewModel()
+
+        val state = GameState(
+            gameId = "test-game",
+            fields = listOf(GoField()),
+            players = mutableListOf(
+                Player(id = "host-player-id", name = "Host"),
+                Player(id = "guest-player-id", name = "Guest")
+            ),
+            currentPlayerIndex = 0,
+            phase = GamePhase.BUYING,
+            lastDiceRoll = DiceRoll(die1 = 3, die2 = 4)
+        )
+        runBlocking {
+            fakeService.emitTestEvent(objectMapper.writeValueAsString(
+                GameEvent(gameId = "test-game", event = "STATE_SNAPSHOT", gameState = state)
+            ))
+        }
+        composeTestRule.waitForIdle()
+
+        composeTestRule.onNodeWithTag("end_turn_button").assertIsNotDisplayed()
+    }
+
+    @Test
+    fun currentPlayer_doesNotSeeEndTurnButton_inRollingPhase() {
+        setContentWithViewModel()
+        emitRollingPhase(fakeService.currentPlayerId, "Host")
+
+        composeTestRule.onNodeWithTag("end_turn_button").assertIsNotDisplayed()
+    }
+
+    @Test
     fun joinedPlayer_shakeIgnored_whenNotTheirTurn() {
         fakeService.currentPlayerId = "guest-player-id"
         setContentWithViewModel()

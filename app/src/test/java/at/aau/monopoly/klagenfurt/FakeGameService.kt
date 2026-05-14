@@ -2,7 +2,9 @@ package at.aau.monopoly.klagenfurt
 
 
 import at.aau.monopoly.klagenfurt.messaging.GameEvent
+import at.aau.monopoly.klagenfurt.model.GameState
 import at.aau.monopoly.klagenfurt.networking.GameService
+import at.aau.monopoly.klagenfurt.networking.JacksonProvider
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -45,6 +47,7 @@ class FakeGameService : GameService {
     var lastJoinedGameId: String? = null
     var lastJoinedPlayerName: String? = null
 
+    var lastBoughtFieldId: Int? = null
     var lastCreatedIconId: String? = null
     var lastJoinedIconId: String? = null
 
@@ -62,6 +65,8 @@ class FakeGameService : GameService {
 
     /** Set to false to simulate a rejected join during tests */
     var joinGameSuccess: Boolean = true
+    var joinGameDelayMs: Long = 0
+
 
     override fun connect() {
         connectCalled = true
@@ -89,6 +94,9 @@ class FakeGameService : GameService {
     }
 
     override suspend fun joinGame(gameId: String, playerName: String, iconId: String): Result<GameEvent> {
+        if (joinGameDelayMs > 0) {
+            kotlinx.coroutines.delay(joinGameDelayMs)
+        }
         joinGameCalls++
         lastJoinedGameId = gameId
         lastJoinedPlayerName = playerName
@@ -136,6 +144,13 @@ class FakeGameService : GameService {
         TODO("Not yet implemented")
     }
 
+    var buyPropertyCalled = false
+
+    override fun buyProperty(fieldId: Int) {
+        buyPropertyCalled = true
+        lastBoughtFieldId = fieldId
+    }
+
     override fun subscribeToLobby() {
         subscribeToLobbyCalled = true
     }
@@ -176,4 +191,17 @@ class FakeGameService : GameService {
     override fun payJailFine(){}
 
     override fun useJailCard(){}
+
+    fun emitGameState(gameState: GameState) {
+        val event = GameEvent(
+            gameId = gameState.gameId,
+            event = "STATE_SNAPSHOT",
+            gameState = gameState
+        )
+
+        val json = JacksonProvider.objectMapper.writeValueAsString(event)
+
+        _events.tryEmit(json)
+    }
+
 }

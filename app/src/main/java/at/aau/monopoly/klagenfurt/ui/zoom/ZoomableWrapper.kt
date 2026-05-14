@@ -18,11 +18,8 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.layout.layout
-import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.unit.Density
-import kotlin.math.roundToInt
 
 /**
  * The current zoom scale, readable by child composables to adjust
@@ -56,9 +53,11 @@ class ZoomState(
 }
 
 @Composable
-fun ZoomableWrapper(modifier: Modifier = Modifier, content: @Composable () -> Unit) {
-    val zoomState = remember { ZoomState() }
-    val baseDensity = LocalDensity.current
+fun ZoomableWrapper(
+    modifier: Modifier = Modifier,
+    zoomState: ZoomState = remember { ZoomState() },
+    content: @Composable () -> Unit
+) {
     Box(
         modifier = modifier
             .clip(RectangleShape)
@@ -73,38 +72,25 @@ fun ZoomableWrapper(modifier: Modifier = Modifier, content: @Composable () -> Un
             }
     ) {
         CompositionLocalProvider(LocalZoomScale provides zoomState.scale) {
-            // Scale the density so that sp/dp values grow with the zoom,
-            // keeping text and spacing proportional to the enlarged layout.
-            val scaledDensity = Density(
-                density = baseDensity.density * zoomState.scale,
-                fontScale = baseDensity.fontScale
-            )
-            CompositionLocalProvider(LocalDensity provides scaledDensity) {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .layout { measurable, constraints ->
-                        // Measure content at scaled-up size so vectors render
-                        // at the zoomed resolution (sharp, no bitmap upscale).
-                        val s = zoomState.scale
-                        val scaledConstraints = constraints.copy(
-                            maxWidth = (constraints.maxWidth * s).roundToInt(),
-                            maxHeight = (constraints.maxHeight * s).roundToInt()
-                        )
-                        val placeable = measurable.measure(scaledConstraints)
-                        layout(constraints.maxWidth, constraints.maxHeight) {
-                            // Centre the scaled content, then apply pan offset.
-                            val ox = ((constraints.maxWidth - placeable.width) / 2f +
-                                    zoomState.offset.x).roundToInt()
-                            val oy = ((constraints.maxHeight - placeable.height) / 2f +
-                                    zoomState.offset.y).roundToInt()
-                            placeable.place(ox, oy)
-                        }
+                    .graphicsLayer {
+                        // Use graphicsLayer (compositing-level transform) for zoom/pan.
+                        // Unlike the previous layout{} approach, this does NOT re-measure
+                        // content at inflated pixel sizes. Content always measures at
+                        // normal screen resolution. Vectors rasterize at their natural
+                        // size, and the compositing pipeline scales/translates the
+                        // already-rendered pixel buffer — preventing "Canvas: trying to
+                        // draw too large bitmap" crashes.
+                        scaleX = zoomState.scale
+                        scaleY = zoomState.scale
+                        translationX = zoomState.offset.x
+                        translationY = zoomState.offset.y
                     },
                 contentAlignment = Alignment.Center
             ) {
                 content()
-            }
             }
         }
     }

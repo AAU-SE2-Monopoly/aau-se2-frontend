@@ -12,7 +12,9 @@ import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.unit.dp
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import at.aau.monopoly.klagenfurt.model.Player
 import at.aau.monopoly.klagenfurt.model.enums.FieldType
 import at.aau.monopoly.klagenfurt.model.enums.PropertyColor
 import at.aau.monopoly.klagenfurt.model.field.ChanceField
@@ -24,6 +26,7 @@ import at.aau.monopoly.klagenfurt.model.field.JailField
 import at.aau.monopoly.klagenfurt.model.field.PropertyField
 import at.aau.monopoly.klagenfurt.model.field.RailroadField
 import at.aau.monopoly.klagenfurt.model.field.TaxField
+import at.aau.monopoly.klagenfurt.model.field.UtilityField
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
@@ -88,6 +91,302 @@ class BoardFieldRenderingCoverageTest {
         val vertical = calculateFieldBounds(index = 11, sw = 3840f, sh = 2160f)
         assertEquals(vertical.height, vertical.textWidth, 0.01f)
         assertEquals(vertical.width, vertical.textHeight, 0.01f)
+    }
+
+    @Test
+    fun `player token sizes shrink only when multiple players share a field`() {
+        assertEquals(8.dp, nonCornerPlayerTokenSize(1))
+        assertEquals(7.dp, nonCornerPlayerTokenSize(2))
+        assertEquals(6.25.dp, nonCornerPlayerTokenSize(3))
+        assertEquals(5.5.dp, nonCornerPlayerTokenSize(4))
+        assertEquals(5.dp, nonCornerPlayerTokenSize(5))
+        assertEquals(5.dp, nonCornerPlayerTokenSize(6))
+
+        assertEquals(11.dp, cornerPlayerTokenSize(1))
+        assertEquals(10.dp, cornerPlayerTokenSize(2))
+        assertEquals(9.dp, cornerPlayerTokenSize(3))
+        assertEquals(8.dp, cornerPlayerTokenSize(4))
+        assertEquals(7.dp, cornerPlayerTokenSize(5))
+        assertEquals(7.dp, cornerPlayerTokenSize(6))
+    }
+
+    @Test
+    fun `non corner token container renders up to five players before overflow`() {
+        val players = (1..6).map {
+            Player(id = "p$it", name = "Player $it", iconId = "lindwurm", position = 1)
+        }
+
+        composeTestRule.setContent {
+            Box {
+                FieldItem(
+                    index = 1,
+                    field = PropertyField(
+                        id = 1,
+                        name = "Benediktiner Platz",
+                        color = PropertyColor.LIGHT_BLUE,
+                        price = 60,
+                        rent = listOf(2, 4, 8, 16, 32, 64),
+                        houseCost = 50,
+                        hotelCost = 50
+                    ),
+                    sw = 3840f,
+                    sh = 2160f,
+                    playersOnField = players
+                )
+            }
+        }
+
+        composeTestRule.onAllNodesWithTag("MiniPlayerToken").assertCountEquals(5)
+        composeTestRule.onNodeWithText("+1").assertExists()
+    }
+
+    @Test
+    fun `vertical non corner token container renders five players without overflow indicator`() {
+        val players = (1..5).map {
+            Player(id = "p$it", name = "Player $it", iconId = "lindwurm", position = 11)
+        }
+
+        composeTestRule.setContent {
+            Box {
+                FieldItem(
+                    index = 11,
+                    field = PropertyField(
+                        id = 11,
+                        name = "Strandbad",
+                        color = PropertyColor.GREEN,
+                        price = 220,
+                        rent = listOf(18, 90, 250, 700, 875, 1050),
+                        houseCost = 150,
+                        hotelCost = 150
+                    ),
+                    sw = 3840f,
+                    sh = 2160f,
+                    playersOnField = players
+                )
+            }
+        }
+
+        composeTestRule.onAllNodesWithTag("MiniPlayerToken").assertCountEquals(5)
+        composeTestRule.onAllNodesWithText("+1").assertCountEquals(0)
+    }
+
+    @Test
+    fun `top and right token containers render players on matching board sides`() {
+        val topPlayers = listOf(
+            Player(id = "top-1", name = "Top Player 1", iconId = "lindwurm", position = 21),
+            Player(id = "top-2", name = "Top Player 2", iconId = "gti", position = 21)
+        )
+        val rightPlayers = listOf(
+            Player(id = "right-1", name = "Right Player 1", iconId = "ironman", position = 31),
+            Player(id = "right-2", name = "Right Player 2", iconId = "josef", position = 31)
+        )
+
+        composeTestRule.setContent {
+            Column {
+                FieldItem(
+                    index = 21,
+                    field = PropertyField(
+                        id = 21,
+                        name = "City Arkaden",
+                        color = PropertyColor.RED,
+                        price = 260,
+                        rent = listOf(22, 110, 330, 800, 975, 1150),
+                        houseCost = 150,
+                        hotelCost = 150
+                    ),
+                    sw = 3840f,
+                    sh = 2160f,
+                    playersOnField = topPlayers,
+                    animatingPlayerId = "not-on-field",
+                    animatingStep = 21,
+                    animationComplete = false
+                )
+                FieldItem(
+                    index = 31,
+                    field = PropertyField(
+                        id = 31,
+                        name = "Loretto",
+                        color = PropertyColor.DARK_BLUE,
+                        price = 350,
+                        rent = listOf(35, 175, 500, 1100, 1300, 1500),
+                        houseCost = 200,
+                        hotelCost = 200
+                    ),
+                    sw = 3840f,
+                    sh = 2160f,
+                    playersOnField = rightPlayers,
+                    animatingPlayerId = null,
+                    animatingStep = null,
+                    animationComplete = true
+                )
+            }
+        }
+
+        composeTestRule.onAllNodesWithTag("PlayerContainer-Top").assertCountEquals(1)
+        composeTestRule.onAllNodesWithTag("PlayerContainer-Right").assertCountEquals(1)
+        composeTestRule.onNodeWithContentDescription("Top Player 1").assertExists()
+        composeTestRule.onNodeWithContentDescription("Right Player 2").assertExists()
+    }
+
+    @Test
+    fun `corner token container renders up to six players before overflow`() {
+        val players = (1..7).map {
+            Player(id = "corner-$it", name = "Corner Player $it", iconId = "lindwurm", position = 20)
+        }
+
+        composeTestRule.setContent {
+            Box {
+                FieldItem(
+                    index = 20,
+                    field = FreeParkingField(),
+                    sw = 3840f,
+                    sh = 2160f,
+                    playersOnField = players,
+                    animatingPlayerId = "not-on-field",
+                    animatingStep = 20,
+                    animationComplete = false
+                )
+            }
+        }
+
+        composeTestRule.onAllNodesWithTag("MiniPlayerToken").assertCountEquals(6)
+        composeTestRule.onNodeWithText("+1").assertExists()
+    }
+
+    @Test
+    fun `highlighted non corner and corner player containers render while animation clock is paused`() {
+        val nonCornerPlayer = Player(id = "moving-1", name = "Moving One", iconId = "lindwurm", position = 1)
+        val cornerPlayer = Player(id = "moving-2", name = "Moving Two", iconId = "gti", position = 0)
+
+        composeTestRule.mainClock.autoAdvance = false
+        try {
+            composeTestRule.setContent {
+                Column {
+                    FieldItem(
+                        index = 1,
+                        field = PropertyField(
+                            id = 1,
+                            name = "Benediktiner Platz",
+                            color = PropertyColor.LIGHT_BLUE,
+                            price = 60,
+                            rent = listOf(2, 4, 8, 16, 32, 64),
+                            houseCost = 50,
+                            hotelCost = 50
+                        ),
+                        sw = 3840f,
+                        sh = 2160f,
+                        playersOnField = listOf(nonCornerPlayer),
+                        animatingPlayerId = nonCornerPlayer.id,
+                        animatingStep = 1,
+                        animationComplete = false
+                    )
+                    FieldItem(
+                        index = 0,
+                        field = GoField(),
+                        sw = 3840f,
+                        sh = 2160f,
+                        playersOnField = listOf(cornerPlayer),
+                        animatingPlayerId = cornerPlayer.id,
+                        animatingStep = 0,
+                        animationComplete = false
+                    )
+                }
+            }
+
+            composeTestRule.onNodeWithContentDescription("Moving One").assertExists()
+            composeTestRule.onNodeWithContentDescription("Moving Two").assertExists()
+        } finally {
+            composeTestRule.mainClock.autoAdvance = true
+        }
+    }
+
+    @Test
+    fun `legacy PlayerToken composable positions token from player position`() {
+        composeTestRule.setContent {
+            Box {
+                PlayerToken(
+                    player = Player(id = "p1", name = "Legacy Alice", iconId = "lindwurm", position = 5),
+                    playerIndex = 4,
+                    sw = 3840f,
+                    sh = 2160f
+                )
+            }
+        }
+
+        composeTestRule.onNodeWithContentDescription("Legacy Alice").assertExists()
+    }
+
+    @Test
+    fun `legacy PlayerToken composable supports very small board dimensions`() {
+        composeTestRule.setContent {
+            Box {
+                PlayerToken(
+                    player = Player(id = "p1", name = "Tiny Alice", iconId = "lindwurm", position = 15),
+                    playerIndex = 1,
+                    sw = 300f,
+                    sh = 160f
+                )
+            }
+        }
+
+        composeTestRule.onNodeWithContentDescription("Tiny Alice").assertExists()
+    }
+
+    @Test
+    fun `field item renders gracefully when no field image mapping exists`() {
+        val customField = object : at.aau.monopoly.klagenfurt.model.field.Field(
+            id = 99,
+            name = "Custom Without Image",
+            type = FieldType.PROPERTY
+        ) {}
+
+        composeTestRule.setContent {
+            Box {
+                FieldItem(
+                    index = 9,
+                    field = customField,
+                    sw = 3840f,
+                    sh = 2160f
+                )
+            }
+        }
+
+        composeTestRule.onNodeWithText("Custom Without Image").assertExists()
+    }
+
+    @Test
+    fun `FieldTitle no ops for non corner bounds`() {
+        val bounds = FieldBounds(
+            x = 0f,
+            y = 0f,
+            width = 100f,
+            height = 40f,
+            rotation = 0f,
+            isCorner = false,
+            textWidth = 100f,
+            textHeight = 40f
+        )
+
+        composeTestRule.setContent {
+            Box {
+                FieldTitle(
+                    index = 1,
+                    side = 0,
+                    field = PropertyField(
+                        id = 1,
+                        name = "Benediktiner Platz",
+                        color = PropertyColor.LIGHT_BLUE,
+                        price = 60,
+                        rent = listOf(2, 4, 8, 16, 32, 64),
+                        houseCost = 50,
+                        hotelCost = 50
+                    ),
+                    bounds = bounds
+                )
+            }
+        }
+
+        composeTestRule.onAllNodesWithText("Benediktiner\nPlatz").assertCountEquals(0)
     }
 
     @Test
@@ -164,6 +463,17 @@ class BoardFieldRenderingCoverageTest {
                 FieldItem(index = 5, field = railroadField, sw = 800f, sh = 450f)
                 FieldItem(index = 6, field = ChanceField(id = 6), sw = 800f, sh = 450f)
                 FieldItem(index = 15, field = propertyField, sw = 800f, sh = 450f)
+                FieldItem(
+                    index = 12,
+                    field = UtilityField(
+                        id = 12,
+                        name = "Stadtwerke Klagenfurt",
+                        ownerId = "owner-3",
+                        isMortgaged = true
+                    ),
+                    sw = 800f,
+                    sh = 450f
+                )
             }
         }
 
@@ -177,8 +487,9 @@ class BoardFieldRenderingCoverageTest {
         composeTestRule.onNodeWithText("Reichen-\nsteuer").assertExists()
         composeTestRule.onNodeWithText("Haupt-\nbahnhof").assertExists()
         composeTestRule.onNodeWithText("Heiligen-\ngeistplatz").assertExists()
-        composeTestRule.onAllNodesWithTag("OwnerIndicator").assertCountEquals(2)
-        composeTestRule.onAllNodesWithText("MORTGAGED").assertCountEquals(2)
+        composeTestRule.onNodeWithText("Stadtwerke\nKlagenfurt").assertExists()
+        composeTestRule.onAllNodesWithTag("OwnerIndicator").assertCountEquals(3)
+        composeTestRule.onAllNodesWithText("MORTGAGED").assertCountEquals(3)
     }
 
     @Test

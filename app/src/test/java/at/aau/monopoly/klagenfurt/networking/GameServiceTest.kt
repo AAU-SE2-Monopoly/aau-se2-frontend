@@ -61,6 +61,9 @@ class GameServiceTest {
         override fun setGameId(gameId: String) {}
         override fun executeAction(playerId: String) {}
         override fun drawCard(cardType: String) {}
+        override fun buyProperty(fieldId: Int) {
+            // no-op for interface test
+        }
     }
 
     @Test
@@ -69,4 +72,6 @@ class GameServiceTest {
 
         assertSame(service.events, service.logEvents)
     }
+
+
 }

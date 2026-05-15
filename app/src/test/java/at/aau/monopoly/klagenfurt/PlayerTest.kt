@@ -91,4 +91,32 @@ class PlayerTest {
         val player = Player(id = "1", name = "A")
         assertNotNull(player.toString())
     }
+    @Test
+    fun `goToJail should set default position to 10, set inJail to true and reset counters`() {
+        val player = Player(id = "1", name = "Max")
+
+        player.position = 5
+        player.inJail = false
+        player.jailTurns = 2
+        player.consecutiveDoublets = 3
+
+        player.goToJail()
+
+        assertEquals(10, player.position)
+        assertTrue(player.inJail)
+        assertEquals(0, player.jailTurns)
+        assertEquals(0, player.consecutiveDoublets)
+    }
+
+    @Test
+    fun `goToJail should allow custom jail position`() {
+        val player = Player(id = "1", name = "Max")
+
+        player.goToJail(jailPosition = 25)
+
+        assertEquals(25, player.position)
+        assertTrue(player.inJail)
+        assertEquals(0, player.jailTurns)
+        assertEquals(0, player.consecutiveDoublets)
+    }
 }

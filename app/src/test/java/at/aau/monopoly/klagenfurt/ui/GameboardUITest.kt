@@ -1,39 +1,35 @@
 package at.aau.monopoly.klagenfurt.ui
+
 import android.content.pm.ActivityInfo
 import android.view.KeyEvent
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import at.aau.monopoly.klagenfurt.model.enums.PropertyColor
+import at.aau.monopoly.klagenfurt.model.GameState
 import at.aau.monopoly.klagenfurt.model.Player
+import at.aau.monopoly.klagenfurt.model.enums.PropertyColor
+import at.aau.monopoly.klagenfurt.model.field.ChanceField
+import at.aau.monopoly.klagenfurt.model.field.CommunityChestField
+import at.aau.monopoly.klagenfurt.model.field.Field
 import at.aau.monopoly.klagenfurt.ui.board.calculateFieldBounds
 import at.aau.monopoly.klagenfurt.ui.board.getFieldImageMapping
 import at.aau.monopoly.klagenfurt.ui.util.getPlayerTokenResource
 import at.aau.monopoly.klagenfurt.ui.util.toComposeColor
 import at.aau.monopoly.klagenfurt.ui.zoom.ZoomState
-import androidx.compose.ui.test.onNodeWithTag
-import androidx.compose.ui.test.junit4.createComposeRule
-import at.aau.monopoly.klagenfurt.model.GameState
-import at.aau.monopoly.klagenfurt.model.field.ChanceField
-import at.aau.monopoly.klagenfurt.model.field.CommunityChestField
-import at.aau.monopoly.klagenfurt.model.field.Field
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
 import kotlinx.coroutines.flow.MutableStateFlow
-
-
-import androidx.compose.ui.test.onNodeWithText
-import androidx.compose.ui.test.performClick
-import at.aau.monopoly.klagenfurt.model.field.GoField
 import org.junit.Assert.*
-import org.junit.Test
 import org.junit.Rule
+import org.junit.Test
 import org.junit.runner.RunWith
 
 @RunWith(AndroidJUnit4::class)
@@ -327,225 +323,212 @@ class GameboardUITest {
         assertTrue(bounds.height > 0f)
     }
 
-     @Test
-     fun testCalculateFieldBoundsForEveryBoardIndexHasPositiveSize() {
-         for (index in 0 until 40) {
-             val bounds = calculateFieldBounds(index, 3840f, 2160f)
+    @Test
+    fun testCalculateFieldBoundsForEveryBoardIndexHasPositiveSize() {
+        for (index in 0 until 40) {
+            val bounds = calculateFieldBounds(index, 3840f, 2160f)
 
-             assertTrue("width should be positive for index $index", bounds.width > 0f)
-             assertTrue("height should be positive for index $index", bounds.height > 0f)
-             assertTrue("textWidth should be positive for index $index", bounds.textWidth > 0f)
-             assertTrue("textHeight should be positive for index $index", bounds.textHeight > 0f)
-         }
-     }
+            assertTrue("width should be positive for index $index", bounds.width > 0f)
+            assertTrue("height should be positive for index $index", bounds.height > 0f)
+            assertTrue("textWidth should be positive for index $index", bounds.textWidth > 0f)
+            assertTrue("textHeight should be positive for index $index", bounds.textHeight > 0f)
+        }
+    }
 
+    @Test
+    fun testGameboardUICreationWithGameId() {
+        val activity = composeTestRule.activity
+        assertNotNull("Activity should be created", activity)
+    }
 
+    @Test
+    fun testZoomStatePanningPreservesScaleLevel() {
+        val state = ZoomState()
+        val containerSize = Size(1000f, 1000f)
 
+        // Zoom to 2x
+        state.updateTransformation(Offset.Zero, 2f, containerSize)
+        val initialScale = state.scale
 
-     @Test
-     fun testGameboardUICreationWithGameId() {
-         val activity = composeTestRule.activity
-         assertNotNull("Activity should be created", activity)
-     }
+        // Pan without changing zoom
+        state.updateTransformation(Offset(100f, 100f), 1f, containerSize)
 
+        // Scale should remain unchanged
+        assertEquals(initialScale, state.scale)
+        assertEquals(100f, state.offset.x)
+        assertEquals(100f, state.offset.y)
+    }
 
+    @Test
+    fun testCalculateFieldBoundsBottomSide() {
+        val bounds = calculateFieldBounds(3, 3840f, 2160f)
+        assertEquals(0f, bounds.rotation)
+        assertTrue("Should be on bottom side", bounds.x > 0f && bounds.x < 3840f)
+    }
 
-     @Test
-     fun testZoomStatePanningPreservesScaleLevel() {
-         val state = ZoomState()
-         val containerSize = Size(1000f, 1000f)
+    @Test
+    fun testCalculateFieldBoundsTopSide() {
+        val bounds = calculateFieldBounds(23, 3840f, 2160f)
+        assertEquals(180f, bounds.rotation)
+    }
 
-         // Zoom to 2x
-         state.updateTransformation(Offset.Zero, 2f, containerSize)
-         val initialScale = state.scale
+    @Test
+    fun testCalculateFieldBoundsRightSide() {
+        val bounds = calculateFieldBounds(33, 3840f, 2160f)
+        assertEquals(270f, bounds.rotation)
+    }
 
-         // Pan without changing zoom
-         state.updateTransformation(Offset(100f, 100f), 1f, containerSize)
+    @Test
+    fun testCalculateFieldBoundsLeftSide() {
+        val bounds = calculateFieldBounds(13, 3840f, 2160f)
+        assertEquals(90f, bounds.rotation)
+    }
 
-         // Scale should remain unchanged
-         assertEquals(initialScale, state.scale)
-         assertEquals(100f, state.offset.x)
-         assertEquals(100f, state.offset.y)
-     }
+    @Test
+    fun testGetFieldImageMappingReturnsNullForNonExistent() {
+        assertNull(getFieldImageMapping("ThisFieldDoesNotExist123"))
+        assertNull(getFieldImageMapping(""))
+    }
 
-     @Test
-     fun testCalculateFieldBoundsBottomSide() {
-         val bounds = calculateFieldBounds(3, 3840f, 2160f)
-         assertEquals(0f, bounds.rotation)
-         assertTrue("Should be on bottom side", bounds.x > 0f && bounds.x < 3840f)
-     }
+    @Test
+    fun testGetPlayerTokenResourceHandlesWhitespace() {
+        val resourceWithSpaces = getPlayerTokenResource("  lindwurm  ")
+        val resourceWithoutSpaces = getPlayerTokenResource("lindwurm")
+        assertEquals(resourceWithoutSpaces, resourceWithSpaces)
+    }
 
-     @Test
-     fun testCalculateFieldBoundsTopSide() {
-         val bounds = calculateFieldBounds(23, 3840f, 2160f)
-         assertEquals(180f, bounds.rotation)
-     }
+    @Test
+    fun testCalculateFieldBoundsScalingEffectsAllFields() {
+        val sw1 = 1920f
+        val sh1 = 1080f
+        val sw2 = 3840f
+        val sh2 = 2160f
 
-     @Test
-     fun testCalculateFieldBoundsRightSide() {
-         val bounds = calculateFieldBounds(33, 3840f, 2160f)
-         assertEquals(270f, bounds.rotation)
-     }
+        val bounds1 = calculateFieldBounds(1, sw1, sh1)
+        val bounds2 = calculateFieldBounds(1, sw2, sh2)
 
-     @Test
-     fun testCalculateFieldBoundsLeftSide() {
-         val bounds = calculateFieldBounds(13, 3840f, 2160f)
-         assertEquals(90f, bounds.rotation)
-     }
+        // Double resolution should result in double size
+        assertEquals(bounds1.x * 2f, bounds2.x, 0.1f)
+        assertEquals(bounds1.y * 2f, bounds2.y, 0.1f)
+    }
 
-     @Test
-     fun testGetFieldImageMappingReturnsNullForNonExistent() {
-         assertNull(getFieldImageMapping("ThisFieldDoesNotExist123"))
-         assertNull(getFieldImageMapping(""))
-     }
+    @Test
+    fun testFieldImageMappingIsConsistent() {
+        val mapping1 = getFieldImageMapping("Go")
+        val mapping2 = getFieldImageMapping("Go")
+        assertEquals(mapping1, mapping2)
+    }
 
-     @Test
-     fun testGetPlayerTokenResourceHandlesWhitespace() {
-         val resourceWithSpaces = getPlayerTokenResource("  lindwurm  ")
-         val resourceWithoutSpaces = getPlayerTokenResource("lindwurm")
-         assertEquals(resourceWithoutSpaces, resourceWithSpaces)
-     }
+    @Test
+    fun testPlayerTokenResourceIsConsistent() {
+        val token1 = getPlayerTokenResource("lindwurm")
+        val token2 = getPlayerTokenResource("lindwurm")
+        assertEquals(token1, token2)
+    }
 
+    @Test
+    fun testCalculateFieldBoundsFieldsAreInBoardBounds() {
+        for (index in 0 until 40) {
+            val bounds = calculateFieldBounds(index, 3840f, 2160f)
 
+            assertTrue("Field $index x position should be within bounds", bounds.x >= 0f && bounds.x <= 3840f)
+            assertTrue("Field $index y position should be within bounds", bounds.y >= 0f && bounds.y <= 2160f)
+        }
+    }
 
-     @Test
-     fun testCalculateFieldBoundsScalingEffectsAllFields() {
-         val sw1 = 1920f
-         val sh1 = 1080f
-         val sw2 = 3840f
-         val sh2 = 2160f
+    @Test
+    fun testPlayerTokenResourceHandlesAllTokenTypes() {
+        val tokenTypes = listOf("lindwurm", "woerthersee", "gti", "ironman", "josef")
+        for (type in tokenTypes) {
+            val token = getPlayerTokenResource(type)
+            assertTrue("Token resource should exist for $type", token > 0)
+        }
+    }
 
-         val bounds1 = calculateFieldBounds(1, sw1, sh1)
-         val bounds2 = calculateFieldBounds(1, sw2, sh2)
+    @Test
+    fun testCalculateFieldBoundsCornerFieldsHaveConsistentSize() {
+        val corner0 = calculateFieldBounds(0, 3840f, 2160f)
+        val corner10 = calculateFieldBounds(10, 3840f, 2160f)
+        val corner20 = calculateFieldBounds(20, 3840f, 2160f)
+        val corner30 = calculateFieldBounds(30, 3840f, 2160f)
 
-         // Double resolution should result in double size
-         assertEquals(bounds1.x * 2f, bounds2.x, 0.1f)
-         assertEquals(bounds1.y * 2f, bounds2.y, 0.1f)
-     }
+        // All corners should be marked as corners
+        assertTrue(corner0.isCorner)
+        assertTrue(corner10.isCorner)
+        assertTrue(corner20.isCorner)
+        assertTrue(corner30.isCorner)
 
-     @Test
-     fun testFieldImageMappingIsConsistent() {
-         val mapping1 = getFieldImageMapping("Go")
-         val mapping2 = getFieldImageMapping("Go")
-         assertEquals(mapping1, mapping2)
-     }
+        // Corner rotations should be 0 (aligned with board)
+        assertEquals(0f, corner0.rotation)
+        assertEquals(0f, corner10.rotation)
+        assertEquals(0f, corner20.rotation)
+        assertEquals(0f, corner30.rotation)
+    }
 
-      @Test
-      fun testPlayerTokenResourceIsConsistent() {
-          val token1 = getPlayerTokenResource("lindwurm")
-          val token2 = getPlayerTokenResource("lindwurm")
-          assertEquals(token1, token2)
-      }
+    @Test
+    fun testGetFieldImageMappingAllFields() {
+        // Test that we can map several important fields
+        val fieldNames = listOf(
+            "Go", "Herrengasse", "Heiligengeistplatz", "Neuer Platz",
+            "Hauptbahnhof", "Chance", "Community Chest"
+        )
 
-      @Test
-      fun testCalculateFieldBoundsFieldsAreInBoardBounds() {
-          for (index in 0 until 40) {
-              val bounds = calculateFieldBounds(index, 3840f, 2160f)
+        for (fieldName in fieldNames) {
+            val hasMapping = getFieldImageMapping(fieldName) != null
+            assertTrue("Field $fieldName should have a mapping", hasMapping)
+        }
+    }
 
-              assertTrue("Field $index x position should be within bounds", bounds.x >= 0f && bounds.x <= 3840f)
-              assertTrue("Field $index y position should be within bounds", bounds.y >= 0f && bounds.y <= 2160f)
-          }
-      }
+    @Test
+    fun testPlayerTokenResourceFallbackBehavior() {
+        // Test that unknown tokens fall back to default
+        val unknownToken = getPlayerTokenResource("unknown_token_xyz")
+        val defaultToken = getPlayerTokenResource("lindwurm")
+        assertEquals("Unknown tokens should fall back to default", unknownToken, defaultToken)
+    }
 
+    @Test
+    fun testCalculateFieldBoundsResolutionIndependence() {
+        // Test that calculations scale properly with different resolutions
+        val smallResolution = calculateFieldBounds(5, 1920f, 1080f)
+        val largeResolution = calculateFieldBounds(5, 3840f, 2160f)
 
+        // Large resolution should be exactly 2x of small resolution
+        assertEquals(smallResolution.x * 2f, largeResolution.x, 0.1f)
+        assertEquals(smallResolution.y * 2f, largeResolution.y, 0.1f)
+        assertEquals(smallResolution.width * 2f, largeResolution.width, 0.1f)
+        assertEquals(smallResolution.height * 2f, largeResolution.height, 0.1f)
+    }
 
-      @Test
-      fun testPlayerTokenResourceHandlesAllTokenTypes() {
-          val tokenTypes = listOf("lindwurm", "woerthersee", "gti", "ironman", "josef")
-          for (type in tokenTypes) {
-              val token = getPlayerTokenResource(type)
-              assertTrue("Token resource should exist for $type", token > 0)
-          }
-      }
+    @Test
+    fun testPropertyColorAllColorsMap() {
+        val colors = listOf(
+            PropertyColor.BROWN,
+            PropertyColor.LIGHT_BLUE,
+            PropertyColor.PINK,
+            PropertyColor.ORANGE,
+            PropertyColor.RED,
+            PropertyColor.YELLOW,
+            PropertyColor.GREEN,
+            PropertyColor.DARK_BLUE
+        )
 
+        for (color in colors) {
+            val composeColor = color.toComposeColor()
+            assertNotNull("Color $color should map to a Compose color", composeColor)
+        }
+    }
 
+    @Test
+    fun testZoomStateResetOnZoomOut() {
+        val state = ZoomState(initialScale = 2f, initialOffset = Offset(100f, 100f))
+        val containerSize = Size(1000f, 1000f)
 
-      @Test
-      fun testCalculateFieldBoundsCornerFieldsHaveConsistentSize() {
-          val corner0 = calculateFieldBounds(0, 3840f, 2160f)
-          val corner10 = calculateFieldBounds(10, 3840f, 2160f)
-          val corner20 = calculateFieldBounds(20, 3840f, 2160f)
-          val corner30 = calculateFieldBounds(30, 3840f, 2160f)
-
-          // All corners should be marked as corners
-          assertTrue(corner0.isCorner)
-          assertTrue(corner10.isCorner)
-          assertTrue(corner20.isCorner)
-          assertTrue(corner30.isCorner)
-
-          // Corner rotations should be 0 (aligned with board)
-          assertEquals(0f, corner0.rotation)
-          assertEquals(0f, corner10.rotation)
-          assertEquals(0f, corner20.rotation)
-          assertEquals(0f, corner30.rotation)
-      }
-
-
-
-      @Test
-      fun testGetFieldImageMappingAllFields() {
-          // Test that we can map several important fields
-          val fieldNames = listOf(
-              "Go", "Herrengasse", "Heiligengeistplatz", "Neuer Platz",
-              "Hauptbahnhof", "Chance", "Community Chest"
-          )
-
-          for (fieldName in fieldNames) {
-              val hasMapping = getFieldImageMapping(fieldName) != null
-              assertTrue("Field $fieldName should have a mapping", hasMapping)
-          }
-      }
-
-      @Test
-      fun testPlayerTokenResourceFallbackBehavior() {
-          // Test that unknown tokens fall back to default
-          val unknownToken = getPlayerTokenResource("unknown_token_xyz")
-          val defaultToken = getPlayerTokenResource("lindwurm")
-          assertEquals("Unknown tokens should fall back to default", unknownToken, defaultToken)
-      }
-
-      @Test
-      fun testCalculateFieldBoundsResolutionIndependence() {
-          // Test that calculations scale properly with different resolutions
-          val smallResolution = calculateFieldBounds(5, 1920f, 1080f)
-          val largeResolution = calculateFieldBounds(5, 3840f, 2160f)
-
-          // Large resolution should be exactly 2x of small resolution
-          assertEquals(smallResolution.x * 2f, largeResolution.x, 0.1f)
-          assertEquals(smallResolution.y * 2f, largeResolution.y, 0.1f)
-          assertEquals(smallResolution.width * 2f, largeResolution.width, 0.1f)
-          assertEquals(smallResolution.height * 2f, largeResolution.height, 0.1f)
-      }
-
-      @Test
-      fun testPropertyColorAllColorsMap() {
-          val colors = listOf(
-              PropertyColor.BROWN,
-              PropertyColor.LIGHT_BLUE,
-              PropertyColor.PINK,
-              PropertyColor.ORANGE,
-              PropertyColor.RED,
-              PropertyColor.YELLOW,
-              PropertyColor.GREEN,
-              PropertyColor.DARK_BLUE
-          )
-
-          for (color in colors) {
-              val composeColor = color.toComposeColor()
-              assertNotNull("Color $color should map to a Compose color", composeColor)
-          }
-      }
-
-      @Test
-      fun testZoomStateResetOnZoomOut() {
-          val state = ZoomState(initialScale = 2f, initialOffset = Offset(100f, 100f))
-          val containerSize = Size(1000f, 1000f)
-
-          // Should reset offset when zooming back to 1.0
-          state.updateTransformation(Offset(50f, 50f), 0.5f, containerSize)
-          assertEquals(1f, state.scale)
-          assertEquals(Offset.Zero, state.offset)
-      }
+        // Should reset offset when zooming back to 1.0
+        state.updateTransformation(Offset(50f, 50f), 0.5f, containerSize)
+        assertEquals(1f, state.scale)
+        assertEquals(Offset.Zero, state.offset)
+    }
 
     @Test
     fun testGameboardUIActivityIsLandscapeLocked() {
@@ -584,8 +567,8 @@ class GameboardScreenCoverageTest {
     val composeTestRule = createComposeRule()
 
     private fun createMockViewModel(
-        isHost: Boolean = false,
-        isGameStarted: Boolean = true,
+        canStart: Boolean = false,
+        isGameReadyValue: Boolean = true,
         isRollingPhase: Boolean = false,
         cardDrawn: Boolean = false,
         currentPlayerId: String = "player1",
@@ -600,6 +583,7 @@ class GameboardScreenCoverageTest {
             currentPlayerIndex = players.indexOfFirst { it.id == currentPlayerId }.takeIf { it >= 0 } ?: 0
         )
 
+
         every { vm.fields } returns MutableStateFlow(fields)
         every { vm.gameState } returns MutableStateFlow(gameState)
         every { vm.currentPlayerId } returns currentPlayerId
@@ -607,8 +591,6 @@ class GameboardScreenCoverageTest {
         every { vm.isRollingPhaseForCurrentPlayer } returns MutableStateFlow(isRollingPhase)
         every { vm.isBuyingPhaseForCurrentPlayer } returns MutableStateFlow(false)
         every { vm.lastDiceRoll } returns MutableStateFlow(null)
-        every { vm.isGameStarted } returns MutableStateFlow(isGameStarted)
-        every { vm.isHost } returns MutableStateFlow(isHost)
         every { vm.cardDrawnThisTurn } returns MutableStateFlow(cardDrawn)
         every { vm.currentActionCard } returns MutableStateFlow(null)
         every { vm.isExecutingAction } returns MutableStateFlow(false)
@@ -616,12 +598,20 @@ class GameboardScreenCoverageTest {
         every { vm.selectedPlayerForOverlay } returns MutableStateFlow(null)
         every { vm.movementAnimation } returns MutableStateFlow(null)
 
+
+        every { vm.canStartGame } returns MutableStateFlow(canStart)
+        every { vm.isGameReady } returns MutableStateFlow(isGameReadyValue)
+        every { vm.showDiceOverlayForCurrentPlayer } returns MutableStateFlow(false)
+        every { vm.diceResultForCurrentPlayer } returns MutableStateFlow(null)
+        every { vm.errorMessage } returns MutableStateFlow(null)
+
         return vm
     }
 
     @Test
     fun testStartGameButton() {
-        val mockVm = createMockViewModel(isHost = true, isGameStarted = false)
+
+        val mockVm = createMockViewModel(canStart = true, isGameReadyValue = false)
         composeTestRule.setContent { GameboardScreen(viewModel = mockVm) }
 
         composeTestRule.onNodeWithText("Start Game").performClick()
@@ -678,5 +668,3 @@ class GameboardScreenCoverageTest {
         composeTestRule.onNodeWithTag("roll_dice_button").assertExists()
     }
 }
-
-

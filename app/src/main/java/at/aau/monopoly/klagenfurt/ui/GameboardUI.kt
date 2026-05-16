@@ -147,8 +147,7 @@ fun GameboardScreen(
     val isRollingPhaseForCurrentPlayer by viewModel.isRollingPhaseForCurrentPlayer.collectAsState()
     val isBuyingPhaseForCurrentPlayer by viewModel.isBuyingPhaseForCurrentPlayer.collectAsState()
     val lastDiceRoll by viewModel.lastDiceRoll.collectAsState()
-    val isGameStarted by viewModel.isGameStarted.collectAsState()
-    val isHost by viewModel.isHost.collectAsState()
+    val canStartGame by viewModel.canStartGame.collectAsState()
     val cardDrawnThisTurn by viewModel.cardDrawnThisTurn.collectAsState()
 
     val canBuyCurrentField =
@@ -253,7 +252,7 @@ fun GameboardScreen(
                 .padding(20.dp),
             horizontalAlignment = Alignment.End
         ) {
-            if (isHost && !isGameStarted) {
+            if (canStartGame) {
                 Button(
                     onClick = { viewModel.startGame() },
                     modifier = Modifier.padding(bottom = 8.dp)

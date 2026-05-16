@@ -212,13 +212,13 @@ class GameViewModel(
         .map { it != null }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
-    val isGameStarted: StateFlow<Boolean> = gameState
-        .map { it?.phase != null && it.phase != GamePhase.WAITING }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
-
-    val isHost: StateFlow<Boolean> = gameState
+    val canStartGame: StateFlow<Boolean> = gameState
         .map { state ->
-            state?.players?.firstOrNull()?.id == gameService.currentPlayerId
+            val players = state?.players.orEmpty()
+            val isHost = players.firstOrNull()?.id == gameService.currentPlayerId
+            val isWaiting = state?.phase == GamePhase.WAITING
+
+            isHost && isWaiting && players.size >= 2
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 

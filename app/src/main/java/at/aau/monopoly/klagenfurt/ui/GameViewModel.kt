@@ -187,10 +187,9 @@ class GameViewModel(
         .runningFold<GameEvent, GameState?>(null) { lastState, event ->
             val eventGameId = event.gameId
 
-            val isDifferentGame =
-                eventGameId.isNotBlank() &&
-                        gameService.currentGameId.isNotBlank() &&
-                        eventGameId != gameService.currentGameId
+            val isDifferentGame = eventGameId.isNotBlank() &&
+                    gameService.currentGameId.isNotBlank() &&
+                    eventGameId != gameService.currentGameId
 
             if (isDifferentGame) {
                 lastState
@@ -198,6 +197,7 @@ class GameViewModel(
                 event.gameState ?: lastState
             }
         }
+
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5000),
@@ -233,12 +233,10 @@ class GameViewModel(
 
             val shouldIgnore =
                 event.event == "ERROR" ||
-                        (
-                                event.event != "GAME_CREATED" &&
-                                        incomingGameId.isNotBlank() &&
-                                        gameService.currentGameId.isNotBlank() &&
-                                        incomingGameId != gameService.currentGameId
-                                )
+                        (event.event != "GAME_CREATED" &&
+                                incomingGameId.isNotBlank() &&
+                                gameService.currentGameId.isNotBlank() &&
+                                incomingGameId != gameService.currentGameId)
 
             if (shouldIgnore) {
                 if (event.event == "ERROR") {
@@ -375,6 +373,10 @@ class GameViewModel(
 
     fun endTurn() = gameService.endTurn()
 
+    fun payJailFine() = gameService.payJailFine()
+    fun useJailCard() = gameService.useJailCard()
+
+
     fun requestState() = gameService.requestState()
 
     fun setGameId(gameId: String) = gameService.setGameId(gameId)
@@ -430,6 +432,11 @@ class GameViewModel(
             "TURN_ENDED" -> "Turn ended"
             "STATE_UPDATED" -> "Game state updated"
             "STATE_SNAPSHOT" -> "State snapshot synced"
+
+
+            "JAIL_FINE_PAID" -> "Bail paid: 50M"
+            "JAIL_CARD_USED" -> "Used 'Get out of jail free' card"
+            "PLAYER_JAILED" -> "Player went to jail!"
             "ACTION_DRAWN" -> "Action card drawn!"
             "ACTION_EXECUTED" -> "Action executed"
             else -> eventType.replace("_", " ")

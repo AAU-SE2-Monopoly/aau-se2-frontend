@@ -61,12 +61,15 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.filter
 import android.view.KeyEvent
 import at.aau.monopoly.klagenfurt.model.enums.GamePhase
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.derivedStateOf
 import at.aau.monopoly.klagenfurt.model.field.ChanceField
 import at.aau.monopoly.klagenfurt.model.field.CommunityChestField
 import at.aau.monopoly.klagenfurt.model.field.PropertyField
 import at.aau.monopoly.klagenfurt.model.field.RailroadField
 import at.aau.monopoly.klagenfurt.model.field.UtilityField
+
+
 
 class GameboardUI : ComponentActivity() {
     private val viewModel: GameViewModel by viewModels {
@@ -250,7 +253,8 @@ fun GameboardScreen(
             modifier = Modifier
                 .align(Alignment.BottomEnd)
                 .padding(20.dp),
-            horizontalAlignment = Alignment.End
+            horizontalAlignment = Alignment.End,
+            verticalArrangement = Arrangement.spacedBy(8.dp) // WICHTIG: Abstand zwischen den Buttons
         ) {
             if (canStartGame) {
                 Button(
@@ -261,15 +265,55 @@ fun GameboardScreen(
                 }
             }
 
-            if (isRollingPhaseForCurrentPlayer) {
-                Button(
-                    onClick = {
-                        // Only open the overlay – the actual dice roll is triggered by a shake.
-                        showOverlay = true
-                    },
-                    modifier = Modifier.testTag("roll_dice_button")
-                ) {
-                    Text("🎲 Roll Dice")
+            if (isRollingPhaseForCurrentPlayer && currentTurnPlayer != null) {
+                // Jail Logic
+                if (currentTurnPlayer.inJail) {
+
+                    Text(
+                        text = "Im Gefängnis (Versuch ${currentTurnPlayer.jailTurns + 1}/3)",
+                        modifier = Modifier
+                            .background(Color.White.copy(alpha = 0.8f), shape = RoundedCornerShape(4.dp))
+                            .padding(horizontal = 8.dp, vertical = 4.dp),
+                        color = Color.Black
+                    )
+
+                    Button(
+                        onClick = { viewModel.payJailFine() },
+                        enabled = currentTurnPlayer.money >= 50,
+                        modifier = Modifier.testTag("pay_jail_fine_button")
+                    ) {
+                        Text("💰 50 M zahlen")
+                    }
+
+
+                    if (currentTurnPlayer.getOutOfJailCards > 0) {
+                        Button(
+                            onClick = { viewModel.useJailCard() },
+                            modifier = Modifier.testTag("use_jail_card_button")
+                        ) {
+                            Text("🃏 Karte nutzen (${currentTurnPlayer.getOutOfJailCards})")
+                        }
+                    }
+
+
+                    Button(
+                        onClick = { showOverlay = true },
+                        modifier = Modifier.testTag("roll_dice_button")
+                    ) {
+                        Text("🎲 Pasch versuchen")
+                    }
+                }
+
+                else {
+                    Button(
+                        onClick = {
+
+                            showOverlay = true
+                        },
+                        modifier = Modifier.testTag("roll_dice_button")
+                    ) {
+                        Text("🎲 Roll Dice")
+                    }
                 }
             }
 
@@ -438,7 +482,7 @@ fun GameboardContent(
                     // Old flat PlayerToken loop removed – tokens are now rendered inside FieldItem.
                 }
 
-                
+
                 // Field card centered on the board — inside ZoomableWrapper so it
                 // inherits the same zoom/pan transforms as the board fields.
                 if (currentField != null) {

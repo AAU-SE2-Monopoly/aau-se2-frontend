@@ -296,7 +296,6 @@ class GameStompClient(
         _currentGameId = savedGameId
     }
 
-
     private val objectMapper = JacksonProvider.objectMapper
 
     override suspend fun createGame(playerName: String, iconId: String): String? {
@@ -310,47 +309,45 @@ class GameStompClient(
 
         Log.d("GameStomp", "Sending create command for player: $playerName with icon: $iconId")
 
-        val createEvent = coroutineScope {
+        val createEventResult = coroutineScope {
             val responseDeferred = async(start = CoroutineStart.UNDISPATCHED) {
-                _events
-                    .mapNotNull { json ->
-                        try {
-                            val event = objectMapper.readValue(json, GameEvent::class.java)
-                            if (event.event == "GAME_CREATED") event else null
-                        } catch (_: Exception) {
-                            // Ignore parse errors
-                            null
+                withTimeoutOrNull(10_000L) {
+                    _events
+                        .mapNotNull { json ->
+                            try {
+                                val event = objectMapper.readValue(json, GameEvent::class.java)
+                                if (event.event == "GAME_CREATED") event else null
+                            } catch (_: Exception) {
+                                // Ignore parse errors
+                                null
+                            }
                         }
-                    }
-                    .first()
+                        .first()
+                }
             }
 
-            // Launch the send asynchronously so we can start collecting events before the
-            // server responds.
+            // Launch the send asynchronously so we can start collecting events before the server responds.
             scope.launch {
                 sendRawInternal("/app/game/create", playerJson)
             }
 
-            val result = withTimeoutOrNull(10_000L) { responseDeferred.await() }
+            val result = responseDeferred.await()
             if (result == null) {
                 responseDeferred.cancel()
             }
             result
         }
 
-        if (createEvent == null) {
+        if (createEventResult == null) {
             emitStatus("Create game failed: no response from server (timeout)")
-            // Note: the game may still have been created on the server.
-            // Server-side TTL on empty WAITING games is the proper mitigation.
             return null
         }
 
-        val gameId = createEvent.gameId
+        val gameId = createEventResult.gameId
         if (gameId.isNullOrBlank()) {
             emitStatus("Create game failed: no gameId in response")
             return null
         }
-
 
         val subscribed = subscribeToGameInternal(
             gameId = gameId,
@@ -368,7 +365,6 @@ class GameStompClient(
     override suspend fun joinGame(gameId: String, playerName: String, iconId: String): Result<GameEvent> {
         _currentPlayerName = playerName
 
-
         val subscribed = subscribeToGameInternal(
             gameId = gameId,
             requestStateAfterSubscribe = true
@@ -380,37 +376,38 @@ class GameStompClient(
 
         Log.d("GameStomp", "Sending join command for game: $gameId with icon: $iconId")
 
-        val result = coroutineScope {
+        val joinEventResult = coroutineScope {
             val responseDeferred = async(start = CoroutineStart.UNDISPATCHED) {
-                _events
-                    .mapNotNull { json ->
-                        try {
-                            val event = objectMapper.readValue(json, GameEvent::class.java)
+                withTimeoutOrNull(15_000L) {
+                    _events
+                        .mapNotNull { json ->
+                            try {
+                                val event = objectMapper.readValue(json, GameEvent::class.java)
 
-                            // Ignore events from other games
-                            if (event.gameId != gameId) return@mapNotNull null
+                                // Ignore events from other games
+                                if (event.gameId != gameId) return@mapNotNull null
 
-                            when (event.event) {
-                                "PLAYER_JOINED" -> {
-                                    val isOurJoin = event.gameState?.players
-                                        ?.any { it.id == currentPlayerId } == true
-                                    if (isOurJoin) event else null
+                                when (event.event) {
+                                    "PLAYER_JOINED" -> {
+                                        val isOurJoin = event.gameState?.players
+                                            ?.any { it.id == currentPlayerId } == true
+                                        if (isOurJoin) event else null
+                                    }
+                                    "ERROR" -> {
+                                        event
+                                    }
+                                    else -> null
                                 }
-                                "ERROR" -> {
-                                    event
-                                }
-                                else -> null
+                            } catch (_: Exception) {
+                                // Ignore parse errors
+                                null
                             }
-                        } catch (_: Exception) {
-                            // Ignore parse errors
-                            null
                         }
-                    }
-                    .first()
+                        .first()
+                }
             }
 
-            // Launch the send asynchronously so we can start collecting events before the
-            // server responds.
+            // Launch the send asynchronously so we can start collecting events before the server responds.
             scope.launch {
                 sendRawInternal(
                     "/app/game/join",
@@ -418,54 +415,57 @@ class GameStompClient(
                 )
             }
 
-            val awaited = withTimeoutOrNull(15_000L) { responseDeferred.await() }
+            val awaited = responseDeferred.await()
             if (awaited == null) {
                 responseDeferred.cancel()
             }
             awaited
         }
 
-        if (result == null) {
+        if (joinEventResult == null) {
             val msg = "Join timeout: no server response for game $gameId"
             Log.w("GameStomp", msg)
             emitStatus(msg)
             return Result.failure(Exception(msg))
         }
 
-        return when (result.event) {
+        return when (joinEventResult.event) {
             "PLAYER_JOINED" -> {
                 Log.d("GameStomp", "Join confirmed for game $gameId")
-                Result.success(result)
+                Result.success(joinEventResult)
             }
             "ERROR" -> {
-                val errMsg = result.message ?: "Join rejected by server"
+                val errMsg = joinEventResult.message ?: "Join rejected by server"
                 Log.w("GameStomp", "Join rejected for game $gameId: $errMsg")
                 emitStatus(errMsg)
                 Result.failure(Exception(errMsg))
             }
             else -> {
-                // Should not happen since waitForEventOnGameTopic only returns on these
-                Result.failure(Exception("Unexpected event: ${result.event}"))
+                Result.failure(Exception("Unexpected event: ${joinEventResult.event}"))
             }
         }
     }
 
     override fun startGame() = sendRaw("/app/game/start", buildAction())
+
     override fun rollDice(isCheating: Boolean) {
-        // Prepare cheat info as a map
         val actionPayload = if (isCheating) {
             mapOf("cheat" to "true")
         } else {
             emptyMap()
         }
 
-        // Pass the payload to buildAction
         val payload = buildAction("ROLL_DICE", actionPayload)
 
         Log.d("DiceDebug", "rollDice gameId=$_currentGameId playerId=$currentPlayerId isCheating=$isCheating payload=$payload")
         sendRaw("/app/game/action", payload)
     }
+
     override fun endTurn() = sendRaw("/app/game/action", buildAction("END_TURN"))
+
+    override fun payJailFine() = sendRaw("/app/game/action", buildAction("PAY_JAIL_FINE"))
+    override fun useJailCard() = sendRaw("/app/game/action", buildAction("USE_JAIL_CARD"))
+
     override fun requestState() = sendRaw("/app/game/state", buildAction())
 
     override fun setGameId(gameId: String) {
@@ -509,6 +509,7 @@ class GameStompClient(
             var ready = withTimeoutOrNull(8_000L) {
                 gameChannel.isReady.first { it }
             }
+
             if (ready == null) {
                 Log.w("GameStomp", "Subscription timed out for $gameId (attempt 1/2) – retrying")
                 gameChannel.cancel()
@@ -517,6 +518,7 @@ class GameStompClient(
                     gameChannel.isReady.first { it }
                 }
             }
+
             if (ready == null) {
                 Log.e("GameStomp", "Subscription timed out for $gameId (attempt 2/2)")
                 if (isNewlyCreated && gameId.isNotEmpty() && gameId == _currentGameId) {
@@ -582,8 +584,6 @@ class GameStompClient(
                 (e is IllegalStateException && e.message?.contains("cancelled", ignoreCase = true) == true) ||
                 (e.cause is CancellationException)
     }
-
-
 
     override fun executeAction(playerId: String) {
         Log.d("GameStomp", "Executing action for player: $playerId")

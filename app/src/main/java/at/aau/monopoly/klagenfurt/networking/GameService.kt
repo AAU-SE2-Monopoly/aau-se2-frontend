@@ -40,6 +40,8 @@ interface GameService {
     fun endTurn()
     fun requestState()
     fun setGameId(gameId: String)
+    fun payJailFine()
+    fun useJailCard()
     fun executeAction(playerId: String)
     fun drawCard(cardType: String = "CHANCE")
     fun buyProperty(fieldId: Int)

@@ -17,6 +17,15 @@ import at.aau.monopoly.klagenfurt.ui.util.getPlayerTokenResource
 import at.aau.monopoly.klagenfurt.ui.util.toComposeColor
 import at.aau.monopoly.klagenfurt.ui.zoom.ZoomState
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.junit4.createComposeRule
+import at.aau.monopoly.klagenfurt.model.GameState
+import at.aau.monopoly.klagenfurt.model.field.ChanceField
+import at.aau.monopoly.klagenfurt.model.field.CommunityChestField
+import at.aau.monopoly.klagenfurt.model.field.Field
+import io.mockk.every
+import io.mockk.mockk
+import io.mockk.verify
+import kotlinx.coroutines.flow.MutableStateFlow
 
 
 import androidx.compose.ui.test.onNodeWithText
@@ -566,6 +575,108 @@ class GameboardUITest {
             .assertDoesNotExist()
     }
 
+}
+
+@RunWith(AndroidJUnit4::class)
+class GameboardScreenCoverageTest {
+
+    @get:Rule
+    val composeTestRule = createComposeRule()
+
+    private fun createMockViewModel(
+        isHost: Boolean = false,
+        isGameStarted: Boolean = true,
+        isRollingPhase: Boolean = false,
+        cardDrawn: Boolean = false,
+        currentPlayerId: String = "player1",
+        players: List<Player> = emptyList(),
+        fields: List<Field> = emptyList()
+    ): GameViewModel {
+        val vm = mockk<GameViewModel>(relaxed = true)
+        val gameState = GameState(
+            gameId = "test_game",
+            fields = fields,
+            players = players.toMutableList(),
+            currentPlayerIndex = players.indexOfFirst { it.id == currentPlayerId }.takeIf { it >= 0 } ?: 0
+        )
+
+        every { vm.fields } returns MutableStateFlow(fields)
+        every { vm.gameState } returns MutableStateFlow(gameState)
+        every { vm.currentPlayerId } returns currentPlayerId
+        every { vm.eventLog } returns MutableStateFlow(emptyList())
+        every { vm.isRollingPhaseForCurrentPlayer } returns MutableStateFlow(isRollingPhase)
+        every { vm.isBuyingPhaseForCurrentPlayer } returns MutableStateFlow(false)
+        every { vm.lastDiceRoll } returns MutableStateFlow(null)
+        every { vm.isGameStarted } returns MutableStateFlow(isGameStarted)
+        every { vm.isHost } returns MutableStateFlow(isHost)
+        every { vm.cardDrawnThisTurn } returns MutableStateFlow(cardDrawn)
+        every { vm.currentActionCard } returns MutableStateFlow(null)
+        every { vm.isExecutingAction } returns MutableStateFlow(false)
+        every { vm.showActionCardOverlay } returns MutableStateFlow(false)
+        every { vm.selectedPlayerForOverlay } returns MutableStateFlow(null)
+        every { vm.movementAnimation } returns MutableStateFlow(null)
+
+        return vm
+    }
+
+    @Test
+    fun testStartGameButton() {
+        val mockVm = createMockViewModel(isHost = true, isGameStarted = false)
+        composeTestRule.setContent { GameboardScreen(viewModel = mockVm) }
+
+        composeTestRule.onNodeWithText("Start Game").performClick()
+        verify { mockVm.startGame() }
+    }
+
+    @Test
+    fun testChanceFieldButton() {
+        val player = Player(id = "player1", name = "P1", position = 0)
+        val mockVm = createMockViewModel(players = listOf(player), fields = listOf(ChanceField(id = 0, name = "Chance")))
+
+        composeTestRule.setContent { GameboardScreen(viewModel = mockVm) }
+
+        composeTestRule.onNodeWithText("🎰 Draw Chance").performClick()
+        verify { mockVm.drawCard("CHANCE") }
+    }
+
+    @Test
+    fun testCommunityChestFieldButton() {
+        val player = Player(id = "player1", name = "P1", position = 0)
+        val mockVm = createMockViewModel(players = listOf(player), fields = listOf(CommunityChestField(id = 0, name = "Community Chest")))
+
+        composeTestRule.setContent { GameboardScreen(viewModel = mockVm) }
+
+        composeTestRule.onNodeWithText("⭐ Draw Community").performClick()
+        verify { mockVm.drawCard("COMMUNITY_CHEST") }
+    }
+
+    @Test
+    fun testCardAlreadyDrawn() {
+        val player = Player(id = "player1", name = "P1", position = 0)
+        val mockVm = createMockViewModel(players = listOf(player), fields = listOf(ChanceField(id = 0, name = "Chance")), cardDrawn = true)
+
+        composeTestRule.setContent { GameboardScreen(viewModel = mockVm) }
+
+        composeTestRule.onNodeWithText("✓ Card Drawn").assertExists()
+    }
+
+    @Test
+    fun testJailLogic() {
+        val jailedPlayer = Player(id = "player1", name = "P1", position = 10, inJail = true, jailTurns = 1, money = 100, getOutOfJailCards = 1)
+        val mockVm = createMockViewModel(isRollingPhase = true, players = listOf(jailedPlayer))
+
+        composeTestRule.setContent { GameboardScreen(viewModel = mockVm) }
+
+        composeTestRule.onNodeWithText("Im Gefängnis (Versuch 2/3)").assertExists()
+
+        composeTestRule.onNodeWithTag("pay_jail_fine_button").performClick()
+        verify { mockVm.payJailFine() }
+
+        composeTestRule.onNodeWithTag("use_jail_card_button").performClick()
+        verify { mockVm.useJailCard() }
+
+        composeTestRule.onNodeWithTag("roll_dice_button").assertExists()
+    }
 }
 
 

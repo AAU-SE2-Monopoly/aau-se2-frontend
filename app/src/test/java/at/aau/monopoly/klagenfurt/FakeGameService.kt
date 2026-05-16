@@ -188,6 +188,10 @@ class FakeGameService : GameService {
         _reconnectFailed.value = failed
     }
 
+    override fun payJailFine(){}
+
+    override fun useJailCard(){}
+
     fun emitGameState(gameState: GameState) {
         val event = GameEvent(
             gameId = gameState.gameId,

@@ -16,7 +16,9 @@ data class GameState(
     val communityChestCards: MutableList<CommunityChestCard> = mutableListOf(),
     var freeParkingMoney: Int = 0,
     var lastDiceRoll: DiceRoll? = null, // replaced Pair with serializable DiceRoll
-    var currentActionCard: Card? = null // Current action card (drawn from deck, pending execution)
+    var currentActionCard: Card? = null, // Current action card (drawn from deck, pending execution)
+    var hasDrawnChanceCardThisTurn: Boolean = false,
+    var hasDrawnCommunityChestCardThisTurn: Boolean = false,
 ) {
     /** The player whose turn it currently is. */
     val currentPlayer: Player?

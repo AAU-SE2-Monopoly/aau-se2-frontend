@@ -151,8 +151,9 @@ fun GameboardScreen(
     val isBuyingPhaseForCurrentPlayer by viewModel.isBuyingPhaseForCurrentPlayer.collectAsState()
     val lastDiceRoll by viewModel.lastDiceRoll.collectAsState()
     val canStartGame by viewModel.canStartGame.collectAsState()
-    val cardDrawnThisTurn by viewModel.cardDrawnThisTurn.collectAsState()
-
+    val chanceCardDrawnThisTurn by viewModel.chanceCardDrawnThisTurn.collectAsState()
+    val communityChestCardDrawnThisTurn by viewModel.communityChestCardDrawnThisTurn.collectAsState()
+    val canEndTurnForCurrentPlayer by viewModel.canEndTurnForCurrentPlayer.collectAsState()
     val canBuyCurrentField =
         isBuyingPhaseForCurrentPlayer &&
                 isBuyableField &&
@@ -317,7 +318,7 @@ fun GameboardScreen(
                 }
             }
 
-            if (isBuyingPhaseForCurrentPlayer) {
+            if (canEndTurnForCurrentPlayer) {
                 Button(
                     onClick = { viewModel.endTurn() },
                     modifier = Modifier
@@ -341,23 +342,23 @@ fun GameboardScreen(
                 }
             }
 
-            if (isOnChanceField) {
+            if (isOnChanceField && isBuyingPhaseForCurrentPlayer) {
                 Button(
                     onClick = { viewModel.drawCard("CHANCE") },
-                    enabled = !showActionCardOverlay && !cardDrawnThisTurn,
+                    enabled = !showActionCardOverlay && !chanceCardDrawnThisTurn,
                     modifier = Modifier.padding(top = 8.dp)
                 ) {
-                    Text(if (cardDrawnThisTurn) "✓ Card Drawn" else "🎰 Draw Chance")
+                    Text(if (chanceCardDrawnThisTurn) "✓ Card Drawn" else "🎰 Draw Chance")
                 }
             }
 
-            if (isOnCommunityChestField) {
+            if (isOnCommunityChestField && isBuyingPhaseForCurrentPlayer) {
                 Button(
                     onClick = { viewModel.drawCard("COMMUNITY_CHEST") },
-                    enabled = !showActionCardOverlay && !cardDrawnThisTurn,
+                    enabled = !showActionCardOverlay && !communityChestCardDrawnThisTurn,
                     modifier = Modifier.padding(top = 8.dp)
                 ) {
-                    Text(if (cardDrawnThisTurn) "✓ Card Drawn" else "⭐ Draw Community")
+                    Text(if (communityChestCardDrawnThisTurn) "✓ Card Drawn" else "⭐ Draw Community")
                 }
             }
 

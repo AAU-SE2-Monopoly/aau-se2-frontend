@@ -159,12 +159,16 @@ class GameViewModel(
                 if (event.event == "ACTION_EXECUTED") {
                     _currentActionCard.value = null
                     _isExecutingAction.value = false
-                    _cardDrawnThisTurn.value = false
+                    // Keep _cardDrawnThisTurn = true so the draw button stays
+                    // hidden for the rest of this turn (one draw per turn).
                 }
 
                 if (event.event == "TURN_ENDED") {
                     _cardDrawnThisTurn.value = false
                     lastCurrentPlayerIdForCardDraw = null
+                    // Request fresh state so the UI picks up the next player's ROLLING phase.
+                    // Without this, the gameState may still hold TURN_END and no buttons are shown.
+                    gameService.requestState()
                 }
 
                 // Reset the flag if the current player has changed (e.g., new turn starts)

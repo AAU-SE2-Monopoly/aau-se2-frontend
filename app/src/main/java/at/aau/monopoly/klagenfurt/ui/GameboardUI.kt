@@ -377,6 +377,12 @@ fun GameboardScreen(
             diceResult = lastDiceRoll?.let { Pair(it.die1, it.die2) },
             isRolling = isRollingPhaseForCurrentPlayer,
             hasShaken = hasShaken,
+            onShakeButton = {
+                if (!hasShaken && isRollingPhaseForCurrentPlayer) {
+                    hasShaken = true
+                    viewModel.rollDice()
+                }
+            },
             onClose = { showOverlay = false }
         )
 

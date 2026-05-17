@@ -44,6 +44,7 @@ fun DiceRollOverlay(
     diceResult: Pair<Int, Int>? = null,
     isRolling: Boolean = false,
     hasShaken: Boolean = false,
+    onShakeButton: (() -> Unit)? = null,
     onClose: () -> Unit
 ) {
     // Allow user to manually dismiss the overlay; resets when overlay reappears
@@ -176,6 +177,19 @@ fun DiceRollOverlay(
                     color = Color.Gray,
                     modifier = Modifier.testTag("dice_instruction_text")
                 )
+
+                // Manual shake button for emulator / accessibility
+                if (!hasShaken && onShakeButton != null) {
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Button(
+                        onClick = onShakeButton,
+                        modifier = Modifier
+                            .size(width = 150.dp, height = 40.dp)
+                            .testTag("shake_button")
+                    ) {
+                        Text("Shake 📱")
+                    }
+                }
 
                 Spacer(modifier = Modifier.weight(1f))
 

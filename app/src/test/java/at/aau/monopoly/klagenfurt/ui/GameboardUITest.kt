@@ -570,10 +570,13 @@ class GameboardScreenCoverageTest {
         canStart: Boolean = false,
         isGameReadyValue: Boolean = true,
         isRollingPhase: Boolean = false,
-        cardDrawn: Boolean = false,
+        isBuyingPhase: Boolean = false,
+        chanceCardDrawn: Boolean = false,
+        communityChestCardDrawn: Boolean = false,
         currentPlayerId: String = "player1",
         players: List<Player> = emptyList(),
         fields: List<Field> = emptyList()
+
     ): GameViewModel {
         val vm = mockk<GameViewModel>(relaxed = true)
         val gameState = GameState(
@@ -589,10 +592,13 @@ class GameboardScreenCoverageTest {
         every { vm.currentPlayerId } returns currentPlayerId
         every { vm.eventLog } returns MutableStateFlow(emptyList())
         every { vm.isRollingPhaseForCurrentPlayer } returns MutableStateFlow(isRollingPhase)
-        every { vm.isBuyingPhaseForCurrentPlayer } returns MutableStateFlow(false)
+        every { vm.isBuyingPhaseForCurrentPlayer } returns MutableStateFlow(isBuyingPhase)
+        every { vm.chanceCardDrawnThisTurn } returns MutableStateFlow(chanceCardDrawn)
+        every { vm.communityChestCardDrawnThisTurn } returns MutableStateFlow(communityChestCardDrawn)
+        every { vm.canEndTurnForCurrentPlayer } returns MutableStateFlow(isBuyingPhase)
         every { vm.lastDiceRoll } returns MutableStateFlow(null)
-        every { vm.chanceCardDrawnThisTurn } returns MutableStateFlow(cardDrawn)
-        every { vm.communityChestCardDrawnThisTurn } returns MutableStateFlow(cardDrawn)
+        every { vm.chanceCardDrawnThisTurn } returns MutableStateFlow(chanceCardDrawn)
+        every { vm.communityChestCardDrawnThisTurn } returns MutableStateFlow(communityChestCardDrawn)
         every { vm.currentActionCard } returns MutableStateFlow(null)
         every { vm.isExecutingAction } returns MutableStateFlow(false)
         every { vm.showActionCardOverlay } returns MutableStateFlow(false)
@@ -611,8 +617,8 @@ class GameboardScreenCoverageTest {
 
     @Test
     fun testStartGameButton() {
-
         val mockVm = createMockViewModel(canStart = true, isGameReadyValue = false)
+
         composeTestRule.setContent { GameboardScreen(viewModel = mockVm) }
 
         composeTestRule.onNodeWithText("Start Game").performClick()
@@ -622,7 +628,12 @@ class GameboardScreenCoverageTest {
     @Test
     fun testChanceFieldButton() {
         val player = Player(id = "player1", name = "P1", position = 0)
-        val mockVm = createMockViewModel(players = listOf(player), fields = listOf(ChanceField(id = 0, name = "Chance")))
+
+        val mockVm = createMockViewModel(
+            isBuyingPhase = true,
+            players = listOf(player),
+            fields = listOf(ChanceField(id = 0, name = "Chance"))
+        )
 
         composeTestRule.setContent { GameboardScreen(viewModel = mockVm) }
 
@@ -633,7 +644,12 @@ class GameboardScreenCoverageTest {
     @Test
     fun testCommunityChestFieldButton() {
         val player = Player(id = "player1", name = "P1", position = 0)
-        val mockVm = createMockViewModel(players = listOf(player), fields = listOf(CommunityChestField(id = 0, name = "Community Chest")))
+
+        val mockVm = createMockViewModel(
+            isBuyingPhase = true,
+            players = listOf(player),
+            fields = listOf(CommunityChestField(id = 0, name = "Community Chest"))
+        )
 
         composeTestRule.setContent { GameboardScreen(viewModel = mockVm) }
 
@@ -642,9 +658,15 @@ class GameboardScreenCoverageTest {
     }
 
     @Test
-    fun testCardAlreadyDrawn() {
+    fun testChanceCardAlreadyDrawn() {
         val player = Player(id = "player1", name = "P1", position = 0)
-        val mockVm = createMockViewModel(players = listOf(player), fields = listOf(ChanceField(id = 0, name = "Chance")), cardDrawn = true)
+
+        val mockVm = createMockViewModel(
+            isBuyingPhase = true,
+            chanceCardDrawn = true,
+            players = listOf(player),
+            fields = listOf(ChanceField(id = 0, name = "Chance"))
+        )
 
         composeTestRule.setContent { GameboardScreen(viewModel = mockVm) }
 
@@ -653,8 +675,20 @@ class GameboardScreenCoverageTest {
 
     @Test
     fun testJailLogic() {
-        val jailedPlayer = Player(id = "player1", name = "P1", position = 10, inJail = true, jailTurns = 1, money = 100, getOutOfJailCards = 1)
-        val mockVm = createMockViewModel(isRollingPhase = true, players = listOf(jailedPlayer))
+        val jailedPlayer = Player(
+            id = "player1",
+            name = "P1",
+            position = 10,
+            inJail = true,
+            jailTurns = 1,
+            money = 100,
+            getOutOfJailCards = 1
+        )
+
+        val mockVm = createMockViewModel(
+            isRollingPhase = true,
+            players = listOf(jailedPlayer)
+        )
 
         composeTestRule.setContent { GameboardScreen(viewModel = mockVm) }
 

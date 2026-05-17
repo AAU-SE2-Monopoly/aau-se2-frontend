@@ -310,6 +310,13 @@ class GameViewModel(
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
+    val canEndTurnForCurrentPlayer: StateFlow<Boolean> = gameState
+        .map { state ->
+            (state?.phase == GamePhase.BUYING ||
+                    state?.phase == GamePhase.TURN_END) &&
+                    state.currentPlayer?.id == gameService.currentPlayerId
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
     val diceResultForCurrentPlayer: StateFlow<DiceRoll?> = gameState
         .map { state ->
             if (

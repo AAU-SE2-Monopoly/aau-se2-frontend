@@ -153,7 +153,7 @@ fun GameboardScreen(
     val canStartGame by viewModel.canStartGame.collectAsState()
     val chanceCardDrawnThisTurn by viewModel.chanceCardDrawnThisTurn.collectAsState()
     val communityChestCardDrawnThisTurn by viewModel.communityChestCardDrawnThisTurn.collectAsState()
-
+    val canEndTurnForCurrentPlayer by viewModel.canEndTurnForCurrentPlayer.collectAsState()
     val canBuyCurrentField =
         isBuyingPhaseForCurrentPlayer &&
                 isBuyableField &&
@@ -318,7 +318,7 @@ fun GameboardScreen(
                 }
             }
 
-            if (isBuyingPhaseForCurrentPlayer) {
+            if (canEndTurnForCurrentPlayer) {
                 Button(
                     onClick = { viewModel.endTurn() },
                     modifier = Modifier

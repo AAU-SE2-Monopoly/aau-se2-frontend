@@ -92,8 +92,11 @@ class GameViewModel(
     private val _selectedPlayerForOverlay = MutableStateFlow<Player?>(null)
     val selectedPlayerForOverlay: StateFlow<Player?> = _selectedPlayerForOverlay.asStateFlow()
 
-    private val _cardDrawnThisTurn = MutableStateFlow(false)
-    val cardDrawnThisTurn: StateFlow<Boolean> = _cardDrawnThisTurn.asStateFlow()
+    private val _chanceCardDrawnThisTurn = MutableStateFlow(false)
+    val chanceCardDrawnThisTurn: StateFlow<Boolean> = _chanceCardDrawnThisTurn.asStateFlow()
+
+    private val _communityChestCardDrawnThisTurn = MutableStateFlow(false)
+    val communityChestCardDrawnThisTurn: StateFlow<Boolean> = _communityChestCardDrawnThisTurn.asStateFlow()
 
     private var lastCurrentPlayerIdForCardDraw: String? = null
 
@@ -111,6 +114,11 @@ class GameViewModel(
                 // Capture old state before updating, then remember the new state.
                 val oldState = previousGameState
                 event.gameState?.let { previousGameState = it }
+
+                event.gameState?.let { state ->
+                    _chanceCardDrawnThisTurn.value = state.hasDrawnChanceCardThisTurn
+                    _communityChestCardDrawnThisTurn.value = state.hasDrawnCommunityChestCardThisTurn
+                }
 
                 // Detect position changes on DICE_ROLLED events and drive animation.
                 if (event.event == "DICE_ROLLED") {
@@ -152,27 +160,27 @@ class GameViewModel(
 
                 if (event.event == "ACTION_DRAWN" && event.gameState?.currentActionCard != null) {
                     _currentActionCard.value = event.gameState.currentActionCard
-                    _cardDrawnThisTurn.value = true
+
+                    event.gameState.let { state ->
+                        _chanceCardDrawnThisTurn.value = state.hasDrawnChanceCardThisTurn
+                        _communityChestCardDrawnThisTurn.value = state.hasDrawnCommunityChestCardThisTurn
+                    }
+
                     lastCurrentPlayerIdForCardDraw = event.gameState.currentPlayer?.id
                 }
 
                 if (event.event == "ACTION_EXECUTED") {
                     _currentActionCard.value = null
                     _isExecutingAction.value = false
-                    _cardDrawnThisTurn.value = false
                 }
 
                 if (event.event == "TURN_ENDED") {
-                    _cardDrawnThisTurn.value = false
+                    _chanceCardDrawnThisTurn.value = false
+                    _communityChestCardDrawnThisTurn.value = false
                     lastCurrentPlayerIdForCardDraw = null
                 }
 
-                // Reset the flag if the current player has changed (e.g., new turn starts)
-                val currentPlayerId = event.gameState?.currentPlayer?.id
-                if (currentPlayerId != null && currentPlayerId != lastCurrentPlayerIdForCardDraw) {
-                    _cardDrawnThisTurn.value = false
-                    lastCurrentPlayerIdForCardDraw = null
-                }
+
 
                 if (event.event == "ERROR") {
                     _errorMessage.value = event.message ?: "An unknown error occurred"

@@ -63,6 +63,7 @@ import at.aau.monopoly.klagenfurt.messaging.dtos.GameLobbyInfo
 import at.aau.monopoly.klagenfurt.messaging.dtos.joinStatusFor
 import at.aau.monopoly.klagenfurt.model.GameCardStatus
 import at.aau.monopoly.klagenfurt.model.cardStatus
+import at.aau.monopoly.klagenfurt.networking.SessionPreferences
 import at.aau.monopoly.klagenfurt.ui.GameboardUI
 import at.aau.monopoly.klagenfurt.ui.LobbyViewModel
 import at.aau.monopoly.klagenfurt.ui.theme.MyApplicationTheme
@@ -78,6 +79,7 @@ class LobbyActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        SessionPreferences.init(this)
         enableEdgeToEdge()
 
         lifecycleScope.launch {

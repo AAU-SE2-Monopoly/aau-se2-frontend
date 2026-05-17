@@ -526,11 +526,20 @@ private fun BoxScope.OwnerIndicator(
     val dotSize = 4.dp
     val alignment = ownerIndicatorAlignment(side)
 
+    val inset = 2.dp
+    val (offsetX, offsetY) = when (side) {
+        0 -> inset to inset           // bottom: top-start corner → push right and down
+        1 -> (-inset) to (-inset)     // left: bottom-start corner → push left and up
+        2 -> (-inset) to (-inset)     // top: bottom-end corner → push left and up
+        3 -> inset to inset           // right: top-end corner → push right and down
+        else -> inset to inset
+    }
+
     Box(
         modifier = Modifier
             .size(dotSize)
             .align(alignment)
-            .offset(x = 2.dp, y = 2.dp)
+            .offset(x = offsetX, y = offsetY)
             .clip(CircleShape)
             .background(fieldColor)
             .border(0.5.dp, Color.Black.copy(alpha = 0.3f), CircleShape)

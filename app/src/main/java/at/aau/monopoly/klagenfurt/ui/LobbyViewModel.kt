@@ -11,6 +11,7 @@ import at.aau.monopoly.klagenfurt.model.cardStatus
 import at.aau.monopoly.klagenfurt.model.sortOrder
 import at.aau.monopoly.klagenfurt.networking.GameService
 import at.aau.monopoly.klagenfurt.networking.JacksonProvider
+import at.aau.monopoly.klagenfurt.networking.SessionPreferences
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -151,8 +152,8 @@ class LobbyViewModel(private val gameService: GameService) : ViewModel() {
             try {
                 val status = gameService.joinGame(
                     gameId,
-                    playerName = gameService.currentPlayerName.ifBlank { "Player" },
-                    iconId = "lindwurm"
+                    playerName = gameService.currentPlayerName.ifBlank { SessionPreferences.playerName.ifBlank { "Player" } },
+                    iconId = SessionPreferences.iconId
                 )
                 status.fold(
                     onSuccess = { event ->

@@ -93,13 +93,13 @@ class GameStompClient(
     private val _reconnectFailed = MutableStateFlow(false)
     override val reconnectFailed: StateFlow<Boolean> = _reconnectFailed.asStateFlow()
 
-    @Volatile private var _currentGameId: String = ""
+    @Volatile private var _currentGameId: String = SessionPreferences.gameId
     override val currentGameId: String get() = _currentGameId
 
-    @Volatile private var _currentPlayerName: String = ""
+    @Volatile private var _currentPlayerName: String = SessionPreferences.playerName
     override val currentPlayerName: String get() = _currentPlayerName
 
-    override val currentPlayerId: String = UUID.randomUUID().toString()
+    override val currentPlayerId: String = SessionPreferences.getOrCreatePlayerId()
 
     override fun connect() {
         _reconnectFailed.value = false
@@ -300,6 +300,8 @@ class GameStompClient(
 
     override suspend fun createGame(playerName: String, iconId: String): String? {
         _currentPlayerName = playerName
+        SessionPreferences.playerName = playerName
+        SessionPreferences.iconId = iconId
         val player = Player(
             id = currentPlayerId,
             name = playerName,
@@ -364,6 +366,8 @@ class GameStompClient(
 
     override suspend fun joinGame(gameId: String, playerName: String, iconId: String): Result<GameEvent> {
         _currentPlayerName = playerName
+        SessionPreferences.playerName = playerName
+        SessionPreferences.iconId = iconId
 
         val subscribed = subscribeToGameInternal(
             gameId = gameId,
@@ -503,6 +507,7 @@ class GameStompClient(
         gameSubscriptionInFlight.set(true)
         try {
             _currentGameId = gameId
+            SessionPreferences.gameId = gameId
             gameChannel.cancel()
             gameChannel.subscribe(gameId)
 

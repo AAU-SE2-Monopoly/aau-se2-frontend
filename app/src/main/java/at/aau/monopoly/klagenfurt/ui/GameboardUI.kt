@@ -341,7 +341,7 @@ fun GameboardScreen(
                 }
             }
 
-            if (isOnChanceField) {
+            if (isOnChanceField && currentTurnPlayer?.id == currentPlayerId) {
                 Button(
                     onClick = { viewModel.drawCard("CHANCE") },
                     enabled = !showActionCardOverlay && !cardDrawnThisTurn,
@@ -351,7 +351,7 @@ fun GameboardScreen(
                 }
             }
 
-            if (isOnCommunityChestField) {
+            if (isOnCommunityChestField && currentTurnPlayer?.id == currentPlayerId) {
                 Button(
                     onClick = { viewModel.drawCard("COMMUNITY_CHEST") },
                     enabled = !showActionCardOverlay && !cardDrawnThisTurn,

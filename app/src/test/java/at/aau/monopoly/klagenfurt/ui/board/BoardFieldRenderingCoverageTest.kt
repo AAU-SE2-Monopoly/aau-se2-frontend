@@ -712,6 +712,181 @@ class BoardFieldRenderingCoverageTest {
         composeTestRule.onAllNodesWithTag("OwnerIndicator").assertCountEquals(2)
     }
 
+    @Test
+    fun `vertical non corner token container with six players shows overflow`() {
+        val players = (1..6).map {
+            Player(id = "v$it", name = "VPlayer $it", iconId = "lindwurm", position = 11)
+        }
+
+        composeTestRule.setContent {
+            Box {
+                FieldItem(
+                    index = 11,
+                    field = PropertyField(
+                        id = 11, name = "Strandbad",
+                        color = PropertyColor.GREEN, price = 220,
+                        rent = listOf(18, 90, 250, 700, 875, 1050),
+                        houseCost = 150, hotelCost = 150
+                    ),
+                    sw = 3840f, sh = 2160f,
+                    playersOnField = players
+                )
+            }
+        }
+
+        composeTestRule.onAllNodesWithTag("MiniPlayerToken").assertCountEquals(5)
+        composeTestRule.onNodeWithText("+1").assertExists()
+    }
+
+    @Test
+    fun `right side vertical non corner token container with overflow`() {
+        val players = (1..7).map {
+            Player(id = "r$it", name = "RPlayer $it", iconId = "gti", position = 31)
+        }
+
+        composeTestRule.setContent {
+            Box {
+                FieldItem(
+                    index = 31,
+                    field = PropertyField(
+                        id = 31, name = "Loretto",
+                        color = PropertyColor.DARK_BLUE, price = 350,
+                        rent = listOf(35, 175, 500, 1100, 1300, 1500),
+                        houseCost = 200, hotelCost = 200
+                    ),
+                    sw = 3840f, sh = 2160f,
+                    playersOnField = players
+                )
+            }
+        }
+
+        composeTestRule.onAllNodesWithTag("MiniPlayerToken").assertCountEquals(5)
+        composeTestRule.onNodeWithText("+2").assertExists()
+    }
+
+    @Test
+    fun `non corner blink animation triggers when animatingPlayerId matches player on field`() {
+        val player = Player(id = "blink-1", name = "Blinker", iconId = "lindwurm", position = 5)
+
+        composeTestRule.mainClock.autoAdvance = false
+        try {
+            composeTestRule.setContent {
+                Box {
+                    FieldItem(
+                        index = 5,
+                        field = RailroadField(id = 5, name = "Hauptbahnhof"),
+                        sw = 3840f, sh = 2160f,
+                        playersOnField = listOf(player),
+                        animatingPlayerId = "blink-1",
+                        animatingStep = 5,
+                        animationComplete = false
+                    )
+                }
+            }
+
+            composeTestRule.mainClock.advanceTimeBy(500)
+            composeTestRule.onAllNodesWithTag("MiniPlayerToken").assertCountEquals(1)
+        } finally {
+            composeTestRule.mainClock.autoAdvance = true
+        }
+    }
+
+    @Test
+    fun `corner blink animation triggers when animatingPlayerId matches player on corner`() {
+        val player = Player(id = "cblink-1", name = "CornerBlinker", iconId = "gti", position = 0)
+
+        composeTestRule.mainClock.autoAdvance = false
+        try {
+            composeTestRule.setContent {
+                Box {
+                    FieldItem(
+                        index = 0,
+                        field = GoField(name = "Go"),
+                        sw = 3840f, sh = 2160f,
+                        playersOnField = listOf(player),
+                        animatingPlayerId = "cblink-1",
+                        animatingStep = 0,
+                        animationComplete = false
+                    )
+                }
+            }
+
+            composeTestRule.mainClock.advanceTimeBy(500)
+            composeTestRule.onAllNodesWithTag("MiniPlayerToken").assertCountEquals(1)
+        } finally {
+            composeTestRule.mainClock.autoAdvance = true
+        }
+    }
+
+    @Test
+    fun `cornerTokenAlignment returns expected alignments for all corner indices`() {
+        assertEquals(Alignment.TopCenter, invokePrivate("cornerTokenAlignment", 0))
+        assertEquals(Alignment.TopCenter, invokePrivate("cornerTokenAlignment", 10))
+        assertEquals(Alignment.BottomCenter, invokePrivate("cornerTokenAlignment", 20))
+        assertEquals(Alignment.BottomCenter, invokePrivate("cornerTokenAlignment", 30))
+        assertEquals(Alignment.TopCenter, invokePrivate("cornerTokenAlignment", 99))
+    }
+
+    @Test
+    fun `non corner field content renders standard field title for utility`() {
+        composeTestRule.setContent {
+            Box {
+                FieldItem(
+                    index = 12,
+                    field = UtilityField(id = 12, name = "Kelag Klagenfurt"),
+                    sw = 3840f, sh = 2160f
+                )
+            }
+        }
+
+        composeTestRule.onNodeWithText("Kelag\nKlagenfurt").assertExists()
+    }
+
+    @Test
+    fun `non corner field content renders railroad on left side`() {
+        composeTestRule.setContent {
+            Box {
+                FieldItem(
+                    index = 15,
+                    field = RailroadField(id = 15, name = "Ostbahnhof"),
+                    sw = 3840f, sh = 2160f
+                )
+            }
+        }
+
+        composeTestRule.onNodeWithText("Ostbahnhof").assertExists()
+    }
+
+    @Test
+    fun `non corner field content on right side renders correctly`() {
+        composeTestRule.setContent {
+            Box {
+                FieldItem(
+                    index = 35,
+                    field = RailroadField(id = 35, name = "Lendbahnhof"),
+                    sw = 3840f, sh = 2160f
+                )
+            }
+        }
+
+        composeTestRule.onNodeWithText("Lend-\nbahnhof").assertExists()
+    }
+
+    @Test
+    fun `field item with non-property ownable field shows dark gray owner indicator`() {
+        composeTestRule.setContent {
+            Box {
+                FieldItem(
+                    index = 5,
+                    field = RailroadField(id = 5, name = "Hauptbahnhof", ownerId = "owner-rr"),
+                    sw = 3840f, sh = 2160f
+                )
+            }
+        }
+
+        composeTestRule.onAllNodesWithTag("OwnerIndicator").assertCountEquals(1)
+    }
+
     private fun invokePrivate(name: String, vararg args: Any): Any? {
         val owner = Class.forName("at.aau.monopoly.klagenfurt.ui.board.BoardFieldRenderingKt")
         val parameterTypes = args.map {

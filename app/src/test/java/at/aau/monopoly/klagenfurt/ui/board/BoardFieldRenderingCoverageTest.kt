@@ -510,6 +510,58 @@ class BoardFieldRenderingCoverageTest {
         composeTestRule.onAllNodesWithTag("Right-Bar").assertCountEquals(1)
     }
 
+    @Test
+    fun `owner indicator renders on all four sides`() {
+        // Renders owned properties on bottom (side 0), left (side 1), top (side 2), right (side 3)
+        // to exercise the OwnerIndicator offset branches
+        composeTestRule.setContent {
+            Column {
+                // side 0 (bottom): index 1-9
+                FieldItem(
+                    index = 3,
+                    field = PropertyField(
+                        id = 3, name = "Side0 Prop", color = PropertyColor.BROWN,
+                        price = 60, rent = listOf(2, 4, 8, 16, 32, 64),
+                        houseCost = 50, hotelCost = 50, ownerId = "o1"
+                    ),
+                    sw = 3840f, sh = 2160f
+                )
+                // side 1 (left): index 11-19
+                FieldItem(
+                    index = 13,
+                    field = PropertyField(
+                        id = 13, name = "Side1 Prop", color = PropertyColor.ORANGE,
+                        price = 180, rent = listOf(14, 70, 200, 550, 750, 950),
+                        houseCost = 100, hotelCost = 100, ownerId = "o2"
+                    ),
+                    sw = 3840f, sh = 2160f
+                )
+                // side 2 (top): index 21-29
+                FieldItem(
+                    index = 23,
+                    field = PropertyField(
+                        id = 23, name = "Side2 Prop", color = PropertyColor.RED,
+                        price = 260, rent = listOf(22, 110, 330, 800, 975, 1150),
+                        houseCost = 150, hotelCost = 150, ownerId = "o3"
+                    ),
+                    sw = 3840f, sh = 2160f
+                )
+                // side 3 (right): index 31-39
+                FieldItem(
+                    index = 33,
+                    field = PropertyField(
+                        id = 33, name = "Side3 Prop", color = PropertyColor.DARK_BLUE,
+                        price = 350, rent = listOf(35, 175, 500, 1100, 1300, 1500),
+                        houseCost = 200, hotelCost = 200, ownerId = "o4"
+                    ),
+                    sw = 3840f, sh = 2160f
+                )
+            }
+        }
+
+        composeTestRule.onAllNodesWithTag("OwnerIndicator").assertCountEquals(4)
+    }
+
     private fun invokePrivate(name: String, vararg args: Any): Any? {
         val owner = Class.forName("at.aau.monopoly.klagenfurt.ui.board.BoardFieldRenderingKt")
         val parameterTypes = args.map {

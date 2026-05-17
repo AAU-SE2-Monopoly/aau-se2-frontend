@@ -4,7 +4,7 @@ import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
-import at.aau.monopoly.klagenfurt.model.enums.FieldType
+import androidx.compose.ui.unit.dp
 import at.aau.monopoly.klagenfurt.model.enums.PropertyColor
 import at.aau.monopoly.klagenfurt.model.field.*
 import org.junit.Rule
@@ -152,6 +152,46 @@ class FieldCardUITest {
         composeTestRule.setContent { FieldCardUI(field = fp) }
         composeTestRule.onNodeWithText("Free Parking").assertExists()
         composeTestRule.onNodeWithText("FREE PARKING").assertExists()
+    }
+
+    @Test
+    fun `FieldCardUI renders with custom cardWidth and cardHeight`() {
+        composeTestRule.setContent {
+            FieldCardUI(
+                field = sampleProperty,
+                cardWidth = 200.dp,
+                cardHeight = 320.dp
+            )
+        }
+        composeTestRule.onNodeWithText("Herrengasse").assertExists()
+    }
+
+    @Test
+    fun `FieldCardUI renders with small custom dimensions`() {
+        composeTestRule.setContent {
+            FieldCardUI(
+                field = sampleProperty,
+                cardWidth = 80.dp,
+                cardHeight = 128.dp
+            )
+        }
+        composeTestRule.onNodeWithText("Herrengasse").assertExists()
+    }
+
+    @Test
+    fun `GoToJailField renders with GO TO JAIL header`() {
+        val gtj = GoToJailField(id = 30, name = "Go To Jail")
+        composeTestRule.setContent { FieldCardUI(field = gtj) }
+        composeTestRule.onNodeWithText("Go To Jail").assertExists()
+        composeTestRule.onNodeWithText("GO TO JAIL").assertExists()
+    }
+
+    @Test
+    fun `CommunityChestField renders with COMMUNITY CHEST header`() {
+        val cc = CommunityChestField(id = 2, name = "Community Chest")
+        composeTestRule.setContent { FieldCardUI(field = cc) }
+        composeTestRule.onNodeWithText("Community Chest").assertExists()
+        composeTestRule.onNodeWithText("COMMUNITY CHEST").assertExists()
     }
 }
 

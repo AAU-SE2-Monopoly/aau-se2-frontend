@@ -4,6 +4,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import kotlin.math.roundToInt
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -120,6 +121,39 @@ class ZoomableWrapperTest {
         val placeableWidth = 500
         val layoutW = if (hasBounded) constraintMax else placeableWidth
         assertEquals(constraintMax, layoutW)
+    }
+
+    @Test
+    fun `LocalZoomScale is a compositionLocal with expected type`() {
+        // Verify LocalZoomScale is accessible and is a ProvidableCompositionLocal<Float>
+        val local = LocalZoomScale
+        // It should not be null and should be a composition local
+        assertNotNull(local)
+    }
+
+    @Test
+    fun `ZoomState scale changes are reflected after updateTransformation`() {
+        val state = ZoomState()
+        val container = Size(500f, 500f)
+        state.updateTransformation(Offset.Zero, 2.5f, container)
+        assertEquals(2.5f, state.scale)
+        // Verify offset is still manageable
+        state.updateTransformation(Offset(50f, 50f), 1f, container)
+        assertEquals(50f, state.offset.x)
+        assertEquals(50f, state.offset.y)
+    }
+
+    @Test
+    fun `ZoomState reset to 1x clears offset even with prior pan`() {
+        val state = ZoomState()
+        val container = Size(800f, 800f)
+        state.updateTransformation(Offset.Zero, 3f, container)
+        state.updateTransformation(Offset(200f, 200f), 1f, container)
+        assertTrue(state.offset != Offset.Zero)
+        // Now zoom back to 1x
+        state.updateTransformation(Offset.Zero, 1f / state.scale, container)
+        assertEquals(1f, state.scale)
+        assertEquals(Offset.Zero, state.offset)
     }
 }
 

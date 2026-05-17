@@ -378,6 +378,12 @@ fun GameboardScreen(
             diceResult = lastDiceRoll?.let { Pair(it.die1, it.die2) },
             isRolling = isRollingPhaseForCurrentPlayer,
             hasShaken = hasShaken,
+            onShakeButton = {
+                if (!hasShaken && isRollingPhaseForCurrentPlayer) {
+                    hasShaken = true
+                    viewModel.rollDice()
+                }
+            },
             onClose = { showOverlay = false }
         )
 
@@ -416,9 +422,11 @@ fun GameboardContent(
         players.groupBy { it.position }
     }
 
-    val panelWidth = 280.dp
-
-    Box(modifier = modifier.fillMaxSize()) {
+    BoxWithConstraints(modifier = modifier.fillMaxSize()) {
+        // Board fields span from ~34.4% to ~65.6% of screen width (design coords 1320–2520 of 3840).
+        // Give panels up to 32% of width so they stay close to the fields but never overlap them.
+        val panelWidth = maxWidth * 0.32f
+        val panelMargin = 8.dp
         // Board layer (zoomable)
         ZoomableWrapper(modifier = Modifier.fillMaxSize()) {
             Box(
@@ -487,10 +495,17 @@ fun GameboardContent(
                 // Field card centered on the board — inside ZoomableWrapper so it
                 // inherits the same zoom/pan transforms as the board fields.
                 if (currentField != null) {
-                    FieldCardUI(
-                        field = currentField,
-                        modifier = Modifier.padding(8.dp)
-                    )
+                    BoxWithConstraints {
+                        // Scale the card relative to the board; never bigger than 140×224
+                        val cw = (maxWidth * 0.12f).coerceAtMost(140.dp)
+                        val ch = cw * (224f / 140f)
+                        FieldCardUI(
+                            field = currentField,
+                            cardWidth = cw,
+                            cardHeight = ch,
+                            modifier = Modifier.padding(8.dp)
+                        )
+                    }
                 }
             }
         }
@@ -501,7 +516,7 @@ fun GameboardContent(
                 modifier = Modifier
                     .align(Alignment.CenterStart)
                     .width(panelWidth)
-                    .padding(start = 4.dp, top = 4.dp, bottom = 4.dp)
+                    .padding(start = panelMargin, top = panelMargin, bottom = panelMargin, end = panelMargin)
                     .wrapContentHeight()
                     .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterVertically)
@@ -525,7 +540,7 @@ fun GameboardContent(
                 modifier = Modifier
                     .align(Alignment.CenterEnd)
                     .width(panelWidth)
-                    .padding(end = 4.dp, top = 4.dp, bottom = 4.dp)
+                    .padding(start = panelMargin, end = panelMargin, top = panelMargin, bottom = panelMargin)
                     .wrapContentHeight()
                     .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.Center

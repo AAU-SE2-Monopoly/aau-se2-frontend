@@ -57,10 +57,68 @@ import at.aau.monopoly.klagenfurt.model.field.RailroadField
 import at.aau.monopoly.klagenfurt.model.field.TaxField
 import at.aau.monopoly.klagenfurt.ui.util.getPlayerTokenResource
 import at.aau.monopoly.klagenfurt.ui.util.toComposeColor
+import at.aau.monopoly.klagenfurt.ui.zoom.LocalZoomScale
 import com.example.myapplication.R
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.sqrt
+
+/**
+ * A composable that draws a [Painter] at zoom-aware resolution, preventing
+ * blurriness when the board is zoomed via ZoomableWrapper's graphicsLayer.
+ *
+ * VectorPainter caches its rasterization at the draw size. Since graphicsLayer
+ * scales an already-rasterized buffer, icons appear blurry. This composable
+ * scales the canvas up before invoking the painter (so it rasterizes at
+ * zoom-level pixels), then scales back down so the result fits the layout bounds.
+ */
+@Composable
+private fun CrispVectorImage(
+    painter: Painter,
+    contentDescription: String,
+    modifier: Modifier = Modifier,
+    contentScale: ContentScale = ContentScale.Fit,
+    colorFilter: ColorFilter? = null,
+    alpha: Float = 1f
+) {
+    val zoomScale = LocalZoomScale.current
+    if (zoomScale <= 1.01f) {
+        Image(
+            painter = painter,
+            contentDescription = contentDescription,
+            modifier = modifier,
+            contentScale = contentScale,
+            colorFilter = colorFilter,
+            alpha = alpha
+        )
+    } else {
+        // Use a Canvas to draw the painter at inflated resolution.
+        // The Spacer-based approach keeps layout bounds untouched.
+        androidx.compose.foundation.Canvas(modifier = modifier) {
+            val w = size.width
+            val h = size.height
+            if (w <= 0f || h <= 0f) return@Canvas
+
+            // Scale canvas to zoom level, draw painter at that larger size,
+            // then scale back so it fits in the original bounds.
+            drawContext.canvas.save()
+            drawContext.canvas.scale(1f / zoomScale, 1f / zoomScale)
+
+            val scaledSize = androidx.compose.ui.geometry.Size(w * zoomScale, h * zoomScale)
+
+            // Apply content scale to compute the draw area within the scaled size
+            with(painter) {
+                draw(
+                    size = scaledSize,
+                    alpha = alpha,
+                    colorFilter = colorFilter
+                )
+            }
+
+            drawContext.canvas.restore()
+        }
+    }
+}
 
 data class FieldBounds(
     val x: Float,
@@ -417,7 +475,7 @@ private fun BoxScope.FieldImage(
             0, 10 -> (-4).dp   // bottom corners (Go, Jail): shift up
             else -> 4.dp       // top corners: shift down
         }
-        Image(
+        CrispVectorImage(
             painter = painter,
             contentDescription = fieldName,
             modifier = Modifier
@@ -444,7 +502,7 @@ private fun BoxScope.FieldImage(
         else -> 0.50f
     }
 
-    Image(
+    CrispVectorImage(
         painter = painter,
         contentDescription = fieldName,
         modifier = Modifier
@@ -468,11 +526,20 @@ private fun BoxScope.OwnerIndicator(
     val dotSize = 4.dp
     val alignment = ownerIndicatorAlignment(side)
 
+    val inset = 2.dp
+    val (offsetX, offsetY) = when (side) {
+        0 -> inset to inset           // bottom: top-start corner → push right and down
+        1 -> (-inset) to (-inset)     // left: bottom-start corner → push left and up
+        2 -> (-inset) to (-inset)     // top: bottom-end corner → push left and up
+        3 -> inset to inset           // right: top-end corner → push right and down
+        else -> inset to inset
+    }
+
     Box(
         modifier = Modifier
             .size(dotSize)
             .align(alignment)
-            .offset(x = 2.dp, y = 2.dp)
+            .offset(x = offsetX, y = offsetY)
             .clip(CircleShape)
             .background(fieldColor)
             .border(0.5.dp, Color.Black.copy(alpha = 0.3f), CircleShape)
@@ -832,7 +899,7 @@ private fun BoxScope.NonCornerFieldContent(
             else -> Modifier.align(Alignment.Center)
         }
 
-        Image(
+        CrispVectorImage(
             painter = painter,
             contentDescription = fieldName,
             modifier = imageModifier

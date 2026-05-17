@@ -32,6 +32,7 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
@@ -195,33 +196,40 @@ fun LobbyScreen(
             Spacer(modifier = Modifier.height(24.dp))
 
             if (!isConnected) {
-                Text(
-                    text = "Connecting to server…",
-                    color = Color.White.copy(alpha = 0.5f),
-                    fontSize = 14.sp
+                Spacer(modifier = Modifier.height(32.dp))
+                CircularProgressIndicator(
+                    color = PrimaryBlueLight,
+                    strokeWidth = 3.dp,
+                    modifier = Modifier.size(48.dp)
                 )
-            }
+                Spacer(modifier = Modifier.height(12.dp))
+                Text(
+                    text = "Looking for games…",
+                    color = Color.White.copy(alpha = 0.4f),
+                    fontSize = 13.sp
+                )
+            } else {
+                LazyRow(
+                    contentPadding = PaddingValues(horizontal = 16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(16.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    // "+" card to create a new game
+                    item {
+                        CreateGameCard(onClick = onCreateGame, enabled = isConnected)
+                    }
 
-            LazyRow(
-                contentPadding = PaddingValues(horizontal = 16.dp),
-                horizontalArrangement = Arrangement.spacedBy(16.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                // "+" card to create a new game
-                item {
-                    CreateGameCard(onClick = onCreateGame, enabled = isConnected)
-                }
-
-                // Existing open games
-                items(games, key = { it.gameId }) { game ->
-                    GameCard(
-                        game = game,
-                        isOwnGame = game.hostPlayerId == viewModel.currentPlayerId,
-                        currentPlayerId = viewModel.currentPlayerId,
-                        isConnected = isConnected,
-                        onClick = { onGameClicked(game) },
-                        onClose = { viewModel.closeGame(game.gameId) }
-                    )
+                    // Existing open games
+                    items(games, key = { it.gameId }) { game ->
+                        GameCard(
+                            game = game,
+                            isOwnGame = game.hostPlayerId == viewModel.currentPlayerId,
+                            currentPlayerId = viewModel.currentPlayerId,
+                            isConnected = isConnected,
+                            onClick = { onGameClicked(game) },
+                            onClose = { viewModel.closeGame(game.gameId) }
+                        )
+                    }
                 }
             }
         }

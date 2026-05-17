@@ -29,8 +29,8 @@ private val CardBg = Color(0xFFFFF8E1)
 private const val REF_W = 140f // reference width in dp
 
 @Composable
-fun FieldCardUI(field: Field, modifier: Modifier = Modifier) {
-    val finalMod = modifier.width(140.dp).height(224.dp)
+fun FieldCardUI(field: Field, modifier: Modifier = Modifier, cardWidth: Dp = 140.dp, cardHeight: Dp = 224.dp) {
+    val finalMod = modifier.width(cardWidth).height(cardHeight)
     when (field) {
         is PropertyField -> PropertyTitleDeed(field, finalMod)
         is RailroadField -> RailroadCard(field, finalMod)

@@ -18,6 +18,7 @@ import at.aau.monopoly.klagenfurt.model.enums.PropertyColor
 import at.aau.monopoly.klagenfurt.model.field.ChanceField
 import at.aau.monopoly.klagenfurt.model.field.CommunityChestField
 import at.aau.monopoly.klagenfurt.model.field.Field
+import at.aau.monopoly.klagenfurt.model.field.GoField
 import at.aau.monopoly.klagenfurt.ui.board.calculateFieldBounds
 import at.aau.monopoly.klagenfurt.ui.board.getFieldImageMapping
 import at.aau.monopoly.klagenfurt.ui.util.getPlayerTokenResource
@@ -701,5 +702,32 @@ class GameboardScreenCoverageTest {
         verify { mockVm.useJailCard() }
 
         composeTestRule.onNodeWithTag("roll_dice_button").assertExists()
+    }
+
+    @Test
+    fun testShakeButtonTriggersRollDice() {
+        val player = Player(id = "player1", name = "P1", position = 0)
+
+        val mockVm = createMockViewModel(
+            isRollingPhase = true,
+            players = listOf(player),
+            fields = listOf(GoField(id = 0, name = "Go"))
+        )
+
+        every { mockVm.isRollingPhaseForCurrentPlayer } returns MutableStateFlow(true)
+
+        composeTestRule.setContent { GameboardScreen(viewModel = mockVm) }
+
+        composeTestRule.waitForIdle()
+
+        // Click the "Roll Dice" button to open the dice overlay (sets showOverlay = true)
+        composeTestRule.onNodeWithTag("roll_dice_button").performClick()
+        composeTestRule.waitForIdle()
+
+        // The shake button should now be visible in the dice overlay
+        composeTestRule.onNodeWithTag("shake_button").assertExists()
+        composeTestRule.onNodeWithTag("shake_button").performClick()
+
+        verify { mockVm.rollDice() }
     }
 }

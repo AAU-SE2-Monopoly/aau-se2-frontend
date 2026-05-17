@@ -3,6 +3,7 @@ package at.aau.monopoly.klagenfurt.ui.board
 import androidx.activity.ComponentActivity
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -27,6 +28,7 @@ import at.aau.monopoly.klagenfurt.model.field.PropertyField
 import at.aau.monopoly.klagenfurt.model.field.RailroadField
 import at.aau.monopoly.klagenfurt.model.field.TaxField
 import at.aau.monopoly.klagenfurt.model.field.UtilityField
+import at.aau.monopoly.klagenfurt.ui.zoom.LocalZoomScale
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
@@ -508,6 +510,206 @@ class BoardFieldRenderingCoverageTest {
         composeTestRule.onAllNodesWithTag("Left-Bar").assertCountEquals(1)
         composeTestRule.onAllNodesWithTag("Top-Bar").assertCountEquals(1)
         composeTestRule.onAllNodesWithTag("Right-Bar").assertCountEquals(1)
+    }
+
+    @Test
+    fun `owner indicator renders on all four sides`() {
+        // Renders owned properties on bottom (side 0), left (side 1), top (side 2), right (side 3)
+        // to exercise the OwnerIndicator offset branches
+        composeTestRule.setContent {
+            Column {
+                // side 0 (bottom): index 1-9
+                FieldItem(
+                    index = 3,
+                    field = PropertyField(
+                        id = 3, name = "Side0 Prop", color = PropertyColor.BROWN,
+                        price = 60, rent = listOf(2, 4, 8, 16, 32, 64),
+                        houseCost = 50, hotelCost = 50, ownerId = "o1"
+                    ),
+                    sw = 3840f, sh = 2160f
+                )
+                // side 1 (left): index 11-19
+                FieldItem(
+                    index = 13,
+                    field = PropertyField(
+                        id = 13, name = "Side1 Prop", color = PropertyColor.ORANGE,
+                        price = 180, rent = listOf(14, 70, 200, 550, 750, 950),
+                        houseCost = 100, hotelCost = 100, ownerId = "o2"
+                    ),
+                    sw = 3840f, sh = 2160f
+                )
+                // side 2 (top): index 21-29
+                FieldItem(
+                    index = 23,
+                    field = PropertyField(
+                        id = 23, name = "Side2 Prop", color = PropertyColor.RED,
+                        price = 260, rent = listOf(22, 110, 330, 800, 975, 1150),
+                        houseCost = 150, hotelCost = 150, ownerId = "o3"
+                    ),
+                    sw = 3840f, sh = 2160f
+                )
+                // side 3 (right): index 31-39
+                FieldItem(
+                    index = 33,
+                    field = PropertyField(
+                        id = 33, name = "Side3 Prop", color = PropertyColor.DARK_BLUE,
+                        price = 350, rent = listOf(35, 175, 500, 1100, 1300, 1500),
+                        houseCost = 200, hotelCost = 200, ownerId = "o4"
+                    ),
+                    sw = 3840f, sh = 2160f
+                )
+            }
+        }
+
+        composeTestRule.onAllNodesWithTag("OwnerIndicator").assertCountEquals(4)
+    }
+
+    @Test
+    fun `CrispVectorImage zoomed branch renders corner field at zoom scale above 1`() {
+        // Providing LocalZoomScale > 1.01f triggers the Canvas-based zoomed rendering path
+        composeTestRule.setContent {
+            CompositionLocalProvider(LocalZoomScale provides 3f) {
+                Column {
+                    // Corner field (uses CrispVectorImage in FieldImage for corner icons)
+                    FieldItem(index = 0, field = GoField(name = "Go"), sw = 3840f, sh = 2160f)
+                    FieldItem(index = 10, field = JailField(), sw = 3840f, sh = 2160f)
+                    FieldItem(index = 20, field = FreeParkingField(), sw = 3840f, sh = 2160f)
+                    FieldItem(index = 30, field = GoToJailField(), sw = 3840f, sh = 2160f)
+                }
+            }
+        }
+
+        composeTestRule.waitForIdle()
+        // In zoomed mode, CrispVectorImage uses Canvas (no contentDescription semantics).
+        // Verify render completes without crash and corner text labels exist.
+        composeTestRule.onNodeWithText("Go").assertExists()
+        composeTestRule.onNodeWithText("Free\nParking").assertExists()
+        composeTestRule.onNodeWithText("Go To\nJail").assertExists()
+    }
+
+    @Test
+    fun `CrispVectorImage zoomed branch renders non-corner fields at zoom scale above 1`() {
+        composeTestRule.setContent {
+            CompositionLocalProvider(LocalZoomScale provides 2.5f) {
+                Column {
+                    // Non-corner property (uses CrispVectorImage in NonCornerFieldContent)
+                    FieldItem(
+                        index = 1,
+                        field = PropertyField(
+                            id = 1, name = "Benediktiner Platz",
+                            color = PropertyColor.LIGHT_BLUE, price = 60,
+                            rent = listOf(2, 4, 8, 16, 32, 64),
+                            houseCost = 50, hotelCost = 50
+                        ),
+                        sw = 3840f, sh = 2160f
+                    )
+                    // Chance field (different icon size factor)
+                    FieldItem(index = 7, field = ChanceField(id = 7), sw = 3840f, sh = 2160f)
+                    // Community Chest field
+                    FieldItem(index = 2, field = CommunityChestField(id = 2), sw = 3840f, sh = 2160f)
+                    // Tax field
+                    FieldItem(
+                        index = 4,
+                        field = TaxField(id = 4, name = "Reichensteuer", amount = 200),
+                        sw = 3840f, sh = 2160f
+                    )
+                    // Railroad field
+                    FieldItem(
+                        index = 5,
+                        field = RailroadField(id = 5, name = "Hauptbahnhof"),
+                        sw = 3840f, sh = 2160f
+                    )
+                }
+            }
+        }
+
+        composeTestRule.waitForIdle()
+        // In zoomed mode, CrispVectorImage uses Canvas (no contentDescription semantics).
+        // Verify render completes without crash and text labels exist.
+        composeTestRule.onNodeWithText("Benediktiner\nPlatz").assertExists()
+        composeTestRule.onNodeWithText("Community\nChest").assertExists()
+        composeTestRule.onNodeWithText("Reichen-\nsteuer").assertExists()
+        composeTestRule.onNodeWithText("Haupt-\nbahnhof").assertExists()
+    }
+
+    @Test
+    fun `CrispVectorImage zoomed branch renders vertical side fields at zoom scale above 1`() {
+        composeTestRule.setContent {
+            CompositionLocalProvider(LocalZoomScale provides 4f) {
+                Column {
+                    // Left side (side 1, index 11-19)
+                    FieldItem(
+                        index = 13,
+                        field = PropertyField(
+                            id = 13, name = "Strandbad",
+                            color = PropertyColor.ORANGE, price = 180,
+                            rent = listOf(14, 70, 200, 550, 750, 950),
+                            houseCost = 100, hotelCost = 100
+                        ),
+                        sw = 3840f, sh = 2160f
+                    )
+                    // Top side (side 2, index 21-29)
+                    FieldItem(
+                        index = 23,
+                        field = PropertyField(
+                            id = 23, name = "City Arkaden",
+                            color = PropertyColor.RED, price = 260,
+                            rent = listOf(22, 110, 330, 800, 975, 1150),
+                            houseCost = 150, hotelCost = 150
+                        ),
+                        sw = 3840f, sh = 2160f
+                    )
+                    // Right side (side 3, index 31-39)
+                    FieldItem(
+                        index = 33,
+                        field = PropertyField(
+                            id = 33, name = "Loretto",
+                            color = PropertyColor.DARK_BLUE, price = 350,
+                            rent = listOf(35, 175, 500, 1100, 1300, 1500),
+                            houseCost = 200, hotelCost = 200
+                        ),
+                        sw = 3840f, sh = 2160f
+                    )
+                }
+            }
+        }
+
+        composeTestRule.waitForIdle()
+        composeTestRule.onNodeWithText("Strandbad").assertExists()
+        composeTestRule.onNodeWithText("City\nArkaden").assertExists()
+        composeTestRule.onNodeWithText("Loretto").assertExists()
+    }
+
+    @Test
+    fun `CrispVectorImage zoomed branch renders owned fields with owner indicator at zoom`() {
+        composeTestRule.setContent {
+            CompositionLocalProvider(LocalZoomScale provides 2f) {
+                Column {
+                    FieldItem(
+                        index = 3,
+                        field = PropertyField(
+                            id = 3, name = "Ruthar",
+                            color = PropertyColor.BROWN, price = 60,
+                            rent = listOf(2, 4, 8, 16, 32, 64),
+                            houseCost = 50, hotelCost = 50,
+                            ownerId = "owner-1"
+                        ),
+                        sw = 3840f, sh = 2160f
+                    )
+                    FieldItem(
+                        index = 15,
+                        field = UtilityField(
+                            id = 15, name = "Stadtwerke Klagenfurt",
+                            ownerId = "owner-2", isMortgaged = true
+                        ),
+                        sw = 3840f, sh = 2160f
+                    )
+                }
+            }
+        }
+
+        composeTestRule.waitForIdle()
+        composeTestRule.onAllNodesWithTag("OwnerIndicator").assertCountEquals(2)
     }
 
     private fun invokePrivate(name: String, vararg args: Any): Any? {

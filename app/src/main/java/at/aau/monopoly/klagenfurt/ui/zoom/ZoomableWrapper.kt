@@ -76,13 +76,6 @@ fun ZoomableWrapper(
                 modifier = Modifier
                     .fillMaxSize()
                     .graphicsLayer {
-                        // Use graphicsLayer (compositing-level transform) for zoom/pan.
-                        // Unlike the previous layout{} approach, this does NOT re-measure
-                        // content at inflated pixel sizes. Content always measures at
-                        // normal screen resolution. Vectors rasterize at their natural
-                        // size, and the compositing pipeline scales/translates the
-                        // already-rendered pixel buffer — preventing "Canvas: trying to
-                        // draw too large bitmap" crashes.
                         scaleX = zoomState.scale
                         scaleY = zoomState.scale
                         translationX = zoomState.offset.x

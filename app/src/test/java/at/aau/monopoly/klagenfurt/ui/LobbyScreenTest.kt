@@ -28,6 +28,7 @@ class LobbyScreenTest {
 
     @Test
     fun `reconnect button reconnects and shows connected status without leaving screen`() {
+        // ...existing test body...
         val fakeService = FakeGameService()
         fakeService.ignoreFirstConnectCall = true
         val viewModel = LobbyViewModel(fakeService)
@@ -69,5 +70,60 @@ class LobbyScreenTest {
             assertTrue("subscribeToLobby should be called", fakeService.subscribeToLobbyCalled)
             assertTrue("requestGameList should be called", fakeService.requestGameListCalled)
         }
+    }
+
+    @Test
+    fun `lobby shows loading spinner and looking for games text when not connected`() {
+        val fakeService = FakeGameService()
+        fakeService.ignoreFirstConnectCall = true
+        val viewModel = LobbyViewModel(fakeService)
+
+        // Simulate not connected, not failed (initial connecting state)
+        fakeService.setConnectionState(false)
+        fakeService.setReconnectFailed(false)
+
+        composeTestRule.setContent {
+            LobbyScreen(
+                viewModel = viewModel,
+                onBackClicked = {},
+                onGameClicked = {},
+                onCreateGame = {}
+            )
+        }
+
+        shadowOf(Looper.getMainLooper()).idleFor(200, TimeUnit.MILLISECONDS)
+        composeTestRule.waitForIdle()
+
+        // Should show the "Looking for games…" text (new code)
+        composeTestRule.onNodeWithText("Looking for games…").assertIsDisplayed()
+    }
+
+    @Test
+    fun `lobby shows create game card when connected`() {
+        val fakeService = FakeGameService()
+        fakeService.ignoreFirstConnectCall = true
+        val viewModel = LobbyViewModel(fakeService)
+
+        // Simulate connected state
+        fakeService.setConnectionState(true)
+        fakeService.setLobbySubscriptionReady(true)
+        fakeService.setReconnectFailed(false)
+
+        composeTestRule.setContent {
+            LobbyScreen(
+                viewModel = viewModel,
+                onBackClicked = {},
+                onGameClicked = {},
+                onCreateGame = {}
+            )
+        }
+
+        shadowOf(Looper.getMainLooper()).idleFor(200, TimeUnit.MILLISECONDS)
+        composeTestRule.waitForIdle()
+
+        // When connected, the LazyRow with CreateGameCard should be displayed
+        composeTestRule.onNodeWithText("Connected").assertIsDisplayed()
+        // "Looking for games…" should NOT be shown when connected
+        composeTestRule.onAllNodesWithText("Looking for games…").assertCountEquals(0)
     }
 }

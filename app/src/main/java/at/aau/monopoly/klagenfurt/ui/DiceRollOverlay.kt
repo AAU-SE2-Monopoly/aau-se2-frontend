@@ -4,7 +4,9 @@ import android.os.SystemClock
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -15,6 +17,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -28,6 +31,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -102,109 +106,113 @@ fun DiceRollOverlay(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.Black.copy(alpha = 0.7f))
             .testTag("dice_roll_overlay"),
         contentAlignment = Alignment.Center
     ) {
         Surface(
             modifier = Modifier
-                .size(300.dp, 400.dp)
+                .size(300.dp, 320.dp)
                 .padding(16.dp),
-            color = Color.White,
+            color = Color.Black.copy(alpha = 0.85f),
             shape = RoundedCornerShape(16.dp)
         ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(24.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
+            Box(modifier = Modifier.fillMaxSize()) {
+                // X close button at top-right
                 Text(
-                    text = "🎲 Roll Dice",
-                    fontSize = 28.sp,
-                    fontWeight = FontWeight.Bold
+                    text = "✕",
+                    fontSize = 20.sp,
+                    color = Color.White,
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(top = 8.dp, end = 8.dp)
+                        .clickable(enabled = !displayRolling || !hasShaken) {
+                            userDismissed = true
+                            onClose()
+                        }
+                        .testTag("dice_close_x")
                 )
 
-                Spacer(modifier = Modifier.height(20.dp))
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        text = "🎲 Roll Dice",
+                        fontSize = 28.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White
+                    )
 
-                // Dice display (uses displayRolling so animation isn't cancelled early)
-                DiceDisplay(
-                    die1 = displayResult?.first ?: 1,
-                    die2 = displayResult?.second ?: 1,
-                    isRolling = displayRolling
-                )
+                    Spacer(modifier = Modifier.height(12.dp))
 
-                Spacer(modifier = Modifier.height(20.dp))
+                    // Dice display (uses displayRolling so animation isn't cancelled early)
+                    DiceDisplay(
+                        die1 = displayResult?.first ?: 1,
+                        die2 = displayResult?.second ?: 1,
+                        isRolling = displayRolling
+                    )
 
-                // Result display (only when not rolling and result available)
-                if (!displayRolling) {
-                    val result = displayResult
-                    if (result != null) {
-                        val total = result.first + result.second
-                        val isDouble = result.first == result.second
+                    Spacer(modifier = Modifier.height(4.dp))
 
-                        Text(
-                            text = "Total: $total",
-                            fontSize = 20.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color.Black,
-                            modifier = Modifier.testTag("dice_total_text")
-                        )
+                    // Result display (only when not rolling and result available)
+                    if (!displayRolling) {
+                        val result = displayResult
+                        if (result != null) {
+                            val total = result.first + result.second
+                            val isDouble = result.first == result.second
 
-                        if (isDouble) {
                             Text(
-                                text = "🎉 DOUBLE! 🎉",
-                                fontSize = 18.sp,
+                                text = "Total: $total",
+                                fontSize = 20.sp,
                                 fontWeight = FontWeight.Bold,
-                                color = Color(0xFFFF6B6B)
+                                color = Color.White,
+                                modifier = Modifier.testTag("dice_total_text")
                             )
+
+                            if (isDouble) {
+                                Text(
+                                    text = "🎉 DOUBLE! 🎉",
+                                    fontSize = 18.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color(0xFFFF6B6B)
+                                )
+                            }
                         }
                     }
-                }
 
-                Spacer(modifier = Modifier.height(20.dp))
+                    Spacer(modifier = Modifier.height(8.dp))
 
-                // Instructions – distinguish idle (waiting for shake), rolling (network), result.
-                Text(
-                    text = when {
-                        !hasShaken -> "Shake your phone! 📱"
-                        displayRolling && isRolling -> "Rolling... 🎲"
-                        displayRolling -> "Waiting for result..."
-                        displayResult != null -> "Dice result shown ✓"
-                        else -> "Rolling..."
-                    },
-                    fontSize = 14.sp,
-                    color = Color.Gray,
-                    modifier = Modifier.testTag("dice_instruction_text")
-                )
+                    // Instructions – distinguish idle (waiting for shake), rolling (network), result.
+                    Text(
+                        text = when {
+                            !hasShaken -> "Shake your phone!"
+                            displayRolling && isRolling -> "Rolling..."
+                            displayRolling -> "Waiting for result..."
+                            else -> ""
+                        },
+                        fontSize = 14.sp,
+                        color = Color.White.copy(alpha = 0.7f),
+                        modifier = Modifier.testTag("dice_instruction_text")
+                    )
 
-                // Manual shake button for emulator / accessibility
-                if (!hasShaken && onShakeButton != null) {
-                    Spacer(modifier = Modifier.height(12.dp))
-                    Button(
-                        onClick = onShakeButton,
-                        modifier = Modifier
-                            .size(width = 150.dp, height = 40.dp)
-                            .testTag("shake_button")
-                    ) {
-                        Text("Shake 📱")
+                    if (!hasShaken && onShakeButton != null) {
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Button(
+                            onClick = onShakeButton,
+                            modifier = Modifier
+                                .size(width = 150.dp, height = 40.dp)
+                                .testTag("shake_button"),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = Color.White.copy(alpha = 0.2f),
+                                contentColor = Color.White
+                            ),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Text("Shake")
+                        }
                     }
-                }
-
-                Spacer(modifier = Modifier.weight(1f))
-
-                // Close button: enabled in idle state (no shake yet) or after the result is shown,
-                // disabled while the dice animation/network roundtrip is in progress.
-                Button(
-                    onClick = {
-                        userDismissed = true
-                        onClose()
-                    },
-                    enabled = !displayRolling || !hasShaken,
-                    modifier = Modifier
-                        .size(width = 150.dp, height = 40.dp)
-                ) {
-                    Text("Close")
                 }
             }
         }
@@ -283,15 +291,10 @@ private fun DiceDisplay(
                 .size(80.dp)
                 .offset(x = (-50).dp)
                 .rotate(if (isRolling) rotation1.value else 0f)
-                .background(Color(0xFFE0000F), RoundedCornerShape(4.dp)),
+                .background(Color(0xFFE0000F), RoundedCornerShape(8.dp)),
             contentAlignment = Alignment.Center
         ) {
-            Text(
-                text = displayDie1.toString(),
-                fontSize = 40.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color.White
-            )
+            DiceDots(value = displayDie1, dotColor = Color.White)
         }
 
         // Die 2 (Blue) – rotating during rolling
@@ -300,15 +303,34 @@ private fun DiceDisplay(
                 .size(80.dp)
                 .offset(x = 50.dp)
                 .rotate(if (isRolling) rotation2.value else 0f)
-                .background(Color(0xFF000080), RoundedCornerShape(4.dp)),
+                .background(Color(0xFF000080), RoundedCornerShape(8.dp)),
             contentAlignment = Alignment.Center
         ) {
-            Text(
-                text = displayDie2.toString(),
-                fontSize = 40.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color.White
-            )
+            DiceDots(value = displayDie2, dotColor = Color.White)
+        }
+    }
+}
+
+@Composable
+private fun DiceDots(value: Int, dotColor: Color) {
+    Canvas(modifier = Modifier.size(60.dp)) {
+        val r = size.width * 0.09f
+        val p1 = size.width * 0.25f
+        val p2 = size.width * 0.50f
+        val p3 = size.width * 0.75f
+
+        val positions = when (value) {
+            1 -> listOf(Offset(p2, p2))
+            2 -> listOf(Offset(p1, p3), Offset(p3, p1))
+            3 -> listOf(Offset(p1, p3), Offset(p2, p2), Offset(p3, p1))
+            4 -> listOf(Offset(p1, p1), Offset(p1, p3), Offset(p3, p1), Offset(p3, p3))
+            5 -> listOf(Offset(p1, p1), Offset(p1, p3), Offset(p2, p2), Offset(p3, p1), Offset(p3, p3))
+            6 -> listOf(Offset(p1, p1), Offset(p1, p2), Offset(p1, p3), Offset(p3, p1), Offset(p3, p2), Offset(p3, p3))
+            else -> emptyList()
+        }
+
+        positions.forEach { pos ->
+            drawCircle(color = dotColor, radius = r, center = pos)
         }
     }
 }

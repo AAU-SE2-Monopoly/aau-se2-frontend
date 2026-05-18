@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -223,7 +224,8 @@ fun LobbyScreen(
                     items(games, key = { it.gameId }) { game ->
                         GameCard(
                             game = game,
-                            isOwnGame = game.hostPlayerId == viewModel.currentPlayerId,
+                            isOwnGame = game.hostPlayerId == viewModel.currentPlayerId
+                                    || (game.hostPlayerId.isBlank() && game.playerIds.firstOrNull() == viewModel.currentPlayerId),
                             currentPlayerId = viewModel.currentPlayerId,
                             isConnected = isConnected,
                             onClick = { onGameClicked(game) },
@@ -384,7 +386,7 @@ fun GameCard(
 
     val statusBadgeColor = when (status) {
         GameCardStatus.Full       -> Color(0xFFB71C1C).copy(alpha = 0.85f)
-        GameCardStatus.InProgress -> Color(0xFFF57F17).copy(alpha = 0.85f)
+        GameCardStatus.InProgress -> Color.Transparent
         GameCardStatus.Finished   -> Color(0xFF424242).copy(alpha = 0.85f)
         else                      -> Color.Transparent
     }
@@ -414,61 +416,66 @@ fun GameCard(
 
     Box(
         modifier = Modifier
-            .size(160.dp)
-            .clip(RoundedCornerShape(16.dp))
-            .background(if (clickable) cardBackground else Color(0xFF424242).copy(alpha = 0.5f))
-            .clickable(enabled = clickable, onClick = onClick)
+            .padding(8.dp) // extra space so the close button isn't clipped
     ) {
-        Column(
+        Box(
             modifier = Modifier
-                .fillMaxSize()
-                .padding(12.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
+                .size(160.dp)
+                .clip(RoundedCornerShape(16.dp))
+                .background(if (clickable) cardBackground else Color(0xFF424242).copy(alpha = 0.5f))
+                .clickable(enabled = clickable, onClick = onClick)
         ) {
-            // Status badge
-            if (statusBadgeText != null) {
-                Text(
-                    text = statusBadgeText,
-                    color = Color.White,
-                    fontSize = 9.sp,
-                    fontWeight = FontWeight.Bold,
-                    letterSpacing = 1.sp,
-                    modifier = Modifier
-                        .background(statusBadgeColor, RoundedCornerShape(4.dp))
-                        .padding(horizontal = 6.dp, vertical = 2.dp)
-                )
-                Spacer(modifier = Modifier.height(6.dp))
-            }
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(12.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+            ) {
+                // Status badge
+                if (statusBadgeText != null) {
+                    Text(
+                        text = statusBadgeText,
+                        color = Color.White,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 1.sp,
+                        modifier = Modifier
+                            .background(statusBadgeColor, RoundedCornerShape(4.dp))
+                            .padding(horizontal = 6.dp, vertical = 2.dp)
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+                }
 
-            Text(
-                text = "🎲",
-                fontSize = 32.sp
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                text = game.hostPlayerName.ifBlank { "Unknown" },
-                color = if (isInteractable) Color.White else Color.White.copy(alpha = 0.5f),
-                fontSize = 14.sp,
-                fontWeight = FontWeight.Bold,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                text = "${game.playerCount}/${game.maxPlayers} Players",
-                color = Color.White.copy(alpha = if (isInteractable) 0.7f else 0.4f),
-                fontSize = 12.sp
-            )
+                Text(
+                    text = "🎲",
+                    fontSize = 32.sp
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = game.hostPlayerName.ifBlank { "Unknown" },
+                    color = if (isInteractable) Color.White else Color.White.copy(alpha = 0.5f),
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = "${game.playerCount}/${game.maxPlayers} Players",
+                    color = Color.White.copy(alpha = if (isInteractable) 0.7f else 0.4f),
+                    fontSize = 12.sp
+                )
+            }
         }
 
-        // Close button for own games – also requires connection
+        // Close button for own games – outside the clipped box
         if (isOwnGame && isConnected) {
             IconButton(
                 onClick = { showCloseDialog = true },
                 modifier = Modifier
                     .align(Alignment.TopEnd)
-                    .padding(4.dp)
+                    .offset(x = 8.dp, y = (-8).dp)
                     .size(28.dp)
                     .clip(CircleShape)
                     .background(Color.Red.copy(alpha = 0.7f))

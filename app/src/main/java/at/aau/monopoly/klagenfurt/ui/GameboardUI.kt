@@ -276,12 +276,7 @@ fun GameboardScreen(
 
     Box(modifier = modifier.fillMaxSize()) {
         // Background is always visible
-        Image(
-            painter = painterResource(id = R.drawable.background),
-            contentDescription = "Klagenfurt-Map Background",
-            modifier = Modifier.fillMaxSize(),
-            contentScale = ContentScale.FillBounds
-        )
+        FullscreenImage(R.drawable.background, "Klagenfurt-Map Background")
 
         // Game content with circular reveal
         Box(
@@ -400,23 +395,23 @@ fun GameboardScreen(
                 }
 
                 if (isOnChanceField && isBuyingPhaseForCurrentPlayer) {
-                    GlassButton(
-                        onClick = { viewModel.drawCard("CHANCE") },
-                        enabled = !showActionCardOverlay && !chanceCardDrawnThisTurn,
-                        modifier = Modifier.padding(top = 8.dp)
-                    ) {
-                        Text(if (chanceCardDrawnThisTurn) "✓ Card Drawn" else "🎰 Draw Chance")
-                    }
+                    DrawCardButton(
+                        cardType = "CHANCE",
+                        alreadyDrawn = chanceCardDrawnThisTurn,
+                        enabled = !showActionCardOverlay,
+                        label = "🎰 Draw Chance",
+                        onDraw = { viewModel.drawCard("CHANCE") }
+                    )
                 }
 
                 if (isOnCommunityChestField && isBuyingPhaseForCurrentPlayer) {
-                    GlassButton(
-                        onClick = { viewModel.drawCard("COMMUNITY_CHEST") },
-                        enabled = !showActionCardOverlay && !communityChestCardDrawnThisTurn,
-                        modifier = Modifier.padding(top = 8.dp)
-                    ) {
-                        Text(if (communityChestCardDrawnThisTurn) "✓ Card Drawn" else "⭐ Draw Community")
-                    }
+                    DrawCardButton(
+                        cardType = "COMMUNITY_CHEST",
+                        alreadyDrawn = communityChestCardDrawnThisTurn,
+                        enabled = !showActionCardOverlay,
+                        label = "⭐ Draw Community",
+                        onDraw = { viewModel.drawCard("COMMUNITY_CHEST") }
+                    )
                 }
 
             }
@@ -448,18 +443,12 @@ fun GameboardScreen(
         // Back button animated from top
         val activity = context as? Activity
         val backOffsetYDp = backButtonOffsetY.value.dp
-        Button(
+        GlassButton(
             onClick = { activity?.finish() },
             modifier = Modifier
                 .align(Alignment.TopStart)
                 .padding(16.dp)
-                .offset(y = backOffsetYDp),
-            shape = RoundedCornerShape(12.dp),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = Color.Black.copy(alpha = 0.35f),
-                contentColor = Color.White
-            ),
-            elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp)
+                .offset(y = backOffsetYDp)
         ) {
             Icon(
                 imageVector = Icons.AutoMirrored.Filled.ArrowBack,
@@ -665,6 +654,26 @@ private fun GlassButton(
         shape = RoundedCornerShape(12.dp),
         content = content
     )
+}
+
+/**
+ * Draw-card button used for Chance and Community Chest fields.
+ */
+@Composable
+private fun DrawCardButton(
+    cardType: String,
+    alreadyDrawn: Boolean,
+    enabled: Boolean,
+    label: String,
+    onDraw: () -> Unit
+) {
+    GlassButton(
+        onClick = onDraw,
+        enabled = enabled && !alreadyDrawn,
+        modifier = Modifier.padding(top = 8.dp)
+    ) {
+        Text(if (alreadyDrawn) "✓ Card Drawn" else label)
+    }
 }
 
 /**

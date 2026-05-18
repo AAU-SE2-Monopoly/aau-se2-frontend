@@ -5,7 +5,7 @@ import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performTouchInput
-import androidx.compose.ui.test.doubleClick
+import androidx.compose.ui.test.click
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import at.aau.monopoly.klagenfurt.ui.GameViewModel
 import org.junit.Rule
@@ -33,7 +33,7 @@ class IngameChatTest {
         composeTestRule.onNodeWithTag("ingame_chat_expanded").assertDoesNotExist()
 
         composeTestRule.onNodeWithTag("ingame_chat_collapsed").performTouchInput {
-            doubleClick()
+            click()
         }
 
         composeTestRule.onNodeWithTag("ingame_chat_expanded").assertExists()

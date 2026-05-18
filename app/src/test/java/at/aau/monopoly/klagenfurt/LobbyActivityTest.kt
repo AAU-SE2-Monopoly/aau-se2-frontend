@@ -267,6 +267,8 @@ class LobbyActivityTest {
             runBlocking { fakeService.emitTestLobbyEvent(lobbyJson) }
             shadowOf(Looper.getMainLooper()).idleFor(1500, TimeUnit.MILLISECONDS)
             composeTestRule.waitForIdle()
+            composeTestRule.mainClock.advanceTimeBy(2000)
+            composeTestRule.waitForIdle()
 
             composeTestRule.onNodeWithContentDescription("Close Game").assertExists()
         }

@@ -37,7 +37,7 @@ class IngameChatTest {
         }
 
         composeTestRule.onNodeWithTag("ingame_chat_expanded").assertExists()
-        composeTestRule.onNodeWithTag("ingame_chat_lines").assertExists()
+        composeTestRule.onNodeWithTag("ingame_chat_lines", useUnmergedTree = true).assertExists()
         composeTestRule.onNodeWithText("• Player Alice joined").assertExists()
     }
 }

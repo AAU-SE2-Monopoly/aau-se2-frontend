@@ -4,16 +4,9 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.slideInHorizontally
-import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -22,21 +15,17 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import at.aau.monopoly.klagenfurt.ui.components.BackButton
-import at.aau.monopoly.klagenfurt.ui.components.DarkGradientBackground
 import at.aau.monopoly.klagenfurt.networking.ServerConfig
+import at.aau.monopoly.klagenfurt.ui.components.AnimatedScreenScaffold
+import at.aau.monopoly.klagenfurt.ui.components.ScreenTitle
 import at.aau.monopoly.klagenfurt.ui.theme.MyApplicationTheme
 import at.aau.monopoly.klagenfurt.ui.theme.PrimaryBlue
 import at.aau.monopoly.klagenfurt.ui.theme.PrimaryBlueLight
@@ -57,93 +46,46 @@ class SettingsActivity : ComponentActivity() {
 
 @Composable
 fun SettingsScreen(onBackClicked: () -> Unit) {
-    val accentBlue = PrimaryBlueLight
-
     val soundEnabled = remember { mutableStateOf(true) }
     val musicEnabled = remember { mutableStateOf(true) }
 
-    var visible by remember { mutableStateOf(false) }
-    LaunchedEffect(Unit) { visible = true }
+    AnimatedScreenScaffold(onBackClicked = onBackClicked) {
+        ScreenTitle(title = "SETTINGS")
 
-    DarkGradientBackground {
-        AnimatedVisibility(
-            visible = visible,
-            enter = fadeIn(tween(400)) + slideInHorizontally(tween(400)) { it / 2 }
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(vertical = 12.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center
-            ) {
-            Text(
-                text = "SETTINGS",
-                color = accentBlue,
-                fontSize = 32.sp,
-                fontWeight = FontWeight.ExtraBold,
-                letterSpacing = 6.sp,
-                textAlign = TextAlign.Center
-            )
+        Spacer(modifier = Modifier.height(24.dp))
 
-            Spacer(modifier = Modifier.height(16.dp))
-
-            HorizontalDivider(
-                modifier = Modifier.fillMaxWidth(0.3f),
-                thickness = 1.dp,
-                color = accentBlue.copy(alpha = 0.3f)
-            )
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            // Server toggle (Local / Global)
-            SettingsToggleRow(
-                label = "Server: ${ServerConfig.displayLabel}",
-                checked = ServerConfig.isGlobal,
-                onCheckedChange = {
-                    ServerConfig.isGlobal = it
-                    ServiceLocator.resetGameService()
-                }
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Sound toggle
-            SettingsToggleRow(
-                label = "Sounds",
-                checked = soundEnabled.value,
-                onCheckedChange = { soundEnabled.value = it }
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Music toggle
-            SettingsToggleRow(
-                label = "Music",
-                checked = musicEnabled.value,
-                onCheckedChange = { musicEnabled.value = it }
-            )
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            HorizontalDivider(
-                modifier = Modifier.fillMaxWidth(0.3f),
-                thickness = 1.dp,
-                color = accentBlue.copy(alpha = 0.3f)
-            )
+        SettingsToggleRow(
+            label = "Server: ${ServerConfig.displayLabel}",
+            checked = ServerConfig.isGlobal,
+            onCheckedChange = {
+                ServerConfig.isGlobal = it
+                ServiceLocator.resetGameService()
             }
-        }
+        )
 
-        // Fixed back button – top-left
-        AnimatedVisibility(
-            visible = visible,
-            modifier = Modifier.align(Alignment.TopStart),
-            enter = fadeIn(tween(400)) + slideInVertically(tween(400)) { -it }
-        ) {
-            BackButton(
-                onClick = onBackClicked
-            )
-        }
+        Spacer(modifier = Modifier.height(16.dp))
+
+        SettingsToggleRow(
+            label = "Sounds",
+            checked = soundEnabled.value,
+            onCheckedChange = { soundEnabled.value = it }
+        )
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        SettingsToggleRow(
+            label = "Music",
+            checked = musicEnabled.value,
+            onCheckedChange = { musicEnabled.value = it }
+        )
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        HorizontalDivider(
+            modifier = Modifier.fillMaxWidth(0.3f),
+            thickness = 1.dp,
+            color = PrimaryBlueLight.copy(alpha = 0.3f)
+        )
     }
 }
 
@@ -179,4 +121,3 @@ fun SettingsToggleRow(
         )
     }
 }
-

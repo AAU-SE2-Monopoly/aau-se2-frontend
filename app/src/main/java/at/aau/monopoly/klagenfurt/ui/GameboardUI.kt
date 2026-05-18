@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
@@ -68,6 +69,7 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import at.aau.monopoly.klagenfurt.ServiceLocator
 import at.aau.monopoly.klagenfurt.model.Player
 import at.aau.monopoly.klagenfurt.model.field.Field
+import at.aau.monopoly.klagenfurt.model.field.OwnableField
 import at.aau.monopoly.klagenfurt.sensors.ShakeDetector
 import at.aau.monopoly.klagenfurt.ui.board.FieldItem
 import at.aau.monopoly.klagenfurt.ui.board.MovementAnimationState
@@ -82,9 +84,6 @@ import at.aau.monopoly.klagenfurt.model.enums.GamePhase
 import androidx.compose.foundation.shape.RoundedCornerShape
 import at.aau.monopoly.klagenfurt.model.field.ChanceField
 import at.aau.monopoly.klagenfurt.model.field.CommunityChestField
-import at.aau.monopoly.klagenfurt.model.field.PropertyField
-import at.aau.monopoly.klagenfurt.model.field.RailroadField
-import at.aau.monopoly.klagenfurt.model.field.UtilityField
 import kotlin.math.hypot
 
 
@@ -149,16 +148,9 @@ fun GameboardScreen(
     val currentField = currentTurnPlayer?.let { player ->
         fields.getOrNull(player.position)
     }
-    val isBuyableField = currentField is PropertyField ||
-            currentField is RailroadField ||
-            currentField is UtilityField
+    val isBuyableField = currentField is OwnableField
 
-    val isUnownedField = when (currentField) {
-        is PropertyField -> currentField.ownerId == null
-        is RailroadField -> currentField.ownerId == null
-        is UtilityField -> currentField.ownerId == null
-        else -> false
-    }
+    val isUnownedField = (currentField as? OwnableField)?.ownerId == null
 
     val isOnChanceField = currentField is ChanceField
     val isOnCommunityChestField = currentField is CommunityChestField
@@ -320,17 +312,10 @@ fun GameboardScreen(
                 horizontalAlignment = Alignment.End,
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                val glassButtonColors = ButtonDefaults.buttonColors(
-                    containerColor = Color.Black.copy(alpha = 0.35f),
-                    contentColor = Color.White
-                )
-
                 if (canStartGame) {
-                    Button(
+                    GlassButton(
                         onClick = { viewModel.startGame() },
-                        modifier = Modifier.padding(bottom = 8.dp),
-                        colors = glassButtonColors,
-                        shape = RoundedCornerShape(12.dp)
+                        modifier = Modifier.padding(bottom = 8.dp)
                     ) {
                         Text("Start Game")
                     }
@@ -348,48 +333,40 @@ fun GameboardScreen(
                             color = Color.White
                         )
 
-                        Button(
+                        GlassButton(
                             onClick = { viewModel.payJailFine() },
                             enabled = currentTurnPlayer.money >= 50,
-                            modifier = Modifier.testTag("pay_jail_fine_button"),
-                            colors = glassButtonColors,
-                            shape = RoundedCornerShape(12.dp)
+                            modifier = Modifier.testTag("pay_jail_fine_button")
                         ) {
                             Text("💰 50 M zahlen")
                         }
 
 
                         if (currentTurnPlayer.getOutOfJailCards > 0) {
-                            Button(
+                            GlassButton(
                                 onClick = { viewModel.useJailCard() },
-                                modifier = Modifier.testTag("use_jail_card_button"),
-                                colors = glassButtonColors,
-                                shape = RoundedCornerShape(12.dp)
+                                modifier = Modifier.testTag("use_jail_card_button")
                             ) {
                                 Text("🃏 Karte nutzen (${currentTurnPlayer.getOutOfJailCards})")
                             }
                         }
 
 
-                        Button(
+                        GlassButton(
                             onClick = { showOverlay = true },
-                            modifier = Modifier.testTag("roll_dice_button"),
-                            colors = glassButtonColors,
-                            shape = RoundedCornerShape(12.dp)
+                            modifier = Modifier.testTag("roll_dice_button")
                         ) {
                             Text("🎲 Pasch versuchen")
                         }
                     }
 
                     else {
-                        Button(
+                        GlassButton(
                             onClick = {
 
                                 showOverlay = true
                             },
-                            modifier = Modifier.testTag("roll_dice_button"),
-                            colors = glassButtonColors,
-                            shape = RoundedCornerShape(12.dp)
+                            modifier = Modifier.testTag("roll_dice_button")
                         ) {
                             Text("🎲 Roll Dice")
                         }
@@ -397,52 +374,44 @@ fun GameboardScreen(
                 }
 
                 if (canEndTurnForCurrentPlayer) {
-                    Button(
+                    GlassButton(
                         onClick = { viewModel.endTurn() },
                         modifier = Modifier
                             .padding(top = 8.dp)
-                            .testTag("end_turn_button"),
-                        colors = glassButtonColors,
-                        shape = RoundedCornerShape(12.dp)
+                            .testTag("end_turn_button")
                     ) {
                         Text("End Turn")
                     }
                 }
 
                 if (canBuyCurrentField) {
-                    Button(
+                    GlassButton(
                         onClick = {
                             viewModel.buyProperty(currentTurnPlayer.position)
                         },
                         modifier = Modifier
                             .padding(top = 8.dp)
-                            .testTag("buy_property_button"),
-                        colors = glassButtonColors,
-                        shape = RoundedCornerShape(12.dp)
+                            .testTag("buy_property_button")
                     ) {
                         Text("Buy Property")
                     }
                 }
 
                 if (isOnChanceField && isBuyingPhaseForCurrentPlayer) {
-                    Button(
+                    GlassButton(
                         onClick = { viewModel.drawCard("CHANCE") },
                         enabled = !showActionCardOverlay && !chanceCardDrawnThisTurn,
-                        modifier = Modifier.padding(top = 8.dp),
-                        colors = glassButtonColors,
-                        shape = RoundedCornerShape(12.dp)
+                        modifier = Modifier.padding(top = 8.dp)
                     ) {
                         Text(if (chanceCardDrawnThisTurn) "✓ Card Drawn" else "🎰 Draw Chance")
                     }
                 }
 
                 if (isOnCommunityChestField && isBuyingPhaseForCurrentPlayer) {
-                    Button(
+                    GlassButton(
                         onClick = { viewModel.drawCard("COMMUNITY_CHEST") },
                         enabled = !showActionCardOverlay && !communityChestCardDrawnThisTurn,
-                        modifier = Modifier.padding(top = 8.dp),
-                        colors = glassButtonColors,
-                        shape = RoundedCornerShape(12.dp)
+                        modifier = Modifier.padding(top = 8.dp)
                     ) {
                         Text(if (communityChestCardDrawnThisTurn) "✓ Card Drawn" else "⭐ Draw Community")
                     }
@@ -688,3 +657,27 @@ fun GameboardContent(
         }
     }
 }
+
+/**
+ * Semi-transparent rounded button used throughout the gameboard UI.
+ */
+@Composable
+private fun GlassButton(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+    content: @Composable RowScope.() -> Unit
+) {
+    Button(
+        onClick = onClick,
+        modifier = modifier,
+        enabled = enabled,
+        colors = ButtonDefaults.buttonColors(
+            containerColor = Color.Black.copy(alpha = 0.35f),
+            contentColor = Color.White
+        ),
+        shape = RoundedCornerShape(12.dp),
+        content = content
+    )
+}
+

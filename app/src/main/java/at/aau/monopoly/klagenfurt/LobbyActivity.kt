@@ -38,6 +38,14 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideInVertically
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -46,11 +54,13 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import kotlinx.coroutines.delay
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -144,6 +154,13 @@ fun LobbyScreen(
     val isConnected by viewModel.isConnected.collectAsState()
     val reconnectFailed by viewModel.reconnectFailed.collectAsState()
     val games by viewModel.games.collectAsState()
+    val gamesLoaded by viewModel.gamesLoaded.collectAsState()
+
+    // Controls the top bar animation (starts immediately on composition)
+    var topBarVisible by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        topBarVisible = true
+    }
 
     // When connected, subscribe to lobby and request game list
     LaunchedEffect(isConnected) {
@@ -185,18 +202,23 @@ fun LobbyScreen(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
-            Text(
-                text = "OPEN GAMES",
-                color = PrimaryBlueLight,
-                fontSize = 28.sp,
-                fontWeight = FontWeight.ExtraBold,
-                letterSpacing = 4.sp,
-                textAlign = TextAlign.Center
-            )
+            AnimatedVisibility(
+                visible = gamesLoaded,
+                enter = fadeIn(tween(300)) + slideInVertically(tween(300)) { -it }
+            ) {
+                Text(
+                    text = "OPEN GAMES",
+                    color = PrimaryBlueLight,
+                    fontSize = 28.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    letterSpacing = 4.sp,
+                    textAlign = TextAlign.Center
+                )
+            }
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            if (!isConnected) {
+            if (!isConnected || !gamesLoaded) {
                 Spacer(modifier = Modifier.height(32.dp))
                 CircularProgressIndicator(
                     color = PrimaryBlueLight,
@@ -211,89 +233,114 @@ fun LobbyScreen(
                 )
             } else {
                 LazyRow(
+                    modifier = Modifier.height(176.dp),
                     contentPadding = PaddingValues(horizontal = 16.dp),
                     horizontalArrangement = Arrangement.spacedBy(16.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     // "+" card to create a new game
                     item {
-                        CreateGameCard(onClick = onCreateGame, enabled = isConnected)
+                        var visible by remember { mutableStateOf(false) }
+                        LaunchedEffect(Unit) {
+                            delay(250L)
+                            visible = true
+                        }
+                        AnimatedVisibility(
+                            visible = visible,
+                            enter = fadeIn(tween(300)) + slideInHorizontally(tween(300)) { -it / 2 }
+                        ) {
+                            CreateGameCard(onClick = onCreateGame, enabled = isConnected)
+                        }
                     }
 
                     // Existing open games
-                    items(games, key = { it.gameId }) { game ->
-                        GameCard(
-                            game = game,
-                            isOwnGame = game.hostPlayerId == viewModel.currentPlayerId
-                                    || (game.hostPlayerId.isBlank() && game.playerIds.firstOrNull() == viewModel.currentPlayerId),
-                            currentPlayerId = viewModel.currentPlayerId,
-                            isConnected = isConnected,
-                            onClick = { onGameClicked(game) },
-                            onClose = { viewModel.closeGame(game.gameId) }
-                        )
+                    items(games.size) { index ->
+                        val game = games[index]
+                        var visible by remember { mutableStateOf(false) }
+                        LaunchedEffect(Unit) {
+                            delay(250L * (index + 2))
+                            visible = true
+                        }
+                        AnimatedVisibility(
+                            visible = visible,
+                            enter = fadeIn(tween(300))
+                        ) {
+                            GameCard(
+                                game = game,
+                                isOwnGame = game.hostPlayerId == viewModel.currentPlayerId
+                                        || (game.hostPlayerId.isBlank() && game.playerIds.firstOrNull() == viewModel.currentPlayerId),
+                                currentPlayerId = viewModel.currentPlayerId,
+                                isConnected = isConnected,
+                                animationDelayMs = 250L * (index + 2),
+                                onClick = { onGameClicked(game) },
+                                onClose = { viewModel.closeGame(game.gameId) }
+                            )
+                        }
                     }
                 }
             }
         }
 
         // Back button – top-left
-        Button(
-            onClick = onBackClicked,
-            modifier = Modifier
-                .align(Alignment.TopStart)
-                .padding(16.dp),
-            shape = RoundedCornerShape(12.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = PrimaryBlue),
-            elevation = ButtonDefaults.buttonElevation(defaultElevation = 4.dp)
+        AnimatedVisibility(
+            visible = topBarVisible,
+            modifier = Modifier.align(Alignment.TopStart),
+            enter = fadeIn(tween(400)) + slideInVertically(tween(400)) { -it }
         ) {
-            Icon(
-                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                contentDescription = "Back",
-                tint = Color.White,
-                modifier = Modifier.size(18.dp)
-            )
-            Spacer(modifier = Modifier.width(6.dp))
-            Text(
-                text = "Back",
-                fontSize = 14.sp,
-                color = Color.White,
-                fontWeight = FontWeight.Medium,
-                letterSpacing = 1.sp
-            )
-        }
-
-        // Connection indicator – top-right
-        if (reconnectFailed && !isConnected) {
             Button(
-                onClick = { viewModel.reconnect() },
-                modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .padding(16.dp),
+                onClick = onBackClicked,
+                modifier = Modifier.padding(16.dp),
                 shape = RoundedCornerShape(12.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = PrimaryBlue),
                 elevation = ButtonDefaults.buttonElevation(defaultElevation = 4.dp)
             ) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = "Back",
+                    tint = Color.White,
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(modifier = Modifier.width(6.dp))
                 Text(
-                    text = "Reconnect",
+                    text = "Back",
+                    fontSize = 14.sp,
                     color = Color.White,
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Medium
+                    fontWeight = FontWeight.Medium,
+                    letterSpacing = 1.sp
                 )
             }
-        } else {
-            Box(
-                modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .padding(16.dp)
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(
-                        if (isConnected) Color(0xFF2E7D32).copy(alpha = 0.8f)
-                        else Color(0xFFE65100).copy(alpha = 0.8f)
+        }
+
+        // Connection indicator – top-right
+        AnimatedVisibility(
+            visible = topBarVisible,
+            modifier = Modifier.align(Alignment.TopEnd),
+            enter = fadeIn(tween(400)) + slideInVertically(tween(400)) { -it }
+        ) {
+            if (reconnectFailed && !isConnected) {
+                Button(
+                    onClick = { viewModel.reconnect() },
+                    modifier = Modifier.padding(16.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = PrimaryBlue),
+                    elevation = ButtonDefaults.buttonElevation(defaultElevation = 4.dp)
+                ) {
+                    Text(
+                        text = "Reconnect",
+                        color = Color.White,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Medium
                     )
-                    .padding(horizontal = 12.dp, vertical = 8.dp)
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    if (isConnected) {
+                }
+            } else if (isConnected) {
+                Box(
+                    modifier = Modifier
+                        .padding(16.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(Color(0xFF2E7D32).copy(alpha = 0.8f))
+                        .padding(horizontal = 12.dp, vertical = 8.dp)
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(
                             imageVector = Icons.Filled.Check,
                             contentDescription = "Connected",
@@ -303,13 +350,6 @@ fun LobbyScreen(
                         Spacer(modifier = Modifier.width(6.dp))
                         Text(
                             text = "Connected",
-                            color = Color.White,
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Medium
-                        )
-                    } else {
-                        Text(
-                            text = "Connecting…",
                             color = Color.White,
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Medium
@@ -357,10 +397,16 @@ fun GameCard(
     isOwnGame: Boolean,
     currentPlayerId: String,
     isConnected: Boolean = true,
+    animationDelayMs: Long = 0L,
     onClick: () -> Unit,
     onClose: () -> Unit
 ) {
     var showCloseDialog by remember { mutableStateOf(false) }
+    var closeButtonVisible by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        delay(animationDelayMs + 300L)
+        closeButtonVisible = true
+    }
     val isInGame = game.playerIds.contains(currentPlayerId)
     val status = game.cardStatus()
     val isInteractable = when (status) {
@@ -471,21 +517,35 @@ fun GameCard(
 
         // Close button for own games – outside the clipped box
         if (isOwnGame && isConnected) {
-            IconButton(
-                onClick = { showCloseDialog = true },
-                modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .offset(x = 8.dp, y = (-8).dp)
-                    .size(28.dp)
-                    .clip(CircleShape)
-                    .background(Color.Red.copy(alpha = 0.7f))
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Close,
-                    contentDescription = "Close Game",
-                    tint = Color.White,
-                    modifier = Modifier.size(16.dp)
-                )
+            val closeScale by animateFloatAsState(
+                targetValue = if (closeButtonVisible) 1f else 0f,
+                animationSpec = spring(
+                    dampingRatio = Spring.DampingRatioMediumBouncy,
+                    stiffness = Spring.StiffnessMedium
+                ),
+                label = "closeButtonScale"
+            )
+            if (closeScale > 0f) {
+                IconButton(
+                    onClick = { showCloseDialog = true },
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .offset(x = 8.dp, y = (-8).dp)
+                        .size(28.dp)
+                        .graphicsLayer {
+                            scaleX = closeScale
+                            scaleY = closeScale
+                        }
+                        .clip(CircleShape)
+                        .background(Color.Red.copy(alpha = 0.7f))
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Close,
+                        contentDescription = "Close Game",
+                        tint = Color.White,
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
             }
         }
     }

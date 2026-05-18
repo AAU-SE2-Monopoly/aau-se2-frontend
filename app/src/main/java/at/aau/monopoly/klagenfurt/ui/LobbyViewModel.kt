@@ -42,6 +42,9 @@ class LobbyViewModel(private val gameService: GameService) : ViewModel() {
 
     private val _games = MutableStateFlow<List<GameLobbyInfo>>(emptyList())
     val games: StateFlow<List<GameLobbyInfo>> = _games.asStateFlow()
+
+    private val _gamesLoaded = MutableStateFlow(false)
+    val gamesLoaded: StateFlow<Boolean> = _gamesLoaded.asStateFlow()
     /** Tracks the gameId of a game we just created, so LobbyActivity can navigate. */
     private val _createdGameId = MutableStateFlow<String?>(null)
     val createdGameId: StateFlow<String?> = _createdGameId.asStateFlow()
@@ -81,6 +84,7 @@ class LobbyViewModel(private val gameService: GameService) : ViewModel() {
                             }
                         }
                         .sortedBy { it.cardStatus().sortOrder }
+                    _gamesLoaded.value = true
                 } catch (e: Exception) {
                     Log.e("LobbyViewModel", "Error parsing lobby event: ${e.message}", e)
                 }

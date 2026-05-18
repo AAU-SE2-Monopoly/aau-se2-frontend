@@ -4,6 +4,11 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -17,8 +22,11 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -54,14 +62,21 @@ fun SettingsScreen(onBackClicked: () -> Unit) {
     val soundEnabled = remember { mutableStateOf(true) }
     val musicEnabled = remember { mutableStateOf(true) }
 
+    var visible by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) { visible = true }
+
     DarkGradientBackground {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(vertical = 12.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
+        AnimatedVisibility(
+            visible = visible,
+            enter = fadeIn(tween(400)) + slideInHorizontally(tween(400)) { it / 2 }
         ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(vertical = 12.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+            ) {
             Text(
                 text = "SETTINGS",
                 color = accentBlue,
@@ -116,13 +131,19 @@ fun SettingsScreen(onBackClicked: () -> Unit) {
                 thickness = 1.dp,
                 color = accentBlue.copy(alpha = 0.3f)
             )
+            }
         }
 
         // Fixed back button – top-left
-        BackButton(
-            onClick = onBackClicked,
-            modifier = Modifier.align(Alignment.TopStart)
-        )
+        AnimatedVisibility(
+            visible = visible,
+            modifier = Modifier.align(Alignment.TopStart),
+            enter = fadeIn(tween(400)) + slideInVertically(tween(400)) { -it }
+        ) {
+            BackButton(
+                onClick = onBackClicked
+            )
+        }
     }
 }
 

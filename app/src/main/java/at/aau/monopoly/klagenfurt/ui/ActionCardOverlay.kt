@@ -43,17 +43,16 @@ fun ActionCardOverlay(
 
     Box(
         modifier = Modifier
-            .fillMaxSize()
-            .background(Color.Black.copy(alpha = 0.7f)),
+            .fillMaxSize(),
         contentAlignment = Alignment.Center
     ) {
         Surface(
             modifier = Modifier
                 .size(width = 400.dp, height = 550.dp)
                 .padding(16.dp),
-            color = Color.White,
+            color = Color.Black.copy(alpha = 0.85f),
             shape = RoundedCornerShape(16.dp),
-            shadowElevation = 8.dp
+            shadowElevation = 0.dp
         ) {
             Column(
                 modifier = Modifier
@@ -97,7 +96,7 @@ fun ActionCardOverlay(
                     fontWeight = FontWeight.SemiBold,
                     textAlign = TextAlign.Center,
                     lineHeight = 22.sp,
-                    color = Color.Black,
+                    color = Color.White,
                     modifier = Modifier.padding(horizontal = 8.dp)
                 )
 
@@ -113,7 +112,7 @@ fun ActionCardOverlay(
                     Text(
                         text = "Executing action...",
                         fontSize = 14.sp,
-                        color = Color.Gray,
+                        color = Color.White.copy(alpha = 0.7f),
                         fontWeight = FontWeight.Medium
                     )
                     Spacer(modifier = Modifier.height(12.dp))
@@ -121,7 +120,7 @@ fun ActionCardOverlay(
 
                 // Execute Action Button
                 val buttonColor by animateColorAsState(
-                    targetValue = if (isExecuting) Color.Gray else Color(0xFF1B7F1C),
+                    targetValue = if (isExecuting) Color.Gray else Color(0xFF1B7F1C).copy(alpha = 0.7f),
                     animationSpec = tween(300)
                 )
 
@@ -130,8 +129,9 @@ fun ActionCardOverlay(
                     enabled = !isExecuting,
                     colors = ButtonDefaults.buttonColors(
                         containerColor = buttonColor,
-                        disabledContainerColor = Color.Gray
+                        disabledContainerColor = Color.White.copy(alpha = 0.15f)
                     ),
+                    shape = RoundedCornerShape(12.dp),
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(50.dp)
@@ -150,7 +150,7 @@ fun ActionCardOverlay(
                 Text(
                     text = "Press the button above to execute this action",
                     fontSize = 12.sp,
-                    color = Color.Gray,
+                    color = Color.White.copy(alpha = 0.5f),
                     fontStyle = androidx.compose.ui.text.font.FontStyle.Italic,
                     textAlign = TextAlign.Center
                 )
@@ -167,7 +167,7 @@ private fun ActionDetailBox(card: Card) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .background(Color(0xFFF5F5F5), RoundedCornerShape(8.dp))
+            .background(Color.White.copy(alpha = 0.1f), RoundedCornerShape(8.dp))
             .padding(16.dp),
         contentAlignment = Alignment.Center
     ) {
@@ -180,7 +180,7 @@ private fun ActionDetailBox(card: Card) {
                     Text(
                         text = "Collect Money",
                         fontSize = 14.sp,
-                        color = Color.Gray,
+                        color = Color.White.copy(alpha = 0.7f),
                         fontWeight = FontWeight.Medium
                     )
                     Text(
@@ -195,7 +195,7 @@ private fun ActionDetailBox(card: Card) {
                     Text(
                         text = "Pay Money",
                         fontSize = 14.sp,
-                        color = Color.Gray,
+                        color = Color.White.copy(alpha = 0.7f),
                         fontWeight = FontWeight.Medium
                     )
                     Text(
@@ -210,7 +210,7 @@ private fun ActionDetailBox(card: Card) {
                     Text(
                         text = "Collect From Each Player",
                         fontSize = 14.sp,
-                        color = Color.Gray,
+                        color = Color.White.copy(alpha = 0.7f),
                         fontWeight = FontWeight.Medium
                     )
                     Text(
@@ -225,7 +225,7 @@ private fun ActionDetailBox(card: Card) {
                     Text(
                         text = "Pay Each Player",
                         fontSize = 14.sp,
-                        color = Color.Gray,
+                        color = Color.White.copy(alpha = 0.7f),
                         fontWeight = FontWeight.Medium
                     )
                     Text(
@@ -240,7 +240,7 @@ private fun ActionDetailBox(card: Card) {
                     Text(
                         text = "Advance to Field",
                         fontSize = 14.sp,
-                        color = Color.Gray,
+                        color = Color.White.copy(alpha = 0.7f),
                         fontWeight = FontWeight.Medium
                     )
                     Text(
@@ -255,7 +255,7 @@ private fun ActionDetailBox(card: Card) {
                     Text(
                         text = "Move Forward",
                         fontSize = 14.sp,
-                        color = Color.Gray,
+                        color = Color.White.copy(alpha = 0.7f),
                         fontWeight = FontWeight.Medium
                     )
                     Text(

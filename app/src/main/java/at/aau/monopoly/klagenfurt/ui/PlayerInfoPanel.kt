@@ -1,5 +1,7 @@
 package at.aau.monopoly.klagenfurt.ui
 
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -11,10 +13,13 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
@@ -28,7 +33,7 @@ import at.aau.monopoly.klagenfurt.model.field.RailroadField
 import at.aau.monopoly.klagenfurt.model.field.UtilityField
 import at.aau.monopoly.klagenfurt.ui.util.getPlayerTokenResource
 
-private val PanelBg = Color(0xCC1B1B1B)
+private val PanelBg = Color.Black.copy(alpha = 0.35f)
 private val GoldAccent = Color(0xFFFFD54F)
 
 // Original card width (from FieldCardUI / CardUI)
@@ -77,13 +82,8 @@ fun PlayerInfoPanel(
     Column(
         modifier = modifier
             .width(280.dp)
-            .clip(RoundedCornerShape(8.dp))
+            .clip(RoundedCornerShape(12.dp))
             .background(PanelBg)
-            .border(
-                width = if (isCurrentTurn) 2.dp else 1.dp,
-                color = if (isCurrentTurn) GoldAccent else Color.White.copy(alpha = 0.3f),
-                shape = RoundedCornerShape(8.dp)
-            )
             .padding(6.dp),
         horizontalAlignment = if (isOwnPlayer) Alignment.End else Alignment.Start
     ) {
@@ -234,21 +234,33 @@ private fun MiniCardFlowRow(fields: List<Field>, scale: Float, cardW: Dp, cardH:
 }
 
 /**
- * Renders a FieldCardUI at the specified size directly (no graphicsLayer scaling).
+ * Renders a FieldCardUI at the specified size with a pop-in animation.
  */
 @Composable
 private fun ScaledFieldCard(field: Field, scale: Float, w: Dp, h: Dp) {
+    val animScale = remember { Animatable(0f) }
+    LaunchedEffect(Unit) {
+        animScale.animateTo(1f, animationSpec = tween(durationMillis = 300))
+    }
     FieldCardUI(
         field = field,
-        modifier = Modifier.size(w, h)
+        modifier = Modifier
+            .size(w, h)
+            .graphicsLayer(scaleX = animScale.value, scaleY = animScale.value)
     )
 }
 
 @Composable
 private fun ScaledChanceCard(card: Card, scale: Float, w: Dp, h: Dp) {
+    val animScale = remember { Animatable(0f) }
+    LaunchedEffect(Unit) {
+        animScale.animateTo(1f, animationSpec = tween(durationMillis = 300))
+    }
     CardUI(
         card = card,
-        modifier = Modifier.size(w, h)
+        modifier = Modifier
+            .size(w, h)
+            .graphicsLayer(scaleX = animScale.value, scaleY = animScale.value)
     )
 }
 

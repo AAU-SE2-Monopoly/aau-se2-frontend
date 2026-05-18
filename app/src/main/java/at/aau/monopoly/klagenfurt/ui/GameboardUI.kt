@@ -16,7 +16,9 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.BoxWithConstraintsScope
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
@@ -547,18 +549,8 @@ fun GameboardContent(
                     val sw = this.maxWidth.value
                     val sh = this.maxHeight.value
 
-                    Image(
-                        painter = painterResource(id = R.drawable.background),
-                        contentDescription = "Klagenfurt-Map",
-                        modifier = Modifier.fillMaxSize(),
-                        contentScale = ContentScale.FillBounds
-                    )
-                    Image(
-                        painter = painterResource(id = R.drawable.pathreworked),
-                        contentDescription = "Path - Klagenfurt-Ring",
-                        modifier = Modifier.fillMaxSize(),
-                        contentScale = ContentScale.FillBounds
-                    )
+                    FullscreenImage(R.drawable.background, "Klagenfurt-Map")
+                    FullscreenImage(R.drawable.pathreworked, "Path - Klagenfurt-Ring")
                     // Semi-transparent warm overlay to match field backgrounds
                     Box(
                         modifier = Modifier
@@ -603,13 +595,10 @@ fun GameboardContent(
 
         // Overlay: Left panel – other players
         if (otherPlayers.isNotEmpty()) {
-            Column(
-                modifier = Modifier
-                    .align(Alignment.CenterStart)
-                    .width(panelWidth)
-                    .padding(start = panelMargin, top = panelMargin, bottom = panelMargin, end = panelMargin)
-                    .wrapContentHeight()
-                    .verticalScroll(rememberScrollState()),
+            PlayerPanel(
+                alignment = Alignment.CenterStart,
+                panelWidth = panelWidth,
+                panelMargin = panelMargin,
                 verticalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterVertically)
             ) {
                 otherPlayers.forEach { player ->
@@ -627,13 +616,10 @@ fun GameboardContent(
 
         // Overlay: Right panel – own player
         if (myPlayer != null) {
-            Column(
-                modifier = Modifier
-                    .align(Alignment.CenterEnd)
-                    .width(panelWidth)
-                    .padding(start = panelMargin, end = panelMargin, top = panelMargin, bottom = panelMargin)
-                    .wrapContentHeight()
-                    .verticalScroll(rememberScrollState()),
+            PlayerPanel(
+                alignment = Alignment.CenterEnd,
+                panelWidth = panelWidth,
+                panelMargin = panelMargin,
                 verticalArrangement = Arrangement.Center
             ) {
                 PlayerInfoPanel(
@@ -678,6 +664,42 @@ private fun GlassButton(
         ),
         shape = RoundedCornerShape(12.dp),
         content = content
+    )
+}
+
+/**
+ * Scrollable side panel used for player info on left/right edges of the gameboard.
+ */
+@Composable
+private fun BoxWithConstraintsScope.PlayerPanel(
+    alignment: Alignment,
+    panelWidth: androidx.compose.ui.unit.Dp,
+    panelMargin: androidx.compose.ui.unit.Dp,
+    verticalArrangement: Arrangement.Vertical,
+    content: @Composable ColumnScope.() -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .align(alignment)
+            .width(panelWidth)
+            .padding(panelMargin)
+            .wrapContentHeight()
+            .verticalScroll(rememberScrollState()),
+        verticalArrangement = verticalArrangement,
+        content = content
+    )
+}
+
+/**
+ * Full-size image layer used for board background layers.
+ */
+@Composable
+private fun FullscreenImage(@androidx.annotation.DrawableRes resId: Int, description: String) {
+    Image(
+        painter = painterResource(id = resId),
+        contentDescription = description,
+        modifier = Modifier.fillMaxSize(),
+        contentScale = ContentScale.FillBounds
     )
 }
 

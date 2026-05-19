@@ -188,6 +188,12 @@ class FakeGameService : GameService {
         _reconnectFailed.value = failed
     }
 
+    override fun payRent(fieldId: Int, diceTotal: Int) {}
+    override fun mortgageProperty(fieldId: Int) {}
+    override fun unmortgageProperty(fieldId: Int) {}
+    override fun sellHouse(fieldId: Int) {}
+    override fun declareBankruptcy() {}
+
     override fun payJailFine(){}
 
     override fun useJailCard(){}

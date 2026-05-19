@@ -47,4 +47,9 @@ interface GameService {
     fun buyProperty(fieldId: Int)
 
 
+    fun payRent(fieldId: Int, diceTotal: Int = 0)
+    fun mortgageProperty(fieldId: Int)
+    fun unmortgageProperty(fieldId: Int)
+    fun sellHouse(fieldId: Int)
+    fun declareBankruptcy()
 }

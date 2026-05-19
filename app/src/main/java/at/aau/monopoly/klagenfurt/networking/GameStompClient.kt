@@ -629,4 +629,63 @@ class GameStompClient(
         val json = JacksonProvider.objectMapper.writeValueAsString(action)
         sendRaw("/app/game/action", json)
     }
+
+    override fun payRent(fieldId: Int, diceTotal: Int) {
+        val payload = mutableMapOf("fieldId" to fieldId.toString(), "diceTotal" to diceTotal.toString())
+        val action = GameAction(
+            gameId = currentGameId,
+            playerId = currentPlayerId,
+            action = "PAY_RENT",
+            payload = payload
+        )
+        sendRaw("/app/game/action", JacksonProvider.objectMapper.writeValueAsString(action))
+        Log.d("GameStomp", "Paying rent on field: $fieldId")
+    }
+
+    override fun mortgageProperty(fieldId: Int) {
+        val payload = mutableMapOf("fieldId" to fieldId.toString())
+        val action = GameAction(
+            gameId = currentGameId,
+            playerId = currentPlayerId,
+            action = "MORTGAGE_PROPERTY",
+            payload = payload
+        )
+        sendRaw("/app/game/action", JacksonProvider.objectMapper.writeValueAsString(action))
+        Log.d("GameStomp", "Mortgaging property: $fieldId")
+    }
+
+    override fun unmortgageProperty(fieldId: Int) {
+        val payload = mutableMapOf("fieldId" to fieldId.toString())
+        val action = GameAction(
+            gameId = currentGameId,
+            playerId = currentPlayerId,
+            action = "UNMORTGAGE_PROPERTY",
+            payload = payload
+        )
+        sendRaw("/app/game/action", JacksonProvider.objectMapper.writeValueAsString(action))
+        Log.d("GameStomp", "Unmortgaging property: $fieldId")
+    }
+
+    override fun sellHouse(fieldId: Int) {
+        val payload = mutableMapOf("fieldId" to fieldId.toString())
+        val action = GameAction(
+            gameId = currentGameId,
+            playerId = currentPlayerId,
+            action = "SELL_HOUSE",
+            payload = payload
+        )
+        sendRaw("/app/game/action", JacksonProvider.objectMapper.writeValueAsString(action))
+        Log.d("GameStomp", "Selling house on field: $fieldId")
+    }
+
+    override fun declareBankruptcy() {
+        val action = GameAction(
+            gameId = currentGameId,
+            playerId = currentPlayerId,
+            action = "DECLARE_BANKRUPTCY",
+            payload = mutableMapOf()
+        )
+        sendRaw("/app/game/action", JacksonProvider.objectMapper.writeValueAsString(action))
+        Log.d("GameStomp", "Declaring bankruptcy")
+    }
 }

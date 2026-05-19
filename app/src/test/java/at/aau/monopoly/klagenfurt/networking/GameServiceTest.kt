@@ -64,6 +64,12 @@ class GameServiceTest {
         override fun buyProperty(fieldId: Int) {
             // no-op for interface test
         }
+
+        override fun payRent(fieldId: Int, diceTotal: Int) {}
+        override fun mortgageProperty(fieldId: Int) {}
+        override fun unmortgageProperty(fieldId: Int) {}
+        override fun sellHouse(fieldId: Int) {}
+        override fun declareBankruptcy() {}
     }
 
     @Test

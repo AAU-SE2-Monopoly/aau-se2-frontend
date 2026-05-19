@@ -15,7 +15,6 @@ data class Player(
     /** Returns true if the player is bankrupt (no money and no properties). */
     fun isBankrupt(): Boolean = money <= 0 && ownedPropertyIds.isEmpty()
 
-
     fun goToJail(jailPosition: Int = 10) {
         position = jailPosition
         inJail = true

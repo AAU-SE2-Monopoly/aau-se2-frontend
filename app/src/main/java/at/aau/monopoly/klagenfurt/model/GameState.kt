@@ -19,6 +19,10 @@ data class GameState(
     var currentActionCard: Card? = null, // Current action card (drawn from deck, pending execution)
     var hasDrawnChanceCardThisTurn: Boolean = false,
     var hasDrawnCommunityChestCardThisTurn: Boolean = false,
+    val pendingRentAmount: Int = 0,
+    val pendingRentOwnerId: String? = null,
+    val pendingRentFieldId: Int? = null,
+    val pendingTaxAmount: Int = 0
 ) {
     /** The player whose turn it currently is. */
     val currentPlayer: Player?

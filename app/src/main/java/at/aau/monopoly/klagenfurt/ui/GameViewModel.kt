@@ -96,7 +96,8 @@ class GameViewModel(
     val chanceCardDrawnThisTurn: StateFlow<Boolean> = _chanceCardDrawnThisTurn.asStateFlow()
 
     private val _communityChestCardDrawnThisTurn = MutableStateFlow(false)
-    val communityChestCardDrawnThisTurn: StateFlow<Boolean> = _communityChestCardDrawnThisTurn.asStateFlow()
+    val communityChestCardDrawnThisTurn: StateFlow<Boolean> =
+        _communityChestCardDrawnThisTurn.asStateFlow()
 
     private var lastCurrentPlayerIdForCardDraw: String? = null
 
@@ -117,7 +118,8 @@ class GameViewModel(
 
                 event.gameState?.let { state ->
                     _chanceCardDrawnThisTurn.value = state.hasDrawnChanceCardThisTurn
-                    _communityChestCardDrawnThisTurn.value = state.hasDrawnCommunityChestCardThisTurn
+                    _communityChestCardDrawnThisTurn.value =
+                        state.hasDrawnCommunityChestCardThisTurn
                 }
 
                 // Detect position changes on DICE_ROLLED events and drive animation.
@@ -126,13 +128,19 @@ class GameViewModel(
 
                     if (oldState != null) {
                         val currentPlayerId = newState.currentPlayer?.id ?: return@onEach
-                        val prevPlayer = oldState.players.find { it.id == currentPlayerId } ?: return@onEach
-                        val newPlayer = newState.players.find { it.id == currentPlayerId } ?: return@onEach
+                        val prevPlayer =
+                            oldState.players.find { it.id == currentPlayerId } ?: return@onEach
+                        val newPlayer =
+                            newState.players.find { it.id == currentPlayerId } ?: return@onEach
 
                         if (prevPlayer.position != newPlayer.position) {
                             val diceTotal = newState.lastDiceRoll?.total
                                 ?: ((newPlayer.position - prevPlayer.position + newState.fields.size) % newState.fields.size)
-                            val path = computeMovementPath(prevPlayer.position, diceTotal, newState.fields.size)
+                            val path = computeMovementPath(
+                                prevPlayer.position,
+                                diceTotal,
+                                newState.fields.size
+                            )
 
                             animationJob?.cancel()
                             animationJob = viewModelScope.launch {
@@ -163,7 +171,8 @@ class GameViewModel(
 
                     event.gameState.let { state ->
                         _chanceCardDrawnThisTurn.value = state.hasDrawnChanceCardThisTurn
-                        _communityChestCardDrawnThisTurn.value = state.hasDrawnCommunityChestCardThisTurn
+                        _communityChestCardDrawnThisTurn.value =
+                            state.hasDrawnCommunityChestCardThisTurn
                     }
 
                     lastCurrentPlayerIdForCardDraw = event.gameState.currentPlayer?.id
@@ -349,6 +358,28 @@ class GameViewModel(
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
+    // Payment overlay state flows
+    private val _showPayRentOverlay = MutableStateFlow(false)
+    val showPayRentOverlay: StateFlow<Boolean> = _showPayRentOverlay.asStateFlow()
+
+    private val _showMortgageOverlay = MutableStateFlow(false)
+    val showMortgageOverlay: StateFlow<Boolean> = _showMortgageOverlay.asStateFlow()
+
+    private val _showBankruptcyOverlay = MutableStateFlow(false)
+    val showBankruptcyOverlay: StateFlow<Boolean> = _showBankruptcyOverlay.asStateFlow()
+
+    private val _currentRentAmount = MutableStateFlow(0)
+    val currentRentAmount: StateFlow<Int> = _currentRentAmount.asStateFlow()
+
+    private val _currentTaxAmount = MutableStateFlow(0)
+    val currentTaxAmount: StateFlow<Int> = _currentTaxAmount.asStateFlow()
+
+    private val _currentRentOwnerId = MutableStateFlow<String?>(null)
+    val currentRentOwnerId: StateFlow<String?> = _currentRentOwnerId.asStateFlow()
+
+    private val _currentRentFieldId = MutableStateFlow<Int?>(null)
+    val currentRentFieldId: StateFlow<Int?> = _currentRentFieldId.asStateFlow()
+
     val events: SharedFlow<String> = gameService.events
     val status: SharedFlow<String> = gameService.status
     val currentPlayerId: String get() = gameService.currentPlayerId
@@ -391,6 +422,60 @@ class GameViewModel(
     fun payJailFine() = gameService.payJailFine()
     fun useJailCard() = gameService.useJailCard()
 
+    // Payment-related actions
+    fun payRent() {
+        val fieldId = currentRentFieldId.value ?: return
+        gameService.payRent(fieldId)
+        _showPayRentOverlay.value = false
+    }
+
+    fun mortgageProperty(fieldId: Int) {
+        gameService.mortgageProperty(fieldId)
+    }
+
+    fun unmortgageProperty(fieldId: Int) {
+        gameService.unmortgageProperty(fieldId)
+    }
+
+    fun sellHouse(fieldId: Int) {
+        gameService.sellHouse(fieldId)
+    }
+
+    fun declareBankruptcy() {
+        gameService.declareBankruptcy()
+        _showBankruptcyOverlay.value = false
+    }
+
+    fun showPayRentOverlay(
+        amount: Int,
+        ownerId: String?,
+        fieldId: Int?
+    ) {
+        _currentRentAmount.value = amount
+        _currentRentOwnerId.value = ownerId
+        _currentRentFieldId.value = fieldId
+        _showPayRentOverlay.value = true
+    }
+
+    fun dismissPayRentOverlay() {
+        _showPayRentOverlay.value = false
+    }
+
+    fun showMortgageManagementOverlay() {
+        _showMortgageOverlay.value = true
+    }
+
+    fun dismissMortgageOverlay() {
+        _showMortgageOverlay.value = false
+    }
+
+    fun showBankruptcyOverlay() {
+        _showBankruptcyOverlay.value = true
+    }
+
+    fun dismissBankruptcyOverlay() {
+        _showBankruptcyOverlay.value = false
+    }
 
     fun requestState() = gameService.requestState()
 
@@ -401,7 +486,6 @@ class GameViewModel(
 
     private var previousGameState: GameState? = null
     private var animationJob: Job? = null
-
 
 
     fun drawCard(cardType: String = "CHANCE") =
@@ -470,7 +554,9 @@ class GameViewModel(
     companion object {
         private const val MAX_LOG_ENTRIES = 80
     }
+
     fun buyProperty(fieldId: Int) {
         gameService.buyProperty(fieldId)
     }
+
 }

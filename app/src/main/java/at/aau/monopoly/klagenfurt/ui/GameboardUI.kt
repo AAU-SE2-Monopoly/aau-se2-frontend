@@ -478,6 +478,7 @@ fun GameboardScreen(
                 onMortgage = { fieldId -> viewModel.mortgageProperty(fieldId) },
                 onUnmortgage = { fieldId -> viewModel.unmortgageProperty(fieldId) },
                 onSellHouse = { fieldId -> viewModel.sellHouse(fieldId) },
+                // Note: sellHouse handles both houses and hotels on the backend side
                 onSellHotel = { fieldId -> viewModel.sellHouse(fieldId) },
                 onDismiss = { viewModel.dismissMortgageOverlay() }
             )

@@ -203,10 +203,7 @@ class GameViewModel(
                 // C2: Payment event handlers
                 if (event.event == "RENT_DUE") {
                     val gs = event.gameState
-                    val pendingFieldId = gs?.fields?.find {
-                        it is PropertyField &&
-                                (it as PropertyField).rent.any { r -> r > 0 }
-                    }?.id
+                    val pendingFieldId = gs?.pendingRentFieldId
                     val pendingAmount = gs?.pendingRentAmount ?: 0
                     val pendingOwnerId = gs?.pendingRentOwnerId
                     showPayRentOverlay(pendingAmount, pendingOwnerId, pendingFieldId)
@@ -232,7 +229,7 @@ class GameViewModel(
 
                 if (event.event == "BANKRUPTCY_DECLARED") {
                     val gs = event.gameState
-                    val bankruptPlayerId = gs?.players?.find { it.isBankrupt() }?.name ?: ""
+                    val bankruptPlayerId = gs?.currentPlayer?.name ?: ""
                     _bankruptcyPlayerName.value = bankruptPlayerId
                     _showBankruptcyOverlay.value = true
                 }
@@ -363,7 +360,9 @@ class GameViewModel(
         .map { state ->
             (state?.phase == GamePhase.BUYING ||
                     state?.phase == GamePhase.TURN_END) &&
-                    state.currentPlayer?.id == gameService.currentPlayerId
+                    state.currentPlayer?.id == gameService.currentPlayerId &&
+                    !_showPayRentOverlay.value &&
+                    !_showBankruptcyOverlay.value
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
     val diceResultForCurrentPlayer: StateFlow<DiceRoll?> = gameState

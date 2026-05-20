@@ -18,6 +18,7 @@ import at.aau.monopoly.klagenfurt.networking.GameService
 import at.aau.monopoly.klagenfurt.networking.JacksonProvider
 import at.aau.monopoly.klagenfurt.ui.board.MovementAnimationState
 import at.aau.monopoly.klagenfurt.ui.board.computeMovementPath
+import kotlin.math.ceil
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -201,21 +202,39 @@ class GameViewModel(
                     _errorMessage.value = null
                 }
 
-                // C2: Payment event handlers
+                // reset overlay states on GAME_STARTED
+                if (event.event == "GAME_STARTED") {
+                    _showPayRentOverlay.value = false
+                    _showMortgageOverlay.value = false
+                    _showBankruptcyOverlay.value = false
+                    _currentRentAmount.value = 0
+                    _currentTaxAmount.value = 0
+                    _currentRentOwnerId.value = null
+                    _currentRentFieldId.value = null
+                    _bankruptcyPlayerName.value = ""
+                    _bankruptcyTotalAssets.value = 0
+                    _bankruptcyTotalDebt.value = 0
+                    _bankruptcyPropertiesOwned.value = emptyList()
+                }
+
+                //payment event handlers
                 if (event.event == "RENT_DUE") {
                     val gs = event.gameState
                     val pendingFieldId = gs?.pendingRentFieldId
                     val pendingAmount = gs?.pendingRentAmount ?: 0
                     val pendingOwnerId = gs?.pendingRentOwnerId
+                    //store last dice total for utility rent calculation
+                    _lastDiceTotalForRent.value = gs?.lastDiceRoll?.total ?: 0
                     showPayRentOverlay(pendingAmount, pendingOwnerId, pendingFieldId)
                 }
 
                 if (event.event == "TAX_DUE") {
                     val gs = event.gameState
                     _currentTaxAmount.value = gs?.pendingTaxAmount ?: 0
-                    _showPayRentOverlay.value = true
+                    // use pendingTaxFieldId from game state for tax fields
                     _currentRentOwnerId.value = null
-                    _currentRentFieldId.value = null
+                    _currentRentFieldId.value = gs?.pendingTaxFieldId
+                    _showPayRentOverlay.value = true
                 }
 
                 if (event.event == "RENT_PAID") {
@@ -232,7 +251,71 @@ class GameViewModel(
                     val gs = event.gameState
                     val bankruptPlayerId = gs?.currentPlayer?.name ?: ""
                     _bankruptcyPlayerName.value = bankruptPlayerId
+                    // extract bankruptcy summary from game state
+                    _bankruptcyTotalAssets.value = gs?.bankruptcyTotalAssets ?: 0
+                    _bankruptcyTotalDebt.value = gs?.bankruptcyTotalDebt ?: 0
+                    _bankruptcyPropertiesOwned.value = gs?.fields
+                        ?.filter { it is PropertyField || it is RailroadField || it is UtilityField }
+                        ?.filter { field ->
+                            val ownerId = when (field) {
+                                is PropertyField -> field.ownerId
+                                is RailroadField -> field.ownerId
+                                is UtilityField -> field.ownerId
+                                else -> null
+                            }
+                            ownerId == gs.currentPlayer?.id
+                        }
+                        ?.map { field ->
+                            when (field) {
+                                is PropertyField -> ManageableProperty(
+                                    fieldId = field.id, name = field.name, color = field.color.name,
+                                    price = field.price, mortgageValue = field.price / 2,
+                                    unmortgageCost = ceil(field.price / 2.0 * 1.1).toInt(),
+                                    houses = field.houses, hasHotel = field.hasHotel,
+                                    isMortgaged = field.isMortgaged,
+                                    houseCost = field.houseCost, hotelCost = field.hotelCost,
+                                    sellHouseValue = field.houseCost / 2,
+                                    sellHotelValue = field.hotelCost / 2
+                                )
+                                is RailroadField -> ManageableProperty(
+                                    fieldId = field.id, name = field.name, color = null,
+                                    price = field.price, mortgageValue = field.price / 2,
+                                    unmortgageCost = ceil(field.price / 2.0 * 1.1).toInt(),
+                                    houses = 0, hasHotel = false, isMortgaged = field.isMortgaged,
+                                    houseCost = 0, hotelCost = 0,
+                                    sellHouseValue = 0, sellHotelValue = 0
+                                )
+                                is UtilityField -> ManageableProperty(
+                                    fieldId = field.id, name = field.name, color = null,
+                                    price = field.price, mortgageValue = field.price / 2,
+                                    unmortgageCost = ceil(field.price / 2.0 * 1.1).toInt(),
+                                    houses = 0, hasHotel = false, isMortgaged = field.isMortgaged,
+                                    houseCost = 0, hotelCost = 0,
+                                    sellHouseValue = 0, sellHotelValue = 0
+                                )
+                                else -> ManageableProperty(
+                                    fieldId = field.id, name = field.name, color = null,
+                                    price = 0, mortgageValue = 0, unmortgageCost = 0,
+                                    houses = 0, hasHotel = false, isMortgaged = false,
+                                    houseCost = 0, hotelCost = 0,
+                                    sellHouseValue = 0, sellHotelValue = 0
+                                )
+                            }
+                        } ?: emptyList()
                     _showBankruptcyOverlay.value = true
+                }
+
+                // handle previously unhandled backend events
+                if (event.event == "PROPERTY_MORTGAGED") {
+                    Log.i("GameViewModel", "Property mortgaged - refreshing state")
+                }
+
+                if (event.event == "PROPERTY_UNMORTGAGED") {
+                    Log.i("GameViewModel", "Property unmortgaged - refreshing state")
+                }
+
+                if (event.event == "HOUSE_SOLD") {
+                    Log.i("GameViewModel", "House sold - refreshing state")
                 }
             }
             .launchIn(viewModelScope)
@@ -421,6 +504,42 @@ class GameViewModel(
     private val _currentRentFieldId = MutableStateFlow<Int?>(null)
     val currentRentFieldId: StateFlow<Int?> = _currentRentFieldId.asStateFlow()
 
+    // store last dice total for utility rent calculation
+    private val _lastDiceTotalForRent = MutableStateFlow(0)
+
+    // reactive canPayRent StateFlow based on total assets (money + mortgageable value)
+    val canPayRent: StateFlow<Boolean> = combine(
+        gameState, _currentRentAmount, _currentTaxAmount
+    ) { state, rentAmount, taxAmount ->
+        val amount = if (rentAmount > 0) rentAmount else taxAmount
+        val player = state?.players?.find { it.id == gameService.currentPlayerId }
+        if (player == null || amount <= 0) false
+        else {
+            val totalAssets = player.money + (state?.fields
+                ?.filter { it is PropertyField || it is RailroadField || it is UtilityField }
+                ?.filter { field ->
+                    val ownerId = when (field) {
+                        is PropertyField -> field.ownerId
+                        is RailroadField -> field.ownerId
+                        is UtilityField -> field.ownerId
+                        else -> null
+                    }
+                    ownerId == player.id
+                }
+                ?.sumOf { field ->
+                    val price = when (field) {
+                        is PropertyField -> field.price
+                        is RailroadField -> field.price
+                        is UtilityField -> field.price
+                        else -> 0
+                    }
+                    price / 2
+                } ?: 0)
+            totalAssets >= amount
+        }
+    }
+    .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+
     // m4: Manageable properties for mortgage management overlay — includes RailroadField/UtilityField
     val manageableProperties: StateFlow<List<ManageableProperty>> = gameState
         .map { state ->
@@ -446,7 +565,7 @@ class GameViewModel(
                             color = field.color.name,
                             price = field.price,
                             mortgageValue = field.price / 2,
-                            unmortgageCost = (field.price / 2) + ((field.price / 2) / 10),
+                            unmortgageCost = ceil(field.price / 2.0 * 1.1).toInt(),
                             houses = field.houses,
                             hasHotel = field.hasHotel,
                             isMortgaged = field.isMortgaged,
@@ -461,7 +580,7 @@ class GameViewModel(
                             color = null,
                             price = field.price,
                             mortgageValue = field.price / 2,
-                            unmortgageCost = (field.price / 2) + ((field.price / 2) / 10),
+                            unmortgageCost = ceil(field.price / 2.0 * 1.1).toInt(),
                             houses = 0,
                             hasHotel = false,
                             isMortgaged = field.isMortgaged,
@@ -476,7 +595,7 @@ class GameViewModel(
                             color = null,
                             price = field.price,
                             mortgageValue = field.price / 2,
-                            unmortgageCost = (field.price / 2) + ((field.price / 2) / 10),
+                            unmortgageCost = ceil(field.price / 2.0 * 1.1).toInt(),
                             houses = 0,
                             hasHotel = false,
                             isMortgaged = field.isMortgaged,
@@ -563,7 +682,8 @@ class GameViewModel(
     // Payment/mortgage/bankrupcty
     fun payRent() {
         val fieldId = currentRentFieldId.value ?: return
-        gameService.payRent(fieldId)
+        val diceTotal = _lastDiceTotalForRent.value
+        gameService.payRent(fieldId, diceTotal)
         // wait for RENT_PAID event before dismissing
     }
 
@@ -581,7 +701,7 @@ class GameViewModel(
 
     fun declareBankruptcy() {
         gameService.declareBankruptcy()
-        _showPayRentOverlay.value = false   
+        _showPayRentOverlay.value = false
         _showBankruptcyOverlay.value = false
     }
 

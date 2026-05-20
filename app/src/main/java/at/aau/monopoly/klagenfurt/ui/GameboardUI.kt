@@ -184,6 +184,7 @@ fun GameboardScreen(
     val currentRentOwnerId by viewModel.currentRentOwnerId.collectAsState()
     val currentRentFieldId by viewModel.currentRentFieldId.collectAsState()
     val manageableProperties by viewModel.manageableProperties.collectAsState()
+    val canPayRent by viewModel.canPayRent.collectAsState()
     val bankruptcyPlayerName by viewModel.bankruptcyPlayerName.collectAsState()
     val bankruptcyTotalAssets by viewModel.bankruptcyTotalAssets.collectAsState()
     val bankruptcyTotalDebt by viewModel.bankruptcyTotalDebt.collectAsState()
@@ -464,7 +465,7 @@ fun GameboardScreen(
                     fields.find { it.id == id }?.name
                 } ?: "",
                 currentMoney = currentTurnPlayer?.money ?: 0,
-                canPay = (currentTurnPlayer?.money ?: 0) >= currentRentAmount,
+                canPay = canPayRent,
                 onPay = { viewModel.payRent() },
                 onManageProperties = { viewModel.showMortgageManagementOverlay() },
                 onDeclareBankruptcy = { viewModel.declareBankruptcy() },

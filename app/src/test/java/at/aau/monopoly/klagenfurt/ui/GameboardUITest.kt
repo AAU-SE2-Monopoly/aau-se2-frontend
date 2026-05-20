@@ -598,8 +598,6 @@ class GameboardScreenCoverageTest {
         every { vm.communityChestCardDrawnThisTurn } returns MutableStateFlow(communityChestCardDrawn)
         every { vm.canEndTurnForCurrentPlayer } returns MutableStateFlow(isBuyingPhase)
         every { vm.lastDiceRoll } returns MutableStateFlow(null)
-        every { vm.chanceCardDrawnThisTurn } returns MutableStateFlow(chanceCardDrawn)
-        every { vm.communityChestCardDrawnThisTurn } returns MutableStateFlow(communityChestCardDrawn)
         every { vm.currentActionCard } returns MutableStateFlow(null)
         every { vm.isExecutingAction } returns MutableStateFlow(false)
         every { vm.showActionCardOverlay } returns MutableStateFlow(false)
@@ -612,6 +610,20 @@ class GameboardScreenCoverageTest {
         every { vm.showDiceOverlayForCurrentPlayer } returns MutableStateFlow(false)
         every { vm.diceResultForCurrentPlayer } returns MutableStateFlow(null)
         every { vm.errorMessage } returns MutableStateFlow(null)
+
+
+        every { vm.showPayRentOverlay } returns MutableStateFlow(false)
+        every { vm.showMortgageOverlay } returns MutableStateFlow(false)
+        every { vm.showBankruptcyOverlay } returns MutableStateFlow(false)
+        every { vm.currentRentAmount } returns MutableStateFlow(0)
+        every { vm.currentTaxAmount } returns MutableStateFlow(0)
+        every { vm.currentRentOwnerId } returns MutableStateFlow(null)
+        every { vm.currentRentFieldId } returns MutableStateFlow(null)
+        every { vm.manageableProperties } returns MutableStateFlow(emptyList())
+        every { vm.bankruptcyPlayerName } returns MutableStateFlow("")
+        every { vm.bankruptcyTotalAssets } returns MutableStateFlow(0)
+        every { vm.bankruptcyTotalDebt } returns MutableStateFlow(0)
+        every { vm.bankruptcyPropertiesOwned } returns MutableStateFlow(emptyList())
 
         return vm
     }

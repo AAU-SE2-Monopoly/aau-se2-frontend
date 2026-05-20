@@ -490,7 +490,7 @@ fun GameboardScreen(
                 totalAssets = bankruptcyTotalAssets,
                 totalDebt = bankruptcyTotalDebt,
                 propertiesOwned = bankruptcyPropertiesOwned.size,
-                onConfirm = { viewModel.dismissBankruptcyOverlay() }
+                onConfirm = { viewModel.acceptBankruptcyResolution() }
             )
         }
 

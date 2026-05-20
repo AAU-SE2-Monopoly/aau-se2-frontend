@@ -2,7 +2,62 @@ package at.aau.monopoly.klagenfurt.ui.util
 
 import androidx.compose.ui.graphics.Color
 import at.aau.monopoly.klagenfurt.model.enums.PropertyColor
+import at.aau.monopoly.klagenfurt.model.field.Field
+import at.aau.monopoly.klagenfurt.model.field.PropertyField
+import at.aau.monopoly.klagenfurt.model.field.RailroadField
+import at.aau.monopoly.klagenfurt.model.field.UtilityField
+import at.aau.monopoly.klagenfurt.ui.ManageableProperty
 import com.example.myapplication.R
+import kotlin.math.ceil
+
+/**
+ * Extracts the owner ID from any ownable field type.
+ */
+fun Field.ownerIdFromField(): String? = when (this) {
+    is PropertyField -> ownerId
+    is RailroadField -> ownerId
+    is UtilityField -> ownerId
+    else -> null
+}
+
+/**
+ * Maps an ownable field to a [ManageableProperty] for UI display.
+ */
+fun Field.toManageableProperty(): ManageableProperty = when (this) {
+    is PropertyField -> ManageableProperty(
+        fieldId = id, name = name, color = color.name,
+        price = price, mortgageValue = price / 2,
+        unmortgageCost = ceil(price / 2.0 * 1.1).toInt(),
+        houses = houses, hasHotel = hasHotel,
+        isMortgaged = isMortgaged,
+        houseCost = houseCost, hotelCost = hotelCost,
+        sellHouseValue = houseCost / 2,
+        sellHotelValue = hotelCost / 2
+    )
+    is RailroadField -> ManageableProperty(
+        fieldId = id, name = name, color = null,
+        price = price, mortgageValue = price / 2,
+        unmortgageCost = ceil(price / 2.0 * 1.1).toInt(),
+        houses = 0, hasHotel = false, isMortgaged = isMortgaged,
+        houseCost = 0, hotelCost = 0,
+        sellHouseValue = 0, sellHotelValue = 0
+    )
+    is UtilityField -> ManageableProperty(
+        fieldId = id, name = name, color = null,
+        price = price, mortgageValue = price / 2,
+        unmortgageCost = ceil(price / 2.0 * 1.1).toInt(),
+        houses = 0, hasHotel = false, isMortgaged = isMortgaged,
+        houseCost = 0, hotelCost = 0,
+        sellHouseValue = 0, sellHotelValue = 0
+    )
+    else -> ManageableProperty(
+        fieldId = id, name = name, color = null,
+        price = 0, mortgageValue = 0, unmortgageCost = 0,
+        houses = 0, hasHotel = false, isMortgaged = false,
+        houseCost = 0, hotelCost = 0,
+        sellHouseValue = 0, sellHotelValue = 0
+    )
+}
 
 /**
  * Maps a [PropertyColor] enum to a Compose [Color].

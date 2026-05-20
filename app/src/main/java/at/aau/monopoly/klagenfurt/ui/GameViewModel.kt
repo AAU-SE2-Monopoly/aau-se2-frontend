@@ -11,6 +11,7 @@ import at.aau.monopoly.klagenfurt.model.Player
 import at.aau.monopoly.klagenfurt.model.card.Card
 import at.aau.monopoly.klagenfurt.model.enums.GamePhase
 import at.aau.monopoly.klagenfurt.model.field.Field
+import at.aau.monopoly.klagenfurt.model.field.OwnableField
 import at.aau.monopoly.klagenfurt.model.field.PropertyField
 import at.aau.monopoly.klagenfurt.model.field.RailroadField
 import at.aau.monopoly.klagenfurt.model.field.UtilityField
@@ -18,6 +19,8 @@ import at.aau.monopoly.klagenfurt.networking.GameService
 import at.aau.monopoly.klagenfurt.networking.JacksonProvider
 import at.aau.monopoly.klagenfurt.ui.board.MovementAnimationState
 import at.aau.monopoly.klagenfurt.ui.board.computeMovementPath
+import at.aau.monopoly.klagenfurt.ui.util.ownerIdFromField
+import at.aau.monopoly.klagenfurt.ui.util.toManageableProperty
 import kotlin.math.ceil
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -239,6 +242,11 @@ class GameViewModel(
 
                 if (event.event == "RENT_PAID") {
                     _showPayRentOverlay.value = false
+                    _currentRentAmount.value = 0
+                    _currentTaxAmount.value = 0
+                    _currentRentOwnerId.value = null
+                    _currentRentFieldId.value = null
+                    _lastDiceTotalForRent.value = 0
                 }
 
                 if (event.event == "PAYMENT_FAILED") {
@@ -249,59 +257,14 @@ class GameViewModel(
 
                 if (event.event == "BANKRUPTCY_DECLARED") {
                     val gs = event.gameState
-                    val bankruptPlayerId = gs?.currentPlayer?.name ?: ""
-                    _bankruptcyPlayerName.value = bankruptPlayerId
+                    _bankruptcyPlayerName.value = gs?.currentPlayer?.name ?: ""
                     // extract bankruptcy summary from game state
                     _bankruptcyTotalAssets.value = gs?.bankruptcyTotalAssets ?: 0
                     _bankruptcyTotalDebt.value = gs?.bankruptcyTotalDebt ?: 0
                     _bankruptcyPropertiesOwned.value = gs?.fields
                         ?.filter { it is PropertyField || it is RailroadField || it is UtilityField }
-                        ?.filter { field ->
-                            val ownerId = when (field) {
-                                is PropertyField -> field.ownerId
-                                is RailroadField -> field.ownerId
-                                is UtilityField -> field.ownerId
-                                else -> null
-                            }
-                            ownerId == gs.currentPlayer?.id
-                        }
-                        ?.map { field ->
-                            when (field) {
-                                is PropertyField -> ManageableProperty(
-                                    fieldId = field.id, name = field.name, color = field.color.name,
-                                    price = field.price, mortgageValue = field.price / 2,
-                                    unmortgageCost = ceil(field.price / 2.0 * 1.1).toInt(),
-                                    houses = field.houses, hasHotel = field.hasHotel,
-                                    isMortgaged = field.isMortgaged,
-                                    houseCost = field.houseCost, hotelCost = field.hotelCost,
-                                    sellHouseValue = field.houseCost / 2,
-                                    sellHotelValue = field.hotelCost / 2
-                                )
-                                is RailroadField -> ManageableProperty(
-                                    fieldId = field.id, name = field.name, color = null,
-                                    price = field.price, mortgageValue = field.price / 2,
-                                    unmortgageCost = ceil(field.price / 2.0 * 1.1).toInt(),
-                                    houses = 0, hasHotel = false, isMortgaged = field.isMortgaged,
-                                    houseCost = 0, hotelCost = 0,
-                                    sellHouseValue = 0, sellHotelValue = 0
-                                )
-                                is UtilityField -> ManageableProperty(
-                                    fieldId = field.id, name = field.name, color = null,
-                                    price = field.price, mortgageValue = field.price / 2,
-                                    unmortgageCost = ceil(field.price / 2.0 * 1.1).toInt(),
-                                    houses = 0, hasHotel = false, isMortgaged = field.isMortgaged,
-                                    houseCost = 0, hotelCost = 0,
-                                    sellHouseValue = 0, sellHotelValue = 0
-                                )
-                                else -> ManageableProperty(
-                                    fieldId = field.id, name = field.name, color = null,
-                                    price = 0, mortgageValue = 0, unmortgageCost = 0,
-                                    houses = 0, hasHotel = false, isMortgaged = false,
-                                    houseCost = 0, hotelCost = 0,
-                                    sellHouseValue = 0, sellHotelValue = 0
-                                )
-                            }
-                        } ?: emptyList()
+                        ?.filter { field -> field.ownerIdFromField() == gs.currentPlayer?.id }
+                        ?.map { field -> field.toManageableProperty() } ?: emptyList()
                     _showBankruptcyOverlay.value = true
                 }
 
@@ -517,15 +480,8 @@ class GameViewModel(
         else {
             val totalAssets = player.money + (state?.fields
                 ?.filter { it is PropertyField || it is RailroadField || it is UtilityField }
-                ?.filter { field ->
-                    val ownerId = when (field) {
-                        is PropertyField -> field.ownerId
-                        is RailroadField -> field.ownerId
-                        is UtilityField -> field.ownerId
-                        else -> null
-                    }
-                    ownerId == player.id
-                }
+                ?.filter { field -> field.ownerIdFromField() == player.id }
+                ?.filter { field -> !(field as OwnableField).isMortgaged }
                 ?.sumOf { field ->
                     val price = when (field) {
                         is PropertyField -> field.price
@@ -533,7 +489,13 @@ class GameViewModel(
                         is UtilityField -> field.price
                         else -> 0
                     }
-                    price / 2
+                    val houseSellBack = if (field is PropertyField) {
+                        field.houses * (field.houseCost / 2)
+                    } else 0
+                    val hotelSellBack = if (field is PropertyField && field.hasHotel) {
+                        field.hotelCost / 2
+                    } else 0
+                    price / 2 + houseSellBack + hotelSellBack
                 } ?: 0)
             totalAssets >= amount
         }
@@ -548,79 +510,8 @@ class GameViewModel(
                 ?.filter { field ->
                     field is PropertyField || field is RailroadField || field is UtilityField
                 }
-                ?.filter { field ->
-                    val ownerId = when (field) {
-                        is PropertyField -> field.ownerId
-                        is RailroadField -> field.ownerId
-                        is UtilityField -> field.ownerId
-                        else -> null
-                    }
-                    ownerId == currentPlayerId
-                }
-                ?.map { field ->
-                    when (field) {
-                        is PropertyField -> ManageableProperty(
-                            fieldId = field.id,
-                            name = field.name,
-                            color = field.color.name,
-                            price = field.price,
-                            mortgageValue = field.price / 2,
-                            unmortgageCost = ceil(field.price / 2.0 * 1.1).toInt(),
-                            houses = field.houses,
-                            hasHotel = field.hasHotel,
-                            isMortgaged = field.isMortgaged,
-                            houseCost = field.houseCost,
-                            hotelCost = field.hotelCost,
-                            sellHouseValue = field.houseCost / 2,
-                            sellHotelValue = field.hotelCost / 2
-                        )
-                        is RailroadField -> ManageableProperty(
-                            fieldId = field.id,
-                            name = field.name,
-                            color = null,
-                            price = field.price,
-                            mortgageValue = field.price / 2,
-                            unmortgageCost = ceil(field.price / 2.0 * 1.1).toInt(),
-                            houses = 0,
-                            hasHotel = false,
-                            isMortgaged = field.isMortgaged,
-                            houseCost = 0,
-                            hotelCost = 0,
-                            sellHouseValue = 0,
-                            sellHotelValue = 0
-                        )
-                        is UtilityField -> ManageableProperty(
-                            fieldId = field.id,
-                            name = field.name,
-                            color = null,
-                            price = field.price,
-                            mortgageValue = field.price / 2,
-                            unmortgageCost = ceil(field.price / 2.0 * 1.1).toInt(),
-                            houses = 0,
-                            hasHotel = false,
-                            isMortgaged = field.isMortgaged,
-                            houseCost = 0,
-                            hotelCost = 0,
-                            sellHouseValue = 0,
-                            sellHotelValue = 0
-                        )
-                        else -> ManageableProperty(
-                            fieldId = field.id,
-                            name = field.name,
-                            color = null,
-                            price = 0,
-                            mortgageValue = 0,
-                            unmortgageCost = 0,
-                            houses = 0,
-                            hasHotel = false,
-                            isMortgaged = false,
-                            houseCost = 0,
-                            hotelCost = 0,
-                            sellHouseValue = 0,
-                            sellHotelValue = 0
-                        )
-                    }
-                } ?: emptyList()
+                ?.filter { field -> field.ownerIdFromField() == currentPlayerId }
+                ?.map { field -> field.toManageableProperty() } ?: emptyList()
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
@@ -732,7 +623,7 @@ class GameViewModel(
         _showBankruptcyOverlay.value = true
     }
 
-    fun dismissBankruptcyOverlay() {
+    fun acceptBankruptcyResolution() {
         _showBankruptcyOverlay.value = false
     }
 

@@ -175,6 +175,20 @@ fun GameboardScreen(
     val isExecutingAction by viewModel.isExecutingAction.collectAsState()
     val showActionCardOverlay by viewModel.showActionCardOverlay.collectAsState()
 
+    // Payment overlay states
+    val showPayRentOverlay by viewModel.showPayRentOverlay.collectAsState()
+    val showMortgageOverlay by viewModel.showMortgageOverlay.collectAsState()
+    val showBankruptcyOverlay by viewModel.showBankruptcyOverlay.collectAsState()
+    val currentRentAmount by viewModel.currentRentAmount.collectAsState()
+    val currentTaxAmount by viewModel.currentTaxAmount.collectAsState()
+    val currentRentOwnerId by viewModel.currentRentOwnerId.collectAsState()
+    val currentRentFieldId by viewModel.currentRentFieldId.collectAsState()
+    val manageableProperties by viewModel.manageableProperties.collectAsState()
+    val bankruptcyPlayerName by viewModel.bankruptcyPlayerName.collectAsState()
+    val bankruptcyTotalAssets by viewModel.bankruptcyTotalAssets.collectAsState()
+    val bankruptcyTotalDebt by viewModel.bankruptcyTotalDebt.collectAsState()
+    val bankruptcyPropertiesOwned by viewModel.bankruptcyPropertiesOwned.collectAsState()
+
     val context = LocalContext.current
 
     var showOverlay by remember { mutableStateOf(false) }
@@ -437,6 +451,44 @@ fun GameboardScreen(
                     }
                 },
                 onClose = { showOverlay = false }
+            )
+
+            // Payment overlays
+            PayRentOverlay(
+                isVisible = showPayRentOverlay,
+                rentAmount = currentRentAmount,
+                ownerName = currentRentOwnerId?.let { ownerId ->
+                    players.find { it.id == ownerId }?.name
+                },
+                fieldName = currentRentFieldId?.let { id ->
+                    fields.find { it.id == id }?.name
+                } ?: "",
+                currentMoney = currentTurnPlayer?.money ?: 0,
+                canPay = (currentTurnPlayer?.money ?: 0) >= currentRentAmount,
+                onPay = { viewModel.payRent() },
+                onManageProperties = { viewModel.showMortgageManagementOverlay() },
+                onDeclareBankruptcy = { viewModel.declareBankruptcy() },
+                onDismiss = { viewModel.dismissPayRentOverlay() }
+            )
+
+            MortgageManagementOverlay(
+                isVisible = showMortgageOverlay,
+                properties = manageableProperties,
+                currentMoney = currentTurnPlayer?.money ?: 0,
+                onMortgage = { fieldId -> viewModel.mortgageProperty(fieldId) },
+                onUnmortgage = { fieldId -> viewModel.unmortgageProperty(fieldId) },
+                onSellHouse = { fieldId -> viewModel.sellHouse(fieldId) },
+                onSellHotel = { fieldId -> viewModel.sellHouse(fieldId) },
+                onDismiss = { viewModel.dismissMortgageOverlay() }
+            )
+
+            BankruptcyResolutionOverlay(
+                isVisible = showBankruptcyOverlay,
+                playerName = bankruptcyPlayerName,
+                totalAssets = bankruptcyTotalAssets,
+                totalDebt = bankruptcyTotalDebt,
+                propertiesOwned = bankruptcyPropertiesOwned.size,
+                onConfirm = { viewModel.dismissBankruptcyOverlay() }
             )
         }
 

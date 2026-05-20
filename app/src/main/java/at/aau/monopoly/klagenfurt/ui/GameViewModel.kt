@@ -11,6 +11,9 @@ import at.aau.monopoly.klagenfurt.model.Player
 import at.aau.monopoly.klagenfurt.model.card.Card
 import at.aau.monopoly.klagenfurt.model.enums.GamePhase
 import at.aau.monopoly.klagenfurt.model.field.Field
+import at.aau.monopoly.klagenfurt.model.field.PropertyField
+import at.aau.monopoly.klagenfurt.model.field.RailroadField
+import at.aau.monopoly.klagenfurt.model.field.UtilityField
 import at.aau.monopoly.klagenfurt.networking.GameService
 import at.aau.monopoly.klagenfurt.networking.JacksonProvider
 import at.aau.monopoly.klagenfurt.ui.board.MovementAnimationState
@@ -196,6 +199,43 @@ class GameViewModel(
                     delay(5_000)
                     _errorMessage.value = null
                 }
+
+                // C2: Payment event handlers
+                if (event.event == "RENT_DUE") {
+                    val gs = event.gameState
+                    val pendingFieldId = gs?.fields?.find {
+                        it is PropertyField &&
+                                (it as PropertyField).rent.any { r -> r > 0 }
+                    }?.id
+                    val pendingAmount = gs?.pendingRentAmount ?: 0
+                    val pendingOwnerId = gs?.pendingRentOwnerId
+                    showPayRentOverlay(pendingAmount, pendingOwnerId, pendingFieldId)
+                }
+
+                if (event.event == "TAX_DUE") {
+                    val gs = event.gameState
+                    _currentTaxAmount.value = gs?.pendingTaxAmount ?: 0
+                    _showPayRentOverlay.value = true
+                    _currentRentOwnerId.value = null
+                    _currentRentFieldId.value = null
+                }
+
+                if (event.event == "RENT_PAID") {
+                    _showPayRentOverlay.value = false
+                }
+
+                if (event.event == "PAYMENT_FAILED") {
+                    _errorMessage.value = event.message ?: "Payment failed"
+                    delay(5_000)
+                    _errorMessage.value = null
+                }
+
+                if (event.event == "BANKRUPTCY_DECLARED") {
+                    val gs = event.gameState
+                    val bankruptPlayerId = gs?.players?.find { it.isBankrupt() }?.name ?: ""
+                    _bankruptcyPlayerName.value = bankruptPlayerId
+                    _showBankruptcyOverlay.value = true
+                }
             }
             .launchIn(viewModelScope)
     }
@@ -380,6 +420,103 @@ class GameViewModel(
     private val _currentRentFieldId = MutableStateFlow<Int?>(null)
     val currentRentFieldId: StateFlow<Int?> = _currentRentFieldId.asStateFlow()
 
+    // m4: Manageable properties for mortgage management overlay — includes RailroadField/UtilityField
+    val manageableProperties: StateFlow<List<ManageableProperty>> = gameState
+        .map { state ->
+            val currentPlayerId = gameService.currentPlayerId
+            state?.fields
+                ?.filter { field ->
+                    field is PropertyField || field is RailroadField || field is UtilityField
+                }
+                ?.filter { field ->
+                    val ownerId = when (field) {
+                        is PropertyField -> field.ownerId
+                        is RailroadField -> field.ownerId
+                        is UtilityField -> field.ownerId
+                        else -> null
+                    }
+                    ownerId == currentPlayerId
+                }
+                ?.map { field ->
+                    when (field) {
+                        is PropertyField -> ManageableProperty(
+                            fieldId = field.id,
+                            name = field.name,
+                            color = field.color.name,
+                            price = field.price,
+                            mortgageValue = field.price / 2,
+                            unmortgageCost = (field.price / 2) + ((field.price / 2) / 10),
+                            houses = field.houses,
+                            hasHotel = field.hasHotel,
+                            isMortgaged = field.isMortgaged,
+                            houseCost = field.houseCost,
+                            hotelCost = field.hotelCost,
+                            sellHouseValue = field.houseCost / 2,
+                            sellHotelValue = field.hotelCost / 2
+                        )
+                        is RailroadField -> ManageableProperty(
+                            fieldId = field.id,
+                            name = field.name,
+                            color = null,
+                            price = field.price,
+                            mortgageValue = field.price / 2,
+                            unmortgageCost = (field.price / 2) + ((field.price / 2) / 10),
+                            houses = 0,
+                            hasHotel = false,
+                            isMortgaged = field.isMortgaged,
+                            houseCost = 0,
+                            hotelCost = 0,
+                            sellHouseValue = 0,
+                            sellHotelValue = 0
+                        )
+                        is UtilityField -> ManageableProperty(
+                            fieldId = field.id,
+                            name = field.name,
+                            color = null,
+                            price = field.price,
+                            mortgageValue = field.price / 2,
+                            unmortgageCost = (field.price / 2) + ((field.price / 2) / 10),
+                            houses = 0,
+                            hasHotel = false,
+                            isMortgaged = field.isMortgaged,
+                            houseCost = 0,
+                            hotelCost = 0,
+                            sellHouseValue = 0,
+                            sellHotelValue = 0
+                        )
+                        else -> ManageableProperty(
+                            fieldId = field.id,
+                            name = field.name,
+                            color = null,
+                            price = 0,
+                            mortgageValue = 0,
+                            unmortgageCost = 0,
+                            houses = 0,
+                            hasHotel = false,
+                            isMortgaged = false,
+                            houseCost = 0,
+                            hotelCost = 0,
+                            sellHouseValue = 0,
+                            sellHotelValue = 0
+                        )
+                    }
+                } ?: emptyList()
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    // Bankruptcy overlay state flows
+    private val _bankruptcyPlayerName = MutableStateFlow("")
+    val bankruptcyPlayerName: StateFlow<String> = _bankruptcyPlayerName.asStateFlow()
+
+    private val _bankruptcyTotalAssets = MutableStateFlow(0)
+    val bankruptcyTotalAssets: StateFlow<Int> = _bankruptcyTotalAssets.asStateFlow()
+
+    private val _bankruptcyTotalDebt = MutableStateFlow(0)
+    val bankruptcyTotalDebt: StateFlow<Int> = _bankruptcyTotalDebt.asStateFlow()
+
+    private val _bankruptcyPropertiesOwned = MutableStateFlow<List<ManageableProperty>>(emptyList())
+    val bankruptcyPropertiesOwned: StateFlow<List<ManageableProperty>> = _bankruptcyPropertiesOwned.asStateFlow()
+
     val events: SharedFlow<String> = gameService.events
     val status: SharedFlow<String> = gameService.status
     val currentPlayerId: String get() = gameService.currentPlayerId
@@ -422,7 +559,7 @@ class GameViewModel(
     fun payJailFine() = gameService.payJailFine()
     fun useJailCard() = gameService.useJailCard()
 
-    // Payment-related actions
+    // Payment/mortgage/bankrupcty
     fun payRent() {
         val fieldId = currentRentFieldId.value ?: return
         gameService.payRent(fieldId)
@@ -538,6 +675,11 @@ class GameViewModel(
             "PLAYER_JAILED" -> "Player went to jail!"
             "ACTION_DRAWN" -> "Action card drawn!"
             "ACTION_EXECUTED" -> "Action executed"
+            "RENT_DUE" -> "Rent is due!"
+            "TAX_DUE" -> "Tax is due!"
+            "RENT_PAID" -> "Rent paid"
+            "PAYMENT_FAILED" -> "Payment failed"
+            "BANKRUPTCY_DECLARED" -> "Player went bankrupt!"
             else -> eventType.replace("_", " ")
                 .lowercase()
                 .replaceFirstChar { it.uppercase() }

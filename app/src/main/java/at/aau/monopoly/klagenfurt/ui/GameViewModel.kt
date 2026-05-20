@@ -25,6 +25,7 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.mapNotNull
@@ -356,13 +357,20 @@ class GameViewModel(
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
-    val canEndTurnForCurrentPlayer: StateFlow<Boolean> = gameState
-        .map { state ->
+    // Payment overlay state flows — must be declared before canEndTurnForCurrentPlayer
+    private val _showPayRentOverlay = MutableStateFlow(false)
+    val showPayRentOverlay: StateFlow<Boolean> = _showPayRentOverlay.asStateFlow()
+
+    private val _showBankruptcyOverlay = MutableStateFlow(false)
+    val showBankruptcyOverlay: StateFlow<Boolean> = _showBankruptcyOverlay.asStateFlow()
+
+    val canEndTurnForCurrentPlayer: StateFlow<Boolean> =
+        combine(gameState, _showPayRentOverlay, _showBankruptcyOverlay) { state, payOverlay, bankruptcyOverlay ->
             (state?.phase == GamePhase.BUYING ||
                     state?.phase == GamePhase.TURN_END) &&
                     state.currentPlayer?.id == gameService.currentPlayerId &&
-                    !_showPayRentOverlay.value &&
-                    !_showBankruptcyOverlay.value
+                    !payOverlay &&
+                    !bankruptcyOverlay
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
     val diceResultForCurrentPlayer: StateFlow<DiceRoll?> = gameState
@@ -397,15 +405,9 @@ class GameViewModel(
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
-    // Payment overlay state flows
-    private val _showPayRentOverlay = MutableStateFlow(false)
-    val showPayRentOverlay: StateFlow<Boolean> = _showPayRentOverlay.asStateFlow()
 
     private val _showMortgageOverlay = MutableStateFlow(false)
     val showMortgageOverlay: StateFlow<Boolean> = _showMortgageOverlay.asStateFlow()
-
-    private val _showBankruptcyOverlay = MutableStateFlow(false)
-    val showBankruptcyOverlay: StateFlow<Boolean> = _showBankruptcyOverlay.asStateFlow()
 
     private val _currentRentAmount = MutableStateFlow(0)
     val currentRentAmount: StateFlow<Int> = _currentRentAmount.asStateFlow()
@@ -562,7 +564,7 @@ class GameViewModel(
     fun payRent() {
         val fieldId = currentRentFieldId.value ?: return
         gameService.payRent(fieldId)
-        _showPayRentOverlay.value = false
+        // wait for RENT_PAID event before dismissing
     }
 
     fun mortgageProperty(fieldId: Int) {
@@ -579,6 +581,7 @@ class GameViewModel(
 
     fun declareBankruptcy() {
         gameService.declareBankruptcy()
+        _showPayRentOverlay.value = false   
         _showBankruptcyOverlay.value = false
     }
 

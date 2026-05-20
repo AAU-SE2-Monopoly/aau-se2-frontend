@@ -159,6 +159,35 @@ fun GameboardScreen(
                 isBuyableField &&
                 isUnownedField
 
+    val currentProperty = currentField as? PropertyField
+
+    val ownsCurrentProperty =
+        currentProperty?.ownerId == currentPlayerId
+
+    val ownsCompleteColorSet =
+        currentProperty != null &&
+                fields.filterIsInstance<PropertyField>()
+                    .filter { it.color == currentProperty.color }
+                    .all { it.ownerId == currentPlayerId }
+
+    val canBuyHouse =
+        isBuyingPhaseForCurrentPlayer &&
+                ownsCurrentProperty &&
+                ownsCompleteColorSet && !currentProperty.hasHotel && currentProperty.houses < 4
+
+    val canBuyHotel =
+        isBuyingPhaseForCurrentPlayer &&
+                ownsCurrentProperty &&
+                ownsCompleteColorSet && !currentProperty.hasHotel && currentProperty.houses == 4
+
+    val canSellHouse =
+        canEndTurnForCurrentPlayer &&
+                ownsCurrentProperty && !currentProperty.hasHotel && currentProperty.houses > 0
+
+    val canSellHotel =
+        canEndTurnForCurrentPlayer &&
+                ownsCurrentProperty && currentProperty.hasHotel
+
     // Action Card states
     val currentActionCard by viewModel.currentActionCard.collectAsState()
     val isExecutingAction by viewModel.isExecutingAction.collectAsState()
@@ -339,6 +368,50 @@ fun GameboardScreen(
                         .testTag("buy_property_button")
                 ) {
                     Text("Buy Property")
+                }
+            }
+
+            if (canBuyHouse) {
+                Button(
+                    onClick = { viewModel.buyHouse(currentProperty.id) },
+                    modifier = Modifier
+                        .padding(top = 8.dp)
+                        .testTag("buy_house_button")
+                ) {
+                    Text("Buy House")
+                }
+            }
+
+            if (canBuyHotel) {
+                Button(
+                    onClick = { viewModel.buyHotel(currentProperty.id) },
+                    modifier = Modifier
+                        .padding(top = 8.dp)
+                        .testTag("buy_hotel_button")
+                ) {
+                    Text("Buy Hotel")
+                }
+            }
+
+            if (canSellHouse) {
+                Button(
+                    onClick = { viewModel.sellHouse(currentProperty.id) },
+                    modifier = Modifier
+                        .padding(top = 8.dp)
+                        .testTag("sell_house_button")
+                ) {
+                    Text("Sell House")
+                }
+            }
+
+            if (canSellHotel) {
+                Button(
+                    onClick = { viewModel.sellHotel(currentProperty.id) },
+                    modifier = Modifier
+                        .padding(top = 8.dp)
+                        .testTag("sell_hotel_button")
+                ) {
+                    Text("Sell Hotel")
                 }
             }
 

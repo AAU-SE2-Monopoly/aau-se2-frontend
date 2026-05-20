@@ -473,4 +473,20 @@ class GameViewModel(
     fun buyProperty(fieldId: Int) {
         gameService.buyProperty(fieldId)
     }
+
+    fun buyHouse(fieldId: Int) {
+        gameService.buyHouse(fieldId)
+    }
+
+    fun buyHotel(fieldId: Int) {
+        gameService.buyHotel(fieldId)
+    }
+
+    fun sellHouse(fieldId: Int) {
+        gameService.sellHouse(fieldId)
+    }
+
+    fun sellHotel(fieldId: Int) {
+        gameService.sellHotel(fieldId)
+    }
 }

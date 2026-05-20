@@ -151,6 +151,22 @@ class FakeGameService : GameService {
         lastBoughtFieldId = fieldId
     }
 
+    override fun buyHouse(fieldId: Int) {
+        TODO("Not yet implemented")
+    }
+
+    override fun sellHouse(fieldId: Int) {
+        TODO("Not yet implemented")
+    }
+
+    override fun buyHotel(fieldId: Int) {
+        TODO("Not yet implemented")
+    }
+
+    override fun sellHotel(fieldId: Int) {
+        TODO("Not yet implemented")
+    }
+
     override fun subscribeToLobby() {
         subscribeToLobbyCalled = true
     }

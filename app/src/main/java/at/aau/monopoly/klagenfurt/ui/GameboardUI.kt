@@ -159,34 +159,14 @@ fun GameboardScreen(
                 isBuyableField &&
                 isUnownedField
 
-    val currentProperty = currentField as? PropertyField
-
-    val ownsCurrentProperty =
-        currentProperty?.ownerId == currentPlayerId
-
-    val ownsCompleteColorSet =
-        currentProperty != null &&
-                fields.filterIsInstance<PropertyField>()
-                    .filter { it.color == currentProperty.color }
-                    .all { it.ownerId == currentPlayerId }
-
-    val canBuyHouse =
-        isBuyingPhaseForCurrentPlayer &&
-                ownsCurrentProperty &&
-                ownsCompleteColorSet && !currentProperty.hasHotel && currentProperty.houses < 4
-
-    val canBuyHotel =
-        isBuyingPhaseForCurrentPlayer &&
-                ownsCurrentProperty &&
-                ownsCompleteColorSet && !currentProperty.hasHotel && currentProperty.houses == 4
-
-    val canSellHouse =
-        canEndTurnForCurrentPlayer &&
-                ownsCurrentProperty && !currentProperty.hasHotel && currentProperty.houses > 0
-
-    val canSellHotel =
-        canEndTurnForCurrentPlayer &&
-                ownsCurrentProperty && currentProperty.hasHotel
+    val ownedCompleteColorSetProperties = fields
+        .filterIsInstance<PropertyField>()
+        .filter { property ->
+            property.ownerId == currentPlayerId &&
+                    fields.filterIsInstance<PropertyField>()
+                        .filter { it.color == property.color }
+                        .all { it.ownerId == currentPlayerId }
+        }
 
     // Action Card states
     val currentActionCard by viewModel.currentActionCard.collectAsState()
@@ -196,6 +176,7 @@ fun GameboardScreen(
     val context = LocalContext.current
 
     var showOverlay by remember { mutableStateOf(false) }
+    var showBuildingManager by remember { mutableStateOf(false) }
 
     // Filter DICE_ROLLED entries from the log while the overlay is visible,
     // so the dice result appears in chat only after the animation finishes.
@@ -371,47 +352,17 @@ fun GameboardScreen(
                 }
             }
 
-            if (canBuyHouse) {
+            if (
+                ownedCompleteColorSetProperties.isNotEmpty() &&
+                canEndTurnForCurrentPlayer
+            ) {
                 Button(
-                    onClick = { viewModel.buyHouse(currentProperty.id) },
+                    onClick = { showBuildingManager = true },
                     modifier = Modifier
                         .padding(top = 8.dp)
-                        .testTag("buy_house_button")
+                        .testTag("manage_buildings_button")
                 ) {
-                    Text("Buy House")
-                }
-            }
-
-            if (canBuyHotel) {
-                Button(
-                    onClick = { viewModel.buyHotel(currentProperty.id) },
-                    modifier = Modifier
-                        .padding(top = 8.dp)
-                        .testTag("buy_hotel_button")
-                ) {
-                    Text("Buy Hotel")
-                }
-            }
-
-            if (canSellHouse) {
-                Button(
-                    onClick = { viewModel.sellHouse(currentProperty.id) },
-                    modifier = Modifier
-                        .padding(top = 8.dp)
-                        .testTag("sell_house_button")
-                ) {
-                    Text("Sell House")
-                }
-            }
-
-            if (canSellHotel) {
-                Button(
-                    onClick = { viewModel.sellHotel(currentProperty.id) },
-                    modifier = Modifier
-                        .padding(top = 8.dp)
-                        .testTag("sell_hotel_button")
-                ) {
-                    Text("Sell Hotel")
+                    Text("Manage Buildings")
                 }
             }
 
@@ -438,6 +389,20 @@ fun GameboardScreen(
         }
 
         GameboardOverlayLayer(eventLog = bufferedEventLog)
+
+        if (showBuildingManager) {
+            BuildingManagerOverlay(
+                properties = ownedCompleteColorSetProperties,
+                fields = fields,
+                onBuyHouse = { viewModel.buyHouse(it) },
+                onBuyHotel = { viewModel.buyHotel(it) },
+                onSellHouse = { viewModel.sellHouse(it) },
+                onSellHotel = { viewModel.sellHotel(it) },
+                onDismiss = { showBuildingManager = false },
+                canEndTurn = canEndTurnForCurrentPlayer,
+                isBuyingPhase = isBuyingPhaseForCurrentPlayer
+            )
+        }
 
         ActionCardOverlay(
             isVisible = showActionCardOverlay,

@@ -220,7 +220,7 @@ fun PayRentOverlay(
 
                     // Note
                     Text(
-                        text = "You must pay rent or declare bankruptcy to continue",
+                        text = if (canPay) "You must pay rent to continue" else "You must pay rent or declare bankruptcy to continue",
                         fontSize = 12.sp,
                         color = Color.White.copy(alpha = 0.5f),
                         textAlign = TextAlign.Center
@@ -236,8 +236,6 @@ fun PayRentOverlay(
         Dialog(
             onDismissRequest = onDismiss,
             properties = DialogProperties(
-                dismissOnBackPress = false,
-                dismissOnClickOutside = false,
                 usePlatformDefaultWidth = false
             )
         ) {

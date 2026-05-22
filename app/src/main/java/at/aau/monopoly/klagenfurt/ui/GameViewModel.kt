@@ -229,19 +229,19 @@ class GameViewModel(
                     //store last dice total for utility rent calculation
                     _lastDiceTotalForRent.value = gs?.lastDiceRoll?.total ?: 0
                     showPayRentOverlay(pendingAmount, pendingOwnerId, pendingFieldId)
+                    _hasPendingPayment.value = true
                 }
 
                 if (event.event == "TAX_DUE") {
                     val gs = event.gameState
                     _currentTaxAmount.value = gs?.pendingTaxAmount ?: 0
-                    // use pendingTaxFieldId from game state for tax fields
-                    _currentRentOwnerId.value = null
-                    _currentRentFieldId.value = gs?.pendingTaxFieldId
-                    _showPayRentOverlay.value = true
+                    showPayRentOverlay(gs?.pendingTaxAmount ?: 0, null, gs?.pendingTaxFieldId)
+                    _hasPendingPayment.value = true
                 }
 
-                if (event.event == "RENT_PAID") {
+                if (event.event == "RENT_PAID" || event.event == "TAX_PAID") {
                     _showPayRentOverlay.value = false
+                    _hasPendingPayment.value = false
                     _currentRentAmount.value = 0
                     _currentTaxAmount.value = 0
                     _currentRentOwnerId.value = null
@@ -407,16 +407,20 @@ class GameViewModel(
     private val _showPayRentOverlay = MutableStateFlow(false)
     val showPayRentOverlay: StateFlow<Boolean> = _showPayRentOverlay.asStateFlow()
 
+    private val _hasPendingPayment = MutableStateFlow(false)
+    val hasPendingPayment: StateFlow<Boolean> = _hasPendingPayment.asStateFlow()
+
     private val _showBankruptcyOverlay = MutableStateFlow(false)
     val showBankruptcyOverlay: StateFlow<Boolean> = _showBankruptcyOverlay.asStateFlow()
 
     val canEndTurnForCurrentPlayer: StateFlow<Boolean> =
-        combine(gameState, _showPayRentOverlay, _showBankruptcyOverlay) { state, payOverlay, bankruptcyOverlay ->
+        combine(gameState, _showPayRentOverlay, _showBankruptcyOverlay, _hasPendingPayment) { state, payOverlay, bankruptcyOverlay, hasPending ->
             (state?.phase == GamePhase.BUYING ||
                     state?.phase == GamePhase.TURN_END) &&
                     state.currentPlayer?.id == gameService.currentPlayerId &&
                     !payOverlay &&
-                    !bankruptcyOverlay
+                    !bankruptcyOverlay &&
+                    !hasPending
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
     val diceResultForCurrentPlayer: StateFlow<DiceRoll?> = gameState
@@ -474,6 +478,7 @@ class GameViewModel(
     val canPayRent: StateFlow<Boolean> = combine(
         gameState, _currentRentAmount, _currentTaxAmount
     ) { state, rentAmount, taxAmount ->
+        // server handles: rentAmount and taxAmount are never both > 0
         val amount = if (rentAmount > 0) rentAmount else taxAmount
         val player = state?.players?.find { it.id == gameService.currentPlayerId }
         if (player == null || amount <= 0) false
@@ -592,8 +597,7 @@ class GameViewModel(
 
     fun declareBankruptcy() {
         gameService.declareBankruptcy()
-        _showPayRentOverlay.value = false
-        _showBankruptcyOverlay.value = false
+        // overlay dismissal handled by BANKRUPTCY_DECLARED event
     }
 
     fun showPayRentOverlay(

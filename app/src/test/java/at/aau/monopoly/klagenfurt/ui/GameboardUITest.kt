@@ -625,6 +625,7 @@ class GameboardScreenCoverageTest {
         every { vm.bankruptcyTotalAssets } returns MutableStateFlow(0)
         every { vm.bankruptcyTotalDebt } returns MutableStateFlow(0)
         every { vm.bankruptcyPropertiesOwned } returns MutableStateFlow(emptyList())
+        every { vm.hasPendingPayment } returns MutableStateFlow(false)
 
         return vm
     }

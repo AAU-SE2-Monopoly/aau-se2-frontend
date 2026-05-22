@@ -189,6 +189,7 @@ fun GameboardScreen(
     val bankruptcyTotalAssets by viewModel.bankruptcyTotalAssets.collectAsState()
     val bankruptcyTotalDebt by viewModel.bankruptcyTotalDebt.collectAsState()
     val bankruptcyPropertiesOwned by viewModel.bankruptcyPropertiesOwned.collectAsState()
+    val hasPendingPayment by viewModel.hasPendingPayment.collectAsState()
 
     val context = LocalContext.current
 
@@ -393,6 +394,17 @@ fun GameboardScreen(
                             .testTag("end_turn_button")
                     ) {
                         Text("End Turn")
+                    }
+                }
+
+                if (hasPendingPayment && !showPayRentOverlay) {
+                    GlassButton(
+                        onClick = { viewModel.showPayRentOverlay(currentRentAmount, currentRentOwnerId, currentRentFieldId) },
+                        modifier = Modifier
+                            .padding(top = 8.dp)
+                            .testTag("pay_rent_reopen_button")
+                    ) {
+                        Text("Pay Rent Due")
                     }
                 }
 

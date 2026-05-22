@@ -50,6 +50,8 @@ fun Field.toManageableProperty(): ManageableProperty = when (this) {
         houseCost = 0, hotelCost = 0,
         sellHouseValue = 0, sellHotelValue = 0
     )
+    //dead code: only called after filtering for PropertyField/RailroadField/UtilityField.
+
     else -> ManageableProperty(
         fieldId = id, name = name, color = null,
         price = 0, mortgageValue = 0, unmortgageCost = 0,

@@ -17,17 +17,3 @@ fun parseGameEvent(jsonString: String): GameEvent? {
     }
 }
 
-fun humanReadableEvent(event: GameEvent): String {
-    return when (event.event) {
-        "RENT_DUE" -> "You owe rent! Pay or declare bankruptcy."
-        "TAX_DUE" -> "Tax is due! Pay or declare bankruptcy."
-        "RENT_PAID" -> "Rent paid successfully."
-        "PROPERTY_MORTGAGED" -> "Property mortgaged."
-        "PROPERTY_UNMORTGAGED" -> "Property unmortgaged."
-        "PAYMENT_FAILED" -> "Payment failed!"
-        "HOUSE_SOLD" -> "House sold."
-        "BANKRUPTCY_DECLARED" -> "Player declared bankruptcy."
-        "FREE_PARKING_COLLECTED" -> "Collected Free Parking money!"
-        else -> event.message ?: event.event
-    }
-}

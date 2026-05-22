@@ -748,4 +748,74 @@ class GameViewModelTest {
         assertTrue(fakeService.buyPropertyCalled)
         assertEquals(5, fakeService.lastBoughtFieldId)
     }
+
+    @Test
+    fun `RENT_PAID event should clear all payment state flows`() = runTest {
+        val job = launch {
+            viewModel.showPayRentOverlay.collect {}
+            viewModel.currentRentAmount.collect {}
+            viewModel.currentTaxAmount.collect {}
+            viewModel.currentRentOwnerId.collect {}
+            viewModel.currentRentFieldId.collect {}
+        }
+
+        // First set non-default values via RENT_DUE
+        fakeService.emitTestEvent(
+            """
+        {
+          "event": "RENT_DUE",
+          "gameId": "g1",
+          "gameState": {
+            "gameId": "g1",
+            "fields": [],
+            "players": [{"id":"p1","name":"Alice","money":500,"ownedPropertyIds":[]}],
+            "currentPlayerIndex": 0,
+            "phase": "PAYING_RENT",
+            "pendingRentAmount": 100,
+            "pendingRentOwnerId": "p2",
+            "pendingRentFieldId": 5,
+            "lastDiceRoll": {"die1":3,"die2":4}
+          }
+        }
+        """.trimIndent()
+        )
+        advanceUntilIdle()
+
+        assertTrue(viewModel.showPayRentOverlay.value)
+        assertEquals(100, viewModel.currentRentAmount.value)
+        assertEquals("p2", viewModel.currentRentOwnerId.value)
+        assertEquals(5, viewModel.currentRentFieldId.value)
+
+        // Now send RENT_PAID
+        fakeService.emitTestEvent(
+            """
+        {
+          "event": "RENT_PAID",
+          "gameId": "g1",
+          "gameState": {
+            "gameId": "g1",
+            "fields": [],
+            "players": [{"id":"p1","name":"Alice","money":400,"ownedPropertyIds":[]}],
+            "currentPlayerIndex": 0,
+            "phase": "TURN_END",
+            "pendingRentAmount": 0,
+            "pendingRentOwnerId": null,
+            "pendingRentFieldId": null,
+            "pendingTaxAmount": 0,
+            "pendingTaxFieldId": null,
+            "lastDiceRoll": null
+          }
+        }
+        """.trimIndent()
+        )
+        advanceUntilIdle()
+
+        assertFalse(viewModel.showPayRentOverlay.value)
+        assertEquals(0, viewModel.currentRentAmount.value)
+        assertEquals(0, viewModel.currentTaxAmount.value)
+        assertEquals(null, viewModel.currentRentOwnerId.value)
+        assertEquals(null, viewModel.currentRentFieldId.value)
+
+        job.cancel()
+    }
 }

@@ -317,7 +317,10 @@ fun FieldItem(
             )
 
             if (field is PropertyField) {
-                BuildingIndicator(property = field)
+                BuildingIndicator(
+                    property = field,
+                    side = side
+                )
             }
         }
     }
@@ -1043,7 +1046,8 @@ private fun BaseFieldTitleText(
 
 @Composable
 private fun BoxScope.BuildingIndicator(
-    property: PropertyField
+    property: PropertyField,
+    side: Int
 ) {
     val buildingText = when {
         property.hasHotel -> "🏨"
@@ -1051,16 +1055,26 @@ private fun BoxScope.BuildingIndicator(
         else -> ""
     }
 
-    if (buildingText.isNotEmpty()) {
-        Box(
-            modifier = Modifier
-                .align(Alignment.TopCenter)
-                .padding(top = 2.dp)
-        ) {
-            Text(
-                text = buildingText,
-                fontSize = 4.sp
-            )
-        }
+    if (buildingText.isEmpty()) return
+
+    val alignment = Alignment.Center
+
+    val offsetModifier = when (side) {
+        0 -> Modifier.offset(y = (-10).dp) // bottom row: slightly above center
+        1 -> Modifier.offset(x = 10.dp)    // left side: slightly right
+        2 -> Modifier.offset(y = 10.dp)    // top row: slightly below center
+        3 -> Modifier.offset(x = (-10).dp) // right side: slightly left
+        else -> Modifier
+    }
+
+    Box(
+        modifier = Modifier
+            .align(alignment)
+            .then(offsetModifier)
+    ) {
+        Text(
+            text = buildingText,
+            fontSize = 3.5.sp
+        )
     }
 }

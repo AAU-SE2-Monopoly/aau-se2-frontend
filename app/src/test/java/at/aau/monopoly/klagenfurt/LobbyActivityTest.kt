@@ -38,6 +38,7 @@ class LobbyActivityTest {
     fun setup() {
         fakeService = FakeGameService()
         fakeService.setConnectionState(true)
+        fakeService.setLobbySubscriptionReady(true)
         ServiceLocator.injectGameServiceForTest(fakeService)
     }
 
@@ -49,6 +50,9 @@ class LobbyActivityTest {
     @Test
     fun `create game card starts JoinActivity with new game flag`() {
         ActivityScenario.launch<LobbyActivity>(Intent(ApplicationProvider.getApplicationContext(), LobbyActivity::class.java)).use { scenario ->
+            // Emit empty lobby so gamesLoaded becomes true
+            runBlocking { fakeService.emitTestLobbyEvent("""{"event":"LOBBY_UPDATE","games":[]}""") }
+            shadowOf(Looper.getMainLooper()).idleFor(500, TimeUnit.MILLISECONDS)
             composeTestRule.waitForIdle()
 
             composeTestRule.onNodeWithText("NEW GAME").performClick()
@@ -261,7 +265,9 @@ class LobbyActivityTest {
             """.trimIndent()
 
             runBlocking { fakeService.emitTestLobbyEvent(lobbyJson) }
-            shadowOf(Looper.getMainLooper()).idleFor(200, TimeUnit.MILLISECONDS)
+            shadowOf(Looper.getMainLooper()).idleFor(1500, TimeUnit.MILLISECONDS)
+            composeTestRule.waitForIdle()
+            composeTestRule.mainClock.advanceTimeBy(2000)
             composeTestRule.waitForIdle()
 
             composeTestRule.onNodeWithContentDescription("Close Game").assertExists()

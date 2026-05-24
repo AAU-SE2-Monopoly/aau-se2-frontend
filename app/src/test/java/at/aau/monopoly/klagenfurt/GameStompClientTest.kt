@@ -446,6 +446,8 @@ class GameStompClientTest {
         runCurrent()
 
         coEvery { stompSession.subscribeText("/topic/game/test-id") } throws Exception("Subscribe Error")
+        // Make reconnect attempts fail so the reconnect loop doesn't cycle forever
+        coEvery { stompClient.connect(any<String>()) } throws Exception("Connection refused")
 
         val statuses = mutableListOf<String>()
         val statusJob = launch { gameStompClient.status.collect { statuses.add(it) } }
@@ -457,6 +459,7 @@ class GameStompClientTest {
 
         verify { Log.e("GameStomp", "Subscription timed out for test-id (attempt 2/2)") }
         statusJob.cancel()
+        testScope.cancel()
     }
 
     @Test

@@ -1,7 +1,9 @@
 package at.aau.monopoly.klagenfurt.ui.chat
 
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
-import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -12,7 +14,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.shape.GenericShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -24,7 +25,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -33,15 +33,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import at.aau.monopoly.klagenfurt.ui.GameViewModel
-
-private val TaperedTopBarShape = GenericShape { size, _ ->
-    val slant = size.height * 0.7f
-    moveTo(0f, 0f)
-    lineTo(size.width, 0f)
-    lineTo(size.width - slant, size.height)
-    lineTo(slant, size.height)
-    close()
-}
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 private const val CHAT_COLLAPSED_TAG = "ingame_chat_collapsed"
 private const val CHAT_EXPANDED_TAG = "ingame_chat_expanded"
@@ -62,23 +56,21 @@ fun EventLogOverlay(
 ) {
     var isExpanded by remember { mutableStateOf(false) }
     val overlayStateTag = if (isExpanded) CHAT_EXPANDED_TAG else CHAT_COLLAPSED_TAG
-    val lastEntry = getLastVisibleEntry(entries = entries, isExpanded = isExpanded)
+    val visibleEntries = entries.filter { !it.isTechnical }
+    val lastEntry = visibleEntries.lastOrNull()
 
     Column(
         modifier = modifier
             .testTag(overlayStateTag)
             .fillMaxWidth(if (isExpanded) 0.65f else 0.35f)
-            .pointerInput(Unit) {
-                detectTapGestures(
-                    onDoubleTap = { isExpanded = !isExpanded }
-                )
-            },
+            .animateContentSize(animationSpec = tween(durationMillis = 150))
+            .clickable { isExpanded = !isExpanded },
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         EventLogStatusBar(lastEntry = lastEntry, isExpanded = isExpanded)
 
         if (isExpanded) {
-            ExpandedEventLogList(entries = entries)
+            ExpandedEventLogList(entries = visibleEntries)
         }
     }
 }
@@ -96,20 +88,26 @@ private fun EventLogStatusBar(
     lastEntry: GameViewModel.LogEntry?,
     isExpanded: Boolean
 ) {
+    val shape = if (isExpanded) {
+        RoundedCornerShape(topStart = 12.dp, topEnd = 12.dp)
+    } else {
+        RoundedCornerShape(bottomStart = 12.dp, bottomEnd = 12.dp)
+    }
+
     Box(
         modifier = Modifier
             .fillMaxWidth()
             .heightIn(min = 28.dp, max = 36.dp)
             .background(
-                color = Color.Black.copy(alpha = 0.8f),
-                shape = TaperedTopBarShape
+                color = Color.Black.copy(alpha = 0.35f),
+                shape = shape
             )
             .padding(horizontal = 24.dp),
         contentAlignment = Alignment.Center
     ) {
         Text(
             text = lastEntry?.text ?: "Waiting for events...",
-            color = if (lastEntry?.isTechnical == true) Color.LightGray else Color.White,
+            color = Color.White,
             fontSize = if (isExpanded) 13.sp else 10.sp,
             fontWeight = FontWeight.Bold,
             fontStyle = FontStyle.Italic,
@@ -123,6 +121,7 @@ private fun EventLogStatusBar(
 @Composable
 private fun ExpandedEventLogList(entries: List<GameViewModel.LogEntry>) {
     val listState = rememberLazyListState()
+    val timeFormat = remember { SimpleDateFormat("HH:mm:ss", Locale.getDefault()) }
 
     LaunchedEffect(entries.size) {
         if (entries.isNotEmpty()) {
@@ -135,7 +134,7 @@ private fun ExpandedEventLogList(entries: List<GameViewModel.LogEntry>) {
             .fillMaxWidth()
             .height(200.dp)
             .background(
-                color = Color.Black.copy(alpha = 0.7f),
+                color = Color.Black.copy(alpha = 0.35f),
                 shape = RoundedCornerShape(bottomStart = 12.dp, bottomEnd = 12.dp)
             )
             .padding(12.dp)
@@ -147,12 +146,13 @@ private fun ExpandedEventLogList(entries: List<GameViewModel.LogEntry>) {
                 .testTag(CHAT_LINES_TAG)
         ) {
             items(entries) { entry ->
+                val time = timeFormat.format(Date(entry.timestampMs))
                 Text(
-                    text = "• ${entry.text}",
-                    color = if (entry.isTechnical) Color.Gray.copy(alpha = 0.8f) else Color.White,
+                    text = "[$time] • ${entry.text}",
+                    color = Color.White,
                     fontSize = 14.sp,
                     lineHeight = 18.sp,
-                    fontWeight = if (entry.isTechnical) FontWeight.Normal else FontWeight.Medium,
+                    fontWeight = FontWeight.Medium,
                     modifier = Modifier.padding(vertical = 3.dp)
                 )
             }

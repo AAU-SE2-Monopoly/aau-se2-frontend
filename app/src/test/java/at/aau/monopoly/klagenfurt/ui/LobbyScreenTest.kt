@@ -10,6 +10,7 @@ import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.performClick
 import at.aau.monopoly.klagenfurt.FakeGameService
 import at.aau.monopoly.klagenfurt.LobbyScreen
+import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -118,7 +119,9 @@ class LobbyScreenTest {
             )
         }
 
-        shadowOf(Looper.getMainLooper()).idleFor(200, TimeUnit.MILLISECONDS)
+        // Emit empty lobby event so gamesLoaded becomes true
+        runBlocking { fakeService.emitTestLobbyEvent("""{"event":"LOBBY_UPDATE","games":[]}""") }
+        shadowOf(Looper.getMainLooper()).idleFor(500, TimeUnit.MILLISECONDS)
         composeTestRule.waitForIdle()
 
         // When connected, the LazyRow with CreateGameCard should be displayed

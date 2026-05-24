@@ -32,9 +32,7 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Icon
-import at.aau.monopoly.klagenfurt.ui.theme.PrimaryBlue
 import androidx.compose.foundation.layout.systemBarsPadding
-//import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Row
 import androidx.compose.ui.window.Dialog
@@ -57,6 +55,7 @@ fun PlayerPropertyOverlay(
         }
     }
 
+
     Dialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(
@@ -68,7 +67,6 @@ fun PlayerPropertyOverlay(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color.Black.copy(alpha = 0.8f))
                 .clickable(
                     interactionSource = remember { MutableInteractionSource() },
                     indication = null,
@@ -89,8 +87,11 @@ fun PlayerPropertyOverlay(
                     Button(
                         onClick = onDismiss,
                         shape = RoundedCornerShape(12.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = PrimaryBlue),
-                        elevation = ButtonDefaults.buttonElevation(defaultElevation = 4.dp)
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color.Transparent,
+                            contentColor = Color.White
+                        ),
+                        elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp)
                     ) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
@@ -113,17 +114,21 @@ fun PlayerPropertyOverlay(
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .weight(1f), // Fills the rest of the screen
+                        .weight(1f)
+                        .padding(horizontal = 16.dp),
                     contentAlignment = Alignment.Center
                 ) {
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         // This area blocks clicks from passing through
-                        modifier = Modifier.clickable(
-                            interactionSource = remember { MutableInteractionSource() },
-                            indication = null,
-                            onClick = {}
-                        )
+                        modifier = Modifier
+                            .background(Color.Black.copy(alpha = 0.55f), RoundedCornerShape(16.dp))
+                            .padding(24.dp)
+                            .clickable(
+                                interactionSource = remember { MutableInteractionSource() },
+                                indication = null,
+                                onClick = {}
+                            )
                     ) {
                         Text(
                             text = "${player.name}'s Properties",

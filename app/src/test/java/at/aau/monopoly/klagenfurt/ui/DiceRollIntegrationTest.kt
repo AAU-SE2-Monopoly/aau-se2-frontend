@@ -262,7 +262,7 @@ class DiceRollIntegrationTest {
         composeTestRule.onNodeWithText("rolled", substring = true, ignoreCase = true).assertDoesNotExist()
 
         // Close the overlay
-        composeTestRule.onNodeWithText("Close").performClick()
+        composeTestRule.onNodeWithTag("dice_close_x").performClick()
         composeTestRule.waitForIdle()
 
         // Now chat bar should show the dice rolled message
@@ -285,7 +285,7 @@ class DiceRollIntegrationTest {
         composeTestRule.onNodeWithTag("dice_total_text").assertTextContains("Total: 3", substring = true, ignoreCase = true)
 
         // Close overlay
-        composeTestRule.onNodeWithText("Close").performClick()
+        composeTestRule.onNodeWithTag("dice_close_x").performClick()
         composeTestRule.waitForIdle()
 
         // Simulate next player's turn (different player in ROLLING)
@@ -419,7 +419,7 @@ class DiceRollIntegrationTest {
             .assertTextContains("Total: 6", substring = true, ignoreCase = true)
 
         // Close overlay
-        composeTestRule.onNodeWithText("Close").performClick()
+        composeTestRule.onNodeWithTag("dice_close_x").performClick()
         composeTestRule.waitForIdle()
 
         // Chat should now show the dice rolled message

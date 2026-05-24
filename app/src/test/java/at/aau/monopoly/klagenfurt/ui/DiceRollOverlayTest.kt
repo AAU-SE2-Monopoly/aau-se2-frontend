@@ -79,7 +79,7 @@ class DiceRollOverlayTest {
             )
         }
         composeTestRule.onNodeWithTag("shake_button").assertIsDisplayed()
-        composeTestRule.onNodeWithText("Shake 📱").assertIsDisplayed()
+        composeTestRule.onNodeWithText("Shake").assertIsDisplayed()
     }
 
     @Test

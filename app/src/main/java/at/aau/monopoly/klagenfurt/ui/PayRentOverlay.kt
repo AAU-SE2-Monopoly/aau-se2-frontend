@@ -3,6 +3,7 @@ package at.aau.monopoly.klagenfurt.ui
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -49,13 +50,16 @@ fun PayRentOverlay(
     if (!isVisible) return
 
     val content = @Composable {
-        Box(
+        BoxWithConstraints(
             modifier = Modifier.fillMaxSize(),
             contentAlignment = Alignment.Center
         ) {
+            val screenWidth = maxWidth
+            val buttonHeight = (screenWidth * 0.12f).coerceIn(44.dp, 56.dp)
+
             Surface(
                 modifier = Modifier
-                    .width(400.dp)
+                    .fillMaxWidth(0.85f)
                     .padding(16.dp),
                 color = Color.Black.copy(alpha = 0.92f),
                 shape = RoundedCornerShape(20.dp),
@@ -158,7 +162,7 @@ fun PayRentOverlay(
                         enabled = canPay,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(50.dp),
+                            .height(buttonHeight),
                         colors = ButtonDefaults.buttonColors(
                             containerColor = Color(0xFF2E7D32),
                             disabledContainerColor = Color.Gray.copy(alpha = 0.4f)
@@ -179,7 +183,7 @@ fun PayRentOverlay(
                         onClick = onManageProperties,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(50.dp),
+                            .height(buttonHeight),
                         colors = ButtonDefaults.buttonColors(
                             containerColor = Color(0xFF1565C0)
                         ),
@@ -199,7 +203,7 @@ fun PayRentOverlay(
                                 onClick = onDeclareBankruptcy,
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .height(50.dp),
+                                    .height(buttonHeight),
                                 colors = ButtonDefaults.buttonColors(
                                     containerColor = Color(0xFFB71C1C)
                                 ),

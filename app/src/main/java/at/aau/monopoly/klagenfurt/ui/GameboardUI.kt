@@ -397,7 +397,7 @@ fun GameboardScreen(
                     }
                 }
 
-                if (hasPendingPayment && !showPayRentOverlay) {
+                if (hasPendingPayment && !showPayRentOverlay && currentTurnPlayer?.id == currentPlayerId) {
                     GlassButton(
                         onClick = { viewModel.showPayRentOverlay(currentRentAmount, currentRentOwnerId, currentRentFieldId) },
                         modifier = Modifier
@@ -468,7 +468,7 @@ fun GameboardScreen(
 
             // Payment overlays
             PayRentOverlay(
-                isVisible = showPayRentOverlay,
+                isVisible = showPayRentOverlay && currentTurnPlayer?.id == currentPlayerId,
                 rentAmount = currentRentAmount,
                 ownerName = currentRentOwnerId?.let { ownerId ->
                     players.find { it.id == ownerId }?.name
@@ -485,7 +485,7 @@ fun GameboardScreen(
             )
 
             MortgageManagementOverlay(
-                isVisible = showMortgageOverlay,
+                isVisible = showMortgageOverlay && currentTurnPlayer?.id == currentPlayerId,
                 properties = manageableProperties,
                 currentMoney = currentTurnPlayer?.money ?: 0,
                 onMortgage = { fieldId -> viewModel.mortgageProperty(fieldId) },
@@ -497,7 +497,7 @@ fun GameboardScreen(
             )
 
             BankruptcyResolutionOverlay(
-                isVisible = showBankruptcyOverlay,
+                isVisible = showBankruptcyOverlay && currentTurnPlayer?.id == currentPlayerId,
                 playerName = bankruptcyPlayerName,
                 totalAssets = bankruptcyTotalAssets,
                 totalDebt = bankruptcyTotalDebt,

@@ -3,6 +3,7 @@ package at.aau.monopoly.klagenfurt.ui
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -73,13 +74,16 @@ fun BankruptcyResolutionContent(
     onConfirm: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Box(
+    BoxWithConstraints(
         modifier = modifier.fillMaxSize(),
         contentAlignment = Alignment.Center
     ) {
+        val screenWidth = maxWidth
+        val buttonHeight = (screenWidth * 0.12f).coerceIn(44.dp, 56.dp)
+
         Surface(
             modifier = Modifier
-                .width(400.dp)
+                .fillMaxWidth(0.85f)
                 .padding(16.dp),
             color = Color.Black.copy(alpha = 0.92f),
             shape = RoundedCornerShape(20.dp),
@@ -174,7 +178,7 @@ fun BankruptcyResolutionContent(
                     onClick = onConfirm,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(50.dp),
+                        .height(buttonHeight),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = Color(0xFFB71C1C)
                     ),

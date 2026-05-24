@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -102,10 +103,13 @@ fun MortgageManagementContent(
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Box(
+    BoxWithConstraints(
         modifier = modifier.fillMaxSize(),
         contentAlignment = Alignment.Center
     ) {
+        val screenHeight = maxHeight
+        val buttonHeight = (screenHeight * 0.065f).coerceIn(40.dp, 56.dp)
+
         Surface(
             modifier = Modifier
                 .fillMaxWidth(0.95f)
@@ -175,7 +179,7 @@ fun MortgageManagementContent(
                     LazyColumn(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(400.dp)
+                            .weight(1f)
                     ) {
                         items(properties, key = { it.fieldId }) { property ->
                             PropertyManagementCard(
@@ -198,7 +202,7 @@ fun MortgageManagementContent(
                     onClick = onDismiss,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(48.dp),
+                        .height(buttonHeight),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = Color(0xFF424242)
                     ),
@@ -450,7 +454,7 @@ private fun ActionButton(
     Button(
         onClick = onClick,
         enabled = enabled,
-        modifier = modifier.height(56.dp),
+        modifier = modifier.height(48.dp),
         colors = ButtonDefaults.buttonColors(
             containerColor = backgroundColor,
             disabledContainerColor = backgroundColor.copy(alpha = 0.3f)

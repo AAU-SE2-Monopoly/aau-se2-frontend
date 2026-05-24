@@ -315,6 +315,10 @@ fun FieldItem(
                 animatingStep = animatingStep,
                 animationComplete = animationComplete
             )
+
+            if (field is PropertyField) {
+                BuildingIndicator(property = field)
+            }
         }
     }
 }
@@ -1035,4 +1039,28 @@ private fun BaseFieldTitleText(
         style = TextStyle(hyphens = Hyphens.Auto),
         modifier = modifier
     )
+}
+
+@Composable
+private fun BoxScope.BuildingIndicator(
+    property: PropertyField
+) {
+    val buildingText = when {
+        property.hasHotel -> "🏨"
+        property.houses > 0 -> "🏠".repeat(property.houses)
+        else -> ""
+    }
+
+    if (buildingText.isNotEmpty()) {
+        Box(
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .padding(top = 2.dp)
+        ) {
+            Text(
+                text = buildingText,
+                fontSize = 4.sp
+            )
+        }
+    }
 }

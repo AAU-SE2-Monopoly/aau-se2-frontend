@@ -1,14 +1,20 @@
 package at.aau.monopoly.klagenfurt.ui
 
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import at.aau.monopoly.klagenfurt.model.field.Field
 import at.aau.monopoly.klagenfurt.model.field.PropertyField
@@ -25,76 +31,71 @@ fun BuildingManagerOverlay(
     canEndTurn: Boolean,
     isBuyingPhase: Boolean
 ) {
-    Card(
-        modifier = Modifier.padding(16.dp)
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.Black.copy(alpha = 0.35f))
+            .clickable { onDismiss() }
     ) {
-        Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+        Card(
+            modifier = Modifier
+                .align(Alignment.CenterStart)
+                .padding(16.dp)
+                .width(280.dp)
+                .heightIn(max = 420.dp)
+                .clickable(enabled = false) {},
+            shape = RoundedCornerShape(16.dp)
         ) {
-            Text("Manage Buildings")
+            Column(
+                modifier = Modifier.padding(16.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("Manage Buildings", fontWeight = FontWeight.Bold)
 
-            properties.forEach { property ->
-                val colorSet = fields
-                    .filterIsInstance<PropertyField>()
-                    .filter { it.color == property.color }
+                    TextButton(onClick = onDismiss) {
+                        Text("✕")
+                    }
+                }
 
-                val minHouses = colorSet.minOf { it.houses }
-                val maxHouses = colorSet.maxOf { it.houses }
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = 340.dp)
+                ) {
+                    items(properties) { property ->
+                        Text("${property.name}: ${property.houses} houses")
 
-                val canBuyHouse =
-                    isBuyingPhase &&
-                            !property.hasHotel &&
-                            property.houses < 4 &&
-                            property.houses == minHouses
-
-                val canBuyHotel =
-                    isBuyingPhase &&
-                            !property.hasHotel &&
-                            property.houses == 4
-
-                val canSellHouse =
-                    canEndTurn &&
-                            !property.hasHotel &&
-                            property.houses > 0 &&
-                            property.houses == maxHouses
-
-                val canSellHotel =
-                    canEndTurn && property.hasHotel
-
-                Column {
-                    Text("${property.name}: ${property.houses} houses${if (property.hasHotel) ", hotel" else ""}")
-
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        if (canBuyHouse) {
+                        if (!property.hasHotel && property.houses < 4) {
                             Button(onClick = { onBuyHouse(property.id) }) {
                                 Text("Buy House")
                             }
                         }
 
-                        if (canBuyHotel) {
-                            Button(onClick = { onBuyHotel(property.id) }) {
-                                Text("Buy Hotel")
-                            }
-                        }
-
-                        if (canSellHouse) {
+                        if (property.houses > 0) {
                             Button(onClick = { onSellHouse(property.id) }) {
                                 Text("Sell House")
                             }
                         }
 
-                        if (canSellHotel) {
+                        if (property.houses == 4 && !property.hasHotel) {
+                            Button(onClick = { onBuyHotel(property.id) }) {
+                                Text("Buy Hotel")
+                            }
+                        }
+
+                        if (property.hasHotel) {
                             Button(onClick = { onSellHotel(property.id) }) {
                                 Text("Sell Hotel")
                             }
                         }
+
+                        Spacer(modifier = Modifier.height(12.dp))
                     }
                 }
-            }
-
-            Button(onClick = onDismiss) {
-                Text("Close")
             }
         }
     }

@@ -40,15 +40,16 @@ fun BankruptcyResolutionOverlay(
     totalAssets: Int,
     totalDebt: Int,
     propertiesOwned: Int,
-    onConfirm: () -> Unit
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit = {}
 ) {
     if (!isVisible) return
 
     Dialog(
-        onDismissRequest = { /* Don't dismiss on back press */ },
+        onDismissRequest = onDismiss,
         properties = DialogProperties(
-            dismissOnBackPress = false,
-            dismissOnClickOutside = false,
+            dismissOnBackPress = true,
+            dismissOnClickOutside = true,
             usePlatformDefaultWidth = false
         )
     ) {

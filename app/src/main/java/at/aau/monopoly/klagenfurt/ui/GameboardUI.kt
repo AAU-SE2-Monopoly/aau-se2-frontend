@@ -421,6 +421,17 @@ fun GameboardScreen(
                     }
                 }
 
+                if (isBuyingPhaseForCurrentPlayer || canEndTurnForCurrentPlayer) {
+                    GlassButton(
+                        onClick = { viewModel.showMortgageManagementOverlay() },
+                        modifier = Modifier
+                            .padding(top = 8.dp)
+                            .testTag("manage_properties_button")
+                    ) {
+                        Text("Manage Properties")
+                    }
+                }
+
                 if (isOnChanceField && isBuyingPhaseForCurrentPlayer) {
                     DrawCardButton(
                         cardType = "CHANCE",
@@ -502,7 +513,8 @@ fun GameboardScreen(
                 totalAssets = bankruptcyTotalAssets,
                 totalDebt = bankruptcyTotalDebt,
                 propertiesOwned = bankruptcyPropertiesOwned.size,
-                onConfirm = { viewModel.acceptBankruptcyResolution() }
+                onConfirm = { viewModel.acceptBankruptcyResolution() },
+                onDismiss = { viewModel.dismissBankruptcyOverlay() }
             )
         }
 

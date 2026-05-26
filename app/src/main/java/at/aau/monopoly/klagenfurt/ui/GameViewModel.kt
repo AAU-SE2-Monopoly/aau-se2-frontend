@@ -417,7 +417,7 @@ class GameViewModel(
         combine(gameState, _showPayRentOverlay, _showBankruptcyOverlay, _hasPendingPayment) { state, payOverlay, bankruptcyOverlay, hasPending ->
             (state?.phase == GamePhase.BUYING ||
                     state?.phase == GamePhase.TURN_END) &&
-                    state.currentPlayer?.id == gameService.currentPlayerId &&
+                    state?.currentPlayer?.id == gameService.currentPlayerId &&
                     !payOverlay &&
                     !bankruptcyOverlay &&
                     !hasPending
@@ -625,6 +625,10 @@ class GameViewModel(
 
     fun showBankruptcyOverlay() {
         _showBankruptcyOverlay.value = true
+    }
+
+    fun dismissBankruptcyOverlay() {
+        _showBankruptcyOverlay.value = false
     }
 
     fun acceptBankruptcyResolution() {

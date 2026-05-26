@@ -76,6 +76,22 @@ fun PropertyColor.toComposeColor(): Color = when (this) {
 }
 
 /**
+ * Maps a serialized property color string to the same Compose [Color] used by board cards.
+ * Non-color ownables such as railroads and utilities use a neutral dark accent.
+ */
+fun String?.toPropertyComposeColor(): Color = when (this?.lowercase()) {
+    PropertyColor.BROWN.name.lowercase() -> PropertyColor.BROWN.toComposeColor()
+    PropertyColor.LIGHT_BLUE.name.lowercase() -> PropertyColor.LIGHT_BLUE.toComposeColor()
+    PropertyColor.PINK.name.lowercase() -> PropertyColor.PINK.toComposeColor()
+    PropertyColor.ORANGE.name.lowercase() -> PropertyColor.ORANGE.toComposeColor()
+    PropertyColor.RED.name.lowercase() -> PropertyColor.RED.toComposeColor()
+    PropertyColor.YELLOW.name.lowercase() -> PropertyColor.YELLOW.toComposeColor()
+    PropertyColor.GREEN.name.lowercase() -> PropertyColor.GREEN.toComposeColor()
+    PropertyColor.DARK_BLUE.name.lowercase() -> PropertyColor.DARK_BLUE.toComposeColor()
+    else -> Color(0xFF424242)
+}
+
+/**
  * Maps a player icon ID string to the corresponding drawable resource.
  */
 fun getPlayerTokenResource(iconId: String): Int {

@@ -748,4 +748,52 @@ class GameViewModelTest {
         assertTrue(fakeService.buyPropertyCalled)
         assertEquals(5, fakeService.lastBoughtFieldId)
     }
+    @Test
+    fun `setSelectedPlayerForOverlay should update selected player`() {
+        val player = Player(id = "p99", name = "Overlay Test")
+
+        viewModel.showPlayerOverlay(player)
+
+        assertEquals(player, viewModel.selectedPlayerForOverlay.value)
+    }
+
+    @Test
+    fun `hidePlayerOverlay should clear selected player`() {
+        val player = Player(id = "p99", name = "Overlay Test")
+
+        viewModel.showPlayerOverlay(player)
+        viewModel.hidePlayerOverlay()
+
+        assertNull(viewModel.selectedPlayerForOverlay.value)
+    }
+
+    @Test
+    fun `setCurrentActionCard should update action card state`() {
+        val card = at.aau.monopoly.klagenfurt.model.card.ChanceCard(
+            id = 99,
+            description = "Test Card",
+            action = at.aau.monopoly.klagenfurt.model.enums.CardAction.COLLECT_MONEY,
+            amount = 200
+        )
+
+        viewModel.setCurrentActionCard(card)
+
+        assertEquals(card, viewModel.currentActionCard.value)
+    }
+
+    @Test
+    fun `dismissActionCard should clear action card state`() {
+        val card = at.aau.monopoly.klagenfurt.model.card.ChanceCard(
+            id = 99,
+            description = "Test Card",
+            action = at.aau.monopoly.klagenfurt.model.enums.CardAction.COLLECT_MONEY,
+            amount = 200
+        )
+
+        viewModel.setCurrentActionCard(card)
+        viewModel.dismissActionCard()
+
+        assertNull(viewModel.currentActionCard.value)
+    }
+
 }

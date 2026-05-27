@@ -86,6 +86,31 @@ class GameViewModelDoubleAutoEndTest {
     }
 
     @Test
+    fun `DICE_ROLLED with null gameState does not set pendingDoubleAutoEnd`() = runTest(testDispatcher) {
+        val event = GameEvent(gameId = "game1", event = "DICE_ROLLED", gameState = null)
+        val json = JacksonProvider.objectMapper.writeValueAsString(event)
+        fakeService.emitTestEvent(json)
+        advanceUntilIdle()
+        assertFalse(viewModel.pendingDoubleAutoEnd.value)
+    }
+
+    @Test
+    fun `DICE_ROLLED with null lastDiceRoll does not set pendingDoubleAutoEnd`() = runTest(testDispatcher) {
+        val gameState = GameState(
+            gameId = "game1",
+            fields = emptyList(),
+            players = mutableListOf(Player(id = "p1", name = "Alice")),
+            currentPlayerIndex = 0,
+            lastDiceRoll = null
+        )
+        val event = GameEvent(gameId = "game1", event = "DICE_ROLLED", gameState = gameState)
+        val json = JacksonProvider.objectMapper.writeValueAsString(event)
+        fakeService.emitTestEvent(json)
+        advanceUntilIdle()
+        assertFalse(viewModel.pendingDoubleAutoEnd.value)
+    }
+
+    @Test
     fun `consumeDoubleAutoEnd calls endTurn and resets flag`() = runTest(testDispatcher) {
         // First trigger the double
         fakeService.emitTestEvent(buildDiceRolledJson(isDouble = true))

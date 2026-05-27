@@ -64,6 +64,22 @@ class GameServiceTest {
         override fun buyProperty(fieldId: Int) {
             // no-op for interface test
         }
+
+        override fun buyHouse(fieldId: Int) {
+            TODO("Not yet implemented")
+        }
+
+        override fun sellHouse(fieldId: Int) {
+            TODO("Not yet implemented")
+        }
+
+        override fun buyHotel(fieldId: Int) {
+            TODO("Not yet implemented")
+        }
+
+        override fun sellHotel(fieldId: Int) {
+            TODO("Not yet implemented")
+        }
     }
 
     @Test

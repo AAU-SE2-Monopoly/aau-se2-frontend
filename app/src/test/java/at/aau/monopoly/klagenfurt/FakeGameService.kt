@@ -151,6 +151,33 @@ class FakeGameService : GameService {
         lastBoughtFieldId = fieldId
     }
 
+    var buyHouseCalled = false
+    var sellHouseCalled = false
+    var buyHotelCalled = false
+    var sellHotelCalled = false
+
+    var lastBuildingFieldId: Int? = null
+
+    override fun buyHouse(fieldId: Int) {
+        buyHouseCalled = true
+        lastBuildingFieldId = fieldId
+    }
+
+    override fun sellHouse(fieldId: Int) {
+        sellHouseCalled = true
+        lastBuildingFieldId = fieldId
+    }
+
+    override fun buyHotel(fieldId: Int) {
+        buyHotelCalled = true
+        lastBuildingFieldId = fieldId
+    }
+
+    override fun sellHotel(fieldId: Int) {
+        sellHotelCalled = true
+        lastBuildingFieldId = fieldId
+    }
+
     override fun subscribeToLobby() {
         subscribeToLobbyCalled = true
     }

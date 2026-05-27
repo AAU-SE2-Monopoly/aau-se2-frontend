@@ -629,4 +629,55 @@ class GameStompClient(
         val json = JacksonProvider.objectMapper.writeValueAsString(action)
         sendRaw("/app/game/action", json)
     }
+
+    override fun buyHouse(fieldId: Int) {
+        val action = GameAction(
+            gameId = _currentGameId,
+            playerId = currentPlayerId,
+            action = "BUY_HOUSE",
+            payload = mapOf(
+                "fieldId" to fieldId.toString()
+            )
+        )
+        val json = JacksonProvider.objectMapper.writeValueAsString(action)
+        sendRaw("/app/game/action", json)    }
+
+    override fun sellHouse(fieldId: Int) {
+        val action = GameAction(
+            gameId = _currentGameId,
+            playerId = currentPlayerId,
+            action = "SELL_HOUSE",
+            payload = mapOf(
+                "fieldId" to fieldId.toString()
+            )
+        )
+        val json = JacksonProvider.objectMapper.writeValueAsString(action)
+        sendRaw("/app/game/action", json)
+    }
+
+    override fun buyHotel(fieldId: Int) {
+        val action = GameAction(
+            gameId = _currentGameId,
+            playerId = currentPlayerId,
+            action = "BUY_HOTEL",
+            payload = mapOf(
+                "fieldId" to fieldId.toString()
+            )
+        )
+        val json = JacksonProvider.objectMapper.writeValueAsString(action)
+        sendRaw("/app/game/action", json)
+    }
+
+    override fun sellHotel(fieldId: Int) {
+        val action = GameAction(
+            gameId = _currentGameId,
+            playerId = currentPlayerId,
+            action = "SELL_HOTEL",
+            payload = mapOf(
+                "fieldId" to fieldId.toString()
+            )
+        )
+        val json = JacksonProvider.objectMapper.writeValueAsString(action)
+        sendRaw("/app/game/action", json)
+    }
 }

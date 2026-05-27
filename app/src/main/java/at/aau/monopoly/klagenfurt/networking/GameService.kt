@@ -46,5 +46,13 @@ interface GameService {
     fun drawCard(cardType: String = "CHANCE")
     fun buyProperty(fieldId: Int)
 
+    fun buyHouse(fieldId: Int)
+
+    fun sellHouse(fieldId: Int)
+
+    fun buyHotel(fieldId: Int)
+
+    fun sellHotel(fieldId: Int)
+
 
 }

@@ -91,6 +91,58 @@ class GameViewModel(
     private val _errorMessage = MutableStateFlow<String?>(null)
     val errorMessage: StateFlow<String?> = _errorMessage.asStateFlow()
 
+    private var errorToken: Long = 0
+
+    private fun showTransientError(message: String) {
+        val token = ++errorToken
+        _errorMessage.value = message
+        viewModelScope.launch {
+            delay(ERROR_DISPLAY_MS)
+            if (errorToken == token) {
+                _errorMessage.value = null
+            }
+        }
+    }
+
+    private val _paymentActionInFlight = MutableStateFlow(false)
+    val paymentActionInFlight: StateFlow<Boolean> = _paymentActionInFlight.asStateFlow()
+
+    private val _propertyActionInFlight = MutableStateFlow(false)
+    val propertyActionInFlight: StateFlow<Boolean> = _propertyActionInFlight.asStateFlow()
+
+    private var paymentActionToken: Long = 0
+    private var propertyActionToken: Long = 0
+
+    private fun startPaymentAction() {
+        val token = ++paymentActionToken
+        _paymentActionInFlight.value = true
+        viewModelScope.launch {
+            delay(ACTION_TIMEOUT_MS)
+            if (paymentActionToken == token) {
+                _paymentActionInFlight.value = false
+            }
+        }
+    }
+
+    private fun finishPaymentAction() {
+        _paymentActionInFlight.value = false
+    }
+
+    private fun startPropertyAction() {
+        val token = ++propertyActionToken
+        _propertyActionInFlight.value = true
+        viewModelScope.launch {
+            delay(ACTION_TIMEOUT_MS)
+            if (propertyActionToken == token) {
+                _propertyActionInFlight.value = false
+            }
+        }
+    }
+
+    private fun finishPropertyAction() {
+        _propertyActionInFlight.value = false
+    }
+
     private val _currentActionCard = MutableStateFlow<Card?>(null)
     val currentActionCard: StateFlow<Card?> = _currentActionCard.asStateFlow()
 
@@ -200,9 +252,9 @@ class GameViewModel(
 
 
                 if (event.event == "ERROR") {
-                    _errorMessage.value = event.message ?: "An unknown error occurred"
-                    delay(5_000)
-                    _errorMessage.value = null
+                    showTransientError(event.message ?: "An unknown error occurred")
+                    finishPaymentAction()
+                    finishPropertyAction()
                 }
 
                 // reset overlay states on GAME_STARTED
@@ -220,39 +272,13 @@ class GameViewModel(
                     _bankruptcyPropertiesOwned.value = emptyList()
                 }
 
-                //payment event handlers
-                if (event.event == "RENT_DUE") {
-                    val gs = event.gameState
-                    val pendingFieldId = gs?.pendingRentFieldId
-                    val pendingAmount = gs?.pendingRentAmount ?: 0
-                    val pendingOwnerId = gs?.pendingRentOwnerId
-                    //store last dice total for utility rent calculation
-                    _lastDiceTotalForRent.value = gs?.lastDiceRoll?.total ?: 0
-                    showPayRentOverlay(pendingAmount, pendingOwnerId, pendingFieldId)
-                    _hasPendingPayment.value = true
-                }
-
-                if (event.event == "TAX_DUE") {
-                    val gs = event.gameState
-                    _currentTaxAmount.value = gs?.pendingTaxAmount ?: 0
-                    showPayRentOverlay(gs?.pendingTaxAmount ?: 0, null, gs?.pendingTaxFieldId)
-                    _hasPendingPayment.value = true
-                }
-
                 if (event.event == "RENT_PAID" || event.event == "TAX_PAID") {
-                    _showPayRentOverlay.value = false
-                    _hasPendingPayment.value = false
-                    _currentRentAmount.value = 0
-                    _currentTaxAmount.value = 0
-                    _currentRentOwnerId.value = null
-                    _currentRentFieldId.value = null
-                    _lastDiceTotalForRent.value = 0
+                    finishPaymentAction()
                 }
 
                 if (event.event == "PAYMENT_FAILED") {
-                    _errorMessage.value = event.message ?: "Payment failed"
-                    delay(5_000)
-                    _errorMessage.value = null
+                    showTransientError(event.message ?: "Payment failed")
+                    finishPaymentAction()
                 }
 
                 if (event.event == "BANKRUPTCY_DECLARED") {
@@ -266,19 +292,23 @@ class GameViewModel(
                         ?.filter { field -> field.ownerIdFromField() == gs.currentPlayer?.id }
                         ?.map { field -> field.toManageableProperty() } ?: emptyList()
                     _showBankruptcyOverlay.value = true
+                    finishPaymentAction()
                 }
 
                 // handle previously unhandled backend events
                 if (event.event == "PROPERTY_MORTGAGED") {
                     Log.i("GameViewModel", "Property mortgaged - refreshing state")
+                    finishPropertyAction()
                 }
 
                 if (event.event == "PROPERTY_UNMORTGAGED") {
                     Log.i("GameViewModel", "Property unmortgaged - refreshing state")
+                    finishPropertyAction()
                 }
 
                 if (event.event == "HOUSE_SOLD") {
                     Log.i("GameViewModel", "House sold - refreshing state")
+                    finishPropertyAction()
                 }
             }
             .launchIn(viewModelScope)
@@ -474,6 +504,14 @@ class GameViewModel(
     // store last dice total for utility rent calculation
     private val _lastDiceTotalForRent = MutableStateFlow(0)
 
+    private var lastPendingPaymentKey: String? = null
+
+    init {
+        gameState
+            .onEach { state -> updatePendingPaymentState(state) }
+            .launchIn(viewModelScope)
+    }
+
     // reactive canPayRent StateFlow based on total assets (money + mortgageable value)
     val canPayRent: StateFlow<Boolean> = combine(
         gameState, _currentRentAmount, _currentTaxAmount
@@ -577,25 +615,35 @@ class GameViewModel(
 
     // Payment/mortgage/bankrupcty
     fun payRent() {
+        if (_paymentActionInFlight.value) return
         val fieldId = currentRentFieldId.value ?: return
         val diceTotal = _lastDiceTotalForRent.value
+        startPaymentAction()
         gameService.payRent(fieldId, diceTotal)
         // wait for RENT_PAID event before dismissing
     }
 
     fun mortgageProperty(fieldId: Int) {
+        if (_propertyActionInFlight.value) return
+        startPropertyAction()
         gameService.mortgageProperty(fieldId)
     }
 
     fun unmortgageProperty(fieldId: Int) {
+        if (_propertyActionInFlight.value) return
+        startPropertyAction()
         gameService.unmortgageProperty(fieldId)
     }
 
     fun sellHouse(fieldId: Int) {
+        if (_propertyActionInFlight.value) return
+        startPropertyAction()
         gameService.sellHouse(fieldId)
     }
 
     fun declareBankruptcy() {
+        if (_paymentActionInFlight.value) return
+        startPaymentAction()
         gameService.declareBankruptcy()
         // overlay dismissal handled by BANKRUPTCY_DECLARED event
     }
@@ -638,6 +686,59 @@ class GameViewModel(
     fun requestState() = gameService.requestState()
 
     fun setGameId(gameId: String) = gameService.setGameId(gameId)
+
+    private fun updatePendingPaymentState(state: GameState?) {
+        if (state == null) {
+            _hasPendingPayment.value = false
+            _showPayRentOverlay.value = false
+            _currentRentAmount.value = 0
+            _currentTaxAmount.value = 0
+            _currentRentOwnerId.value = null
+            _currentRentFieldId.value = null
+            _lastDiceTotalForRent.value = 0
+            lastPendingPaymentKey = null
+            return
+        }
+
+        val pendingKey = when {
+            state.pendingRentAmount > 0 -> "RENT:${state.pendingRentFieldId}:${state.pendingRentAmount}:${state.pendingRentOwnerId}"
+            state.pendingTaxAmount > 0 -> "TAX:${state.pendingTaxFieldId}:${state.pendingTaxAmount}"
+            else -> null
+        }
+
+        if (pendingKey == null) {
+            _hasPendingPayment.value = false
+            _showPayRentOverlay.value = false
+            _currentRentAmount.value = 0
+            _currentTaxAmount.value = 0
+            _currentRentOwnerId.value = null
+            _currentRentFieldId.value = null
+            _lastDiceTotalForRent.value = 0
+            lastPendingPaymentKey = null
+            return
+        }
+
+        _hasPendingPayment.value = true
+
+        if (state.pendingRentAmount > 0) {
+            _currentRentAmount.value = state.pendingRentAmount
+            _currentTaxAmount.value = 0
+            _currentRentOwnerId.value = state.pendingRentOwnerId
+            _currentRentFieldId.value = state.pendingRentFieldId
+        } else {
+            _currentRentAmount.value = 0
+            _currentTaxAmount.value = state.pendingTaxAmount
+            _currentRentOwnerId.value = null
+            _currentRentFieldId.value = state.pendingTaxFieldId
+        }
+
+        _lastDiceTotalForRent.value = state.lastDiceRoll?.total ?: 0
+
+        if (pendingKey != lastPendingPaymentKey) {
+            _showPayRentOverlay.value = true
+            lastPendingPaymentKey = pendingKey
+        }
+    }
 
     private val _movementAnimation = MutableStateFlow<MovementAnimationState?>(null)
     val movementAnimation: StateFlow<MovementAnimationState?> = _movementAnimation
@@ -716,6 +817,8 @@ class GameViewModel(
 
     companion object {
         private const val MAX_LOG_ENTRIES = 80
+        private const val ERROR_DISPLAY_MS = 5_000L
+        private const val ACTION_TIMEOUT_MS = 5_000L
     }
 
     fun buyProperty(fieldId: Int) {

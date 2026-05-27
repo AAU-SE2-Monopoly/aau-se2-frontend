@@ -185,6 +185,8 @@ fun GameboardScreen(
     val currentRentFieldId by viewModel.currentRentFieldId.collectAsState()
     val manageableProperties by viewModel.manageableProperties.collectAsState()
     val canPayRent by viewModel.canPayRent.collectAsState()
+    val paymentActionInFlight by viewModel.paymentActionInFlight.collectAsState()
+    val propertyActionInFlight by viewModel.propertyActionInFlight.collectAsState()
     val bankruptcyPlayerName by viewModel.bankruptcyPlayerName.collectAsState()
     val bankruptcyTotalAssets by viewModel.bankruptcyTotalAssets.collectAsState()
     val bankruptcyTotalDebt by viewModel.bankruptcyTotalDebt.collectAsState()
@@ -489,6 +491,8 @@ fun GameboardScreen(
                 } ?: "",
                 currentMoney = currentTurnPlayer?.money ?: 0,
                 canPay = canPayRent,
+                paymentInFlight = paymentActionInFlight,
+                propertyInFlight = propertyActionInFlight,
                 onPay = { viewModel.payRent() },
                 onManageProperties = { viewModel.showMortgageManagementOverlay() },
                 onDeclareBankruptcy = { viewModel.declareBankruptcy() },
@@ -499,6 +503,7 @@ fun GameboardScreen(
                 isVisible = showMortgageOverlay && currentTurnPlayer?.id == currentPlayerId,
                 properties = manageableProperties,
                 currentMoney = currentTurnPlayer?.money ?: 0,
+                actionInFlight = propertyActionInFlight,
                 onMortgage = { fieldId -> viewModel.mortgageProperty(fieldId) },
                 onUnmortgage = { fieldId -> viewModel.unmortgageProperty(fieldId) },
                 onSellHouse = { fieldId -> viewModel.sellHouse(fieldId) },

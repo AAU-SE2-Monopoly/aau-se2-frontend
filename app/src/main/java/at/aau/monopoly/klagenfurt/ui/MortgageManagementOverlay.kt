@@ -120,6 +120,7 @@ fun MortgageManagementOverlay(
     isVisible: Boolean,
     properties: List<ManageableProperty>,
     currentMoney: Int,
+    actionInFlight: Boolean,
     onMortgage: (Int) -> Unit,
     onUnmortgage: (Int) -> Unit,
     onSellHouse: (Int) -> Unit,
@@ -139,6 +140,7 @@ fun MortgageManagementOverlay(
         MortgageManagementContent(
             properties = properties,
             currentMoney = currentMoney,
+            actionInFlight = actionInFlight,
             onMortgage = onMortgage,
             onUnmortgage = onUnmortgage,
             onSellHouse = onSellHouse,
@@ -154,6 +156,7 @@ fun MortgageManagementOverlay(
 fun MortgageManagementContent(
     properties: List<ManageableProperty>,
     currentMoney: Int,
+    actionInFlight: Boolean,
     onMortgage: (Int) -> Unit,
     onUnmortgage: (Int) -> Unit,
     onSellHouse: (Int) -> Unit,
@@ -263,6 +266,7 @@ fun MortgageManagementContent(
                             PropertyActionPanel(
                                 property = prop,
                                 currentMoney = currentMoney,
+                                actionInFlight = actionInFlight,
                                 onMortgage = { onMortgage(prop.fieldId); selectedProperty = null },
                                 onUnmortgage = { onUnmortgage(prop.fieldId); selectedProperty = null },
                                 onSellHouse = { onSellHouse(prop.fieldId); selectedProperty = null },
@@ -471,6 +475,7 @@ private fun ManagedPropertyCard(
 private fun PropertyActionPanel(
     property: ManageableProperty,
     currentMoney: Int,
+    actionInFlight: Boolean,
     onMortgage: () -> Unit,
     onUnmortgage: () -> Unit,
     onSellHouse: () -> Unit,
@@ -542,7 +547,7 @@ private fun PropertyActionPanel(
                         text = "Mortgage",
                         sub = "+€${property.mortgageValue}",
                         backgroundColor = Color(0xFFC62828),
-                        enabled = true,
+                        enabled = !actionInFlight,
                         modifier = Modifier.weight(1f),
                         onClick = onMortgage
                     )
@@ -553,7 +558,7 @@ private fun PropertyActionPanel(
                         text = "Unmortgage",
                         sub = "-€${property.unmortgageCost}",
                         backgroundColor = Color(0xFF2E7D32),
-                        enabled = canUnmortgage,
+                        enabled = canUnmortgage && !actionInFlight,
                         modifier = Modifier.weight(1f),
                         onClick = onUnmortgage
                     )
@@ -564,7 +569,7 @@ private fun PropertyActionPanel(
                         text = "Sell House",
                         sub = "+€${property.sellHouseValue}",
                         backgroundColor = Color(0xFFC77700),
-                        enabled = true,
+                        enabled = !actionInFlight,
                         modifier = Modifier.weight(1f),
                         onClick = onSellHouse
                     )
@@ -575,7 +580,7 @@ private fun PropertyActionPanel(
                         text = "Sell Hotel",
                         sub = "+€${property.sellHotelValue}",
                         backgroundColor = Color(0xFFC77700),
-                        enabled = true,
+                        enabled = !actionInFlight,
                         modifier = Modifier.weight(1f),
                         onClick = onSellHotel
                     )
@@ -719,6 +724,7 @@ fun MortgageManagementPreview() {
             MortgageManagementContent(
                 properties = sampleProperties,
                 currentMoney = 1200,
+                actionInFlight = false,
                 onMortgage = {},
                 onUnmortgage = {},
                 onSellHouse = {},
@@ -787,6 +793,7 @@ fun PropertyActionPanelPreview() {
             PropertyActionPanel(
                 property = prop,
                 currentMoney = 1200,
+                actionInFlight = false,
                 onMortgage = {},
                 onUnmortgage = {},
                 onSellHouse = {},
@@ -810,6 +817,7 @@ fun MortgagedPropertyActionPanelPreview() {
             PropertyActionPanel(
                 property = prop,
                 currentMoney = 20, // Not enough to unmortgage
+                actionInFlight = false,
                 onMortgage = {},
                 onUnmortgage = {},
                 onSellHouse = {},

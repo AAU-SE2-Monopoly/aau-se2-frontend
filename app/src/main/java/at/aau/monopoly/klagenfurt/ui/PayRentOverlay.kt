@@ -44,6 +44,8 @@ fun PayRentOverlay(
     fieldName: String,
     currentMoney: Int,
     canPay: Boolean,
+    paymentInFlight: Boolean,
+    propertyInFlight: Boolean,
     onPay: () -> Unit,
     onManageProperties: () -> Unit,
     onDeclareBankruptcy: () -> Unit,
@@ -167,7 +169,7 @@ fun PayRentOverlay(
                     // Action buttons
                     Button(
                         onClick = onPay,
-                        enabled = canPay,
+                        enabled = canPay && !paymentInFlight,
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(buttonHeight),
@@ -178,7 +180,11 @@ fun PayRentOverlay(
                         shape = RoundedCornerShape(12.dp)
                     ) {
                         Text(
-                            text = if (canPay) "Pay Rent" else "Insufficient Funds",
+                            text = when {
+                                paymentInFlight -> "Processing..."
+                                canPay -> "Pay Rent"
+                                else -> "Insufficient Funds"
+                            },
                             fontSize = 16.sp,
                             fontWeight = FontWeight.Bold,
                             color = Color.White
@@ -189,11 +195,13 @@ fun PayRentOverlay(
 
                     Button(
                         onClick = onManageProperties,
+                        enabled = !propertyInFlight,
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(buttonHeight),
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = Color(0xFF1565C0)
+                            containerColor = Color(0xFF1565C0),
+                            disabledContainerColor = Color.Gray.copy(alpha = 0.4f)
                         ),
                         shape = RoundedCornerShape(12.dp)
                     ) {
@@ -209,11 +217,13 @@ fun PayRentOverlay(
                         if(!canPay) {
                             Button(
                                 onClick = onDeclareBankruptcy,
+                                enabled = !paymentInFlight,
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .height(buttonHeight),
                                 colors = ButtonDefaults.buttonColors(
-                                    containerColor = Color(0xFFB71C1C)
+                                    containerColor = Color(0xFFB71C1C),
+                                    disabledContainerColor = Color.Gray.copy(alpha = 0.4f)
                                 ),
                                 shape = RoundedCornerShape(12.dp)
                             ) {
@@ -273,6 +283,8 @@ fun PayRentOverlayPreview_CanPay() {
         fieldName = "Heiligengeistplatz",
         currentMoney = 1500,
         canPay = true,
+        paymentInFlight = false,
+        propertyInFlight = false,
         onPay = {},
         onManageProperties = {},
         onDeclareBankruptcy = {},
@@ -290,6 +302,8 @@ fun PayRentOverlayPreview_CannotPay() {
         fieldName = "Heiligengeistplatz",
         currentMoney = 500,
         canPay = false,
+        paymentInFlight = false,
+        propertyInFlight = false,
         onPay = {},
         onManageProperties = {},
         onDeclareBankruptcy = {},
@@ -307,6 +321,8 @@ fun PayRentOverlayPreview_TaxCanPay() {
         fieldName = "Income Tax",
         currentMoney = 1500,
         canPay = true,
+        paymentInFlight = false,
+        propertyInFlight = false,
         onPay = {},
         onManageProperties = {},
         onDeclareBankruptcy = {},
@@ -324,6 +340,8 @@ fun PayRentOverlayPreview_TaxCannotPay() {
         fieldName = "Luxury Tax",
         currentMoney = 500,
         canPay = false,
+        paymentInFlight = false,
+        propertyInFlight = false,
         onPay = {},
         onManageProperties = {},
         onDeclareBankruptcy = {},

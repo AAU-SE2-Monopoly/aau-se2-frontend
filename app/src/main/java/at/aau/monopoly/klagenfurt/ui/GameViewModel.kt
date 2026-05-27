@@ -190,6 +190,7 @@ class GameViewModel(
                 if (event.event == "TURN_ENDED") {
                     _chanceCardDrawnThisTurn.value = false
                     _communityChestCardDrawnThisTurn.value = false
+                    _buildingActionPending.value = false
                     lastCurrentPlayerIdForCardDraw = null
                 }
 

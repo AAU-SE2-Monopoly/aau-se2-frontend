@@ -608,6 +608,7 @@ class GameboardScreenCoverageTest {
         every { vm.showActionCardOverlay } returns MutableStateFlow(false)
         every { vm.selectedPlayerForOverlay } returns MutableStateFlow(null)
         every { vm.movementAnimation } returns MutableStateFlow(null)
+        every { vm.buildingActionPending } returns MutableStateFlow(false)
 
 
         every { vm.canStartGame } returns MutableStateFlow(canStart)
@@ -822,7 +823,7 @@ class GameboardScreenCoverageTest {
             .performClick()
 
         composeTestRule
-            .onAllNodesWithText("Manage Buildings")[1]
+            .onNodeWithText("🏗️ Manage Buildings")
             .assertExists()
     }
 
@@ -872,7 +873,7 @@ class GameboardScreenCoverageTest {
         }
 
         composeTestRule
-            .onAllNodesWithText("Buy House")[0]
+            .onAllNodesWithText("Buy 🏠")[0]
             .performClick()
 
         verify { mockVm.buyHouse(property1.id) }

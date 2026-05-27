@@ -174,14 +174,16 @@ fun GameboardScreen(
                 isBuyableField &&
                 isUnownedField
 
-    val ownedCompleteColorSetProperties = fields
-        .filterIsInstance<PropertyField>()
-        .filter { property ->
-            property.ownerId == currentPlayerId &&
-                    fields.filterIsInstance<PropertyField>()
-                        .filter { it.color == property.color }
-                        .all { it.ownerId == currentPlayerId }
-        }
+    val ownedCompleteColorSetProperties = remember(fields, currentPlayerId) {
+        fields
+            .filterIsInstance<PropertyField>()
+            .filter { property ->
+                property.ownerId == currentPlayerId &&
+                        fields.filterIsInstance<PropertyField>()
+                            .filter { it.color == property.color }
+                            .all { it.ownerId == currentPlayerId }
+            }
+    }
 
     // Action Card states
     val currentActionCard by viewModel.currentActionCard.collectAsState()

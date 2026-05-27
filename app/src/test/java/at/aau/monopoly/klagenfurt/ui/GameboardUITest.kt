@@ -609,6 +609,7 @@ class GameboardScreenCoverageTest {
         every { vm.selectedPlayerForOverlay } returns MutableStateFlow(null)
         every { vm.movementAnimation } returns MutableStateFlow(null)
         every { vm.buildingActionPending } returns MutableStateFlow(false)
+        every { vm.pendingDoubleAutoEnd } returns MutableStateFlow(false)
 
 
         every { vm.canStartGame } returns MutableStateFlow(canStart)
@@ -676,7 +677,8 @@ class GameboardScreenCoverageTest {
 
         composeTestRule.setContent { GameboardScreen(viewModel = mockVm) }
 
-        composeTestRule.onNodeWithText("✓ Card Drawn").assertExists()
+        // With the fix, the draw button is hidden entirely when card already drawn
+        composeTestRule.onNodeWithText("🎰 Draw Chance").assertDoesNotExist()
     }
 
     @Test

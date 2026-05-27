@@ -4,7 +4,9 @@ import androidx.activity.ComponentActivity
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onNodeWithText
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import at.aau.monopoly.klagenfurt.model.Player
 import at.aau.monopoly.klagenfurt.model.enums.FieldType
@@ -167,5 +169,54 @@ class GameboardContentTest {
         // FieldCardUI should NOT be rendered (no turn player)
         // The "GO" text from FieldCardUI's generic card header should not appear
         // (the board field name "Go" will still appear as content description, but not the card)
+    }
+
+    @Test
+    fun `FieldItem renders house indicator on property`() {
+        val property = PropertyField(
+            id = 1,
+            name = "Herrengasse",
+            color = PropertyColor.BROWN,
+            price = 60,
+            rent = listOf(2, 10, 30, 90, 160, 250),
+            houseCost = 50,
+            hotelCost = 50,
+            houses = 2
+        )
+
+        composeTestRule.setContent {
+            at.aau.monopoly.klagenfurt.ui.board.FieldItem(
+                index = 1,
+                field = property,
+                sw = 3840f,
+                sh = 2160f
+            )
+        }
+
+        composeTestRule.onNodeWithText("🏠🏠").assertExists()
+    }
+    @Test
+    fun `FieldItem renders hotel indicator on property`() {
+        val property = PropertyField(
+            id = 1,
+            name = "Herrengasse",
+            color = PropertyColor.BROWN,
+            price = 60,
+            rent = listOf(2, 10, 30, 90, 160, 250),
+            houseCost = 50,
+            hotelCost = 50,
+            hasHotel = true
+        )
+
+        composeTestRule.setContent {
+            at.aau.monopoly.klagenfurt.ui.board.FieldItem(
+                index = 1,
+                field = property,
+                sw = 3840f,
+                sh = 2160f
+            )
+        }
+
+        composeTestRule.onNodeWithText("🏨").assertExists()
     }
 }

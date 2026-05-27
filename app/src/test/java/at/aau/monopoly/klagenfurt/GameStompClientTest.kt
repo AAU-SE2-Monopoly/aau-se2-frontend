@@ -1570,4 +1570,100 @@ class GameStompClientTest {
             )
         }
     }
+    @Test
+    fun buyHouse_sends_buy_house_action() = runTest(testDispatcher) {
+        coEvery { stompClient.connect(any<String>()) } returns stompSession
+        coEvery { stompSession.subscribeText(any<String>()) } returns flowOf()
+        coEvery { stompSession.sendText(any<String>(), any<String>()) } returns mockk()
+
+        gameStompClient.connect()
+        advanceUntilIdle()
+        gameStompClient.setGameId("game-1")
+
+        gameStompClient.buyHouse(11)
+        advanceUntilIdle()
+
+        coVerify {
+            stompSession.sendText(
+                "/app/game/action",
+                match {
+                    it.contains("\"action\":\"BUY_HOUSE\"") &&
+                            it.contains("\"fieldId\":\"11\"")
+                }
+            )
+        }
+    }
+
+    @Test
+    fun sellHouse_sends_sell_house_action() = runTest(testDispatcher) {
+        coEvery { stompClient.connect(any<String>()) } returns stompSession
+        coEvery { stompSession.subscribeText(any<String>()) } returns flowOf()
+        coEvery { stompSession.sendText(any<String>(), any<String>()) } returns mockk()
+
+        gameStompClient.connect()
+        advanceUntilIdle()
+        gameStompClient.setGameId("game-1")
+
+        gameStompClient.sellHouse(12)
+        advanceUntilIdle()
+
+        coVerify {
+            stompSession.sendText(
+                "/app/game/action",
+                match {
+                    it.contains("\"action\":\"SELL_HOUSE\"") &&
+                            it.contains("\"fieldId\":\"12\"")
+                }
+            )
+        }
+    }
+
+    @Test
+    fun buyHotel_sends_buy_hotel_action() = runTest(testDispatcher) {
+        coEvery { stompClient.connect(any<String>()) } returns stompSession
+        coEvery { stompSession.subscribeText(any<String>()) } returns flowOf()
+        coEvery { stompSession.sendText(any<String>(), any<String>()) } returns mockk()
+
+        gameStompClient.connect()
+        advanceUntilIdle()
+        gameStompClient.setGameId("game-1")
+
+        gameStompClient.buyHotel(13)
+        advanceUntilIdle()
+
+        coVerify {
+            stompSession.sendText(
+                "/app/game/action",
+                match {
+                    it.contains("\"action\":\"BUY_HOTEL\"") &&
+                            it.contains("\"fieldId\":\"13\"")
+                }
+            )
+        }
+    }
+
+    @Test
+    fun sellHotel_sends_sell_hotel_action() = runTest(testDispatcher) {
+        coEvery { stompClient.connect(any<String>()) } returns stompSession
+        coEvery { stompSession.subscribeText(any<String>()) } returns flowOf()
+        coEvery { stompSession.sendText(any<String>(), any<String>()) } returns mockk()
+
+        gameStompClient.connect()
+        advanceUntilIdle()
+        gameStompClient.setGameId("game-1")
+
+        gameStompClient.sellHotel(14)
+        advanceUntilIdle()
+
+        coVerify {
+            stompSession.sendText(
+                "/app/game/action",
+                match {
+                    it.contains("\"action\":\"SELL_HOTEL\"") &&
+                            it.contains("\"fieldId\":\"14\"")
+                }
+            )
+        }
+    }
+
 }

@@ -103,6 +103,15 @@ fun DiceRollOverlay(
         }
     }
 
+    // Auto-dismiss 2 seconds after the result is displayed
+    LaunchedEffect(displayResult) {
+        if (displayResult != null) {
+            delay(2000L)
+            userDismissed = true
+            onClose()
+        }
+    }
+
     Box(
         modifier = Modifier
             .fillMaxSize()

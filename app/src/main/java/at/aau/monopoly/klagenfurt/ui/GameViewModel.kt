@@ -92,6 +92,9 @@ class GameViewModel(
     private val _selectedPlayerForOverlay = MutableStateFlow<Player?>(null)
     val selectedPlayerForOverlay: StateFlow<Player?> = _selectedPlayerForOverlay.asStateFlow()
 
+    private val _pendingDoubleAutoEnd = MutableStateFlow(false)
+    val pendingDoubleAutoEnd: StateFlow<Boolean> = _pendingDoubleAutoEnd.asStateFlow()
+
     private val _chanceCardDrawnThisTurn = MutableStateFlow(false)
     val chanceCardDrawnThisTurn: StateFlow<Boolean> = _chanceCardDrawnThisTurn.asStateFlow()
 
@@ -178,6 +181,17 @@ class GameViewModel(
                     _chanceCardDrawnThisTurn.value = false
                     _communityChestCardDrawnThisTurn.value = false
                     lastCurrentPlayerIdForCardDraw = null
+                }
+
+                // Track doubles for auto-end after dice overlay closes
+                if (event.event == "DICE_ROLLED") {
+                    val state = event.gameState
+                    val diceRoll = state?.lastDiceRoll
+                    if (diceRoll != null && diceRoll.isDouble &&
+                        state.currentPlayer?.id == gameService.currentPlayerId
+                    ) {
+                        _pendingDoubleAutoEnd.value = true
+                    }
                 }
 
 
@@ -387,6 +401,12 @@ class GameViewModel(
     }
 
     fun endTurn() = gameService.endTurn()
+
+    fun consumeDoubleAutoEnd() {
+        if (_pendingDoubleAutoEnd.compareAndSet(expect = true, update = false)) {
+            gameService.endTurn()
+        }
+    }
 
     fun payJailFine() = gameService.payJailFine()
     fun useJailCard() = gameService.useJailCard()

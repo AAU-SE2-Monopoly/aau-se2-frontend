@@ -38,14 +38,13 @@ class EnumTest {
     @Test
     fun `GamePhase has all expected values`() {
         val values = GamePhase.entries
-        assertEquals(9, values.size)
+        assertEquals(8, values.size)
         assertNotNull(GamePhase.valueOf("WAITING"))
         assertNotNull(GamePhase.valueOf("ROLLING"))
         assertNotNull(GamePhase.valueOf("BUYING"))
         assertNotNull(GamePhase.valueOf("AUCTIONING"))
         assertNotNull(GamePhase.valueOf("PAYING_RENT"))
         assertNotNull(GamePhase.valueOf("BANKRUPTCY"))
-        assertNotNull(GamePhase.valueOf("MORTGAGE_SELECTION"))
         assertNotNull(GamePhase.valueOf("TURN_END"))
         assertNotNull(GamePhase.valueOf("FINISHED"))
     }

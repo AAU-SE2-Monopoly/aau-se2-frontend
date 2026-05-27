@@ -160,7 +160,7 @@ fun GameboardScreen(
     val isOnCommunityChestField = currentField is CommunityChestField
     val eventLog by viewModel.eventLog.collectAsState()
 
-    val isBuyingPhase by viewModel.isBuyingPhaseForCurrentPlayer.collectAsState()
+
     val isRollingPhaseForCurrentPlayer by viewModel.isRollingPhaseForCurrentPlayer.collectAsState()
     val isBuyingPhaseForCurrentPlayer by viewModel.isBuyingPhaseForCurrentPlayer.collectAsState()
     val lastDiceRoll by viewModel.lastDiceRoll.collectAsState()

@@ -151,20 +151,31 @@ class FakeGameService : GameService {
         lastBoughtFieldId = fieldId
     }
 
+    var buyHouseCalled = false
+    var sellHouseCalled = false
+    var buyHotelCalled = false
+    var sellHotelCalled = false
+
+    var lastBuildingFieldId: Int? = null
+
     override fun buyHouse(fieldId: Int) {
-        TODO("Not yet implemented")
+        buyHouseCalled = true
+        lastBuildingFieldId = fieldId
     }
 
     override fun sellHouse(fieldId: Int) {
-        TODO("Not yet implemented")
+        sellHouseCalled = true
+        lastBuildingFieldId = fieldId
     }
 
     override fun buyHotel(fieldId: Int) {
-        TODO("Not yet implemented")
+        buyHotelCalled = true
+        lastBuildingFieldId = fieldId
     }
 
     override fun sellHotel(fieldId: Int) {
-        TODO("Not yet implemented")
+        sellHotelCalled = true
+        lastBuildingFieldId = fieldId
     }
 
     override fun subscribeToLobby() {

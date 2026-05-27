@@ -796,4 +796,32 @@ class GameViewModelTest {
         assertNull(viewModel.currentActionCard.value)
     }
 
+    @Test
+    fun `buyHouse should set building action pending to true`() {
+        viewModel.buyHouse(1)
+
+        assertTrue(viewModel.buildingActionPending.value)
+    }
+
+    @Test
+    fun `buyHotel should set building action pending to true`() {
+        viewModel.buyHotel(1)
+
+        assertTrue(viewModel.buildingActionPending.value)
+    }
+
+    @Test
+    fun `sellHouse should set building action pending to true`() {
+        viewModel.sellHouse(1)
+
+        assertTrue(viewModel.buildingActionPending.value)
+    }
+
+    @Test
+    fun `sellHotel should set building action pending to true`() {
+        viewModel.sellHotel(1)
+
+        assertTrue(viewModel.buildingActionPending.value)
+    }
+
 }

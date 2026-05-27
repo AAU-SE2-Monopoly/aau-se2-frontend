@@ -1,6 +1,7 @@
 package at.aau.monopoly.klagenfurt
 
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -271,5 +272,49 @@ class BuildingManagerOverlayTest {
             .performClick()
 
         assertEquals(8, clickedId)
+    }
+
+    @Test
+    fun buttonsAreDisabledWhilePending() {
+        composeTestRule.setContent {
+            BuildingManagerOverlay(
+                properties = listOf(property(1, "Alter Platz")),
+                onBuyHouse = {},
+                onBuyHotel = {},
+                onSellHouse = {},
+                onSellHotel = {},
+                onDismiss = {},
+                isBuildingActionPending = true
+            )
+        }
+
+        composeTestRule
+            .onNodeWithText("Buy 🏠")
+            .assertIsNotEnabled()
+    }
+
+    @Test
+    fun hotelPropertyDoesNotShowBuyHouseButton() {
+        composeTestRule.setContent {
+            BuildingManagerOverlay(
+                properties = listOf(
+                    property(
+                        id = 1,
+                        name = "Alter Platz",
+                        hasHotel = true
+                    )
+                ),
+                onBuyHouse = {},
+                onBuyHotel = {},
+                onSellHouse = {},
+                onSellHotel = {},
+                onDismiss = {},
+                isBuildingActionPending = false
+            )
+        }
+
+        composeTestRule
+            .onNodeWithText("Buy 🏠")
+            .assertDoesNotExist()
     }
 }

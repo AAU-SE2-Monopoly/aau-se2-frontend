@@ -175,6 +175,7 @@ fun GameboardScreen(
     val isExecutingAction by viewModel.isExecutingAction.collectAsState()
     val showActionCardOverlay by viewModel.showActionCardOverlay.collectAsState()
 
+
     val context = LocalContext.current
 
     var showOverlay by remember { mutableStateOf(false) }
@@ -370,7 +371,10 @@ fun GameboardScreen(
                     }
                 }
 
-                if (canEndTurnForCurrentPlayer) {
+                // Hide End Turn if on a card field and card not yet drawn
+                val mustDrawCard = (isOnCommunityChestField && !communityChestCardDrawnThisTurn) ||
+                        (isOnChanceField && !chanceCardDrawnThisTurn)
+                if (canEndTurnForCurrentPlayer && !mustDrawCard && !showActionCardOverlay) {
                     GlassButton(
                         onClick = { viewModel.endTurn() },
                         modifier = Modifier
@@ -394,20 +398,20 @@ fun GameboardScreen(
                     }
                 }
 
-                if (isOnChanceField && isBuyingPhaseForCurrentPlayer) {
+                if (isOnChanceField && isBuyingPhaseForCurrentPlayer && !chanceCardDrawnThisTurn) {
                     DrawCardButton(
                         cardType = "CHANCE",
-                        alreadyDrawn = chanceCardDrawnThisTurn,
+                        alreadyDrawn = false,
                         enabled = !showActionCardOverlay,
                         label = "🎰 Draw Chance",
                         onDraw = { viewModel.drawCard("CHANCE") }
                     )
                 }
 
-                if (isOnCommunityChestField && isBuyingPhaseForCurrentPlayer) {
+                if (isOnCommunityChestField && isBuyingPhaseForCurrentPlayer && !communityChestCardDrawnThisTurn) {
                     DrawCardButton(
                         cardType = "COMMUNITY_CHEST",
-                        alreadyDrawn = communityChestCardDrawnThisTurn,
+                        alreadyDrawn = false,
                         enabled = !showActionCardOverlay,
                         label = "⭐ Draw Community",
                         onDraw = { viewModel.drawCard("COMMUNITY_CHEST") }

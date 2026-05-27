@@ -100,6 +100,9 @@ class GameViewModel(
 
     private var lastCurrentPlayerIdForCardDraw: String? = null
 
+    private val _buildingActionPending = MutableStateFlow(false)
+    val buildingActionPending: StateFlow<Boolean> = _buildingActionPending.asStateFlow()
+
     init {
         gameEventFlow
             .onEach { event ->
@@ -172,6 +175,16 @@ class GameViewModel(
                 if (event.event == "ACTION_EXECUTED") {
                     _currentActionCard.value = null
                     _isExecutingAction.value = false
+                }
+
+                if (
+                    event.event == "HOUSE_BOUGHT" ||
+                    event.event == "HOTEL_BOUGHT" ||
+                    event.event == "HOUSE_SOLD" ||
+                    event.event == "HOTEL_SOLD" ||
+                    event.event == "ERROR"
+                ) {
+                    _buildingActionPending.value = false
                 }
 
                 if (event.event == "TURN_ENDED") {
@@ -475,18 +488,29 @@ class GameViewModel(
     }
 
     fun buyHouse(fieldId: Int) {
+        if (!startBuildingAction()) return
         gameService.buyHouse(fieldId)
     }
 
     fun buyHotel(fieldId: Int) {
+        if (!startBuildingAction()) return
         gameService.buyHotel(fieldId)
     }
 
     fun sellHouse(fieldId: Int) {
+        if (!startBuildingAction()) return
         gameService.sellHouse(fieldId)
     }
 
     fun sellHotel(fieldId: Int) {
+        if (!startBuildingAction()) return
         gameService.sellHotel(fieldId)
+    }
+
+    private fun startBuildingAction(): Boolean {
+        if (_buildingActionPending.value) return false
+
+        _buildingActionPending.value = true
+        return true
     }
 }

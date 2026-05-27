@@ -861,14 +861,13 @@ class GameboardScreenCoverageTest {
         composeTestRule.setContent {
             BuildingManagerOverlay(
                 properties = listOf(property1, property2),
-                fields = listOf(property1, property2),
                 onBuyHouse = { mockVm.buyHouse(it) },
                 onBuyHotel = { mockVm.buyHotel(it) },
                 onSellHouse = { mockVm.sellHouse(it) },
                 onSellHotel = { mockVm.sellHotel(it) },
                 onDismiss = {},
-                canEndTurn = true,
-                isBuyingPhase = true
+                isBuildingActionPending = false
+
             )
         }
 

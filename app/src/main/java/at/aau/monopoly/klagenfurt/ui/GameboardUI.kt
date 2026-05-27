@@ -160,6 +160,7 @@ fun GameboardScreen(
     val isOnCommunityChestField = currentField is CommunityChestField
     val eventLog by viewModel.eventLog.collectAsState()
 
+    val isBuyingPhase by viewModel.isBuyingPhaseForCurrentPlayer.collectAsState()
     val isRollingPhaseForCurrentPlayer by viewModel.isRollingPhaseForCurrentPlayer.collectAsState()
     val isBuyingPhaseForCurrentPlayer by viewModel.isBuyingPhaseForCurrentPlayer.collectAsState()
     val lastDiceRoll by viewModel.lastDiceRoll.collectAsState()
@@ -167,6 +168,7 @@ fun GameboardScreen(
     val chanceCardDrawnThisTurn by viewModel.chanceCardDrawnThisTurn.collectAsState()
     val communityChestCardDrawnThisTurn by viewModel.communityChestCardDrawnThisTurn.collectAsState()
     val canEndTurnForCurrentPlayer by viewModel.canEndTurnForCurrentPlayer.collectAsState()
+    val buildingActionPending by viewModel.buildingActionPending.collectAsState()
     val canBuyCurrentField =
         isBuyingPhaseForCurrentPlayer &&
                 isBuyableField &&
@@ -444,17 +446,29 @@ fun GameboardScreen(
 
             GameboardOverlayLayer(eventLog = bufferedEventLog)
 
+            LaunchedEffect(
+                showBuildingManager,
+                ownedCompleteColorSetProperties,
+                canEndTurnForCurrentPlayer
+            ) {
+                if (
+                    showBuildingManager &&
+                    (!canEndTurnForCurrentPlayer || ownedCompleteColorSetProperties.isEmpty())
+                ) {
+                    showBuildingManager = false
+                }
+            }
+
             if (showBuildingManager) {
                 BuildingManagerOverlay(
                     properties = ownedCompleteColorSetProperties,
-                    fields = fields,
                     onBuyHouse = { viewModel.buyHouse(it) },
                     onBuyHotel = { viewModel.buyHotel(it) },
                     onSellHouse = { viewModel.sellHouse(it) },
                     onSellHotel = { viewModel.sellHotel(it) },
                     onDismiss = { showBuildingManager = false },
-                    canEndTurn = canEndTurnForCurrentPlayer,
-                    isBuyingPhase = isBuyingPhaseForCurrentPlayer
+                    isBuildingActionPending = buildingActionPending
+
                 )
             }
 

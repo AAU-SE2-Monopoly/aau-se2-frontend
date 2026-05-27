@@ -7,7 +7,7 @@ import androidx.compose.ui.test.performClick
 import at.aau.monopoly.klagenfurt.model.enums.PropertyColor
 import at.aau.monopoly.klagenfurt.model.field.PropertyField
 import at.aau.monopoly.klagenfurt.ui.BuildingManagerOverlay
-import org.junit.Assert
+import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
 
@@ -41,101 +41,126 @@ class BuildingManagerOverlayTest {
         composeTestRule.setContent {
             BuildingManagerOverlay(
                 properties = listOf(property(1, "Alter Platz")),
-                fields = emptyList(),
                 onBuyHouse = {},
                 onBuyHotel = {},
                 onSellHouse = {},
                 onSellHotel = {},
                 onDismiss = { dismissed = true },
-                canEndTurn = true,
-                isBuyingPhase = true
+                isBuildingActionPending = false
             )
         }
 
-        composeTestRule.onNodeWithText("Manage Buildings").assertIsDisplayed()
-        composeTestRule.onNodeWithText("✕").assertIsDisplayed()
+        composeTestRule
+            .onNodeWithText("🏗️ Manage Buildings")
+            .assertIsDisplayed()
 
-        composeTestRule.onNodeWithText("✕").performClick()
+        composeTestRule
+            .onNodeWithText("✕")
+            .assertIsDisplayed()
 
-        Assert.assertEquals(true, dismissed)
+        composeTestRule
+            .onNodeWithText("✕")
+            .performClick()
+
+        assertEquals(true, dismissed)
     }
 
     @Test
     fun propertyWithoutBuildingsShowsBuyHouseOnly() {
         composeTestRule.setContent {
             BuildingManagerOverlay(
-                properties = listOf(property(1, "Alter Platz", houses = 0)),
-                fields = emptyList(),
+                properties = listOf(property(1, "Alter Platz")),
                 onBuyHouse = {},
                 onBuyHotel = {},
                 onSellHouse = {},
                 onSellHotel = {},
                 onDismiss = {},
-                canEndTurn = true,
-                isBuyingPhase = true
+                isBuildingActionPending = false
             )
         }
 
-        composeTestRule.onNodeWithText("Alter Platz: 0 houses").assertIsDisplayed()
-        composeTestRule.onNodeWithText("Buy House").assertIsDisplayed()
+        composeTestRule
+            .onNodeWithText("Alter Platz")
+            .assertIsDisplayed()
+
+        composeTestRule
+            .onNodeWithText("Buy 🏠")
+            .assertIsDisplayed()
     }
 
     @Test
     fun propertyWithHouseShowsSellHouse() {
         composeTestRule.setContent {
             BuildingManagerOverlay(
-                properties = listOf(property(1, "Alter Platz", houses = 1)),
-                fields = emptyList(),
+                properties = listOf(
+                    property(
+                        id = 1,
+                        name = "Alter Platz",
+                        houses = 1
+                    )
+                ),
                 onBuyHouse = {},
                 onBuyHotel = {},
                 onSellHouse = {},
                 onSellHotel = {},
                 onDismiss = {},
-                canEndTurn = true,
-                isBuyingPhase = true
+                isBuildingActionPending = false
             )
         }
 
-        composeTestRule.onNodeWithText("Alter Platz: 1 houses").assertIsDisplayed()
-        composeTestRule.onNodeWithText("Sell House").assertIsDisplayed()
+        composeTestRule
+            .onNodeWithText("Sell 🏠")
+            .assertIsDisplayed()
     }
 
     @Test
     fun propertyWithFourHousesShowsBuyHotel() {
         composeTestRule.setContent {
             BuildingManagerOverlay(
-                properties = listOf(property(1, "Alter Platz", houses = 4)),
-                fields = emptyList(),
+                properties = listOf(
+                    property(
+                        id = 1,
+                        name = "Alter Platz",
+                        houses = 4
+                    )
+                ),
                 onBuyHouse = {},
                 onBuyHotel = {},
                 onSellHouse = {},
                 onSellHotel = {},
                 onDismiss = {},
-                canEndTurn = true,
-                isBuyingPhase = true
+                isBuildingActionPending = false
             )
         }
 
-        composeTestRule.onNodeWithText("Buy Hotel").assertIsDisplayed()
+        composeTestRule
+            .onNodeWithText("Buy 🏨")
+            .assertIsDisplayed()
     }
 
     @Test
     fun propertyWithHotelShowsSellHotel() {
         composeTestRule.setContent {
             BuildingManagerOverlay(
-                properties = listOf(property(1, "Alter Platz", hasHotel = true)),
-                fields = emptyList(),
+                properties = listOf(
+                    property(
+                        id = 1,
+                        name = "Alter Platz",
+                        hasHotel = true
+                    )
+                ),
                 onBuyHouse = {},
                 onBuyHotel = {},
                 onSellHouse = {},
                 onSellHotel = {},
                 onDismiss = {},
-                canEndTurn = true,
-                isBuyingPhase = true
+                isBuildingActionPending = false
             )
         }
 
-        composeTestRule.onNodeWithText("Sell Hotel").assertIsDisplayed()
+        composeTestRule
+            .onNodeWithText("Sell 🏨")
+            .assertIsDisplayed()
     }
 
     @Test
@@ -145,20 +170,20 @@ class BuildingManagerOverlayTest {
         composeTestRule.setContent {
             BuildingManagerOverlay(
                 properties = listOf(property(5, "Alter Platz")),
-                fields = emptyList(),
                 onBuyHouse = { clickedId = it },
                 onBuyHotel = {},
                 onSellHouse = {},
                 onSellHotel = {},
                 onDismiss = {},
-                canEndTurn = true,
-                isBuyingPhase = true
+                isBuildingActionPending = false
             )
         }
 
-        composeTestRule.onNodeWithText("Buy House").performClick()
+        composeTestRule
+            .onNodeWithText("Buy 🏠")
+            .performClick()
 
-        Assert.assertEquals(5, clickedId)
+        assertEquals(5, clickedId)
     }
 
     @Test
@@ -167,21 +192,27 @@ class BuildingManagerOverlayTest {
 
         composeTestRule.setContent {
             BuildingManagerOverlay(
-                properties = listOf(property(6, "Alter Platz", houses = 1)),
-                fields = emptyList(),
+                properties = listOf(
+                    property(
+                        id = 6,
+                        name = "Alter Platz",
+                        houses = 1
+                    )
+                ),
                 onBuyHouse = {},
                 onBuyHotel = {},
                 onSellHouse = { clickedId = it },
                 onSellHotel = {},
                 onDismiss = {},
-                canEndTurn = true,
-                isBuyingPhase = true
+                isBuildingActionPending = false
             )
         }
 
-        composeTestRule.onNodeWithText("Sell House").performClick()
+        composeTestRule
+            .onNodeWithText("Sell 🏠")
+            .performClick()
 
-        Assert.assertEquals(6, clickedId)
+        assertEquals(6, clickedId)
     }
 
     @Test
@@ -190,21 +221,27 @@ class BuildingManagerOverlayTest {
 
         composeTestRule.setContent {
             BuildingManagerOverlay(
-                properties = listOf(property(7, "Alter Platz", houses = 4)),
-                fields = emptyList(),
+                properties = listOf(
+                    property(
+                        id = 7,
+                        name = "Alter Platz",
+                        houses = 4
+                    )
+                ),
                 onBuyHouse = {},
                 onBuyHotel = { clickedId = it },
                 onSellHouse = {},
                 onSellHotel = {},
                 onDismiss = {},
-                canEndTurn = true,
-                isBuyingPhase = true
+                isBuildingActionPending = false
             )
         }
 
-        composeTestRule.onNodeWithText("Buy Hotel").performClick()
+        composeTestRule
+            .onNodeWithText("Buy 🏨")
+            .performClick()
 
-        Assert.assertEquals(7, clickedId)
+        assertEquals(7, clickedId)
     }
 
     @Test
@@ -213,20 +250,26 @@ class BuildingManagerOverlayTest {
 
         composeTestRule.setContent {
             BuildingManagerOverlay(
-                properties = listOf(property(8, "Alter Platz", hasHotel = true)),
-                fields = emptyList(),
+                properties = listOf(
+                    property(
+                        id = 8,
+                        name = "Alter Platz",
+                        hasHotel = true
+                    )
+                ),
                 onBuyHouse = {},
                 onBuyHotel = {},
                 onSellHouse = {},
                 onSellHotel = { clickedId = it },
                 onDismiss = {},
-                canEndTurn = true,
-                isBuyingPhase = true
+                isBuildingActionPending = false
             )
         }
 
-        composeTestRule.onNodeWithText("Sell Hotel").performClick()
+        composeTestRule
+            .onNodeWithText("Sell 🏨")
+            .performClick()
 
-        Assert.assertEquals(8, clickedId)
+        assertEquals(8, clickedId)
     }
 }

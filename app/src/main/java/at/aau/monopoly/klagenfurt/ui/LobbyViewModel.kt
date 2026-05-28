@@ -179,6 +179,12 @@ class LobbyViewModel(private val gameService: GameService) : ViewModel() {
 
     fun closeGame(gameId: String) {
         gameService.closeGame(gameId)
+        // Request a fresh lobby list to ensure the UI updates even if
+        // the broadcast from the server is missed.
+        viewModelScope.launch {
+            delay(500)
+            gameService.requestGameList()
+        }
     }
 
     fun clearCreatedGameId() {

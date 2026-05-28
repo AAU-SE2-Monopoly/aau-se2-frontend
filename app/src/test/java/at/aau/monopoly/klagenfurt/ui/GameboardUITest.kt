@@ -609,6 +609,7 @@ class GameboardScreenCoverageTest {
         every { vm.selectedPlayerForOverlay } returns MutableStateFlow(null)
         every { vm.movementAnimation } returns MutableStateFlow(null)
         every { vm.buildingActionPending } returns MutableStateFlow(false)
+        every { vm.pendingDoubleAutoEnd } returns MutableStateFlow(false)
 
 
         every { vm.canStartGame } returns MutableStateFlow(canStart)
@@ -676,7 +677,78 @@ class GameboardScreenCoverageTest {
 
         composeTestRule.setContent { GameboardScreen(viewModel = mockVm) }
 
-        composeTestRule.onNodeWithText("✓ Card Drawn").assertExists()
+        // With the fix, the draw button is hidden entirely when card already drawn
+        composeTestRule.onNodeWithText("🎰 Draw Chance").assertDoesNotExist()
+    }
+
+    @Test
+    fun testEndTurnHiddenWhenMustDrawCommunityChestCard() {
+        val player = Player(id = "player1", name = "P1", position = 0)
+
+        val mockVm = createMockViewModel(
+            isBuyingPhase = true,
+            canEndTurn = true,
+            communityChestCardDrawn = false,
+            players = listOf(player),
+            fields = listOf(CommunityChestField(id = 0, name = "Community Chest"))
+        )
+
+        composeTestRule.setContent { GameboardScreen(viewModel = mockVm) }
+
+        // End Turn should be hidden because community chest card must be drawn first
+        composeTestRule.onNodeWithTag("end_turn_button").assertDoesNotExist()
+    }
+
+    @Test
+    fun testEndTurnHiddenWhenMustDrawChanceCard() {
+        val player = Player(id = "player1", name = "P1", position = 0)
+
+        val mockVm = createMockViewModel(
+            isBuyingPhase = true,
+            canEndTurn = true,
+            chanceCardDrawn = false,
+            players = listOf(player),
+            fields = listOf(ChanceField(id = 0, name = "Chance"))
+        )
+
+        composeTestRule.setContent { GameboardScreen(viewModel = mockVm) }
+
+        // End Turn should be hidden because chance card must be drawn first
+        composeTestRule.onNodeWithTag("end_turn_button").assertDoesNotExist()
+    }
+
+    @Test
+    fun testEndTurnVisibleAfterCommunityChestCardDrawn() {
+        val player = Player(id = "player1", name = "P1", position = 0)
+
+        val mockVm = createMockViewModel(
+            isBuyingPhase = true,
+            canEndTurn = true,
+            communityChestCardDrawn = true,
+            players = listOf(player),
+            fields = listOf(CommunityChestField(id = 0, name = "Community Chest"))
+        )
+
+        composeTestRule.setContent { GameboardScreen(viewModel = mockVm) }
+
+        composeTestRule.onNodeWithTag("end_turn_button").assertExists()
+    }
+
+    @Test
+    fun testCommunityChestCardAlreadyDrawn() {
+        val player = Player(id = "player1", name = "P1", position = 0)
+
+        val mockVm = createMockViewModel(
+            isBuyingPhase = true,
+            communityChestCardDrawn = true,
+            players = listOf(player),
+            fields = listOf(CommunityChestField(id = 0, name = "Community Chest"))
+        )
+
+        composeTestRule.setContent { GameboardScreen(viewModel = mockVm) }
+
+        // Draw button hidden when card already drawn
+        composeTestRule.onNodeWithText("⭐ Draw Community").assertDoesNotExist()
     }
 
     @Test

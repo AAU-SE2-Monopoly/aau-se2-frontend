@@ -165,6 +165,18 @@ class LobbyViewModelTest {
     }
 
     @Test
+    fun `closeGame requests game list after delay`() = runTest(testDispatcher) {
+        viewModel.closeGame("game-456")
+        assertEquals(1, fakeService.closeGameCalls)
+        assertFalse(fakeService.requestGameListCalled)
+
+        advanceTimeBy(600)
+        runCurrent()
+
+        assertTrue(fakeService.requestGameListCalled)
+    }
+
+    @Test
     fun `createdGameId is null initially`() {
         assertNull(viewModel.createdGameId.value)
     }

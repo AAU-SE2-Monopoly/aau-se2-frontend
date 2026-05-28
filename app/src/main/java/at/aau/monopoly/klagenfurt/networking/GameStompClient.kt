@@ -290,10 +290,9 @@ class GameStompClient(
     }
 
     override fun closeGame(gameId: String) {
-        val savedGameId = _currentGameId
-        _currentGameId = gameId
-        sendRaw("/app/game/close", buildAction())
-        _currentGameId = savedGameId
+        val json = buildAction(gameId = gameId)
+        Log.d("GameStomp", "closeGame: sending to /app/game/close with json=$json, session=${session != null}")
+        sendRaw("/app/game/close", json)
     }
 
     private val objectMapper = JacksonProvider.objectMapper

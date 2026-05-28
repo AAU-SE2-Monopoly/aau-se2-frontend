@@ -6,6 +6,8 @@ import at.aau.monopoly.klagenfurt.model.DiceRoll
 import at.aau.monopoly.klagenfurt.model.GameState
 import at.aau.monopoly.klagenfurt.model.Player
 import at.aau.monopoly.klagenfurt.model.enums.GamePhase
+import at.aau.monopoly.klagenfurt.model.field.ChanceField
+import at.aau.monopoly.klagenfurt.model.field.CommunityChestField
 import at.aau.monopoly.klagenfurt.networking.JacksonProvider
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -41,12 +43,12 @@ class GameViewModelDoubleAutoEndTest {
         Dispatchers.resetMain()
     }
 
-    private fun buildDiceRolledJson(isDouble: Boolean, currentPlayerId: String = "p1"): String {
+    private fun buildDiceRolledJson(isDouble: Boolean, currentPlayerId: String = "p1", fields: List<at.aau.monopoly.klagenfurt.model.field.Field> = emptyList(), position: Int = 0): String {
         val diceRoll = if (isDouble) DiceRoll(3, 3) else DiceRoll(2, 5)
         val gameState = GameState(
             gameId = "game1",
-            fields = emptyList(),
-            players = mutableListOf(Player(id = currentPlayerId, name = "Alice")),
+            fields = fields,
+            players = mutableListOf(Player(id = currentPlayerId, name = "Alice", position = position)),
             currentPlayerIndex = 0,
             phase = GamePhase.BUYING,
             lastDiceRoll = diceRoll
@@ -112,12 +114,10 @@ class GameViewModelDoubleAutoEndTest {
 
     @Test
     fun `consumeDoubleAutoEnd calls endTurn and resets flag`() = runTest(testDispatcher) {
-        // First trigger the double
         fakeService.emitTestEvent(buildDiceRolledJson(isDouble = true))
         advanceUntilIdle()
         assertTrue(viewModel.pendingDoubleAutoEnd.value)
 
-        // Consume it
         viewModel.consumeDoubleAutoEnd()
         advanceUntilIdle()
 
@@ -132,5 +132,50 @@ class GameViewModelDoubleAutoEndTest {
         advanceUntilIdle()
         assertFalse(fakeService.endTurnCalled)
     }
-}
 
+    @Test
+    fun `TURN_ENDED clears pendingDoubleAutoEnd`() = runTest(testDispatcher) {
+        // Set up the pending flag via a double roll
+        fakeService.emitTestEvent(buildDiceRolledJson(isDouble = true))
+        advanceUntilIdle()
+        assertTrue(viewModel.pendingDoubleAutoEnd.value)
+
+        // Emit TURN_ENDED
+        val turnEndedEvent = GameEvent(gameId = "game1", event = "TURN_ENDED", gameState = null)
+        val json = JacksonProvider.objectMapper.writeValueAsString(turnEndedEvent)
+        fakeService.emitTestEvent(json)
+        advanceUntilIdle()
+
+        assertFalse(viewModel.pendingDoubleAutoEnd.value)
+    }
+
+    @Test
+    fun `consumeDoubleAutoEnd does not call endTurn when on chance field with card not drawn`() = runTest(testDispatcher) {
+        val chanceField = ChanceField(id = 0, name = "Chance")
+        fakeService.emitTestEvent(buildDiceRolledJson(isDouble = true, fields = listOf(chanceField), position = 0))
+        advanceUntilIdle()
+        assertTrue(viewModel.pendingDoubleAutoEnd.value)
+
+        viewModel.consumeDoubleAutoEnd()
+        advanceUntilIdle()
+
+        // Should NOT end turn because card hasn't been drawn
+        assertFalse(fakeService.endTurnCalled)
+        // Flag should still be true (not consumed)
+        assertTrue(viewModel.pendingDoubleAutoEnd.value)
+    }
+
+    @Test
+    fun `consumeDoubleAutoEnd does not call endTurn when on community chest field with card not drawn`() = runTest(testDispatcher) {
+        val communityField = CommunityChestField(id = 0, name = "Community Chest")
+        fakeService.emitTestEvent(buildDiceRolledJson(isDouble = true, fields = listOf(communityField), position = 0))
+        advanceUntilIdle()
+        assertTrue(viewModel.pendingDoubleAutoEnd.value)
+
+        viewModel.consumeDoubleAutoEnd()
+        advanceUntilIdle()
+
+        assertFalse(fakeService.endTurnCalled)
+        assertTrue(viewModel.pendingDoubleAutoEnd.value)
+    }
+}

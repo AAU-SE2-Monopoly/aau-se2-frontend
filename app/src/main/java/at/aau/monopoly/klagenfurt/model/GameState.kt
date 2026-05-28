@@ -26,7 +26,8 @@ data class GameState(
     val pendingTaxFieldId: Int? = null,
     val bankruptcyTotalAssets: Int = 0,
     val bankruptcyTotalDebt: Int = 0,
-    val bankruptcyPropertiesCount: Int = 0
+    val bankruptcyPropertiesCount: Int = 0,
+    val bankruptcyOwnedFieldIds: List<Int> = emptyList()
 ) {
     /** The player whose turn it currently is. */
     val currentPlayer: Player?

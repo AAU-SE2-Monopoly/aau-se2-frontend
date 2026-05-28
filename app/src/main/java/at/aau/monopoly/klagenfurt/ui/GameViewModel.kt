@@ -287,10 +287,12 @@ class GameViewModel(
                     // extract bankruptcy summary from game state
                     _bankruptcyTotalAssets.value = gs?.bankruptcyTotalAssets ?: 0
                     _bankruptcyTotalDebt.value = gs?.bankruptcyTotalDebt ?: 0
-                    _bankruptcyPropertiesOwned.value = gs?.fields
-                        ?.filter { it is PropertyField || it is RailroadField || it is UtilityField }
-                        ?.filter { field -> field.ownerIdFromField() == gs.currentPlayer?.id }
-                        ?.map { field -> field.toManageableProperty() } ?: emptyList()
+                    _bankruptcyPropertiesOwned.value = gs?.let { state ->
+                        state.fields
+                            .filter { it.id in state.bankruptcyOwnedFieldIds }
+                            .filter { it is PropertyField || it is RailroadField || it is UtilityField }
+                            .map { field -> field.toManageableProperty() }
+                    } ?: emptyList()
                     _showBankruptcyOverlay.value = true
                     finishPaymentAction()
                 }

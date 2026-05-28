@@ -7,6 +7,7 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -32,6 +33,7 @@ import org.junit.Assert.*
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
+import at.aau.monopoly.klagenfurt.model.field.PropertyField
 
 @RunWith(AndroidJUnit4::class)
 class GameboardUITest {
@@ -572,6 +574,7 @@ class GameboardScreenCoverageTest {
         isGameReadyValue: Boolean = true,
         isRollingPhase: Boolean = false,
         isBuyingPhase: Boolean = false,
+        canEndTurn: Boolean = false,
         chanceCardDrawn: Boolean = false,
         communityChestCardDrawn: Boolean = false,
         currentPlayerId: String = "player1",
@@ -603,6 +606,8 @@ class GameboardScreenCoverageTest {
         every { vm.showActionCardOverlay } returns MutableStateFlow(false)
         every { vm.selectedPlayerForOverlay } returns MutableStateFlow(null)
         every { vm.movementAnimation } returns MutableStateFlow(null)
+        every { vm.buildingActionPending } returns MutableStateFlow(false)
+        every { vm.pendingDoubleAutoEnd } returns MutableStateFlow(false)
 
 
         every { vm.canStartGame } returns MutableStateFlow(canStart)
@@ -610,6 +615,7 @@ class GameboardScreenCoverageTest {
         every { vm.showDiceOverlayForCurrentPlayer } returns MutableStateFlow(false)
         every { vm.diceResultForCurrentPlayer } returns MutableStateFlow(null)
         every { vm.errorMessage } returns MutableStateFlow(null)
+        every { vm.canEndTurnForCurrentPlayer } returns MutableStateFlow(canEndTurn)
 
 
         every { vm.showPayRentOverlay } returns MutableStateFlow(false)
@@ -686,7 +692,78 @@ class GameboardScreenCoverageTest {
 
         composeTestRule.setContent { GameboardScreen(viewModel = mockVm) }
 
-        composeTestRule.onNodeWithText("✓ Card Drawn").assertExists()
+        // With the fix, the draw button is hidden entirely when card already drawn
+        composeTestRule.onNodeWithText("🎰 Draw Chance").assertDoesNotExist()
+    }
+
+    @Test
+    fun testEndTurnHiddenWhenMustDrawCommunityChestCard() {
+        val player = Player(id = "player1", name = "P1", position = 0)
+
+        val mockVm = createMockViewModel(
+            isBuyingPhase = true,
+            canEndTurn = true,
+            communityChestCardDrawn = false,
+            players = listOf(player),
+            fields = listOf(CommunityChestField(id = 0, name = "Community Chest"))
+        )
+
+        composeTestRule.setContent { GameboardScreen(viewModel = mockVm) }
+
+        // End Turn should be hidden because community chest card must be drawn first
+        composeTestRule.onNodeWithTag("end_turn_button").assertDoesNotExist()
+    }
+
+    @Test
+    fun testEndTurnHiddenWhenMustDrawChanceCard() {
+        val player = Player(id = "player1", name = "P1", position = 0)
+
+        val mockVm = createMockViewModel(
+            isBuyingPhase = true,
+            canEndTurn = true,
+            chanceCardDrawn = false,
+            players = listOf(player),
+            fields = listOf(ChanceField(id = 0, name = "Chance"))
+        )
+
+        composeTestRule.setContent { GameboardScreen(viewModel = mockVm) }
+
+        // End Turn should be hidden because chance card must be drawn first
+        composeTestRule.onNodeWithTag("end_turn_button").assertDoesNotExist()
+    }
+
+    @Test
+    fun testEndTurnVisibleAfterCommunityChestCardDrawn() {
+        val player = Player(id = "player1", name = "P1", position = 0)
+
+        val mockVm = createMockViewModel(
+            isBuyingPhase = true,
+            canEndTurn = true,
+            communityChestCardDrawn = true,
+            players = listOf(player),
+            fields = listOf(CommunityChestField(id = 0, name = "Community Chest"))
+        )
+
+        composeTestRule.setContent { GameboardScreen(viewModel = mockVm) }
+
+        composeTestRule.onNodeWithTag("end_turn_button").assertExists()
+    }
+
+    @Test
+    fun testCommunityChestCardAlreadyDrawn() {
+        val player = Player(id = "player1", name = "P1", position = 0)
+
+        val mockVm = createMockViewModel(
+            isBuyingPhase = true,
+            communityChestCardDrawn = true,
+            players = listOf(player),
+            fields = listOf(CommunityChestField(id = 0, name = "Community Chest"))
+        )
+
+        composeTestRule.setContent { GameboardScreen(viewModel = mockVm) }
+
+        // Draw button hidden when card already drawn
+        composeTestRule.onNodeWithText("⭐ Draw Community").assertDoesNotExist()
     }
 
     @Test
@@ -744,5 +821,148 @@ class GameboardScreenCoverageTest {
         composeTestRule.onNodeWithTag("shake_button").performClick()
 
         verify { mockVm.rollDice() }
+    }
+
+    @Test
+    fun testManageBuildingsButtonVisibleForCompleteColorSet() {
+        val player = Player(id = "player1", name = "P1", position = 0)
+
+        val property1 = PropertyField(
+            id = 1,
+            name = "Property 1",
+            color = PropertyColor.BROWN,
+            price = 60,
+            rent = listOf(2, 10, 30, 90, 160, 250),
+            houseCost = 50,
+            hotelCost = 50,
+            ownerId = "player1"
+        )
+
+        val property2 = PropertyField(
+            id = 2,
+            name = "Property 2",
+            color = PropertyColor.BROWN,
+            price = 60,
+            rent = listOf(2, 10, 30, 90, 160, 250),
+            houseCost = 50,
+            hotelCost = 50,
+            ownerId = "player1"
+        )
+
+        val mockVm = createMockViewModel(
+            isBuyingPhase = true,
+            canEndTurn = true,
+            currentPlayerId = "player1",
+            players = listOf(player),
+            fields = listOf(property1, property2)
+        )
+
+        composeTestRule.setContent {
+            GameboardScreen(viewModel = mockVm)
+        }
+
+        composeTestRule
+            .onNodeWithTag("manage_buildings_button")
+            .assertExists()
+    }
+
+    @Test
+    fun testBuildingManagerOverlayOpens() {
+        val player = Player(id = "player1", name = "P1", position = 0)
+
+        val property1 = PropertyField(
+            id = 1,
+            name = "Property 1",
+            color = PropertyColor.BROWN,
+            price = 60,
+            rent = listOf(2, 10, 30, 90, 160, 250),
+            houseCost = 50,
+            hotelCost = 50,
+            ownerId = "player1"
+
+        )
+
+        val property2 = PropertyField(
+            id = 2,
+            name = "Property 2",
+            color = PropertyColor.BROWN,
+            price = 60,
+            rent = listOf(2, 10, 30, 90, 160, 250),
+            houseCost = 50,
+            hotelCost = 50,
+            ownerId = "player1"
+        )
+
+        val mockVm = createMockViewModel(
+            isBuyingPhase = true,
+            canEndTurn = true,
+            currentPlayerId = "player1",
+            players = listOf(player),
+            fields = listOf(property1, property2)
+        )
+
+        composeTestRule.setContent {
+            GameboardScreen(viewModel = mockVm)
+        }
+
+        composeTestRule
+            .onNodeWithTag("manage_buildings_button")
+            .performClick()
+
+        composeTestRule
+            .onNodeWithText("🏗️ Manage Buildings")
+            .assertExists()
+    }
+
+    @Test
+    fun testBuyHouseButtonCallsViewModel() {
+        val property1 = PropertyField(
+            id = 1,
+            name = "Property 1",
+            color = PropertyColor.BROWN,
+            price = 60,
+            rent = listOf(2, 10, 30, 90, 160, 250),
+            houseCost = 50,
+            hotelCost = 50,
+            ownerId = "player1"
+        )
+
+        val property2 = PropertyField(
+            id = 2,
+            name = "Property 2",
+            color = PropertyColor.BROWN,
+            price = 60,
+            rent = listOf(2, 10, 30, 90, 160, 250),
+            houseCost = 50,
+            hotelCost = 50,
+            ownerId = "player1"
+        )
+
+        val mockVm = createMockViewModel(
+            isBuyingPhase = true,
+            canEndTurn = true,
+            currentPlayerId = "player1",
+            players = listOf(Player(id = "player1", name = "P1")),
+            fields = listOf(property1, property2)
+        )
+
+        composeTestRule.setContent {
+            BuildingManagerOverlay(
+                properties = listOf(property1, property2),
+                onBuyHouse = { mockVm.buyHouse(it) },
+                onBuyHotel = { mockVm.buyHotel(it) },
+                onSellHouse = { mockVm.sellHouse(it) },
+                onSellHotel = { mockVm.sellHotel(it) },
+                onDismiss = {},
+                isBuildingActionPending = false
+
+            )
+        }
+
+        composeTestRule
+            .onAllNodesWithText("Buy 🏠")[0]
+            .performClick()
+
+        verify { mockVm.buyHouse(property1.id) }
     }
 }

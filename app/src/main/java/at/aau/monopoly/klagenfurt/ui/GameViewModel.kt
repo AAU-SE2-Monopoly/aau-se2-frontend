@@ -10,6 +10,8 @@ import at.aau.monopoly.klagenfurt.model.GameState
 import at.aau.monopoly.klagenfurt.model.Player
 import at.aau.monopoly.klagenfurt.model.card.Card
 import at.aau.monopoly.klagenfurt.model.enums.GamePhase
+import at.aau.monopoly.klagenfurt.model.field.ChanceField
+import at.aau.monopoly.klagenfurt.model.field.CommunityChestField
 import at.aau.monopoly.klagenfurt.model.field.Field
 import at.aau.monopoly.klagenfurt.model.field.OwnableField
 import at.aau.monopoly.klagenfurt.model.field.PropertyField
@@ -152,6 +154,9 @@ class GameViewModel(
     private val _selectedPlayerForOverlay = MutableStateFlow<Player?>(null)
     val selectedPlayerForOverlay: StateFlow<Player?> = _selectedPlayerForOverlay.asStateFlow()
 
+    private val _pendingDoubleAutoEnd = MutableStateFlow(false)
+    val pendingDoubleAutoEnd: StateFlow<Boolean> = _pendingDoubleAutoEnd.asStateFlow()
+
     private val _chanceCardDrawnThisTurn = MutableStateFlow(false)
     val chanceCardDrawnThisTurn: StateFlow<Boolean> = _chanceCardDrawnThisTurn.asStateFlow()
 
@@ -160,6 +165,9 @@ class GameViewModel(
         _communityChestCardDrawnThisTurn.asStateFlow()
 
     private var lastCurrentPlayerIdForCardDraw: String? = null
+
+    private val _buildingActionPending = MutableStateFlow(false)
+    val buildingActionPending: StateFlow<Boolean> = _buildingActionPending.asStateFlow()
 
     init {
         gameEventFlow
@@ -243,10 +251,33 @@ class GameViewModel(
                     _isExecutingAction.value = false
                 }
 
+                if (
+                    event.event == "HOUSE_BOUGHT" ||
+                    event.event == "HOTEL_BOUGHT" ||
+                    event.event == "HOUSE_SOLD" ||
+                    event.event == "HOTEL_SOLD" ||
+                    event.event == "ERROR"
+                ) {
+                    _buildingActionPending.value = false
+                }
+
                 if (event.event == "TURN_ENDED") {
                     _chanceCardDrawnThisTurn.value = false
                     _communityChestCardDrawnThisTurn.value = false
+                    _buildingActionPending.value = false
+                    _pendingDoubleAutoEnd.value = false
                     lastCurrentPlayerIdForCardDraw = null
+                }
+
+                // Track doubles for auto-end after dice overlay closes
+                if (event.event == "DICE_ROLLED") {
+                    val state = event.gameState
+                    val diceRoll = state?.lastDiceRoll
+                    if (diceRoll != null && diceRoll.isDouble &&
+                        state.currentPlayer?.id == gameService.currentPlayerId
+                    ) {
+                        _pendingDoubleAutoEnd.value = true
+                    }
                 }
 
 
@@ -307,8 +338,8 @@ class GameViewModel(
                     finishPropertyAction()
                 }
 
-                if (event.event == "HOUSE_SOLD") {
-                    Log.i("GameViewModel", "House sold - refreshing state")
+                if (event.event == "HOUSE_SOLD" || event.event == "HOTEL_SOLD") {
+                    Log.i("GameViewModel", "Building sold - refreshing state")
                     finishPropertyAction()
                 }
             }
@@ -607,6 +638,20 @@ class GameViewModel(
 
     fun endTurn() = gameService.endTurn()
 
+    fun consumeDoubleAutoEnd() {
+        if (!_pendingDoubleAutoEnd.value) return
+        // Do not auto-end if the player must still draw a card
+        val state = previousGameState ?: return
+        val currentPlayer = state.currentPlayer ?: return
+        val currentField = state.fields.getOrNull(currentPlayer.position)
+        val mustDrawCard = (currentField is CommunityChestField && !_communityChestCardDrawnThisTurn.value) ||
+                (currentField is ChanceField && !_chanceCardDrawnThisTurn.value)
+        if (mustDrawCard) return
+        if (_pendingDoubleAutoEnd.compareAndSet(expect = true, update = false)) {
+            gameService.endTurn()
+        }
+    }
+
     fun payJailFine() = gameService.payJailFine()
     fun useJailCard() = gameService.useJailCard()
 
@@ -633,8 +678,9 @@ class GameViewModel(
     }
 
     fun sellHouse(fieldId: Int) {
-        if (_propertyActionInFlight.value) return
+        if (_propertyActionInFlight.value || _buildingActionPending.value) return
         startPropertyAction()
+        _buildingActionPending.value = true
         gameService.sellHouse(fieldId)
     }
 
@@ -812,4 +858,27 @@ class GameViewModel(
         gameService.buyProperty(fieldId)
     }
 
+    fun buyHouse(fieldId: Int) {
+        if (!startBuildingAction()) return
+        gameService.buyHouse(fieldId)
+    }
+
+    fun buyHotel(fieldId: Int) {
+        if (!startBuildingAction()) return
+        gameService.buyHotel(fieldId)
+    }
+
+    fun sellHotel(fieldId: Int) {
+        if (_propertyActionInFlight.value || _buildingActionPending.value) return
+        startPropertyAction()
+        _buildingActionPending.value = true
+        gameService.sellHotel(fieldId)
+    }
+
+    private fun startBuildingAction(): Boolean {
+        if (_buildingActionPending.value || _propertyActionInFlight.value) return false
+
+        _buildingActionPending.value = true
+        return true
+    }
 }

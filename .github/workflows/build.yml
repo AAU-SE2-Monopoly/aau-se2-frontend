@@ -1,12 +1,15 @@
-name: SonarQube
+name: SonarQube & Release
 
 on:
   push:
     branches:
       - main
   pull_request:
-    # Removing 'branches' here means it triggers for PRs targeting ANY branch
     types: [opened, synchronize, reopened]
+
+permissions:
+  contents: write
+  pull-requests: read
 
 jobs:
   build:
@@ -37,7 +40,7 @@ jobs:
       - name: Make gradlew executable
         run: chmod +x ./gradlew
 
-      - name: Compile Application
+      - name: Compile Application (Debug)
         run: ./gradlew assembleDebug
 
       - name: Run Unit Tests & Coverage
@@ -47,3 +50,14 @@ jobs:
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         run: ./gradlew sonar --info
+
+      - name: Create GitHub Release and Upload APK
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: softprops/action-gh-release@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: "release-${{ github.run_number }}"
+          name: "Release #${{ github.run_number }}"
+          body: "Automatisches Release der Debug-APK nach Merge auf main."
+          files: app/build/outputs/apk/debug/app-debug.apk

@@ -617,7 +617,6 @@ class GameboardScreenCoverageTest {
         every { vm.showBankruptcyOverlay } returns MutableStateFlow(false)
         every { vm.canPayRent } returns MutableStateFlow(false)
         every { vm.currentRentAmount } returns MutableStateFlow(0)
-        every { vm.currentTaxAmount } returns MutableStateFlow(0)
         every { vm.currentRentOwnerId } returns MutableStateFlow(null)
         every { vm.currentRentFieldId } returns MutableStateFlow(null)
         every { vm.manageableProperties } returns MutableStateFlow(emptyList())

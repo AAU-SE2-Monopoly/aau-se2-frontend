@@ -31,10 +31,8 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 
 /**
- * Displays a payment dialog when the player lands on a property owned by another player
- * or lands on a tax field.
+ * Displays a payment dialog when the player lands on a property owned by another player.
  * Shows the amount due and provides options to pay or declare bankruptcy (if cannot pay).
- * When [ownerName] is null, the overlay renders as a tax payment (no owner info shown).
  */
 @Composable
 fun PayRentOverlay(
@@ -52,8 +50,6 @@ fun PayRentOverlay(
     onDismiss: () -> Unit
 ) {
     if (!isVisible) return
-
-    val isTax = ownerName == null
 
     val content = @Composable {
         BoxWithConstraints(
@@ -82,14 +78,14 @@ fun PayRentOverlay(
                         modifier = Modifier
                             .fillMaxWidth()
                             .background(
-                                if (isTax) Color(0xFF880E4F) else Color(0xFFC62828),
+                                Color(0xFFC62828),
                                 RoundedCornerShape(12.dp)
                             )
                             .padding(vertical = 16.dp),
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = if (isTax) "TAX DUE" else "💸 RENT DUE",
+                            text = "💸 RENT DUE",
                             color = Color.White,
                             fontSize = 22.sp,
                             fontWeight = FontWeight.ExtraBold,
@@ -108,15 +104,13 @@ fun PayRentOverlay(
                         textAlign = TextAlign.Center
                     )
 
-                    // Owner info (only shown for rent, not tax)
-                    if (!isTax) {
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            text = "Owner: ${ownerName ?: "Unknown"}",
-                            fontSize = 14.sp,
-                            color = Color.White.copy(alpha = 0.8f)
-                        )
-                    }
+                    // Owner info
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "Owner: ${ownerName ?: "Unknown"}",
+                        fontSize = 14.sp,
+                        color = Color.White.copy(alpha = 0.8f)
+                    )
 
                     Spacer(modifier = Modifier.height(24.dp))
 
@@ -241,13 +235,8 @@ fun PayRentOverlay(
                     Spacer(modifier = Modifier.height(8.dp))
 
                     // Note
-                    val noteText = if (isTax) {
-                        if (canPay) "You must pay this tax to continue"
-                        else "You must pay this tax or declare bankruptcy to continue"
-                    } else {
-                        if (canPay) "You must pay rent to continue"
+                    val noteText = if (canPay) "You must pay rent to continue"
                         else "You must pay rent or declare bankruptcy to continue"
-                    }
                     Text(
                         text = noteText,
                         fontSize = 12.sp,
@@ -311,40 +300,3 @@ fun PayRentOverlayPreview_CannotPay() {
     )
 }
 
-@Preview(showBackground = true, name = "Tax Due - Can Afford")
-@Composable
-fun PayRentOverlayPreview_TaxCanPay() {
-    PayRentOverlay(
-        isVisible = true,
-        rentAmount = 200,
-        ownerName = null,
-        fieldName = "Income Tax",
-        currentMoney = 1500,
-        canPay = true,
-        paymentInFlight = false,
-        propertyInFlight = false,
-        onPay = {},
-        onManageProperties = {},
-        onDeclareBankruptcy = {},
-        onDismiss = {}
-    )
-}
-
-@Preview(showBackground = true, name = "Tax Due - Insufficient Funds")
-@Composable
-fun PayRentOverlayPreview_TaxCannotPay() {
-    PayRentOverlay(
-        isVisible = true,
-        rentAmount = 2000,
-        ownerName = null,
-        fieldName = "Luxury Tax",
-        currentMoney = 500,
-        canPay = false,
-        paymentInFlight = false,
-        propertyInFlight = false,
-        onPay = {},
-        onManageProperties = {},
-        onDeclareBankruptcy = {},
-        onDismiss = {}
-    )
-}

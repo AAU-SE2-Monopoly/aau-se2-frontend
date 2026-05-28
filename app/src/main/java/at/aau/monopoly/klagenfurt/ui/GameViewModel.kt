@@ -263,7 +263,6 @@ class GameViewModel(
                     _showMortgageOverlay.value = false
                     _showBankruptcyOverlay.value = false
                     _currentRentAmount.value = 0
-                    _currentTaxAmount.value = 0
                     _currentRentOwnerId.value = null
                     _currentRentFieldId.value = null
                     _bankruptcyPlayerName.value = ""
@@ -272,7 +271,7 @@ class GameViewModel(
                     _bankruptcyPropertiesOwned.value = emptyList()
                 }
 
-                if (event.event == "RENT_PAID" || event.event == "TAX_PAID") {
+                if (event.event == "RENT_PAID") {
                     finishPaymentAction()
                 }
 
@@ -494,9 +493,6 @@ class GameViewModel(
     private val _currentRentAmount = MutableStateFlow(0)
     val currentRentAmount: StateFlow<Int> = _currentRentAmount.asStateFlow()
 
-    private val _currentTaxAmount = MutableStateFlow(0)
-    val currentTaxAmount: StateFlow<Int> = _currentTaxAmount.asStateFlow()
-
     private val _currentRentOwnerId = MutableStateFlow<String?>(null)
     val currentRentOwnerId: StateFlow<String?> = _currentRentOwnerId.asStateFlow()
 
@@ -516,10 +512,9 @@ class GameViewModel(
 
     // reactive canPayRent StateFlow based on total assets (money + mortgageable value)
     val canPayRent: StateFlow<Boolean> = combine(
-        gameState, _currentRentAmount, _currentTaxAmount
-    ) { state, rentAmount, taxAmount ->
-        // server handles: rentAmount and taxAmount are never both > 0
-        val amount = if (rentAmount > 0) rentAmount else taxAmount
+        gameState, _currentRentAmount
+    ) { state, rentAmount ->
+        val amount = rentAmount
         val player = state?.players?.find { it.id == gameService.currentPlayerId }
         if (player == null || amount <= 0) false
         else {
@@ -694,7 +689,6 @@ class GameViewModel(
             _hasPendingPayment.value = false
             _showPayRentOverlay.value = false
             _currentRentAmount.value = 0
-            _currentTaxAmount.value = 0
             _currentRentOwnerId.value = null
             _currentRentFieldId.value = null
             _lastDiceTotalForRent.value = 0
@@ -704,7 +698,6 @@ class GameViewModel(
 
         val pendingKey = when {
             state.pendingRentAmount > 0 -> "RENT:${state.pendingRentFieldId}:${state.pendingRentAmount}:${state.pendingRentOwnerId}"
-            state.pendingTaxAmount > 0 -> "TAX:${state.pendingTaxFieldId}:${state.pendingTaxAmount}"
             else -> null
         }
 
@@ -712,7 +705,6 @@ class GameViewModel(
             _hasPendingPayment.value = false
             _showPayRentOverlay.value = false
             _currentRentAmount.value = 0
-            _currentTaxAmount.value = 0
             _currentRentOwnerId.value = null
             _currentRentFieldId.value = null
             _lastDiceTotalForRent.value = 0
@@ -724,14 +716,8 @@ class GameViewModel(
 
         if (state.pendingRentAmount > 0) {
             _currentRentAmount.value = state.pendingRentAmount
-            _currentTaxAmount.value = 0
             _currentRentOwnerId.value = state.pendingRentOwnerId
             _currentRentFieldId.value = state.pendingRentFieldId
-        } else {
-            _currentRentAmount.value = 0
-            _currentTaxAmount.value = state.pendingTaxAmount
-            _currentRentOwnerId.value = null
-            _currentRentFieldId.value = state.pendingTaxFieldId
         }
 
         _lastDiceTotalForRent.value = state.lastDiceRoll?.total ?: 0
@@ -800,7 +786,6 @@ class GameViewModel(
             "ACTION_DRAWN" -> "Action card drawn!"
             "ACTION_EXECUTED" -> "Action executed"
             "RENT_DUE" -> "Rent is due!"
-            "TAX_DUE" -> "Tax is due!"
             "RENT_PAID" -> "Rent paid"
             "PAYMENT_FAILED" -> "Payment failed"
             "BANKRUPTCY_DECLARED" -> "Player went bankrupt!"

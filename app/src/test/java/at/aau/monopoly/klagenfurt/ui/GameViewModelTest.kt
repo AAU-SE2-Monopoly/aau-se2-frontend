@@ -754,7 +754,6 @@ class GameViewModelTest {
         val job = launch {
             viewModel.showPayRentOverlay.collect {}
             viewModel.currentRentAmount.collect {}
-            viewModel.currentTaxAmount.collect {}
             viewModel.currentRentOwnerId.collect {}
             viewModel.currentRentFieldId.collect {}
         }
@@ -801,8 +800,6 @@ class GameViewModelTest {
             "pendingRentAmount": 0,
             "pendingRentOwnerId": null,
             "pendingRentFieldId": null,
-            "pendingTaxAmount": 0,
-            "pendingTaxFieldId": null,
             "lastDiceRoll": null
           }
         }
@@ -812,7 +809,6 @@ class GameViewModelTest {
 
         assertFalse(viewModel.showPayRentOverlay.value)
         assertEquals(0, viewModel.currentRentAmount.value)
-        assertEquals(0, viewModel.currentTaxAmount.value)
         assertEquals(null, viewModel.currentRentOwnerId.value)
         assertEquals(null, viewModel.currentRentFieldId.value)
 

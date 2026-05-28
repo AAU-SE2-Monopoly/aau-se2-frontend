@@ -22,8 +22,6 @@ data class GameState(
     val pendingRentAmount: Int = 0,
     val pendingRentOwnerId: String? = null,
     val pendingRentFieldId: Int? = null,
-    val pendingTaxAmount: Int = 0,
-    val pendingTaxFieldId: Int? = null,
     val bankruptcyTotalAssets: Int = 0,
     val bankruptcyTotalDebt: Int = 0,
     val bankruptcyPropertiesCount: Int = 0,

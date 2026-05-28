@@ -180,7 +180,6 @@ fun GameboardScreen(
     val showMortgageOverlay by viewModel.showMortgageOverlay.collectAsState()
     val showBankruptcyOverlay by viewModel.showBankruptcyOverlay.collectAsState()
     val currentRentAmount by viewModel.currentRentAmount.collectAsState()
-    val currentTaxAmount by viewModel.currentTaxAmount.collectAsState()
     val currentRentOwnerId by viewModel.currentRentOwnerId.collectAsState()
     val currentRentFieldId by viewModel.currentRentFieldId.collectAsState()
     val manageableProperties by viewModel.manageableProperties.collectAsState()

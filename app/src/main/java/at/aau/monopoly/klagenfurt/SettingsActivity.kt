@@ -10,13 +10,25 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -48,6 +60,9 @@ class SettingsActivity : ComponentActivity() {
 fun SettingsScreen(onBackClicked: () -> Unit) {
     val soundEnabled = remember { mutableStateOf(true) }
     val musicEnabled = remember { mutableStateOf(true) }
+
+    // State für das Popup
+    var showCheatDialog by remember { mutableStateOf(false) }
 
     AnimatedScreenScaffold(onBackClicked = onBackClicked) {
         ScreenTitle(title = "SETTINGS")
@@ -85,6 +100,69 @@ fun SettingsScreen(onBackClicked: () -> Unit) {
             modifier = Modifier.fillMaxWidth(0.3f),
             thickness = 1.dp,
             color = PrimaryBlueLight.copy(alpha = 0.3f)
+        )
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        // Cheat Tutorial Button
+        Button(
+            onClick = { showCheatDialog = true },
+            modifier = Modifier
+                .fillMaxWidth(0.5f)
+                .height(48.dp),
+            shape = RoundedCornerShape(12.dp),
+            colors = ButtonDefaults.buttonColors(containerColor = PrimaryBlue),
+            elevation = ButtonDefaults.buttonElevation(defaultElevation = 4.dp)
+        ) {
+            Icon(
+                imageVector = Icons.Default.Info,
+                contentDescription = "Info",
+                tint = Color.White,
+                modifier = Modifier.size(20.dp)
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(
+                text = "Show Cheating Tutorial",
+                color = Color.White,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Medium,
+                letterSpacing = 1.sp
+            )
+        }
+    }
+
+    // Das Dialog-Popup
+    if (showCheatDialog) {
+        AlertDialog(
+            onDismissRequest = { showCheatDialog = false },
+            containerColor = Color(0xFF16213E), // Angepasst ans Dark-Theme
+            title = {
+                Text(
+                    text = "Cheat Code",
+                    color = PrimaryBlueLight,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 20.sp
+                )
+            },
+            text = {
+                Text(
+                    text = "Press the Volume Up button during your turn to automatically roll a double 6!",
+                    color = Color.White.copy(alpha = 0.9f),
+                    fontSize = 16.sp
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = { showCheatDialog = false }
+                ) {
+                    Text(
+                        text = "Got it",
+                        color = PrimaryBlueLight,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 16.sp
+                    )
+                }
+            }
         )
     }
 }

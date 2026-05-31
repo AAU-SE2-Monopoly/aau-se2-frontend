@@ -616,21 +616,26 @@ class GameViewModelTest {
 
         fakeService.emitTestEvent(
             """
-        {
-          "event": "STATE_UPDATED",
-          "gameId": "g1",
-          "gameState": {
-            "gameId": "g1",
-            "fields": [],
-            "players": [
-              { "id": "p1", "name": "Alice" },
-              { "id": "p2", "name": "Bob" }
-            ],
-            "currentPlayerIndex": 0,
-            "phase": "BUYING"
-          }
-        }
-        """.trimIndent()
+            {
+              "event": "RENT_DUE",
+              "gameId": "g1",
+              "gameState": {
+                "gameId": "g1",
+                "fields": [],
+                "players": [{"id":"p1","name":"Alice","money":500,"ownedPropertyIds":[]}],
+                "currentPlayerIndex": 0,
+                "phase": "PAYING_RENT",
+                "pendingPayment": {
+                  "amount": 100,
+                  "source": "RENT",
+                  "sourceFieldId": 5,
+                  "creditorPlayerId": "p2",
+                  "goesToFreeParking": false
+                },
+                "lastDiceRoll": {"die1":3,"die2":4}
+              }
+            }
+            """.trimIndent()
         )
 
         advanceUntilIdle()
@@ -760,21 +765,25 @@ class GameViewModelTest {
         // First set non-default values via RENT_DUE
         fakeService.emitTestEvent(
             """
-        {
-          "event": "RENT_DUE",
-          "gameId": "g1",
-          "gameState": {
-            "gameId": "g1",
-            "fields": [],
-            "players": [{"id":"p1","name":"Alice","money":500,"ownedPropertyIds":[]}],
-            "currentPlayerIndex": 0,
-            "phase": "PAYING_RENT",
-            "pendingRentAmount": 100,
-            "pendingRentOwnerId": "p2",
-            "pendingRentFieldId": 5,
-            "lastDiceRoll": {"die1":3,"die2":4}
-          }
-        }
+{
+  "event": "RENT_DUE",
+  "gameId": "g1",
+  "gameState": {
+    "gameId": "g1",
+    "fields": [],
+    "players": [{"id":"p1","name":"Alice","money":500,"ownedPropertyIds":[]}],
+    "currentPlayerIndex": 0,
+    "phase": "PAYING_RENT",
+    "pendingPayment": {
+      "amount": 100,
+      "source": "RENT",
+      "sourceFieldId": 5,
+      "creditorPlayerId": "p2",
+      "goesToFreeParking": false
+    },
+    "lastDiceRoll": {"die1":3,"die2":4}
+  }
+}
         """.trimIndent()
         )
         advanceUntilIdle()
@@ -796,9 +805,7 @@ class GameViewModelTest {
             "players": [{"id":"p1","name":"Alice","money":400,"ownedPropertyIds":[]}],
             "currentPlayerIndex": 0,
             "phase": "TURN_END",
-            "pendingRentAmount": 0,
-            "pendingRentOwnerId": null,
-            "pendingRentFieldId": null,
+            "pendingPayment": null,
             "lastDiceRoll": null
           }
         }

@@ -164,8 +164,6 @@ fun GameboardScreen(
     val isBuyingPhaseForCurrentPlayer by viewModel.isBuyingPhaseForCurrentPlayer.collectAsState()
     val lastDiceRoll by viewModel.lastDiceRoll.collectAsState()
     val canStartGame by viewModel.canStartGame.collectAsState()
-    val chanceCardDrawnThisTurn by viewModel.chanceCardDrawnThisTurn.collectAsState()
-    val communityChestCardDrawnThisTurn by viewModel.communityChestCardDrawnThisTurn.collectAsState()
     val canEndTurnForCurrentPlayer by viewModel.canEndTurnForCurrentPlayer.collectAsState()
     val buildingActionPending by viewModel.buildingActionPending.collectAsState()
     val canBuyCurrentField =
@@ -430,10 +428,7 @@ fun GameboardScreen(
                     }
                 }
 
-                // Hide End Turn if on a card field and card not yet drawn
-                val mustDrawCard = (isOnCommunityChestField && !communityChestCardDrawnThisTurn) ||
-                        (isOnChanceField && !chanceCardDrawnThisTurn)
-                if (canEndTurnForCurrentPlayer && !mustDrawCard && !showActionCardOverlay) {
+                if (canEndTurnForCurrentPlayer && !showActionCardOverlay) {
                     GlassButton(
                         onClick = { viewModel.endTurn() },
                         modifier = Modifier
@@ -493,7 +488,7 @@ fun GameboardScreen(
                     }
                 }
 
-                if (isOnChanceField && isBuyingPhaseForCurrentPlayer && !chanceCardDrawnThisTurn) {
+                if (isOnChanceField && isBuyingPhaseForCurrentPlayer) {
                     DrawCardButton(
                         cardType = "CHANCE",
                         alreadyDrawn = false,
@@ -503,7 +498,7 @@ fun GameboardScreen(
                     )
                 }
 
-                if (isOnCommunityChestField && isBuyingPhaseForCurrentPlayer && !communityChestCardDrawnThisTurn) {
+                if (isOnCommunityChestField && isBuyingPhaseForCurrentPlayer) {
                     DrawCardButton(
                         cardType = "COMMUNITY_CHEST",
                         alreadyDrawn = false,

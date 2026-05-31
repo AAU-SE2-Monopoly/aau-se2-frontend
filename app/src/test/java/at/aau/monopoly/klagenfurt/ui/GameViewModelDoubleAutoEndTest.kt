@@ -150,7 +150,7 @@ class GameViewModelDoubleAutoEndTest {
     }
 
     @Test
-    fun `consumeDoubleAutoEnd does not call endTurn when on chance field with card not drawn`() = runTest(testDispatcher) {
+    fun `consumeDoubleAutoEnd calls endTurn when on chance field`() = runTest(testDispatcher) {
         val chanceField = ChanceField(id = 0, name = "Chance")
         fakeService.emitTestEvent(buildDiceRolledJson(isDouble = true, fields = listOf(chanceField), position = 0))
         advanceUntilIdle()
@@ -159,14 +159,12 @@ class GameViewModelDoubleAutoEndTest {
         viewModel.consumeDoubleAutoEnd()
         advanceUntilIdle()
 
-        // Should NOT end turn because card hasn't been drawn
-        assertFalse(fakeService.endTurnCalled)
-        // Flag should still be true (not consumed)
-        assertTrue(viewModel.pendingDoubleAutoEnd.value)
+        assertTrue(fakeService.endTurnCalled)
+        assertFalse(viewModel.pendingDoubleAutoEnd.value)
     }
 
     @Test
-    fun `consumeDoubleAutoEnd does not call endTurn when on community chest field with card not drawn`() = runTest(testDispatcher) {
+    fun `consumeDoubleAutoEnd calls endTurn when on community chest field`() = runTest(testDispatcher) {
         val communityField = CommunityChestField(id = 0, name = "Community Chest")
         fakeService.emitTestEvent(buildDiceRolledJson(isDouble = true, fields = listOf(communityField), position = 0))
         advanceUntilIdle()
@@ -175,7 +173,7 @@ class GameViewModelDoubleAutoEndTest {
         viewModel.consumeDoubleAutoEnd()
         advanceUntilIdle()
 
-        assertFalse(fakeService.endTurnCalled)
-        assertTrue(viewModel.pendingDoubleAutoEnd.value)
+        assertTrue(fakeService.endTurnCalled)
+        assertFalse(viewModel.pendingDoubleAutoEnd.value)
     }
 }

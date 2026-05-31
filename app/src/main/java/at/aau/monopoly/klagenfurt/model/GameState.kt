@@ -6,6 +6,15 @@ import at.aau.monopoly.klagenfurt.model.card.CommunityChestCard
 import at.aau.monopoly.klagenfurt.model.enums.GamePhase
 import at.aau.monopoly.klagenfurt.model.field.Field
 
+enum class PaymentSource { RENT, CARD_PAY, CARD_PAY_EACH, CARD_REPAIR }
+
+data class PendingPayment(
+    val amount: Int,
+    val source: PaymentSource,
+    val sourceFieldId: Int? = null,
+    val creditorPlayerId: String? = null
+)
+
 data class GameState(
     val gameId: String,
     val fields: List<Field>,
@@ -15,13 +24,9 @@ data class GameState(
     val chanceCards: MutableList<ChanceCard> = mutableListOf(),
     val communityChestCards: MutableList<CommunityChestCard> = mutableListOf(),
     var freeParkingMoney: Int = 0,
-    var lastDiceRoll: DiceRoll? = null, // replaced Pair with serializable DiceRoll
-    var currentActionCard: Card? = null, // Current action card (drawn from deck, pending execution)
-    var hasDrawnChanceCardThisTurn: Boolean = false,
-    var hasDrawnCommunityChestCardThisTurn: Boolean = false,
-    val pendingRentAmount: Int = 0,
-    val pendingRentOwnerId: String? = null,
-    val pendingRentFieldId: Int? = null,
+    var lastDiceRoll: DiceRoll? = null,
+    var currentActionCard: Card? = null,
+    var pendingPayment: PendingPayment? = null,
     val bankruptcyTotalAssets: Int = 0,
     val bankruptcyTotalDebt: Int = 0,
     val bankruptcyPropertiesCount: Int = 0,

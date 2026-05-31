@@ -78,11 +78,9 @@ class GameStateTest {
     }
 
     @Test
-    fun `card tracking flags default to false`() {
+    fun `pendingPayment is null by default`() {
         val state = makeState()
-        assertFalse(state.hasDrawnChanceCardThisTurn)
-        assertFalse(state.hasDrawnCommunityChestCardThisTurn)
-        assertNull(state.currentActionCard)
+        assertNull(state.pendingPayment)
     }
 
     @Test

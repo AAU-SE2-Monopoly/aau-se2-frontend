@@ -157,13 +157,6 @@ class GameViewModel(
     private val _pendingDoubleAutoEnd = MutableStateFlow(false)
     val pendingDoubleAutoEnd: StateFlow<Boolean> = _pendingDoubleAutoEnd.asStateFlow()
 
-    private val _chanceCardDrawnThisTurn = MutableStateFlow(false)
-    val chanceCardDrawnThisTurn: StateFlow<Boolean> = _chanceCardDrawnThisTurn.asStateFlow()
-
-    private val _communityChestCardDrawnThisTurn = MutableStateFlow(false)
-    val communityChestCardDrawnThisTurn: StateFlow<Boolean> =
-        _communityChestCardDrawnThisTurn.asStateFlow()
-
     private var lastCurrentPlayerIdForCardDraw: String? = null
 
     private val _buildingActionPending = MutableStateFlow(false)
@@ -183,12 +176,6 @@ class GameViewModel(
                 // Capture old state before updating, then remember the new state.
                 val oldState = previousGameState
                 event.gameState?.let { previousGameState = it }
-
-                event.gameState?.let { state ->
-                    _chanceCardDrawnThisTurn.value = state.hasDrawnChanceCardThisTurn
-                    _communityChestCardDrawnThisTurn.value =
-                        state.hasDrawnCommunityChestCardThisTurn
-                }
 
                 // Detect position changes on DICE_ROLLED events and drive animation.
                 if (event.event == "DICE_ROLLED") {
@@ -237,12 +224,6 @@ class GameViewModel(
                 if (event.event == "ACTION_DRAWN" && event.gameState?.currentActionCard != null) {
                     _currentActionCard.value = event.gameState.currentActionCard
 
-                    event.gameState.let { state ->
-                        _chanceCardDrawnThisTurn.value = state.hasDrawnChanceCardThisTurn
-                        _communityChestCardDrawnThisTurn.value =
-                            state.hasDrawnCommunityChestCardThisTurn
-                    }
-
                     lastCurrentPlayerIdForCardDraw = event.gameState.currentPlayer?.id
                 }
 
@@ -262,8 +243,6 @@ class GameViewModel(
                 }
 
                 if (event.event == "TURN_ENDED") {
-                    _chanceCardDrawnThisTurn.value = false
-                    _communityChestCardDrawnThisTurn.value = false
                     _buildingActionPending.value = false
                     _pendingDoubleAutoEnd.value = false
                     lastCurrentPlayerIdForCardDraw = null
@@ -640,13 +619,6 @@ class GameViewModel(
 
     fun consumeDoubleAutoEnd() {
         if (!_pendingDoubleAutoEnd.value) return
-        // Do not auto-end if the player must still draw a card
-        val state = previousGameState ?: return
-        val currentPlayer = state.currentPlayer ?: return
-        val currentField = state.fields.getOrNull(currentPlayer.position)
-        val mustDrawCard = (currentField is CommunityChestField && !_communityChestCardDrawnThisTurn.value) ||
-                (currentField is ChanceField && !_chanceCardDrawnThisTurn.value)
-        if (mustDrawCard) return
         if (_pendingDoubleAutoEnd.compareAndSet(expect = true, update = false)) {
             gameService.endTurn()
         }
@@ -742,12 +714,12 @@ class GameViewModel(
             return
         }
 
-        val pendingKey = when {
-            state.pendingRentAmount > 0 -> "RENT:${state.pendingRentFieldId}:${state.pendingRentAmount}:${state.pendingRentOwnerId}"
-            else -> null
+        val pending = state.pendingPayment
+        val pendingKey = pending?.let { p ->
+            "${p.source}:${p.sourceFieldId}:${p.amount}:${p.creditorPlayerId}"
         }
 
-        if (pendingKey == null) {
+        if (pendingKey == null || pending.amount <= 0) {
             _hasPendingPayment.value = false
             _showPayRentOverlay.value = false
             _currentRentAmount.value = 0
@@ -760,11 +732,9 @@ class GameViewModel(
 
         _hasPendingPayment.value = true
 
-        if (state.pendingRentAmount > 0) {
-            _currentRentAmount.value = state.pendingRentAmount
-            _currentRentOwnerId.value = state.pendingRentOwnerId
-            _currentRentFieldId.value = state.pendingRentFieldId
-        }
+        _currentRentAmount.value = pending.amount
+        _currentRentOwnerId.value = pending.creditorPlayerId
+        _currentRentFieldId.value = pending.sourceFieldId
 
         _lastDiceTotalForRent.value = state.lastDiceRoll?.total ?: 0
 

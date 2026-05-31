@@ -1,15 +1,18 @@
 package at.aau.monopoly.klagenfurt.ui
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.launch
+
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import at.aau.monopoly.klagenfurt.messaging.GameEvent
 import at.aau.monopoly.klagenfurt.networking.GameService
 import at.aau.monopoly.klagenfurt.networking.JacksonProvider
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
+
 /**
  * Manages the create-game and join-game flows for [JoinActivity].
  *
@@ -35,9 +38,37 @@ class JoinViewModel(private val gameService: GameService) : ViewModel() {
 
     val reconnectFailed: StateFlow<Boolean> = gameService.reconnectFailed
 
-    // -------------------------------------------------------------------------
-    // Create game
-    // -------------------------------------------------------------------------
+    private val _takenIcons = MutableStateFlow<Set<String>>(emptySet())
+    val takenIcons: StateFlow<Set<String>> = _takenIcons.asStateFlow()
+
+    private var stateObservationJob: Job? = null
+
+    fun observeGame(gameId: String) {
+        if (gameId.isBlank()) return
+        stateObservationJob?.cancel()
+        stateObservationJob = viewModelScope.launch {
+            gameService.subscribeToGame(gameId)
+
+            gameService.events.collect { raw ->
+                try {
+                    val event = objectMapper.readValue(raw, GameEvent::class.java)
+                    if (event.gameId == gameId && event.gameState != null) {
+                        val taken = event.gameState.players.map { it.iconId }.toSet()
+                        _takenIcons.value = taken
+                    }
+                } catch (_: Exception) {
+                    // Ignore parse errors from other event types
+                }
+            }
+        }
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        stateObservationJob?.cancel()
+    }
+
+
 
     fun createGame(playerName: String, iconId: String) {
         if (_joinState.value is JoinState.Loading) return
@@ -64,9 +95,6 @@ class JoinViewModel(private val gameService: GameService) : ViewModel() {
         }
     }
 
-    // -------------------------------------------------------------------------
-    // Join existing game
-    // -------------------------------------------------------------------------
 
     fun joinGame(gameId: String, playerName: String, iconId: String) {
         if (_joinState.value is JoinState.Loading) return
@@ -80,9 +108,7 @@ class JoinViewModel(private val gameService: GameService) : ViewModel() {
         _joinState.value = JoinState.Loading
 
         viewModelScope.launch {
-            // GameStompClient.joinGame() subscribes to the game topic, sends the join
-            // command, then waits for PLAYER_JOINED (success, filtered by player ID) or
-            // ERROR (failure with the server's message). Returns Result<GameEvent>.
+
             val result = gameService.joinGame(gameId, playerName, iconId)
 
             result.fold(
@@ -94,6 +120,7 @@ class JoinViewModel(private val gameService: GameService) : ViewModel() {
             )
         }
     }
+
     fun resetState() {
         _joinState.value = JoinState.Idle
     }
@@ -102,9 +129,6 @@ class JoinViewModel(private val gameService: GameService) : ViewModel() {
         gameService.connect()
     }
 
-    // -------------------------------------------------------------------------
-    // Factory
-    // -------------------------------------------------------------------------
 
     class Factory(private val gameService: GameService) : ViewModelProvider.Factory {
         override fun <T : ViewModel> create(modelClass: Class<T>): T {

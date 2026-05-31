@@ -58,7 +58,6 @@ import com.example.myapplication.R
 
 class JoinActivity : ComponentActivity() {
 
-
     private val viewModel: JoinViewModel by viewModels {
         JoinViewModel.Factory(ServiceLocator.provideGameService())
     }
@@ -72,8 +71,9 @@ class JoinActivity : ComponentActivity() {
         val gameId    = intent.getStringExtra("GAME_ID") ?: intent.getStringExtra("gameId") ?: ""
         val isNewGame = intent.getBooleanExtra("isNewGame", false)
 
-
-
+        if (!isNewGame && gameId.isNotEmpty()) {
+            viewModel.observeGame(gameId)
+        }
 
         setContent {
             MyApplicationTheme(dynamicColor = false) {
@@ -95,6 +95,7 @@ class JoinActivity : ComponentActivity() {
 
                 val isConnected by viewModel.isConnected.collectAsState()
                 val reconnectFailed by viewModel.reconnectFailed.collectAsState()
+                val takenIcons by viewModel.takenIcons.collectAsState()
 
                 JoinScreen(
                     gameId      = gameId,
@@ -103,6 +104,7 @@ class JoinActivity : ComponentActivity() {
                     joinStatus  = joinStatus,
                     isConnected = isConnected,
                     reconnectFailed = reconnectFailed,
+                    takenIcons  = takenIcons,
                     onReconnect = { viewModel.reconnect() },
                     onBackClicked = {
                         viewModel.resetState()
@@ -130,6 +132,7 @@ fun JoinScreen(
     joinStatus: GameJoinStatus,
     isConnected: Boolean = true,
     reconnectFailed: Boolean = false,
+    takenIcons: Set<String> = emptySet(),
     onBackClicked: () -> Unit,
     onJoin: (playerName: String, iconIndex: Int) -> Unit,
     onReconnect: () -> Unit = {}
@@ -208,9 +211,24 @@ fun JoinScreen(
     var playerName by rememberSaveable { mutableStateOf("") }
     var selectedIconIndex by rememberSaveable { mutableIntStateOf(0) }
 
+    LaunchedEffect(takenIcons) {
+        if (takenIcons.isNotEmpty()) {
+            var currentId = GameJoinStatus.iconIdForIndex(selectedIconIndex)
+            var attempts = 0
+            while (takenIcons.contains(currentId) && attempts < playerIcons.size) {
+                selectedIconIndex = (selectedIconIndex + 1) % playerIcons.size
+                currentId = GameJoinStatus.iconIdForIndex(selectedIconIndex)
+                attempts++
+            }
+        }
+    }
+
     val isLoading = joinState is JoinViewModel.JoinState.Loading
     val errorMessage = (joinState as? JoinViewModel.JoinState.Error)?.message
     val interactionDisabled = !isConnected || isLoading || isFull
+
+    val currentIconTaken = takenIcons.contains(GameJoinStatus.iconIdForIndex(selectedIconIndex))
+    val isJoinDisabled = interactionDisabled || currentIconTaken
 
     Box(
         modifier = Modifier
@@ -304,10 +322,18 @@ fun JoinScreen(
             }
 
             Spacer(modifier = Modifier.height(16.dp))
-            // Icon chooser and name input
+
             // Icon chooser
             Button(
-                onClick = { selectedIconIndex = (selectedIconIndex + 1) % playerIcons.size },
+                onClick = {
+                    var nextIndex = (selectedIconIndex + 1) % playerIcons.size
+                    var attempts = 0
+                    while (takenIcons.contains(GameJoinStatus.iconIdForIndex(nextIndex)) && attempts < playerIcons.size) {
+                        nextIndex = (nextIndex + 1) % playerIcons.size
+                        attempts++
+                    }
+                    selectedIconIndex = nextIndex
+                },
                 enabled = !interactionDisabled,
                 modifier = Modifier.size(90.dp),
                 shape = RoundedCornerShape(20.dp),
@@ -326,6 +352,7 @@ fun JoinScreen(
                     Image(
                         painter = painterResource(id = playerIcons[selectedIconIndex]),
                         contentDescription = "Selected Icon",
+                        alpha = if (currentIconTaken) 0.3f else 1f,
                         modifier = Modifier.size(64.dp)
                     )
                 }
@@ -333,11 +360,12 @@ fun JoinScreen(
 
             Spacer(modifier = Modifier.height(4.dp))
             Text(
-                text = "Tap to change icon",
-                color = Color.White.copy(alpha = 0.4f),
+                text = if (currentIconTaken) "Icon bereits belegt" else "Tap to change icon",
+                color = if (currentIconTaken) Color(0xFFEF9A9A) else Color.White.copy(alpha = 0.4f),
                 fontSize = 11.sp
             )
             Spacer(modifier = Modifier.height(16.dp))
+
             // Player name text field
             OutlinedTextField(
                 value = playerName,
@@ -367,7 +395,7 @@ fun JoinScreen(
                     val name = playerName.ifBlank { "Player" }
                     onJoin(name, selectedIconIndex)
                 },
-                enabled = !interactionDisabled,
+                enabled = !isJoinDisabled,
                 modifier = Modifier
                     .fillMaxWidth(0.5f)
                     .height(56.dp)
@@ -395,9 +423,7 @@ fun JoinScreen(
                     )
                 }
             }
-
         }
-
 
         // Back button – always rendered and functional
         Button(

@@ -173,6 +173,15 @@ fun BankruptcyResolutionContent(
 
                 Spacer(modifier = Modifier.height(12.dp))
 
+                Text(
+                    text = "This action cannot be undone. All your properties will be transferred to your creditors.",
+                    fontSize = 10.sp,
+                    color = Color(0xFFFF8A80),
+                    textAlign = TextAlign.Center
+                )
+
+                Spacer(modifier = Modifier.height(8.dp))
+
                 // Confirm button
                 Button(
                     onClick = onConfirm,
@@ -185,7 +194,7 @@ fun BankruptcyResolutionContent(
                     shape = RoundedCornerShape(12.dp)
                 ) {
                     Text(
-                        text = "Accept",
+                        text = "Confirm Bankruptcy",
                         fontSize = 13.sp,
                         fontWeight = FontWeight.Bold,
                         color = Color.White

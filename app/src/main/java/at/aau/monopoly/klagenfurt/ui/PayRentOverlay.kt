@@ -208,7 +208,7 @@ fun PayRentOverlay(
                         )
                     }
 
-                    Spacer(modifier = Modifier.height(6.dp))
+                        Spacer(modifier = Modifier.height(6.dp))
                         if(!canRaiseFunds) {
                             Button(
                                 onClick = onDeclareBankruptcy,
@@ -222,22 +222,23 @@ fun PayRentOverlay(
                                 ),
                                 shape = RoundedCornerShape(12.dp)
                             ) {
-
                                 Text(
-                                    text = "Declare Bankruptcy",
+                                    text = if (paymentInFlight) "Processing..." else "Declare Bankruptcy",
                                     fontSize = 13.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = Color.White
                                 )
-
                             }
                         }
 
                     Spacer(modifier = Modifier.height(4.dp))
 
                     // Note
-                    val noteText = if (canPay) "You must pay rent to continue"
-                        else "You must pay rent or declare bankruptcy to continue"
+                    val noteText = when {
+                        canPay -> "Click Pay Rent to pay the rent"
+                        canRaiseFunds -> "Manage properties to raise cash"
+                        else -> "Insufficient total assets — declare bankruptcy"
+                    }
                     Text(
                         text = noteText,
                         fontSize = 10.sp,

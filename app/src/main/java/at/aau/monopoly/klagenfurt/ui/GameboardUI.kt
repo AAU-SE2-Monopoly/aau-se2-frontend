@@ -605,6 +605,8 @@ fun GameboardScreen(
                 properties = manageableProperties,
                 currentMoney = currentTurnPlayer?.money ?: 0,
                 actionInFlight = propertyActionInFlight,
+                onBuyHouse = { fieldId -> viewModel.buyHouse(fieldId) },
+                onBuyHotel = { fieldId -> viewModel.buyHotel(fieldId) },
                 onMortgage = { fieldId -> viewModel.mortgageProperty(fieldId) },
                 onUnmortgage = { fieldId -> viewModel.unmortgageProperty(fieldId) },
                 onSellHouse = { fieldId -> viewModel.sellHouse(fieldId) },

@@ -110,7 +110,9 @@ data class ManageableProperty(
     val sellHouseValue: Int,
     val sellHotelValue: Int,
     val canSellHouse: Boolean = false,
-    val canSellHotel: Boolean = false
+    val canSellHotel: Boolean = false,
+    val canBuyHouse: Boolean = false,
+    val canBuyHotel: Boolean = false
 )
 
 
@@ -122,6 +124,8 @@ fun MortgageManagementOverlay(
     properties: List<ManageableProperty>,
     currentMoney: Int,
     actionInFlight: Boolean,
+    onBuyHouse: (Int) -> Unit,
+    onBuyHotel: (Int) -> Unit,
     onMortgage: (Int) -> Unit,
     onUnmortgage: (Int) -> Unit,
     onSellHouse: (Int) -> Unit,
@@ -142,6 +146,8 @@ fun MortgageManagementOverlay(
             properties = properties,
             currentMoney = currentMoney,
             actionInFlight = actionInFlight,
+            onBuyHouse = onBuyHouse,
+            onBuyHotel = onBuyHotel,
             onMortgage = onMortgage,
             onUnmortgage = onUnmortgage,
             onSellHouse = onSellHouse,
@@ -158,6 +164,8 @@ fun MortgageManagementContent(
     properties: List<ManageableProperty>,
     currentMoney: Int,
     actionInFlight: Boolean,
+    onBuyHouse: (Int) -> Unit,
+    onBuyHotel: (Int) -> Unit,
     onMortgage: (Int) -> Unit,
     onUnmortgage: (Int) -> Unit,
     onSellHouse: (Int) -> Unit,
@@ -275,6 +283,8 @@ fun MortgageManagementContent(
                                 currentMoney = currentMoney,
                                 actionInFlight = actionInFlight,
                                 chipHeight = actionChipHeight,
+                                onBuyHouse = { onBuyHouse(prop.fieldId); selectedProperty = null },
+                                onBuyHotel = { onBuyHotel(prop.fieldId); selectedProperty = null },
                                 onMortgage = { onMortgage(prop.fieldId); selectedProperty = null },
                                 onUnmortgage = { onUnmortgage(prop.fieldId); selectedProperty = null },
                                 onSellHouse = { onSellHouse(prop.fieldId); selectedProperty = null },
@@ -483,6 +493,8 @@ private fun PropertyActionPanel(
     currentMoney: Int,
     actionInFlight: Boolean,
     chipHeight: Dp,
+    onBuyHouse: () -> Unit,
+    onBuyHotel: () -> Unit,
     onMortgage: () -> Unit,
     onUnmortgage: () -> Unit,
     onSellHouse: () -> Unit,
@@ -594,6 +606,37 @@ private fun PropertyActionPanel(
                         chipHeight = chipHeight,
                         modifier = Modifier.weight(1f),
                         onClick = onSellHotel
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(6.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                if (property.canBuyHouse) {
+                    ActionChip(
+                        text = "Buy House",
+                        sub = "-€${property.houseCost}",
+                        backgroundColor = Color(0xFF2E7D32),
+                        enabled = !actionInFlight && currentMoney >= property.houseCost,
+                        chipHeight = chipHeight,
+                        modifier = Modifier.weight(1f),
+                        onClick = onBuyHouse
+                    )
+                }
+
+                if (property.canBuyHotel) {
+                    ActionChip(
+                        text = "Buy Hotel",
+                        sub = "-€${property.hotelCost}",
+                        backgroundColor = Color(0xFF1565C0),
+                        enabled = !actionInFlight && currentMoney >= property.hotelCost,
+                        chipHeight = chipHeight,
+                        modifier = Modifier.weight(1f),
+                        onClick = onBuyHotel
                     )
                 }
             }
@@ -737,6 +780,8 @@ fun MortgageManagementPreview() {
                 properties = sampleProperties,
                 currentMoney = 1200,
                 actionInFlight = false,
+                onBuyHouse = {},
+                onBuyHotel = {},
                 onMortgage = {},
                 onUnmortgage = {},
                 onSellHouse = {},
@@ -807,6 +852,8 @@ fun PropertyActionPanelPreview() {
                 currentMoney = 1200,
                 actionInFlight = false,
                 chipHeight = 48.dp,
+                onBuyHouse = {},
+                onBuyHotel = {},
                 onMortgage = {},
                 onUnmortgage = {},
                 onSellHouse = {},
@@ -832,6 +879,8 @@ fun MortgagedPropertyActionPanelPreview() {
                 currentMoney = 20, // Not enough to unmortgage
                 actionInFlight = false,
                 chipHeight = 48.dp,
+                onBuyHouse = {},
+                onBuyHotel = {},
                 onMortgage = {},
                 onUnmortgage = {},
                 onSellHouse = {},

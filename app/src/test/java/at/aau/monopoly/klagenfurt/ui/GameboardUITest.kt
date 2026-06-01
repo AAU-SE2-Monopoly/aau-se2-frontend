@@ -1072,7 +1072,7 @@ class GameboardScreenCoverageTest {
     }
 
     @Test
-    fun `Manage Properties button visible during buying phase`() {
+    fun `Manage Properties button visible during current player turn`() {
         val player = Player(id = "player1", name = "P1", position = 0)
 
         val mockVm = createMockViewModel(
@@ -1085,6 +1085,84 @@ class GameboardScreenCoverageTest {
         composeTestRule.setContent { GameboardScreen(viewModel = mockVm) }
 
         composeTestRule.onNodeWithTag("manage_properties_button").assertExists()
+    }
+
+    @Test
+    fun `Manage Properties button not visible when not current player turn`() {
+        val player1 = Player(id = "player1", name = "P1", position = 0)
+        val player2 = Player(id = "player2", name = "P2", position = 1)
+
+        val mockVm = createMockViewModel(
+            isBuyingPhase = true,
+            canEndTurn = true,
+            currentPlayerId = "player1",
+            players = listOf(player1, player2)
+        )
+
+        val modifiedState = mockVm.gameState.value!!.apply { currentPlayerIndex = 1 }
+        every { mockVm.gameState } returns MutableStateFlow(modifiedState)
+
+        composeTestRule.setContent { GameboardScreen(viewModel = mockVm) }
+
+        composeTestRule.onNodeWithTag("manage_properties_button").assertDoesNotExist()
+    }
+
+    @Test
+    fun `Manage Properties button hidden for eliminated player`() {
+        val player = Player(id = "player1", name = "P1", position = 0, eliminated = true)
+
+        val mockVm = createMockViewModel(
+            isBuyingPhase = true,
+            canEndTurn = true,
+            currentPlayerId = "player1",
+            players = listOf(player)
+        )
+
+        composeTestRule.setContent { GameboardScreen(viewModel = mockVm) }
+
+        composeTestRule.onNodeWithTag("manage_properties_button").assertDoesNotExist()
+    }
+
+    @Test
+    fun `Manage Properties visible during ROLLING phase`() {
+        val player = Player(id = "player1", name = "P1", position = 0)
+
+        val mockVm = createMockViewModel(
+            isRollingPhase = true,
+            isBuyingPhase = false,
+            canEndTurn = false,
+            currentPlayerId = "player1",
+            players = listOf(player)
+        )
+
+        composeTestRule.setContent { GameboardScreen(viewModel = mockVm) }
+
+        composeTestRule.onNodeWithTag("manage_properties_button").assertExists()
+    }
+
+    @Test
+    fun `during PAYING_RENT with overlay dismissed end turn blocked but manage visible`() {
+        val player = Player(id = "player1", name = "P1", position = 0)
+
+        val mockVm = createMockViewModel(
+            isBuyingPhase = true,
+            canEndTurn = false,
+            currentPlayerId = "player1",
+            players = listOf(player)
+        )
+
+        every { mockVm.hasPendingPayment } returns MutableStateFlow(true)
+        every { mockVm.showPayRentOverlay } returns MutableStateFlow(false)
+        every { mockVm.currentRentAmount } returns MutableStateFlow(100)
+        every { mockVm.currentRentOwnerId } returns MutableStateFlow("p2")
+        every { mockVm.currentRentFieldId } returns MutableStateFlow(1)
+        every { mockVm.canEndTurnForCurrentPlayer } returns MutableStateFlow(false)
+
+        composeTestRule.setContent { GameboardScreen(viewModel = mockVm) }
+
+        composeTestRule.onNodeWithTag("pay_rent_reopen_button").assertExists()
+        composeTestRule.onNodeWithTag("manage_properties_button").assertExists()
+        composeTestRule.onNodeWithTag("end_turn_button").assertDoesNotExist()
     }
 
     @Test

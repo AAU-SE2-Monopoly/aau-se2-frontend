@@ -465,7 +465,9 @@ fun GameboardScreen(
                     }
                 }
 
-                if (isBuyingPhaseForCurrentPlayer || canEndTurnForCurrentPlayer) {
+                // Visible any time during the current player's turn (Monopoly rule):
+                // mortgage/unmortgage/sell buildings are allowed at any point.
+                if (currentTurnPlayer?.id == currentPlayerId && !currentTurnPlayer.eliminated) {
                     GlassButton(
                         onClick = { viewModel.showMortgageManagementOverlay() },
                         modifier = Modifier

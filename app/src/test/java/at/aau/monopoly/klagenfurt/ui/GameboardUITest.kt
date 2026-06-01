@@ -5,6 +5,7 @@ import android.view.KeyEvent
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
@@ -618,6 +619,7 @@ class GameboardScreenCoverageTest {
         every { vm.showMortgageOverlay } returns MutableStateFlow(false)
         every { vm.showBankruptcyOverlay } returns MutableStateFlow(false)
         every { vm.canPayRent } returns MutableStateFlow(false)
+        every { vm.canRaiseFunds } returns MutableStateFlow(false)
         every { vm.currentRentAmount } returns MutableStateFlow(0)
         every { vm.currentRentOwnerId } returns MutableStateFlow(null)
         every { vm.currentRentFieldId } returns MutableStateFlow(null)
@@ -951,5 +953,280 @@ class GameboardScreenCoverageTest {
             .performClick()
 
         verify { mockVm.buyHouse(property1.id) }
+    }
+
+    @Test
+    fun `PayRentOverlay visible for current player`() {
+        composeTestRule.setContent {
+            PayRentOverlay(
+                isVisible = true,
+                rentAmount = 200,
+                ownerName = "Bob",
+                fieldName = "Herrengasse",
+                currentMoney = 500,
+                canPay = true,
+                canRaiseFunds = true,
+                paymentInFlight = false,
+                propertyInFlight = false,
+                onPay = {},
+                onManageProperties = {},
+                onDeclareBankruptcy = {},
+                onDismiss = {}
+            )
+        }
+
+        composeTestRule.onNodeWithText("RENT DUE").assertExists()
+        composeTestRule.onNodeWithText("Pay Rent").assertExists()
+    }
+
+    @Test
+    fun `PayRentOverlay not visible when isVisible false`() {
+        composeTestRule.setContent {
+            PayRentOverlay(
+                isVisible = false,
+                rentAmount = 200,
+                ownerName = "Bob",
+                fieldName = "Herrengasse",
+                currentMoney = 500,
+                canPay = true,
+                canRaiseFunds = true,
+                paymentInFlight = false,
+                propertyInFlight = false,
+                onPay = {},
+                onManageProperties = {},
+                onDeclareBankruptcy = {},
+                onDismiss = {}
+            )
+        }
+
+        composeTestRule.onNodeWithText("RENT DUE").assertDoesNotExist()
+    }
+
+    @Test
+    fun `MortgageManagementOverlay visible when isVisible true`() {
+        val props = listOf(
+            ManageableProperty(
+                fieldId = 1, name = "Herrengasse", color = "brown",
+                price = 60, mortgageValue = 30, unmortgageCost = 33,
+                houses = 0, hasHotel = false, isMortgaged = false,
+                houseCost = 50, hotelCost = 50, sellHouseValue = 25, sellHotelValue = 25
+            )
+        )
+
+        composeTestRule.setContent {
+            MortgageManagementOverlay(
+                isVisible = true,
+                properties = props,
+                currentMoney = 500,
+                actionInFlight = false,
+                onMortgage = {},
+                onUnmortgage = {},
+                onSellHouse = {},
+                onSellHotel = {},
+                onDismiss = {}
+            )
+        }
+
+        composeTestRule.onNodeWithText("Property Management").assertExists()
+    }
+
+    @Test
+    fun `BankruptcyResolutionOverlay visible for current player`() {
+        composeTestRule.setContent {
+            BankruptcyResolutionOverlay(
+                isVisible = true,
+                playerName = "Alice",
+                totalAssets = 50,
+                totalDebt = 400,
+                propertiesOwned = 1,
+                onConfirm = {},
+                onDismiss = {}
+            )
+        }
+
+        composeTestRule.onNodeWithText("BANKRUPTCY").assertExists()
+        composeTestRule.onNodeWithText("Confirm Bankruptcy").assertExists()
+    }
+
+    @Test
+    fun `Pay Rent reopen button visible when hasPendingPayment and overlay closed`() {
+        val player = Player(id = "player1", name = "P1", position = 0)
+
+        val mockVm = createMockViewModel(
+            isBuyingPhase = true,
+            canEndTurn = false,
+            currentPlayerId = "player1",
+            players = listOf(player)
+        )
+
+        every { mockVm.hasPendingPayment } returns MutableStateFlow(true)
+        every { mockVm.showPayRentOverlay } returns MutableStateFlow(false)
+        every { mockVm.currentRentAmount } returns MutableStateFlow(100)
+        every { mockVm.currentRentOwnerId } returns MutableStateFlow("p2")
+        every { mockVm.currentRentFieldId } returns MutableStateFlow(1)
+        every { mockVm.canEndTurnForCurrentPlayer } returns MutableStateFlow(false)
+
+        composeTestRule.setContent { GameboardScreen(viewModel = mockVm) }
+
+        composeTestRule.onNodeWithTag("pay_rent_reopen_button").assertExists()
+    }
+
+    @Test
+    fun `Manage Properties button visible during buying phase`() {
+        val player = Player(id = "player1", name = "P1", position = 0)
+
+        val mockVm = createMockViewModel(
+            isBuyingPhase = true,
+            canEndTurn = true,
+            currentPlayerId = "player1",
+            players = listOf(player)
+        )
+
+        composeTestRule.setContent { GameboardScreen(viewModel = mockVm) }
+
+        composeTestRule.onNodeWithTag("manage_properties_button").assertExists()
+    }
+
+    @Test
+    fun `BankruptcyResolutionOverlay shows confirm button and summary`() {
+        composeTestRule.setContent {
+            BankruptcyResolutionOverlay(
+                isVisible = true,
+                playerName = "Alice",
+                totalAssets = 50,
+                totalDebt = 400,
+                propertiesOwned = 1,
+                onConfirm = {},
+                onDismiss = {}
+            )
+        }
+
+        composeTestRule.onNodeWithText("Confirm Bankruptcy").assertExists()
+        composeTestRule.onNodeWithText("BANKRUPTCY").assertExists()
+    }
+
+    @Test
+    fun `End Turn button disabled while hasPendingPayment is true`() {
+        val player = Player(id = "player1", name = "P1", position = 0)
+
+        val mockVm = createMockViewModel(
+            isBuyingPhase = true,
+            canEndTurn = false,
+            currentPlayerId = "player1",
+            players = listOf(player)
+        )
+
+        every { mockVm.hasPendingPayment } returns MutableStateFlow(true)
+        every { mockVm.showPayRentOverlay } returns MutableStateFlow(false)
+        every { mockVm.canEndTurnForCurrentPlayer } returns MutableStateFlow(false)
+
+        composeTestRule.setContent { GameboardScreen(viewModel = mockVm) }
+
+        composeTestRule.onNodeWithTag("end_turn_button").assertDoesNotExist()
+    }
+
+    @Test
+    fun `PayRentOverlay Pay Rent button enabled when canPay is true`() {
+        composeTestRule.setContent {
+            PayRentOverlay(
+                isVisible = true, rentAmount = 200, ownerName = "Bob",
+                fieldName = "Herrengasse", currentMoney = 500,
+                canPay = true, canRaiseFunds = true,
+                paymentInFlight = false, propertyInFlight = false,
+                onPay = {}, onManageProperties = {}, onDeclareBankruptcy = {}, onDismiss = {}
+            )
+        }
+
+        composeTestRule.onNodeWithText("Pay Rent").assertExists()
+    }
+
+    @Test
+    fun `PayRentOverlay Pay Rent button shows Insufficient Funds when canPay is false`() {
+        composeTestRule.setContent {
+            PayRentOverlay(
+                isVisible = true, rentAmount = 200, ownerName = "Bob",
+                fieldName = "Herrengasse", currentMoney = 50,
+                canPay = false, canRaiseFunds = true,
+                paymentInFlight = false, propertyInFlight = false,
+                onPay = {}, onManageProperties = {}, onDeclareBankruptcy = {}, onDismiss = {}
+            )
+        }
+
+        composeTestRule.onNodeWithText("Insufficient Funds").assertExists()
+    }
+
+    @Test
+    fun `PayRentOverlay shows Processing when paymentInFlight ignores canPay`() {
+        composeTestRule.setContent {
+            PayRentOverlay(
+                isVisible = true, rentAmount = 200, ownerName = "Bob",
+                fieldName = "Herrengasse", currentMoney = 500,
+                canPay = true, canRaiseFunds = true,
+                paymentInFlight = true, propertyInFlight = false,
+                onPay = {}, onManageProperties = {}, onDeclareBankruptcy = {}, onDismiss = {}
+            )
+        }
+
+        composeTestRule.onNodeWithText("Processing...").assertExists()
+    }
+
+    @Test
+    fun `PayRentOverlay shows Processing when canPay is false and paymentInFlight is true`() {
+        composeTestRule.setContent {
+            PayRentOverlay(
+                isVisible = true, rentAmount = 500, ownerName = "Bob",
+                fieldName = "Herrengasse", currentMoney = 50,
+                canPay = false, canRaiseFunds = false,
+                paymentInFlight = true, propertyInFlight = false,
+                onPay = {}, onManageProperties = {}, onDeclareBankruptcy = {}, onDismiss = {}
+            )
+        }
+
+        composeTestRule.onAllNodesWithText("Processing...").assertCountEquals(2)
+    }
+
+    @Test
+    fun `PayRentOverlay shows Declare Bankruptcy button when canRaiseFunds is false`() {
+        composeTestRule.setContent {
+            PayRentOverlay(
+                isVisible = true, rentAmount = 500, ownerName = "Bob",
+                fieldName = "Herrengasse", currentMoney = 50,
+                canPay = false, canRaiseFunds = false,
+                paymentInFlight = false, propertyInFlight = false,
+                onPay = {}, onManageProperties = {}, onDeclareBankruptcy = {}, onDismiss = {}
+            )
+        }
+
+        composeTestRule.onNodeWithText("Declare Bankruptcy").assertExists()
+    }
+
+    @Test
+    fun `PayRentOverlay hides Declare Bankruptcy button when canRaiseFunds is true`() {
+        composeTestRule.setContent {
+            PayRentOverlay(
+                isVisible = true, rentAmount = 200, ownerName = "Bob",
+                fieldName = "Herrengasse", currentMoney = 1500,
+                canPay = true, canRaiseFunds = true,
+                paymentInFlight = false, propertyInFlight = false,
+                onPay = {}, onManageProperties = {}, onDeclareBankruptcy = {}, onDismiss = {}
+            )
+        }
+
+        composeTestRule.onNodeWithText("Declare Bankruptcy").assertDoesNotExist()
+    }
+
+    @Test
+    fun `PayRentOverlay shows Manage Properties button regardless of canRaiseFunds`() {
+        composeTestRule.setContent {
+            PayRentOverlay(
+                isVisible = true, rentAmount = 200, ownerName = "Bob",
+                fieldName = "Herrengasse", currentMoney = 500,
+                canPay = true, canRaiseFunds = true,
+                paymentInFlight = false, propertyInFlight = false,
+                onPay = {}, onManageProperties = {}, onDeclareBankruptcy = {}, onDismiss = {}
+            )
+        }
+
+        composeTestRule.onNodeWithText("Manage Properties").assertExists()
     }
 }

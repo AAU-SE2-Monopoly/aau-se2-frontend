@@ -69,7 +69,7 @@ class GameServiceTest {
         override fun sellHouse(fieldId: Int) {}
         override fun buyHotel(fieldId: Int) {}
         override fun sellHotel(fieldId: Int) {}
-        override fun payRent(fieldId: Int, diceTotal: Int) {}
+        override fun payRent(fieldId: Int?, diceTotal: Int) {}
         override fun mortgageProperty(fieldId: Int) {}
         override fun unmortgageProperty(fieldId: Int) {}
         override fun declareBankruptcy() {}

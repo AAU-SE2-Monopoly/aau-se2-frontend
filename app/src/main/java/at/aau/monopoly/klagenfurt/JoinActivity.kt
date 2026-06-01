@@ -360,7 +360,7 @@ fun JoinScreen(
 
             Spacer(modifier = Modifier.height(4.dp))
             Text(
-                text = if (currentIconTaken) "Icon bereits belegt" else "Tap to change icon",
+                text = if (currentIconTaken) "Icon already used" else "Tap to change icon",
                 color = if (currentIconTaken) Color(0xFFEF9A9A) else Color.White.copy(alpha = 0.4f),
                 fontSize = 11.sp
             )

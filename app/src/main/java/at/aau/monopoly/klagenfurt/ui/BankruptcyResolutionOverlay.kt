@@ -79,13 +79,13 @@ fun BankruptcyResolutionContent(
         modifier = modifier.fillMaxSize(),
         contentAlignment = Alignment.Center
     ) {
-        val screenWidth = maxWidth
-        val buttonHeight = (screenWidth * 0.12f).coerceIn(44.dp, 56.dp)
+        val screenHeight = maxHeight
+        val buttonHeight = (screenHeight * 0.08f).coerceIn(32.dp, 44.dp)
 
         Surface(
             modifier = Modifier
-                .fillMaxWidth(0.85f)
-                .padding(16.dp),
+                .fillMaxWidth(0.9f)
+                .padding(8.dp),
             color = Color.Black.copy(alpha = 0.92f),
             shape = RoundedCornerShape(20.dp),
             shadowElevation = 8.dp
@@ -93,67 +93,67 @@ fun BankruptcyResolutionContent(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(24.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                // Header
-                Box(
+                    .padding(12.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    // Header
+                    Box(
                     modifier = Modifier
                         .fillMaxWidth()
                         .background(Color(0xFF4A0000), RoundedCornerShape(12.dp))
-                        .padding(vertical = 16.dp),
+                        .padding(vertical = 8.dp),
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
                         text = "BANKRUPTCY",
                         color = Color.White,
-                        fontSize = 22.sp,
+                        fontSize = 16.sp,
                         fontWeight = FontWeight.ExtraBold,
                         letterSpacing = 2.sp
                     )
                 }
 
-                Spacer(modifier = Modifier.height(20.dp))
+                Spacer(modifier = Modifier.height(8.dp))
 
                 // Player name
                 Text(
                     text = playerName,
-                    fontSize = 20.sp,
+                    fontSize = 16.sp,
                     fontWeight = FontWeight.Bold,
                     color = Color.White
                 )
 
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(4.dp))
 
                 Text(
                     text = "has declared bankruptcy",
-                    fontSize = 14.sp,
+                    fontSize = 12.sp,
                     color = Color.White.copy(alpha = 0.7f)
                 )
 
-                Spacer(modifier = Modifier.height(24.dp))
+                Spacer(modifier = Modifier.height(8.dp))
 
                 // Summary box
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
                         .background(Color(0xFF2D2D2D), RoundedCornerShape(12.dp))
-                        .padding(20.dp)
+                        .padding(10.dp)
                 ) {
                     Column {
                         SummaryRow(label = "Total Assets", value = "€$totalAssets")
-                        Spacer(modifier = Modifier.height(12.dp))
+                        Spacer(modifier = Modifier.height(6.dp))
                         SummaryRow(label = "Total Debt", value = "€$totalDebt", isNegative = true)
-                        Spacer(modifier = Modifier.height(12.dp))
+                        Spacer(modifier = Modifier.height(6.dp))
                         SummaryRow(label = "Properties Owned", value = "$propertiesOwned")
-                        Spacer(modifier = Modifier.height(16.dp))
+                        Spacer(modifier = Modifier.height(8.dp))
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .height(1.dp)
                                 .background(Color.White.copy(alpha = 0.2f))
                         )
-                        Spacer(modifier = Modifier.height(16.dp))
+                        Spacer(modifier = Modifier.height(8.dp))
                         SummaryRow(
                             label = "Net Worth",
                             value = "€${totalAssets - totalDebt}",
@@ -162,17 +162,16 @@ fun BankruptcyResolutionContent(
                     }
                 }
 
-                Spacer(modifier = Modifier.height(24.dp))
+                Spacer(modifier = Modifier.height(8.dp))
 
-                // Warning message
                 Text(
                     text = "All properties will be transferred to creditors",
-                    fontSize = 13.sp,
+                    fontSize = 11.sp,
                     color = Color(0xFFFF8A80),
                     textAlign = TextAlign.Center
                 )
 
-                Spacer(modifier = Modifier.height(28.dp))
+                Spacer(modifier = Modifier.height(12.dp))
 
                 // Confirm button
                 Button(
@@ -187,7 +186,7 @@ fun BankruptcyResolutionContent(
                 ) {
                     Text(
                         text = "Accept",
-                        fontSize = 16.sp,
+                        fontSize = 13.sp,
                         fontWeight = FontWeight.Bold,
                         color = Color.White
                     )
@@ -211,7 +210,6 @@ fun BankruptcyResolutionOverlayPreview() {
     }
 }
 
-
 @Composable
 private fun SummaryRow(
     label: String,
@@ -225,12 +223,12 @@ private fun SummaryRow(
     ) {
         Text(
             text = label,
-            fontSize = 14.sp,
+            fontSize = 12.sp,
             color = Color.White.copy(alpha = 0.8f)
         )
         Text(
             text = value,
-            fontSize = 16.sp,
+            fontSize = 13.sp,
             fontWeight = FontWeight.SemiBold,
             color = if (isNegative) Color(0xFFFF5252) else Color(0xFF69F0AE)
         )

@@ -56,36 +56,35 @@ private val SelectedManagedCardBorder = Color(0xFF69F0AE)
 private val MortgagedManagedCardRed = Color(0xFFD32F2F)
 
 /**
- * Sorts [ManageableProperty] instances using the same multi-tier ordering:
- * non-mortgaged (buildings first) → color-grouped → mortgaged.
+ * Sorts [ManageableProperty] instances by color first, keeping same-color groups together.
+ * Within each color: buildings first, then vacant, then mortgaged.
  */
 fun sortManageableProperties(properties: List<ManageableProperty>): List<ManageableProperty> {
     return properties.sortedWith(
         compareBy<ManageableProperty> { prop ->
-            when {
-                !prop.isMortgaged && (prop.houses > 0 || prop.hasHotel) -> 0
-                !prop.isMortgaged -> 1
-                prop.isMortgaged -> 3
-                else -> 4
+            when (prop.color?.lowercase()) {
+                "brown" -> PropertyColor.BROWN.ordinal
+                "light_blue" -> PropertyColor.LIGHT_BLUE.ordinal
+                "pink" -> PropertyColor.PINK.ordinal
+                "orange" -> PropertyColor.ORANGE.ordinal
+                "red" -> PropertyColor.RED.ordinal
+                "yellow" -> PropertyColor.YELLOW.ordinal
+                "green" -> PropertyColor.GREEN.ordinal
+                "dark_blue" -> PropertyColor.DARK_BLUE.ordinal
+                else -> 100
             }
         }
+            .thenBy { prop ->
+                when {
+                    prop.isMortgaged -> 2
+                    prop.houses > 0 || prop.hasHotel -> 0
+                    else -> 1
+                }
+            }
             .thenByDescending { prop ->
                 if (!prop.isMortgaged && (prop.houses > 0 || prop.hasHotel))
                     if (prop.hasHotel) 5 else prop.houses
                 else 0
-            }
-            .thenBy { prop ->
-                when (prop.color?.lowercase()) {
-                    "brown" -> PropertyColor.BROWN.ordinal
-                    "light_blue" -> PropertyColor.LIGHT_BLUE.ordinal
-                    "pink" -> PropertyColor.PINK.ordinal
-                    "orange" -> PropertyColor.ORANGE.ordinal
-                    "red" -> PropertyColor.RED.ordinal
-                    "yellow" -> PropertyColor.YELLOW.ordinal
-                    "green" -> PropertyColor.GREEN.ordinal
-                    "dark_blue" -> PropertyColor.DARK_BLUE.ordinal
-                    else -> 100 // railroads, utilities
-                }
             }
             .thenBy { it.name }
     )
@@ -176,9 +175,9 @@ fun MortgageManagementContent(
         val screenWidth = maxWidth
         val screenHeight = maxHeight
 
-        val cardWidth = (screenWidth * 0.30f).coerceIn(100.dp, 190.dp)
-        val cardHeight = cardWidth * 1.6f
-        val buttonHeight = (screenHeight * 0.065f).coerceIn(40.dp, 56.dp)
+        val cardWidth = (screenWidth * 0.28f).coerceIn(80.dp, 160.dp)
+        val cardHeight = cardWidth * 1.4f
+        val buttonHeight = (screenHeight * 0.075f).coerceIn(32.dp, 44.dp)
 
         Surface(
             modifier = Modifier
@@ -191,44 +190,42 @@ fun MortgageManagementContent(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(20.dp)
+                    .padding(12.dp)
             ) {
-                // Header
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
                         .background(Color(0xFF1565C0), RoundedCornerShape(12.dp))
-                        .padding(vertical = 14.dp),
+                        .padding(vertical = 8.dp),
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
                         text = "Property Management",
                         color = Color.White,
-                        fontSize = 20.sp,
+                        fontSize = 16.sp,
                         fontWeight = FontWeight.ExtraBold,
                         letterSpacing = 1.sp
                     )
                 }
 
-                Spacer(modifier = Modifier.height(10.dp))
+                Spacer(modifier = Modifier.height(6.dp))
 
-                // Balance display
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
                         .background(Color(0xFF1E1E1E), RoundedCornerShape(10.dp))
-                        .padding(10.dp),
+                        .padding(6.dp),
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
                         text = "Balance: €$currentMoney",
-                        fontSize = 15.sp,
+                        fontSize = 13.sp,
                         fontWeight = FontWeight.SemiBold,
                         color = Color(0xFF69F0AE)
                     )
                 }
 
-                Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = Modifier.height(8.dp))
 
                 if (sortedProperties.isEmpty()) {
                     Box(
@@ -255,7 +252,9 @@ fun MortgageManagementContent(
                         modifier = Modifier.weight(1f, fill = false)
                     )
 
-                    Spacer(modifier = Modifier.height(12.dp))
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    val actionChipHeight = (screenHeight * 0.065f).coerceIn(30.dp, 40.dp)
 
                     AnimatedVisibility(
                         visible = selectedProperty != null,
@@ -267,6 +266,7 @@ fun MortgageManagementContent(
                                 property = prop,
                                 currentMoney = currentMoney,
                                 actionInFlight = actionInFlight,
+                                chipHeight = actionChipHeight,
                                 onMortgage = { onMortgage(prop.fieldId); selectedProperty = null },
                                 onUnmortgage = { onUnmortgage(prop.fieldId); selectedProperty = null },
                                 onSellHouse = { onSellHouse(prop.fieldId); selectedProperty = null },
@@ -276,7 +276,7 @@ fun MortgageManagementContent(
                     }
                 }
 
-                Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = Modifier.height(8.dp))
 
                 Button(
                     onClick = onDismiss,
@@ -290,7 +290,7 @@ fun MortgageManagementContent(
                 ) {
                     Text(
                         text = "Close",
-                        fontSize = 16.sp,
+                        fontSize = 13.sp,
                         fontWeight = FontWeight.Bold,
                         color = Color.White
                     )
@@ -318,14 +318,12 @@ private fun PropertyCardRow(
         contentPadding = PaddingValues(horizontal = 4.dp),
         horizontalArrangement = Arrangement.spacedBy(0.dp)
     ) {
-        var first = true
-        grouped.forEach { group ->
-            if (!first) {
-                item(key = "spacer_${group.key}") {
+        grouped.forEachIndexed { index, group ->
+            if (index > 0) {
+                item(key = "spacer_$index") {
                     Spacer(modifier = Modifier.width(12.dp))
                 }
             }
-            first = false
 
             items(group.properties, key = { "prop_${it.fieldId}" }) { prop ->
                 val isSelected = selectedProperty?.fieldId == prop.fieldId
@@ -476,6 +474,7 @@ private fun PropertyActionPanel(
     property: ManageableProperty,
     currentMoney: Int,
     actionInFlight: Boolean,
+    chipHeight: Dp,
     onMortgage: () -> Unit,
     onUnmortgage: () -> Unit,
     onSellHouse: () -> Unit,
@@ -490,7 +489,7 @@ private fun PropertyActionPanel(
         shadowElevation = 4.dp
     ) {
         Column(
-            modifier = Modifier.padding(14.dp)
+            modifier = Modifier.padding(10.dp)
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -499,14 +498,14 @@ private fun PropertyActionPanel(
             ) {
                 Text(
                     text = property.name,
-                    fontSize = 16.sp,
+                    fontSize = 13.sp,
                     fontWeight = FontWeight.ExtraBold,
                     color = Color.White,
                     modifier = Modifier.weight(1f)
                 )
                 Text(
                     text = if (property.isMortgaged) "MORTGAGED" else "Owned",
-                    fontSize = 12.sp,
+                    fontSize = 11.sp,
                     fontWeight = FontWeight.Bold,
                     color = if (property.isMortgaged) Color(0xFFFF5252) else Color(0xFF69F0AE)
                 )
@@ -514,29 +513,29 @@ private fun PropertyActionPanel(
 
             if (property.houses > 0 || property.hasHotel) {
                 Row(
-                    modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+                    modifier = Modifier.fillMaxWidth().padding(top = 2.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     if (property.hasHotel) {
                         Text(
-                            "🏨 Hotel",
-                            fontSize = 13.sp,
+                            "Hotel",
+                            fontSize = 11.sp,
                             color = Color(0xFFFFD700),
                             fontWeight = FontWeight.Bold
                         )
                     } else {
                         Text(
-                            "🏠 ${property.houses} House${if (property.houses > 1) "s" else ""}",
-                            fontSize = 13.sp,
+                            "${property.houses} House${if (property.houses > 1) "s" else ""}",
+                            fontSize = 11.sp,
                             color = Color.White
                         )
                     }
                 }
             }
 
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(4.dp))
             HorizontalDivider(color = Color.White.copy(alpha = 0.15f), thickness = 1.dp)
-            Spacer(modifier = Modifier.height(10.dp))
+            Spacer(modifier = Modifier.height(6.dp))
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -548,6 +547,7 @@ private fun PropertyActionPanel(
                         sub = "+€${property.mortgageValue}",
                         backgroundColor = Color(0xFFC62828),
                         enabled = !actionInFlight,
+                        chipHeight = chipHeight,
                         modifier = Modifier.weight(1f),
                         onClick = onMortgage
                     )
@@ -559,6 +559,7 @@ private fun PropertyActionPanel(
                         sub = "-€${property.unmortgageCost}",
                         backgroundColor = Color(0xFF2E7D32),
                         enabled = canUnmortgage && !actionInFlight,
+                        chipHeight = chipHeight,
                         modifier = Modifier.weight(1f),
                         onClick = onUnmortgage
                     )
@@ -570,6 +571,7 @@ private fun PropertyActionPanel(
                         sub = "+€${property.sellHouseValue}",
                         backgroundColor = Color(0xFFC77700),
                         enabled = !actionInFlight,
+                        chipHeight = chipHeight,
                         modifier = Modifier.weight(1f),
                         onClick = onSellHouse
                     )
@@ -581,6 +583,7 @@ private fun PropertyActionPanel(
                         sub = "+€${property.sellHotelValue}",
                         backgroundColor = Color(0xFFC77700),
                         enabled = !actionInFlight,
+                        chipHeight = chipHeight,
                         modifier = Modifier.weight(1f),
                         onClick = onSellHotel
                     )
@@ -588,10 +591,10 @@ private fun PropertyActionPanel(
             }
 
             if (property.isMortgaged && !canUnmortgage) {
-                Spacer(modifier = Modifier.height(6.dp))
+                Spacer(modifier = Modifier.height(4.dp))
                 Text(
                     text = "Need €${property.unmortgageCost - currentMoney} more",
-                    fontSize = 11.sp,
+                    fontSize = 10.sp,
                     color = Color(0xFFFF5252).copy(alpha = 0.8f),
                     modifier = Modifier.fillMaxWidth(),
                     textAlign = TextAlign.Center
@@ -609,13 +612,14 @@ private fun ActionChip(
     sub: String,
     backgroundColor: Color,
     enabled: Boolean,
+    chipHeight: Dp,
     modifier: Modifier = Modifier,
     onClick: () -> Unit
 ) {
     Button(
         onClick = onClick,
         enabled = enabled,
-        modifier = modifier.height(52.dp),
+        modifier = modifier.height(chipHeight),
         colors = ButtonDefaults.buttonColors(
             containerColor = backgroundColor,
             disabledContainerColor = backgroundColor.copy(alpha = 0.3f)
@@ -625,13 +629,13 @@ private fun ActionChip(
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Text(
                 text = text,
-                fontSize = 13.sp,
+                fontSize = 11.sp,
                 fontWeight = FontWeight.Bold,
                 color = Color.White
             )
             Text(
                 text = sub,
-                fontSize = 11.sp,
+                fontSize = 10.sp,
                 color = Color.White.copy(alpha = 0.85f)
             )
         }
@@ -794,6 +798,7 @@ fun PropertyActionPanelPreview() {
                 property = prop,
                 currentMoney = 1200,
                 actionInFlight = false,
+                chipHeight = 48.dp,
                 onMortgage = {},
                 onUnmortgage = {},
                 onSellHouse = {},
@@ -818,6 +823,7 @@ fun MortgagedPropertyActionPanelPreview() {
                 property = prop,
                 currentMoney = 20, // Not enough to unmortgage
                 actionInFlight = false,
+                chipHeight = 48.dp,
                 onMortgage = {},
                 onUnmortgage = {},
                 onSellHouse = {},

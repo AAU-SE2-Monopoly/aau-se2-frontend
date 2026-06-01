@@ -56,13 +56,13 @@ fun PayRentOverlay(
             modifier = Modifier.fillMaxSize(),
             contentAlignment = Alignment.Center
         ) {
-            val screenWidth = maxWidth
-            val buttonHeight = (screenWidth * 0.12f).coerceIn(44.dp, 56.dp)
+            val screenHeight = maxHeight
+            val buttonHeight = (screenHeight * 0.08f).coerceIn(32.dp, 44.dp)
 
             Surface(
                 modifier = Modifier
-                    .fillMaxWidth(0.85f)
-                    .padding(16.dp),
+                    .fillMaxWidth(0.9f)
+                    .padding(8.dp),
                 color = Color.Black.copy(alpha = 0.92f),
                 shape = RoundedCornerShape(20.dp),
                 shadowElevation = 8.dp
@@ -70,7 +70,7 @@ fun PayRentOverlay(
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(24.dp),
+                        .padding(12.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     // Header
@@ -81,63 +81,63 @@ fun PayRentOverlay(
                                 Color(0xFFC62828),
                                 RoundedCornerShape(12.dp)
                             )
-                            .padding(vertical = 16.dp),
+                            .padding(vertical = 8.dp),
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = "💸 RENT DUE",
+                            text = "RENT DUE",
                             color = Color.White,
-                            fontSize = 22.sp,
+                            fontSize = 16.sp,
                             fontWeight = FontWeight.ExtraBold,
                             letterSpacing = 2.sp
                         )
                     }
 
-                    Spacer(modifier = Modifier.height(20.dp))
+                    Spacer(modifier = Modifier.height(8.dp))
 
                     // Field name
                     Text(
                         text = fieldName,
-                        fontSize = 18.sp,
+                        fontSize = 14.sp,
                         fontWeight = FontWeight.Bold,
                         color = Color.White,
                         textAlign = TextAlign.Center
                     )
 
                     // Owner info
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.height(4.dp))
                     Text(
                         text = "Owner: ${ownerName ?: "Unknown"}",
-                        fontSize = 14.sp,
+                        fontSize = 12.sp,
                         color = Color.White.copy(alpha = 0.8f)
                     )
 
-                    Spacer(modifier = Modifier.height(24.dp))
+                    Spacer(modifier = Modifier.height(8.dp))
 
                     // Amount box
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
                             .background(Color(0xFF2D2D2D), RoundedCornerShape(12.dp))
-                            .padding(20.dp),
+                            .padding(10.dp),
                         contentAlignment = Alignment.Center
                     ) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             Text(
                                 text = "Amount to Pay",
-                                fontSize = 14.sp,
+                                fontSize = 11.sp,
                                 color = Color.White.copy(alpha = 0.7f)
                             )
                             Text(
                                 text = "€$rentAmount",
-                                fontSize = 36.sp,
+                                fontSize = 22.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = Color(0xFFFF5252)
                             )
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(16.dp))
+                    Spacer(modifier = Modifier.height(8.dp))
 
                     // Player balance
                     Row(
@@ -147,18 +147,18 @@ fun PayRentOverlay(
                     ) {
                         Text(
                             text = "Your Balance:",
-                            fontSize = 14.sp,
+                            fontSize = 12.sp,
                             color = Color.White.copy(alpha = 0.8f)
                         )
                         Text(
                             text = "€$currentMoney",
-                            fontSize = 16.sp,
+                            fontSize = 14.sp,
                             fontWeight = FontWeight.SemiBold,
                             color = if (canPay) Color(0xFF69F0AE) else Color(0xFFFF5252)
                         )
                     }
 
-                    Spacer(modifier = Modifier.height(28.dp))
+                    Spacer(modifier = Modifier.height(12.dp))
 
                     // Action buttons
                     Button(
@@ -179,13 +179,13 @@ fun PayRentOverlay(
                                 canPay -> "Pay Rent"
                                 else -> "Insufficient Funds"
                             },
-                            fontSize = 16.sp,
+                            fontSize = 13.sp,
                             fontWeight = FontWeight.Bold,
                             color = Color.White
                         )
                     }
 
-                    Spacer(modifier = Modifier.height(12.dp))
+                    Spacer(modifier = Modifier.height(6.dp))
 
                     Button(
                         onClick = onManageProperties,
@@ -201,13 +201,13 @@ fun PayRentOverlay(
                     ) {
                         Text(
                             text = "Manage Properties",
-                            fontSize = 16.sp,
+                            fontSize = 13.sp,
                             fontWeight = FontWeight.Bold,
                             color = Color.White
                         )
                     }
 
-                    Spacer(modifier = Modifier.height(12.dp))
+                    Spacer(modifier = Modifier.height(6.dp))
                         if(!canPay) {
                             Button(
                                 onClick = onDeclareBankruptcy,
@@ -224,7 +224,7 @@ fun PayRentOverlay(
 
                                 Text(
                                     text = "Declare Bankruptcy",
-                                    fontSize = 16.sp,
+                                    fontSize = 13.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = Color.White
                                 )
@@ -232,14 +232,14 @@ fun PayRentOverlay(
                             }
                         }
 
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.height(4.dp))
 
                     // Note
                     val noteText = if (canPay) "You must pay rent to continue"
                         else "You must pay rent or declare bankruptcy to continue"
                     Text(
                         text = noteText,
-                        fontSize = 12.sp,
+                        fontSize = 10.sp,
                         color = Color.White.copy(alpha = 0.5f),
                         textAlign = TextAlign.Center
                     )
@@ -299,4 +299,3 @@ fun PayRentOverlayPreview_CannotPay() {
         onDismiss = {}
     )
 }
-

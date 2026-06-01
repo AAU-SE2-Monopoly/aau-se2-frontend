@@ -108,7 +108,9 @@ data class ManageableProperty(
     val houseCost: Int,
     val hotelCost: Int,
     val sellHouseValue: Int,
-    val sellHotelValue: Int
+    val sellHotelValue: Int,
+    val canSellHouse: Boolean = false,
+    val canSellHotel: Boolean = false
 )
 
 
@@ -167,6 +169,12 @@ fun MortgageManagementContent(
 
     // Sort: buildings first -> color-grouped -> mortgaged
     val sortedProperties = remember(properties) { sortManageableProperties(properties) }
+
+    // Re-resolve from the latest list so that canSellHouse / canSellHotel
+    // reactively reflect even-building rule changes when properties update.
+    val displayProperty = if (selectedProperty != null) {
+        properties.find { it.fieldId == selectedProperty!!.fieldId }
+    } else null
 
     BoxWithConstraints(
         modifier = modifier.fillMaxSize(),
@@ -261,7 +269,7 @@ fun MortgageManagementContent(
                         enter = fadeIn() + slideInVertically { it / 2 },
                         exit = fadeOut() + slideOutVertically { it / 2 }
                     ) {
-                        selectedProperty?.let { prop ->
+                        displayProperty?.let { prop ->
                             PropertyActionPanel(
                                 property = prop,
                                 currentMoney = currentMoney,
@@ -570,7 +578,7 @@ private fun PropertyActionPanel(
                         text = "Sell House",
                         sub = "+€${property.sellHouseValue}",
                         backgroundColor = Color(0xFFC77700),
-                        enabled = !actionInFlight,
+                        enabled = !actionInFlight && property.canSellHouse,
                         chipHeight = chipHeight,
                         modifier = Modifier.weight(1f),
                         onClick = onSellHouse
@@ -582,7 +590,7 @@ private fun PropertyActionPanel(
                         text = "Sell Hotel",
                         sub = "+€${property.sellHotelValue}",
                         backgroundColor = Color(0xFFC77700),
-                        enabled = !actionInFlight,
+                        enabled = !actionInFlight && property.canSellHotel,
                         chipHeight = chipHeight,
                         modifier = Modifier.weight(1f),
                         onClick = onSellHotel

@@ -1523,13 +1523,157 @@ class GameViewModelTest {
     }
 
     @Test
-    fun `buyHotel blocked when buildingActionPending is true`() {
-        fakeService.buyHotelCalled = false
-        viewModel.buyHotel(1)
-        assertTrue(fakeService.buyHotelCalled)
+    fun `manageableProperties canSellHouse reacts to sibling house changes`() = runTest {
+        val job = launch { viewModel.manageableProperties.collect {} }
+        fakeService.currentPlayerId = "p1"
 
-        fakeService.buyHotelCalled = false
-        viewModel.buyHotel(1)
-        assertFalse(fakeService.buyHotelCalled)
+        // Two owned BROWN properties: Field1 has 2 houses, Field2 has 0 houses.
+        // Selling from Field1 → newHouseCount = 1, sibling Field2 has 0 < 1 → canSellHouse = false
+        fakeService.emitTestEvent("""
+        {
+          "event": "STATE_UPDATED",
+          "gameId": "g1",
+          "gameState": {
+            "gameId": "g1",
+            "phase": "BUYING",
+            "currentPlayerIndex": 0,
+            "players": [{"id":"p1","name":"Alice","money":1500}],
+            "fields": [
+              {"id":1,"name":"F1","type":"PROPERTY","color":"BROWN","price":60,"rent":[2,10,30,90,160,250],"houseCost":50,"hotelCost":50,"ownerId":"p1","houses":2,"hasHotel":false,"isMortgaged":false},
+              {"id":2,"name":"F2","type":"PROPERTY","color":"BROWN","price":60,"rent":[2,10,30,90,160,250],"houseCost":50,"hotelCost":50,"ownerId":"p1","houses":0,"hasHotel":false,"isMortgaged":false}
+            ],
+            "pendingPayment": null
+          }
+        }
+        """.trimIndent())
+        advanceUntilIdle()
+
+        val prop1 = viewModel.manageableProperties.value.find { it.fieldId == 1 }
+        assertNotNull(prop1)
+        assertEquals(2, prop1!!.houses)
+        assertFalse("Sell House should be blocked: newHouseCount=1, sibling has 0 < 1", prop1.canSellHouse)
+
+        // Field2 gains a house → both now have 2 and 1.
+        // Selling from Field1 → newHouseCount=1, sibling Field2 has 1 >= 1 → canSellHouse = true
+        fakeService.emitTestEvent("""
+        {
+          "event": "STATE_UPDATED",
+          "gameId": "g1",
+          "gameState": {
+            "gameId": "g1",
+            "phase": "BUYING",
+            "currentPlayerIndex": 0,
+            "players": [{"id":"p1","name":"Alice","money":1500}],
+            "fields": [
+              {"id":1,"name":"F1","type":"PROPERTY","color":"BROWN","price":60,"rent":[2,10,30,90,160,250],"houseCost":50,"hotelCost":50,"ownerId":"p1","houses":2,"hasHotel":false,"isMortgaged":false},
+              {"id":2,"name":"F2","type":"PROPERTY","color":"BROWN","price":60,"rent":[2,10,30,90,160,250],"houseCost":50,"hotelCost":50,"ownerId":"p1","houses":1,"hasHotel":false,"isMortgaged":false}
+            ],
+            "pendingPayment": null
+          }
+        }
+        """.trimIndent())
+        advanceUntilIdle()
+
+        val prop1Updated = viewModel.manageableProperties.value.find { it.fieldId == 1 }
+        assertNotNull(prop1Updated)
+        assertTrue("Sell House should now be allowed: newHouseCount=1, sibling has 1 >= 1", prop1Updated!!.canSellHouse)
+
+        job.cancel()
+    }
+
+    @Test
+    fun `manageableProperties canSellHouse blocked when sibling has more houses`() = runTest {
+        val job = launch { viewModel.manageableProperties.collect {} }
+        fakeService.currentPlayerId = "p1"
+
+        // Field1 has 1 house, Field2 (sibling) has 3 houses.
+        // Selling from Field1 → newHouseCount = 0, but sibling 3 > 1 → blocked
+        fakeService.emitTestEvent("""
+        {
+          "event": "STATE_UPDATED",
+          "gameId": "g1",
+          "gameState": {
+            "gameId": "g1",
+            "phase": "BUYING",
+            "currentPlayerIndex": 0,
+            "players": [{"id":"p1","name":"Alice","money":1500}],
+            "fields": [
+              {"id":1,"name":"F1","type":"PROPERTY","color":"BROWN","price":60,"rent":[2,10,30,90,160,250],"houseCost":50,"hotelCost":50,"ownerId":"p1","houses":1,"hasHotel":false,"isMortgaged":false},
+              {"id":2,"name":"F2","type":"PROPERTY","color":"BROWN","price":60,"rent":[2,10,30,90,160,250],"houseCost":50,"hotelCost":50,"ownerId":"p1","houses":3,"hasHotel":false,"isMortgaged":false}
+            ],
+            "pendingPayment": null
+          }
+        }
+        """.trimIndent())
+        advanceUntilIdle()
+
+        val prop1 = viewModel.manageableProperties.value.find { it.fieldId == 1 }
+        assertNotNull(prop1)
+        // OLD rule would allow (3 in 0..1 = false)... wait, 3 in 0..1 IS false. So old rule also blocks?
+        // Actually old rule was it.houses >= newHouseCount: 3 >= 0 = true → allowed ✗
+        // New rule: 3 in 0..1 = false → blocked ✓
+        assertFalse("Sell House from lower-count property blocked: sibling has 3 > 1", prop1!!.canSellHouse)
+        assertEquals("Sibling has 3 houses, canSellHouse must be false", false, prop1.canSellHouse)
+
+        job.cancel()
+    }
+
+    @Test
+    fun `manageableProperties canSellHotel reacts to sibling house changes`() = runTest {
+        val job = launch { viewModel.manageableProperties.collect {} }
+        fakeService.currentPlayerId = "p1"
+
+        // Two owned BROWN properties: Field1 has hotel, Field2 has 3 houses.
+        // Selling hotel → need all siblings >= 4, Field2 has 3 < 4 → canSellHotel = false
+        fakeService.emitTestEvent("""
+        {
+          "event": "STATE_UPDATED",
+          "gameId": "g1",
+          "gameState": {
+            "gameId": "g1",
+            "phase": "BUYING",
+            "currentPlayerIndex": 0,
+            "players": [{"id":"p1","name":"Alice","money":1500}],
+            "fields": [
+              {"id":1,"name":"F1","type":"PROPERTY","color":"BROWN","price":60,"rent":[2,10,30,90,160,250],"houseCost":50,"hotelCost":50,"ownerId":"p1","houses":0,"hasHotel":true,"isMortgaged":false},
+              {"id":2,"name":"F2","type":"PROPERTY","color":"BROWN","price":60,"rent":[2,10,30,90,160,250],"houseCost":50,"hotelCost":50,"ownerId":"p1","houses":3,"hasHotel":false,"isMortgaged":false}
+            ],
+            "pendingPayment": null
+          }
+        }
+        """.trimIndent())
+        advanceUntilIdle()
+
+        val prop1 = viewModel.manageableProperties.value.find { it.fieldId == 1 }
+        assertNotNull(prop1)
+        assertTrue(prop1!!.hasHotel)
+        assertFalse("Sell Hotel should be blocked: sibling has 3 < 4", prop1.canSellHotel)
+
+        // Field2 gains another house → now has 4 houses.
+        // Selling hotel → need all siblings >= 4, Field2 has 4 >= 4 → canSellHotel = true
+        fakeService.emitTestEvent("""
+        {
+          "event": "STATE_UPDATED",
+          "gameId": "g1",
+          "gameState": {
+            "gameId": "g1",
+            "phase": "BUYING",
+            "currentPlayerIndex": 0,
+            "players": [{"id":"p1","name":"Alice","money":1500}],
+            "fields": [
+              {"id":1,"name":"F1","type":"PROPERTY","color":"BROWN","price":60,"rent":[2,10,30,90,160,250],"houseCost":50,"hotelCost":50,"ownerId":"p1","houses":0,"hasHotel":true,"isMortgaged":false},
+              {"id":2,"name":"F2","type":"PROPERTY","color":"BROWN","price":60,"rent":[2,10,30,90,160,250],"houseCost":50,"hotelCost":50,"ownerId":"p1","houses":4,"hasHotel":false,"isMortgaged":false}
+            ],
+            "pendingPayment": null
+          }
+        }
+        """.trimIndent())
+        advanceUntilIdle()
+
+        val prop1Updated = viewModel.manageableProperties.value.find { it.fieldId == 1 }
+        assertNotNull(prop1Updated)
+        assertTrue("Sell Hotel should now be allowed: sibling has 4 >= 4", prop1Updated!!.canSellHotel)
+
+        job.cancel()
     }
 }

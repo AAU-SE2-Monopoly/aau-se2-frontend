@@ -297,10 +297,11 @@ class GameViewModel(
                     _bankruptcyTotalAssets.value = gs?.bankruptcyTotalAssets ?: 0
                     _bankruptcyTotalDebt.value = gs?.bankruptcyTotalDebt ?: 0
                     _bankruptcyPropertiesOwned.value = gs?.let { state ->
-                        state.fields
+                        val allFields = state.fields
+                        allFields
                             .filter { it.id in state.bankruptcyOwnedFieldIds }
                             .filter { it is PropertyField || it is RailroadField || it is UtilityField }
-                            .map { field -> field.toManageableProperty() }
+                            .map { field -> field.toManageableProperty(allFields) }
                     } ?: emptyList()
                     _showBankruptcyOverlay.value = true
                     finishPaymentAction()
@@ -544,12 +545,13 @@ class GameViewModel(
     val manageableProperties: StateFlow<List<ManageableProperty>> = gameState
         .map { state ->
             val currentPlayerId = gameService.currentPlayerId
-            state?.fields
-                ?.filter { field ->
+            val allFields = state?.fields ?: emptyList()
+            allFields
+                .filter { field ->
                     field is PropertyField || field is RailroadField || field is UtilityField
                 }
-                ?.filter { field -> field.ownerIdFromField() == currentPlayerId }
-                ?.map { field -> field.toManageableProperty() } ?: emptyList()
+                .filter { field -> field.ownerIdFromField() == currentPlayerId }
+                .map { field -> field.toManageableProperty(allFields) }
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 

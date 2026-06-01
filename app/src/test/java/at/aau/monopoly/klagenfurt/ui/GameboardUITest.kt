@@ -2,10 +2,13 @@ package at.aau.monopoly.klagenfurt.ui
 
 import android.content.pm.ActivityInfo
 import android.view.KeyEvent
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.assertIsEnabled
+import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
@@ -1306,5 +1309,165 @@ class GameboardScreenCoverageTest {
         }
 
         composeTestRule.onNodeWithText("Manage Properties").assertExists()
+    }
+
+    // ─── MortgageManagementContent Sell House / Sell Hotel button state ───────
+
+    private fun testSellableProperty(
+        houses: Int = 1,
+        hasHotel: Boolean = false,
+        canSellHouse: Boolean = true,
+        canSellHotel: Boolean = true
+    ): ManageableProperty = ManageableProperty(
+        fieldId = 1, name = "TestProp", color = "brown",
+        price = 60, mortgageValue = 30, unmortgageCost = 33,
+        houses = houses, hasHotel = hasHotel,
+        isMortgaged = false, houseCost = 50, hotelCost = 50,
+        sellHouseValue = 25, sellHotelValue = 25,
+        canSellHouse = canSellHouse, canSellHotel = canSellHotel
+    )
+
+    @Test
+    fun `Sell House button disabled when even-building rule violated`() {
+        val prop = testSellableProperty(canSellHouse = false)
+
+        composeTestRule.setContent {
+            MortgageManagementContent(
+                properties = listOf(prop),
+                currentMoney = 500,
+                actionInFlight = false,
+                onMortgage = {},
+                onUnmortgage = {},
+                onSellHouse = {},
+                onSellHotel = {},
+                onDismiss = {}
+            )
+        }
+
+        composeTestRule.onNodeWithText("TestProp").performClick()
+        composeTestRule.onNodeWithText("Sell House").assertExists()
+        composeTestRule.onNodeWithText("Sell House").assertIsNotEnabled()
+    }
+
+    @Test
+    fun `Sell House button enabled when even-building rule satisfied`() {
+        val prop = testSellableProperty(canSellHouse = true)
+
+        composeTestRule.setContent {
+            MortgageManagementContent(
+                properties = listOf(prop),
+                currentMoney = 500,
+                actionInFlight = false,
+                onMortgage = {},
+                onUnmortgage = {},
+                onSellHouse = {},
+                onSellHotel = {},
+                onDismiss = {}
+            )
+        }
+
+        composeTestRule.onNodeWithText("TestProp").performClick()
+        composeTestRule.onNodeWithText("Sell House").assertExists()
+        composeTestRule.onNodeWithText("Sell House").assertIsEnabled()
+    }
+
+    @Test
+    fun `Sell Hotel button disabled when even-building rule violated`() {
+        val prop = testSellableProperty(hasHotel = true, canSellHotel = false)
+
+        composeTestRule.setContent {
+            MortgageManagementContent(
+                properties = listOf(prop),
+                currentMoney = 500,
+                actionInFlight = false,
+                onMortgage = {},
+                onUnmortgage = {},
+                onSellHouse = {},
+                onSellHotel = {},
+                onDismiss = {}
+            )
+        }
+
+        composeTestRule.onNodeWithText("TestProp").performClick()
+        composeTestRule.onNodeWithText("Sell Hotel").assertExists()
+        composeTestRule.onNodeWithText("Sell Hotel").assertIsNotEnabled()
+    }
+
+    @Test
+    fun `Sell Hotel button enabled when even-building rule satisfied`() {
+        val prop = testSellableProperty(hasHotel = true, canSellHotel = true)
+
+        composeTestRule.setContent {
+            MortgageManagementContent(
+                properties = listOf(prop),
+                currentMoney = 500,
+                actionInFlight = false,
+                onMortgage = {},
+                onUnmortgage = {},
+                onSellHouse = {},
+                onSellHotel = {},
+                onDismiss = {}
+            )
+        }
+
+        composeTestRule.onNodeWithText("TestProp").performClick()
+        composeTestRule.onNodeWithText("Sell Hotel").assertExists()
+        composeTestRule.onNodeWithText("Sell Hotel").assertIsEnabled()
+    }
+
+    @Test
+    fun `Sell House re-enables reactively when even-building rule becomes satisfied`() {
+        val propsState = mutableStateOf(
+            listOf(testSellableProperty(canSellHouse = false))
+        )
+
+        composeTestRule.setContent {
+            MortgageManagementContent(
+                properties = propsState.value,
+                currentMoney = 500,
+                actionInFlight = false,
+                onMortgage = {},
+                onUnmortgage = {},
+                onSellHouse = {},
+                onSellHotel = {},
+                onDismiss = {}
+            )
+        }
+
+        composeTestRule.onNodeWithText("TestProp").performClick()
+        composeTestRule.onNodeWithText("Sell House").assertIsNotEnabled()
+
+        propsState.value = listOf(testSellableProperty(canSellHouse = true))
+        composeTestRule.waitForIdle()
+
+        composeTestRule.onNodeWithText("Sell House").assertIsEnabled()
+    }
+
+    @Test
+    fun `Sell Hotel re-enables reactively when even-building rule becomes satisfied`() {
+        val propsState = mutableStateOf(
+            listOf(testSellableProperty(hasHotel = true, canSellHotel = false))
+        )
+
+        composeTestRule.setContent {
+            MortgageManagementContent(
+                properties = propsState.value,
+                currentMoney = 500,
+                actionInFlight = false,
+                onMortgage = {},
+                onUnmortgage = {},
+                onSellHouse = {},
+                onSellHotel = {},
+                onDismiss = {}
+            )
+        }
+
+        composeTestRule.onNodeWithText("TestProp").performClick()
+        composeTestRule.onNodeWithText("Sell Hotel").assertIsNotEnabled()
+
+        propsState.value = listOf(testSellableProperty(hasHotel = true, canSellHotel = true))
+        composeTestRule.waitForIdle()
+
+        composeTestRule.onNodeWithText("Sell Hotel").assertIsEnabled()
     }
 }

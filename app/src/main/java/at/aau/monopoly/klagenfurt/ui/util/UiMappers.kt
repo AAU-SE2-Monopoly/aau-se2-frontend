@@ -22,18 +22,35 @@ fun Field.ownerIdFromField(): String? = when (this) {
 
 /**
  * Maps an ownable field to a [ManageableProperty] for UI display.
+ * WARNING: does NOT compute canSellHouse/canSellHotel (no sibling context).
  */
-fun Field.toManageableProperty(): ManageableProperty = when (this) {
-    is PropertyField -> ManageableProperty(
-        fieldId = id, name = name, color = color.name,
-        price = price, mortgageValue = price / 2,
-        unmortgageCost = ceil(price / 2.0 * 1.1).toInt(),
-        houses = houses, hasHotel = hasHotel,
-        isMortgaged = isMortgaged,
-        houseCost = houseCost, hotelCost = hotelCost,
-        sellHouseValue = houseCost / 2,
-        sellHotelValue = hotelCost / 2
-    )
+fun Field.toManageableProperty(): ManageableProperty = toManageableProperty(emptyList())
+
+/**
+ * Maps an ownable field to a [ManageableProperty] for UI display.
+ * [allFields] is used to check the even-building rule for Sell House / Sell Hotel.
+ */
+fun Field.toManageableProperty(allFields: List<Field>): ManageableProperty = when (this) {
+    is PropertyField -> {
+        val siblings = allFields.filterIsInstance<PropertyField>()
+            .filter { it.color == color && it.id != id && it.ownerId == ownerId }
+        val newHouseCount = houses - 1
+        val canSell = houses > 0 && !isMortgaged &&
+            siblings.all { it.houses in newHouseCount..houses }
+        val canSellH = hasHotel && !isMortgaged && siblings.all { it.houses >= 4 }
+        ManageableProperty(
+            fieldId = id, name = name, color = color.name,
+            price = price, mortgageValue = price / 2,
+            unmortgageCost = ceil(price / 2.0 * 1.1).toInt(),
+            houses = houses, hasHotel = hasHotel,
+            isMortgaged = isMortgaged,
+            houseCost = houseCost, hotelCost = hotelCost,
+            sellHouseValue = houseCost / 2,
+            sellHotelValue = hotelCost / 2,
+            canSellHouse = canSell,
+            canSellHotel = canSellH
+        )
+    }
     is RailroadField -> ManageableProperty(
         fieldId = id, name = name, color = null,
         price = price, mortgageValue = price / 2,

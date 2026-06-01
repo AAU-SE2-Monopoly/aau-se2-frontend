@@ -73,6 +73,8 @@ class GameServiceTest {
         override fun mortgageProperty(fieldId: Int) {}
         override fun unmortgageProperty(fieldId: Int) {}
         override fun declareBankruptcy() {}
+        override fun debugForwardGame() {}
+        override fun debugSetupBankruptcy() {}
     }
 
     @Test

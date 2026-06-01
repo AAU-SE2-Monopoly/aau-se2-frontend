@@ -88,6 +88,7 @@ import at.aau.monopoly.klagenfurt.model.field.ChanceField
 import at.aau.monopoly.klagenfurt.model.field.CommunityChestField
 import kotlin.math.hypot
 import at.aau.monopoly.klagenfurt.model.field.PropertyField
+import com.example.myapplication.BuildConfig
 
 
 
@@ -471,6 +472,27 @@ fun GameboardScreen(
                             .testTag("manage_properties_button")
                     ) {
                         Text("Manage Properties")
+                    }
+                }
+
+                /** DEBUG remove this block of code to remove */
+                if (BuildConfig.DEBUG && currentTurnPlayer?.id == currentPlayerId) {
+                    GlassButton(
+                        onClick = { viewModel.debugForwardGame() },
+                        modifier = Modifier
+                            .padding(top = 8.dp)
+                            .testTag("debug_forward_game_button")
+                    ) {
+                        Text("DEBUG: Forward Game")
+                    }
+
+                    GlassButton(
+                        onClick = { viewModel.debugSetupBankruptcy() },
+                        modifier = Modifier
+                            .padding(top = 8.dp)
+                            .testTag("debug_bankruptcy_setup_button")
+                    ) {
+                        Text("DEBUG: Bankruptcy Setup")
                     }
                 }
 

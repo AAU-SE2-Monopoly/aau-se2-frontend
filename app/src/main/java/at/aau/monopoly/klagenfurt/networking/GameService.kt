@@ -59,4 +59,8 @@ interface GameService {
     fun mortgageProperty(fieldId: Int)
     fun unmortgageProperty(fieldId: Int)
     fun declareBankruptcy()
+    /** DEBUG remove this block of code to remove */
+    fun debugForwardGame()
+    /** DEBUG remove this block of code to remove */
+    fun debugSetupBankruptcy()
 }

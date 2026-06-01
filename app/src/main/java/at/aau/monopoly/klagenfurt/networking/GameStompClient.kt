@@ -720,4 +720,28 @@ class GameStompClient(
         sendRaw("/app/game/action", JacksonProvider.objectMapper.writeValueAsString(action))
         Log.d("GameStomp", "Declaring bankruptcy")
     }
+
+    /** DEBUG remove this block of code to remove */
+    override fun debugForwardGame() {
+        val action = GameAction(
+            gameId = _currentGameId,
+            playerId = currentPlayerId,
+            action = "DEBUG_FORWARD_GAME",
+            payload = emptyMap()
+        )
+        sendRaw("/app/game/action", JacksonProvider.objectMapper.writeValueAsString(action))
+        Log.d("GameStomp", "Debug forward game requested")
+    }
+
+    /** DEBUG remove this block of code to remove */
+    override fun debugSetupBankruptcy() {
+        val action = GameAction(
+            gameId = _currentGameId,
+            playerId = currentPlayerId,
+            action = "DEBUG_SETUP_BANKRUPTCY",
+            payload = emptyMap()
+        )
+        sendRaw("/app/game/action", JacksonProvider.objectMapper.writeValueAsString(action))
+        Log.d("GameStomp", "Debug bankruptcy setup requested")
+    }
 }

@@ -663,6 +663,16 @@ class GameViewModel(
         // overlay dismissal handled by BANKRUPTCY_DECLARED event
     }
 
+    /** DEBUG remove this block of code to remove */
+    fun debugForwardGame() {
+        gameService.debugForwardGame()
+    }
+
+    /** DEBUG remove this block of code to remove */
+    fun debugSetupBankruptcy() {
+        gameService.debugSetupBankruptcy()
+    }
+
     fun showPayRentOverlay(
         amount: Int,
         ownerId: String?,

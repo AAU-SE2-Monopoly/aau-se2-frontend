@@ -219,6 +219,8 @@ class FakeGameService : GameService {
     override fun mortgageProperty(fieldId: Int) {}
     override fun unmortgageProperty(fieldId: Int) {}
     override fun declareBankruptcy() {}
+    override fun debugForwardGame() {}
+    override fun debugSetupBankruptcy() {}
 
     override fun payJailFine(){}
 

@@ -55,7 +55,7 @@ interface GameService {
     fun sellHotel(fieldId: Int)
 
 
-    fun payRent(fieldId: Int, diceTotal: Int = 0)
+    fun payRent(fieldId: Int?, diceTotal: Int = 0)
     fun mortgageProperty(fieldId: Int)
     fun unmortgageProperty(fieldId: Int)
     fun declareBankruptcy()

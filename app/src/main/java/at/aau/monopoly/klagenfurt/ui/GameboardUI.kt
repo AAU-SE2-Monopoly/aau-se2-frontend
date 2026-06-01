@@ -197,6 +197,7 @@ fun GameboardScreen(
     val currentRentFieldId by viewModel.currentRentFieldId.collectAsState()
     val manageableProperties by viewModel.manageableProperties.collectAsState()
     val canPayRent by viewModel.canPayRent.collectAsState()
+    val canRaiseFunds by viewModel.canRaiseFunds.collectAsState()
     val paymentActionInFlight by viewModel.paymentActionInFlight.collectAsState()
     val propertyActionInFlight by viewModel.propertyActionInFlight.collectAsState()
     val bankruptcyPlayerName by viewModel.bankruptcyPlayerName.collectAsState()
@@ -593,6 +594,7 @@ fun GameboardScreen(
                 } ?: "",
                 currentMoney = currentTurnPlayer?.money ?: 0,
                 canPay = canPayRent,
+                canRaiseFunds = canRaiseFunds,
                 paymentInFlight = paymentActionInFlight,
                 propertyInFlight = propertyActionInFlight,
                 onPay = { viewModel.payRent() },

@@ -42,6 +42,7 @@ fun PayRentOverlay(
     fieldName: String,
     currentMoney: Int,
     canPay: Boolean,
+    canRaiseFunds: Boolean,
     paymentInFlight: Boolean,
     propertyInFlight: Boolean,
     onPay: () -> Unit,
@@ -208,7 +209,7 @@ fun PayRentOverlay(
                     }
 
                     Spacer(modifier = Modifier.height(6.dp))
-                        if(!canPay) {
+                        if(!canRaiseFunds) {
                             Button(
                                 onClick = onDeclareBankruptcy,
                                 enabled = !paymentInFlight,
@@ -272,6 +273,7 @@ fun PayRentOverlayPreview_CanPay() {
         fieldName = "Heiligengeistplatz",
         currentMoney = 1500,
         canPay = true,
+        canRaiseFunds = true,
         paymentInFlight = false,
         propertyInFlight = false,
         onPay = {},
@@ -281,7 +283,7 @@ fun PayRentOverlayPreview_CanPay() {
     )
 }
 
-@Preview(showBackground = true, name = "Pay Rent - Insufficient Funds")
+@Preview(showBackground = true, name = "Pay Rent - Insufficient Cash but can raise")
 @Composable
 fun PayRentOverlayPreview_CannotPay() {
     PayRentOverlay(
@@ -291,6 +293,27 @@ fun PayRentOverlayPreview_CannotPay() {
         fieldName = "Heiligengeistplatz",
         currentMoney = 500,
         canPay = false,
+        canRaiseFunds = true,
+        paymentInFlight = false,
+        propertyInFlight = false,
+        onPay = {},
+        onManageProperties = {},
+        onDeclareBankruptcy = {},
+        onDismiss = {}
+    )
+}
+
+@Preview(showBackground = true, name = "Pay Rent - Bankrupt")
+@Composable
+fun PayRentOverlayPreview_Bankrupt() {
+    PayRentOverlay(
+        isVisible = true,
+        rentAmount = 5000,
+        ownerName = "Another Random Dude",
+        fieldName = "Heiligengeistplatz",
+        currentMoney = 100,
+        canPay = false,
+        canRaiseFunds = false,
         paymentInFlight = false,
         propertyInFlight = false,
         onPay = {},

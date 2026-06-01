@@ -520,8 +520,20 @@ class GameViewModel(
             .launchIn(viewModelScope)
     }
 
-    // reactive canPayRent StateFlow based on total assets (money + mortgageable value)
+    // Whether the player has enough cash right now (enables Pay Rent button)
     val canPayRent: StateFlow<Boolean> = combine(
+        gameState, _currentRentAmount
+    ) { state, rentAmount ->
+        val amount = rentAmount
+        val player = state?.players?.find { it.id == gameService.currentPlayerId }
+        if (player == null || amount <= 0) false
+        else player.money >= amount
+    }
+    .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+
+    // Whether total assets (cash + mortgage value + building sellback) cover the rent
+    // If false, bankruptcy is the only option
+    val canRaiseFunds: StateFlow<Boolean> = combine(
         gameState, _currentRentAmount
     ) { state, rentAmount ->
         val amount = rentAmount
@@ -629,8 +641,9 @@ class GameViewModel(
 
     // Payment/mortgage/bankrupcty
     fun payRent() {
+        Log.d("GameViewModel", "payRent() called, inFlight=${_paymentActionInFlight.value}, fieldId=${currentRentFieldId.value}, money=${(gameState.value?.players?.find { it.id == gameService.currentPlayerId }?.money)}")
         if (_paymentActionInFlight.value) return
-        val fieldId = currentRentFieldId.value ?: return
+        val fieldId = currentRentFieldId.value
         val diceTotal = _lastDiceTotalForRent.value
         startPaymentAction()
         gameService.payRent(fieldId, diceTotal)
@@ -714,6 +727,7 @@ class GameViewModel(
 
     private fun updatePendingPaymentState(state: GameState?) {
         if (state == null) {
+            Log.d("GameViewModel", "updatePendingPaymentState: state=null, clearing fieldId")
             _hasPendingPayment.value = false
             _showPayRentOverlay.value = false
             _currentRentAmount.value = 0
@@ -730,6 +744,7 @@ class GameViewModel(
         }
 
         if (pendingKey == null || pending.amount <= 0) {
+            Log.d("GameViewModel", "updatePendingPaymentState: pending null/empty, clearing fieldId. pendingKey=$pendingKey")
             _hasPendingPayment.value = false
             _showPayRentOverlay.value = false
             _currentRentAmount.value = 0
@@ -745,10 +760,12 @@ class GameViewModel(
         _currentRentAmount.value = pending.amount
         _currentRentOwnerId.value = pending.creditorPlayerId
         _currentRentFieldId.value = pending.sourceFieldId
+        Log.d("GameViewModel", "updatePendingPaymentState: set fieldId=${pending.sourceFieldId}, amount=${pending.amount}, source=${pending.source}")
 
         _lastDiceTotalForRent.value = state.lastDiceRoll?.total ?: 0
 
         if (pendingKey != lastPendingPaymentKey) {
+            Log.d("GameViewModel", "updatePendingPaymentState: new pendingKey=$pendingKey, showing overlay")
             _showPayRentOverlay.value = true
             lastPendingPaymentKey = pendingKey
         }

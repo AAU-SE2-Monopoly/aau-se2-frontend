@@ -677,12 +677,15 @@ class GameStompClient(
         Log.d("GameStomp", "Selling hotel on field: $fieldId")
     }
 
-    override fun payRent(fieldId: Int, diceTotal: Int) {
+    override fun payRent(fieldId: Int?, diceTotal: Int) {
+        val payload = mutableMapOf<String, String>()
+        if (fieldId != null) payload["fieldId"] = fieldId.toString()
+        payload["diceTotal"] = diceTotal.toString()
         val action = GameAction(
             gameId = _currentGameId,
             playerId = currentPlayerId,
             action = "PAY_RENT",
-            payload = mapOf("fieldId" to fieldId.toString(), "diceTotal" to diceTotal.toString())
+            payload = payload
         )
         sendRaw("/app/game/action", JacksonProvider.objectMapper.writeValueAsString(action))
         Log.d("GameStomp", "Paying rent on field: $fieldId")

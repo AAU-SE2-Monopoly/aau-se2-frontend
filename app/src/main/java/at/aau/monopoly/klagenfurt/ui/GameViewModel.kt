@@ -540,11 +540,11 @@ class GameViewModel(
         val player = state?.players?.find { it.id == gameService.currentPlayerId }
         if (player == null || amount <= 0) false
         else {
-            val totalAssets = player.money + (state?.fields
-                ?.filter { it is PropertyField || it is RailroadField || it is UtilityField }
-                ?.filter { field -> field.ownerIdFromField() == player.id }
-                ?.filter { field -> !(field as OwnableField).isMortgaged }
-                ?.sumOf { field ->
+            val totalAssets = player.money + state.fields
+                .filter { it is PropertyField || it is RailroadField || it is UtilityField }
+                .filter { field -> field.ownerIdFromField() == player.id }
+                .filter { field -> !(field as OwnableField).isMortgaged }
+                .sumOf { field ->
                     val price = when (field) {
                         is PropertyField -> field.price
                         is RailroadField -> field.price
@@ -558,7 +558,7 @@ class GameViewModel(
                         field.hotelCost / 2
                     } else 0
                     price / 2 + houseSellBack + hotelSellBack
-                } ?: 0)
+                }
             totalAssets >= amount
         }
     }

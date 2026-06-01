@@ -51,14 +51,10 @@ class JoinViewModel(private val gameService: GameService) : ViewModel() {
             gameService.subscribeToGame(gameId)
 
             gameService.events.collect { raw ->
-                try {
-                    val event = objectMapper.readValue(raw, GameEvent::class.java)
-                    if (event.gameId == gameId && event.gameState != null) {
-                        val taken = event.gameState.players.map { it.iconId }.toSet()
-                        _takenIcons.value = taken
-                    }
-                } catch (_: Exception) {
-                    // Ignore parse errors from other event types
+                val event = at.aau.monopoly.klagenfurt.ui.util.parseGameEvent(raw) ?: return@collect
+                val state = event.gameState ?: return@collect
+                if (event.gameId == gameId) {
+                    _takenIcons.value = state.players.map { it.iconId }.toSet()
                 }
             }
         }

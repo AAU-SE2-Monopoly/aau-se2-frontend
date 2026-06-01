@@ -46,6 +46,8 @@ fun Field.toManageableProperty(allFields: List<Field>): ManageableProperty = whe
             siblings.all { it.houses >= houses }
         val canBuyH = allUnmortgaged && ownsMonopoly && houses == 4 && !hasHotel &&
             siblings.all { it.houses == 4 }
+        val siblingHasBuildings = siblings.any { it.houses > 0 || it.hasHotel }
+        val canMortgage = !isMortgaged && houses == 0 && !hasHotel && !siblingHasBuildings
         ManageableProperty(
             fieldId = id, name = name, color = color.name,
             price = price, mortgageValue = price / 2,
@@ -58,7 +60,8 @@ fun Field.toManageableProperty(allFields: List<Field>): ManageableProperty = whe
             canSellHouse = canSell,
             canSellHotel = canSellH,
             canBuyHouse = canBuy,
-            canBuyHotel = canBuyH
+            canBuyHotel = canBuyH,
+            canMortgage = canMortgage
         )
     }
     is RailroadField -> ManageableProperty(

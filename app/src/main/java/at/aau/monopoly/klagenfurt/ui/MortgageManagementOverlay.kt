@@ -112,7 +112,8 @@ data class ManageableProperty(
     val canSellHouse: Boolean = false,
     val canSellHotel: Boolean = false,
     val canBuyHouse: Boolean = false,
-    val canBuyHotel: Boolean = false
+    val canBuyHotel: Boolean = false,
+    val canMortgage: Boolean = false
 )
 
 
@@ -566,7 +567,7 @@ private fun PropertyActionPanel(
                         text = "Mortgage",
                         sub = "+€${property.mortgageValue}",
                         backgroundColor = Color(0xFFC62828),
-                        enabled = !actionInFlight,
+                        enabled = !actionInFlight && property.canMortgage,
                         chipHeight = chipHeight,
                         modifier = Modifier.weight(1f),
                         onClick = onMortgage

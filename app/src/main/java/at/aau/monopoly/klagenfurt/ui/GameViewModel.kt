@@ -531,38 +531,14 @@ class GameViewModel(
     }
     .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
-    // Whether total assets (cash + mortgage value + building sellback) cover the rent
-    // If false, bankruptcy is the only option
-    val canRaiseFunds: StateFlow<Boolean> = combine(
-        gameState, _currentRentAmount
-    ) { state, rentAmount ->
-        val amount = rentAmount
-        val player = state?.players?.find { it.id == gameService.currentPlayerId }
-        if (player == null || amount <= 0) false
-        else {
-            val totalAssets = player.money + state.fields
-                .filter { it is PropertyField || it is RailroadField || it is UtilityField }
-                .filter { field -> field.ownerIdFromField() == player.id }
-                .filter { field -> !(field as OwnableField).isMortgaged }
-                .sumOf { field ->
-                    val price = when (field) {
-                        is PropertyField -> field.price
-                        is RailroadField -> field.price
-                        is UtilityField -> field.price
-                        else -> 0
-                    }
-                    val houseSellBack = if (field is PropertyField) {
-                        field.houses * (field.houseCost / 2)
-                    } else 0
-                    val hotelSellBack = if (field is PropertyField && field.hasHotel) {
-                        field.hotelCost / 2
-                    } else 0
-                    price / 2 + houseSellBack + hotelSellBack
-                }
-            totalAssets >= amount
+    // Whether total assets (cash + mortgage value + building sellback) cover the rent,
+    // computed by the backend to avoid duplicated logic drift.
+    // If false, bankruptcy is the only option.
+    val canRaiseFunds: StateFlow<Boolean> = gameState
+        .map { state ->
+            state?.pendingPayment?.debtorCanPayAfterAssets ?: false
         }
-    }
-    .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
     // m4: Manageable properties for mortgage management overlay — includes RailroadField/UtilityField
     val manageableProperties: StateFlow<List<ManageableProperty>> = gameState

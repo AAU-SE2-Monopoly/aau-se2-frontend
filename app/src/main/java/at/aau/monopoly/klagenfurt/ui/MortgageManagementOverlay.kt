@@ -180,7 +180,8 @@ fun MortgageManagementContent(
     val sortedProperties = remember(properties) { sortManageableProperties(properties) }
 
     // Re-resolve from the latest list so that canSellHouse / canSellHotel
-    // reactively reflect even-building rule changes when properties update.
+    // (and canBuyHouse / canBuyHotel / canMortgage) reactively reflect
+    // rule changes when properties update.
     val displayProperty = if (selectedProperty != null) {
         properties.find { it.fieldId == selectedProperty!!.fieldId }
     } else null
@@ -617,24 +618,24 @@ private fun PropertyActionPanel(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                if (property.canBuyHouse) {
+                if (!property.isMortgaged && !property.hasHotel && property.houses < 4) {
                     ActionChip(
                         text = "Buy House",
                         sub = "-€${property.houseCost}",
                         backgroundColor = Color(0xFF2E7D32),
-                        enabled = !actionInFlight && currentMoney >= property.houseCost,
+                        enabled = !actionInFlight && currentMoney >= property.houseCost && property.canBuyHouse,
                         chipHeight = chipHeight,
                         modifier = Modifier.weight(1f),
                         onClick = onBuyHouse
                     )
                 }
 
-                if (property.canBuyHotel) {
+                if (!property.isMortgaged && !property.hasHotel && property.houses == 4) {
                     ActionChip(
                         text = "Buy Hotel",
                         sub = "-€${property.hotelCost}",
                         backgroundColor = Color(0xFF1565C0),
-                        enabled = !actionInFlight && currentMoney >= property.hotelCost,
+                        enabled = !actionInFlight && currentMoney >= property.hotelCost && property.canBuyHotel,
                         chipHeight = chipHeight,
                         modifier = Modifier.weight(1f),
                         onClick = onBuyHotel

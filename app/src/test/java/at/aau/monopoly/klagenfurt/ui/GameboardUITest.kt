@@ -1484,4 +1484,593 @@ class GameboardScreenCoverageTest {
 
         composeTestRule.onNodeWithText("Sell Hotel").assertIsEnabled()
     }
+
+    // ─── MortgageManagementContent Buy House / Buy Hotel / Mortgage button state ───────
+
+    private fun testBuyableProperty(
+        houses: Int = 2,
+        hasHotel: Boolean = false,
+        isMortgaged: Boolean = false,
+        canBuyHouse: Boolean = true,
+        canBuyHotel: Boolean = false,
+        canMortgage: Boolean = true
+    ): ManageableProperty = ManageableProperty(
+        fieldId = 1, name = "TestProp", color = "brown",
+        price = 60, mortgageValue = 30, unmortgageCost = 33,
+        houses = houses, hasHotel = hasHotel,
+        isMortgaged = isMortgaged, houseCost = 100, hotelCost = 100,
+        sellHouseValue = 50, sellHotelValue = 50,
+        canSellHouse = false, canSellHotel = false,
+        canBuyHouse = canBuyHouse, canBuyHotel = canBuyHotel,
+        canMortgage = canMortgage
+    )
+
+    // ---------- Buy House ----------
+
+    @Test
+    fun `Buy House button disabled when even-building rule violated`() {
+        val prop = testBuyableProperty(canBuyHouse = false)
+
+        composeTestRule.setContent {
+            MortgageManagementContent(
+                properties = listOf(prop),
+                currentMoney = 500,
+                actionInFlight = false,
+                onBuyHouse = {},
+                onBuyHotel = {},
+                onMortgage = {},
+                onUnmortgage = {},
+                onSellHouse = {},
+                onSellHotel = {},
+                onDismiss = {}
+            )
+        }
+
+        composeTestRule.onNodeWithText("TestProp").performClick()
+        composeTestRule.onNodeWithText("Buy House").assertExists()
+        composeTestRule.onNodeWithText("Buy House").assertIsNotEnabled()
+    }
+
+    @Test
+    fun `Buy House button disabled when insufficient funds`() {
+        val prop = testBuyableProperty(canBuyHouse = true)
+
+        composeTestRule.setContent {
+            MortgageManagementContent(
+                properties = listOf(prop),
+                currentMoney = 50,
+                actionInFlight = false,
+                onBuyHouse = {},
+                onBuyHotel = {},
+                onMortgage = {},
+                onUnmortgage = {},
+                onSellHouse = {},
+                onSellHotel = {},
+                onDismiss = {}
+            )
+        }
+
+        composeTestRule.onNodeWithText("TestProp").performClick()
+        composeTestRule.onNodeWithText("Buy House").assertExists()
+        composeTestRule.onNodeWithText("Buy House").assertIsNotEnabled()
+    }
+
+    @Test
+    fun `Buy House button enabled when rule satisfied and sufficient funds`() {
+        val prop = testBuyableProperty(canBuyHouse = true)
+
+        composeTestRule.setContent {
+            MortgageManagementContent(
+                properties = listOf(prop),
+                currentMoney = 500,
+                actionInFlight = false,
+                onBuyHouse = {},
+                onBuyHotel = {},
+                onMortgage = {},
+                onUnmortgage = {},
+                onSellHouse = {},
+                onSellHotel = {},
+                onDismiss = {}
+            )
+        }
+
+        composeTestRule.onNodeWithText("TestProp").performClick()
+        composeTestRule.onNodeWithText("Buy House").assertExists()
+        composeTestRule.onNodeWithText("Buy House").assertIsEnabled()
+    }
+
+    @Test
+    fun `Buy House re-enables reactively when even-building rule becomes satisfied`() {
+        val propsState = mutableStateOf(
+            listOf(testBuyableProperty(canBuyHouse = false))
+        )
+
+        composeTestRule.setContent {
+            MortgageManagementContent(
+                properties = propsState.value,
+                currentMoney = 500,
+                actionInFlight = false,
+                onBuyHouse = {},
+                onBuyHotel = {},
+                onMortgage = {},
+                onUnmortgage = {},
+                onSellHouse = {},
+                onSellHotel = {},
+                onDismiss = {}
+            )
+        }
+
+        composeTestRule.onNodeWithText("TestProp").performClick()
+        composeTestRule.onNodeWithText("Buy House").assertIsNotEnabled()
+
+        propsState.value = listOf(testBuyableProperty(canBuyHouse = true))
+        composeTestRule.waitForIdle()
+
+        composeTestRule.onNodeWithText("Buy House").assertIsEnabled()
+    }
+
+    @Test
+    fun `Buy House button not visible when mortgaged`() {
+        val prop = testBuyableProperty(isMortgaged = true)
+
+        composeTestRule.setContent {
+            MortgageManagementContent(
+                properties = listOf(prop),
+                currentMoney = 500,
+                actionInFlight = false,
+                onBuyHouse = {},
+                onBuyHotel = {},
+                onMortgage = {},
+                onUnmortgage = {},
+                onSellHouse = {},
+                onSellHotel = {},
+                onDismiss = {}
+            )
+        }
+
+        composeTestRule.onNodeWithText("TestProp").performClick()
+        composeTestRule.onNodeWithText("Buy House").assertDoesNotExist()
+    }
+
+    @Test
+    fun `Buy House button not visible when has hotel`() {
+        val prop = testBuyableProperty(hasHotel = true, canBuyHouse = false)
+
+        composeTestRule.setContent {
+            MortgageManagementContent(
+                properties = listOf(prop),
+                currentMoney = 500,
+                actionInFlight = false,
+                onBuyHouse = {},
+                onBuyHotel = {},
+                onMortgage = {},
+                onUnmortgage = {},
+                onSellHouse = {},
+                onSellHotel = {},
+                onDismiss = {}
+            )
+        }
+
+        composeTestRule.onNodeWithText("TestProp").performClick()
+        composeTestRule.onNodeWithText("Buy House").assertDoesNotExist()
+    }
+
+    @Test
+    fun `Buy House button appears reactively after unmortgaging`() {
+        val propsState = mutableStateOf(
+            listOf(testBuyableProperty(isMortgaged = true, canBuyHouse = false))
+        )
+
+        composeTestRule.setContent {
+            MortgageManagementContent(
+                properties = propsState.value,
+                currentMoney = 500,
+                actionInFlight = false,
+                onBuyHouse = {},
+                onBuyHotel = {},
+                onMortgage = {},
+                onUnmortgage = {},
+                onSellHouse = {},
+                onSellHotel = {},
+                onDismiss = {}
+            )
+        }
+
+        composeTestRule.onNodeWithText("TestProp").performClick()
+        composeTestRule.onNodeWithText("Buy House").assertDoesNotExist()
+
+        propsState.value = listOf(testBuyableProperty(isMortgaged = false, canBuyHouse = true))
+        composeTestRule.waitForIdle()
+
+        composeTestRule.onNodeWithText("Buy House").assertExists()
+        composeTestRule.onNodeWithText("Buy House").assertIsEnabled()
+    }
+
+    @Test
+    fun `Buy House button disappears reactively when reaching 4 houses`() {
+        val propsState = mutableStateOf(
+            listOf(testBuyableProperty(houses = 3, canBuyHouse = true))
+        )
+
+        composeTestRule.setContent {
+            MortgageManagementContent(
+                properties = propsState.value,
+                currentMoney = 500,
+                actionInFlight = false,
+                onBuyHouse = {},
+                onBuyHotel = {},
+                onMortgage = {},
+                onUnmortgage = {},
+                onSellHouse = {},
+                onSellHotel = {},
+                onDismiss = {}
+            )
+        }
+
+        composeTestRule.onNodeWithText("TestProp").performClick()
+        composeTestRule.onNodeWithText("Buy House").assertExists()
+
+        propsState.value = listOf(testBuyableProperty(houses = 4, canBuyHouse = false, canBuyHotel = false))
+        composeTestRule.waitForIdle()
+
+        composeTestRule.onNodeWithText("Buy House").assertDoesNotExist()
+    }
+
+    // ---------- Buy Hotel ----------
+
+    @Test
+    fun `Buy Hotel button disabled when even-building rule violated`() {
+        val prop = testBuyableProperty(houses = 4, canBuyHotel = false)
+
+        composeTestRule.setContent {
+            MortgageManagementContent(
+                properties = listOf(prop),
+                currentMoney = 500,
+                actionInFlight = false,
+                onBuyHouse = {},
+                onBuyHotel = {},
+                onMortgage = {},
+                onUnmortgage = {},
+                onSellHouse = {},
+                onSellHotel = {},
+                onDismiss = {}
+            )
+        }
+
+        composeTestRule.onNodeWithText("TestProp").performClick()
+        composeTestRule.onNodeWithText("Buy Hotel").assertExists()
+        composeTestRule.onNodeWithText("Buy Hotel").assertIsNotEnabled()
+    }
+
+    @Test
+    fun `Buy Hotel button enabled when rule satisfied and sufficient funds`() {
+        val prop = testBuyableProperty(houses = 4, canBuyHotel = true)
+
+        composeTestRule.setContent {
+            MortgageManagementContent(
+                properties = listOf(prop),
+                currentMoney = 500,
+                actionInFlight = false,
+                onBuyHouse = {},
+                onBuyHotel = {},
+                onMortgage = {},
+                onUnmortgage = {},
+                onSellHouse = {},
+                onSellHotel = {},
+                onDismiss = {}
+            )
+        }
+
+        composeTestRule.onNodeWithText("TestProp").performClick()
+        composeTestRule.onNodeWithText("Buy Hotel").assertExists()
+        composeTestRule.onNodeWithText("Buy Hotel").assertIsEnabled()
+    }
+
+    @Test
+    fun `Buy Hotel button disabled when insufficient funds`() {
+        val prop = testBuyableProperty(houses = 4, canBuyHotel = true)
+
+        composeTestRule.setContent {
+            MortgageManagementContent(
+                properties = listOf(prop),
+                currentMoney = 50,
+                actionInFlight = false,
+                onBuyHouse = {},
+                onBuyHotel = {},
+                onMortgage = {},
+                onUnmortgage = {},
+                onSellHouse = {},
+                onSellHotel = {},
+                onDismiss = {}
+            )
+        }
+
+        composeTestRule.onNodeWithText("TestProp").performClick()
+        composeTestRule.onNodeWithText("Buy Hotel").assertExists()
+        composeTestRule.onNodeWithText("Buy Hotel").assertIsNotEnabled()
+    }
+
+    @Test
+    fun `Buy Hotel re-enables reactively when even-building rule becomes satisfied`() {
+        val propsState = mutableStateOf(
+            listOf(testBuyableProperty(houses = 4, canBuyHotel = false))
+        )
+
+        composeTestRule.setContent {
+            MortgageManagementContent(
+                properties = propsState.value,
+                currentMoney = 500,
+                actionInFlight = false,
+                onBuyHouse = {},
+                onBuyHotel = {},
+                onMortgage = {},
+                onUnmortgage = {},
+                onSellHouse = {},
+                onSellHotel = {},
+                onDismiss = {}
+            )
+        }
+
+        composeTestRule.onNodeWithText("TestProp").performClick()
+        composeTestRule.onNodeWithText("Buy Hotel").assertIsNotEnabled()
+
+        propsState.value = listOf(testBuyableProperty(houses = 4, canBuyHotel = true))
+        composeTestRule.waitForIdle()
+
+        composeTestRule.onNodeWithText("Buy Hotel").assertIsEnabled()
+    }
+
+    @Test
+    fun `Buy Hotel button appears reactively when reaching 4 houses`() {
+        val propsState = mutableStateOf(
+            listOf(testBuyableProperty(houses = 3, canBuyHotel = false))
+        )
+
+        composeTestRule.setContent {
+            MortgageManagementContent(
+                properties = propsState.value,
+                currentMoney = 500,
+                actionInFlight = false,
+                onBuyHouse = {},
+                onBuyHotel = {},
+                onMortgage = {},
+                onUnmortgage = {},
+                onSellHouse = {},
+                onSellHotel = {},
+                onDismiss = {}
+            )
+        }
+
+        composeTestRule.onNodeWithText("TestProp").performClick()
+        composeTestRule.onNodeWithText("Buy Hotel").assertDoesNotExist()
+
+        propsState.value = listOf(testBuyableProperty(houses = 4, canBuyHotel = true))
+        composeTestRule.waitForIdle()
+
+        composeTestRule.onNodeWithText("Buy Hotel").assertExists()
+        composeTestRule.onNodeWithText("Buy Hotel").assertIsEnabled()
+    }
+
+    @Test
+    fun `Buy Hotel button disappears reactively when mortgaged`() {
+        val propsState = mutableStateOf(
+            listOf(testBuyableProperty(houses = 4, canBuyHotel = true))
+        )
+
+        composeTestRule.setContent {
+            MortgageManagementContent(
+                properties = propsState.value,
+                currentMoney = 500,
+                actionInFlight = false,
+                onBuyHouse = {},
+                onBuyHotel = {},
+                onMortgage = {},
+                onUnmortgage = {},
+                onSellHouse = {},
+                onSellHotel = {},
+                onDismiss = {}
+            )
+        }
+
+        composeTestRule.onNodeWithText("TestProp").performClick()
+        composeTestRule.onNodeWithText("Buy Hotel").assertExists()
+
+        propsState.value = listOf(testBuyableProperty(houses = 4, isMortgaged = true, canBuyHotel = false))
+        composeTestRule.waitForIdle()
+
+        composeTestRule.onNodeWithText("Buy Hotel").assertDoesNotExist()
+    }
+
+    // ---------- Mortgage ----------
+
+    @Test
+    fun `Mortgage button disabled when sibling has buildings`() {
+        val prop = testBuyableProperty(houses = 0, canMortgage = false)
+
+        composeTestRule.setContent {
+            MortgageManagementContent(
+                properties = listOf(prop),
+                currentMoney = 500,
+                actionInFlight = false,
+                onBuyHouse = {},
+                onBuyHotel = {},
+                onMortgage = {},
+                onUnmortgage = {},
+                onSellHouse = {},
+                onSellHotel = {},
+                onDismiss = {}
+            )
+        }
+
+        composeTestRule.onNodeWithText("TestProp").performClick()
+        composeTestRule.onAllNodesWithText("Mortgage")[1].apply {
+            assertExists()
+            assertIsNotEnabled()
+        }
+    }
+
+    @Test
+    fun `Mortgage button enabled when no buildings`() {
+        val prop = testBuyableProperty(houses = 0, canMortgage = true)
+
+        composeTestRule.setContent {
+            MortgageManagementContent(
+                properties = listOf(prop),
+                currentMoney = 500,
+                actionInFlight = false,
+                onBuyHouse = {},
+                onBuyHotel = {},
+                onMortgage = {},
+                onUnmortgage = {},
+                onSellHouse = {},
+                onSellHotel = {},
+                onDismiss = {}
+            )
+        }
+
+        composeTestRule.onNodeWithText("TestProp").performClick()
+        composeTestRule.onAllNodesWithText("Mortgage")[1].apply {
+            assertExists()
+            assertIsEnabled()
+        }
+    }
+
+    @Test
+    fun `Mortgage re-enables reactively when sibling buildings sold`() {
+        val propsState = mutableStateOf(
+            listOf(testBuyableProperty(houses = 0, canMortgage = false))
+        )
+
+        composeTestRule.setContent {
+            MortgageManagementContent(
+                properties = propsState.value,
+                currentMoney = 500,
+                actionInFlight = false,
+                onBuyHouse = {},
+                onBuyHotel = {},
+                onMortgage = {},
+                onUnmortgage = {},
+                onSellHouse = {},
+                onSellHotel = {},
+                onDismiss = {}
+            )
+        }
+
+        composeTestRule.onNodeWithText("TestProp").performClick()
+        composeTestRule.onAllNodesWithText("Mortgage")[1].assertIsNotEnabled()
+
+        propsState.value = listOf(testBuyableProperty(houses = 0, canMortgage = true))
+        composeTestRule.waitForIdle()
+
+        composeTestRule.onAllNodesWithText("Mortgage")[1].assertIsEnabled()
+    }
+
+    @Test
+    fun `Mortgage button not visible when has houses`() {
+        val prop = testBuyableProperty(houses = 2, canMortgage = false)
+
+        composeTestRule.setContent {
+            MortgageManagementContent(
+                properties = listOf(prop),
+                currentMoney = 500,
+                actionInFlight = false,
+                onBuyHouse = {},
+                onBuyHotel = {},
+                onMortgage = {},
+                onUnmortgage = {},
+                onSellHouse = {},
+                onSellHotel = {},
+                onDismiss = {}
+            )
+        }
+
+        composeTestRule.onNodeWithText("TestProp").performClick()
+        composeTestRule.onAllNodesWithText("Mortgage").assertCountEquals(1)
+    }
+
+    @Test
+    fun `Mortgage button not visible when has hotel`() {
+        val prop = testBuyableProperty(hasHotel = true, canMortgage = false)
+
+        composeTestRule.setContent {
+            MortgageManagementContent(
+                properties = listOf(prop),
+                currentMoney = 500,
+                actionInFlight = false,
+                onBuyHouse = {},
+                onBuyHotel = {},
+                onMortgage = {},
+                onUnmortgage = {},
+                onSellHouse = {},
+                onSellHotel = {},
+                onDismiss = {}
+            )
+        }
+
+        composeTestRule.onNodeWithText("TestProp").performClick()
+        composeTestRule.onAllNodesWithText("Mortgage").assertCountEquals(1)
+    }
+
+    @Test
+    fun `Mortgage button appears reactively after selling all houses`() {
+        val propsState = mutableStateOf(
+            listOf(testBuyableProperty(houses = 2, canMortgage = false))
+        )
+
+        composeTestRule.setContent {
+            MortgageManagementContent(
+                properties = propsState.value,
+                currentMoney = 500,
+                actionInFlight = false,
+                onBuyHouse = {},
+                onBuyHotel = {},
+                onMortgage = {},
+                onUnmortgage = {},
+                onSellHouse = {},
+                onSellHotel = {},
+                onDismiss = {}
+            )
+        }
+
+        composeTestRule.onNodeWithText("TestProp").performClick()
+        composeTestRule.onAllNodesWithText("Mortgage").assertCountEquals(1)
+
+        propsState.value = listOf(testBuyableProperty(houses = 0, canMortgage = true))
+        composeTestRule.waitForIdle()
+
+        composeTestRule.onAllNodesWithText("Mortgage").apply {
+            assertCountEquals(2)
+            get(1).assertIsEnabled()
+        }
+    }
+
+    @Test
+    fun `Mortgage button disappears reactively when building a house`() {
+        val propsState = mutableStateOf(
+            listOf(testBuyableProperty(houses = 0, canMortgage = true))
+        )
+
+        composeTestRule.setContent {
+            MortgageManagementContent(
+                properties = propsState.value,
+                currentMoney = 500,
+                actionInFlight = false,
+                onBuyHouse = {},
+                onBuyHotel = {},
+                onMortgage = {},
+                onUnmortgage = {},
+                onSellHouse = {},
+                onSellHotel = {},
+                onDismiss = {}
+            )
+        }
+
+        composeTestRule.onNodeWithText("TestProp").performClick()
+        composeTestRule.onAllNodesWithText("Mortgage").assertCountEquals(2)
+
+        propsState.value = listOf(testBuyableProperty(houses = 1, canBuyHouse = true))
+        composeTestRule.waitForIdle()
+
+        composeTestRule.onAllNodesWithText("Mortgage").assertCountEquals(1)
+    }
 }

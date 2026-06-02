@@ -341,14 +341,14 @@ fun MortgageManagementContent(
                     .fillMaxSize()
                     .background(Color.Black.copy(alpha = 0.7f))
                     .clickable(enabled = false) {},
-                contentAlignment = Alignment.Center
+                contentAlignment = Alignment.BottomCenter
             ) {
                 Surface(
                     modifier = Modifier
-                        .fillMaxWidth(0.85f)
-                        .padding(16.dp),
+                        .fillMaxWidth(0.95f)
+                        .padding(horizontal = 16.dp, vertical = 24.dp),
                     color = Color(0xFF1A1A1A),
-                    shape = RoundedCornerShape(16.dp),
+                    shape = RoundedCornerShape(20.dp),
                     shadowElevation = 12.dp
                 ) {
                     Column(
@@ -420,14 +420,14 @@ fun MortgageManagementContent(
 
                         Spacer(modifier = Modifier.height(14.dp))
 
-                        Row(
+                        Column(
                             modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            verticalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
                             Button(
                                 onClick = { mortgagePendingProperty = null },
                                 modifier = Modifier
-                                    .weight(1f)
+                                    .fillMaxWidth()
                                     .height(40.dp),
                                 colors = ButtonDefaults.buttonColors(
                                     containerColor = Color(0xFF424242)
@@ -444,7 +444,7 @@ fun MortgageManagementContent(
                                     selectedProperty = findNextInGroup(sortedProperties, pending) { it.canMortgage }
                                 },
                                 modifier = Modifier
-                                    .weight(1f)
+                                    .fillMaxWidth()
                                     .height(40.dp),
                                 colors = ButtonDefaults.buttonColors(
                                     containerColor = Color(0xFFC62828)

@@ -50,25 +50,35 @@ class JoinViewModel(private val gameService: GameService) : ViewModel() {
         // Prevent duplicate subscriptions to the same game
         if (currentObservedGameId == gameId) return
 
-        // Clean up any existing observation before starting a new one
         stopObserving()
-
         currentObservedGameId = gameId
 
         stateObservationJob = viewModelScope.launch {
-            gameService.subscribeToGame(gameId)
+            // FIX Issue 4: Launch the collector BEFORE subscribing to ensure
+            // the initial GAME_CREATED/STATE_SNAPSHOT event is not missed.
+            launch {
+                gameService.events.collect { raw ->
+                    // FIX Issue 5: Silence state updates once we are successfully navigating away
+                    if (_joinState.value is JoinState.Success) return@collect
 
-            gameService.events.collect { raw ->
-                try {
-                    val event = objectMapper.readValue(raw, GameEvent::class.java)
-                    if (event.gameId == gameId && event.gameState != null) {
-                        val taken = event.gameState.players.map { it.iconId }.toSet()
-                        _takenIcons.value = taken
+                    try {
+                        // FIX Issue 6: Fast-path string check to prevent Jackson from parsing irrelevant events
+                        if (!raw.contains(gameId)) return@collect
+
+                        val event = objectMapper.readValue(raw, GameEvent::class.java)
+                        if (event.gameId == gameId && event.gameState != null) {
+                            val taken = event.gameState.players.map { it.iconId }.toSet()
+                            _takenIcons.value = taken
+                        }
+                    } catch (e: Exception) {
+                        // FIX Issue 6: Never swallow JSON parsing exceptions silently
+                        Log.e("JoinViewModel", "Failed to parse GameEvent. Payload: $raw", e)
                     }
-                } catch (_: Exception) {
-                    // Ignore parse errors from other event types
                 }
             }
+
+            // Now that the collector is active, trigger the STOMP subscription
+            gameService.subscribeToGame(gameId)
         }
     }
 
@@ -79,8 +89,7 @@ class JoinViewModel(private val gameService: GameService) : ViewModel() {
         stateObservationJob?.cancel()
         stateObservationJob = null
 
-        // IMPORTANT: To fully fix the STOMP leak on the server side, your GameService
-        // needs an explicit unsubscribe method. If you have one, call it here like this:
+        // If your GameService has an explicit unsubscribe method, call it here:
         // currentObservedGameId?.let { gameService.unsubscribeFromGame(it) }
 
         currentObservedGameId = null
@@ -94,7 +103,6 @@ class JoinViewModel(private val gameService: GameService) : ViewModel() {
     fun createGame(playerName: String, iconId: String) {
         if (_joinState.value is JoinState.Loading) return
 
-        // Guard: refuse to send commands when disconnected
         if (!gameService.connectionState.value) {
             _joinState.value = JoinState.Error("Not connected to server. Please wait…")
             return
@@ -103,9 +111,6 @@ class JoinViewModel(private val gameService: GameService) : ViewModel() {
         _joinState.value = JoinState.Loading
 
         viewModelScope.launch {
-            // GameService.createGame() sends the request, waits for GAME_CREATED
-            // on the personal topic, subscribes to the game topic, and returns the
-            // gameId (or null on failure).
             val createdGameId = gameService.createGame(playerName, iconId)
 
             if (createdGameId != null) {
@@ -119,7 +124,6 @@ class JoinViewModel(private val gameService: GameService) : ViewModel() {
     fun joinGame(gameId: String, playerName: String, iconId: String) {
         if (_joinState.value is JoinState.Loading) return
 
-        // Guard: refuse to send commands when disconnected
         if (!gameService.connectionState.value) {
             _joinState.value = JoinState.Error("Not connected to server. Please wait…")
             return

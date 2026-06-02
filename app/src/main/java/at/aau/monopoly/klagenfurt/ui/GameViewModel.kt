@@ -137,6 +137,7 @@ class GameViewModel(
             delay(ACTION_TIMEOUT_MS)
             if (propertyActionToken == token) {
                 _propertyActionInFlight.value = false
+                _buildingActionPending.value = false
             }
         }
     }
@@ -318,8 +319,9 @@ class GameViewModel(
                     finishPropertyAction()
                 }
 
-                if (event.event == "HOUSE_SOLD" || event.event == "HOTEL_SOLD") {
-                    Log.i("GameViewModel", "Building sold - refreshing state")
+                if (event.event == "HOUSE_BOUGHT" || event.event == "HOTEL_BOUGHT" ||
+                    event.event == "HOUSE_SOLD" || event.event == "HOTEL_SOLD") {
+                    Log.i("GameViewModel", "Building action completed - refreshing state")
                     finishPropertyAction()
                 }
             }
@@ -834,12 +836,16 @@ class GameViewModel(
     }
 
     fun buyHouse(fieldId: Int) {
-        if (!startBuildingAction()) return
+        if (_propertyActionInFlight.value || _buildingActionPending.value) return
+        startPropertyAction()
+        _buildingActionPending.value = true
         gameService.buyHouse(fieldId)
     }
 
     fun buyHotel(fieldId: Int) {
-        if (!startBuildingAction()) return
+        if (_propertyActionInFlight.value || _buildingActionPending.value) return
+        startPropertyAction()
+        _buildingActionPending.value = true
         gameService.buyHotel(fieldId)
     }
 
@@ -850,10 +856,4 @@ class GameViewModel(
         gameService.sellHotel(fieldId)
     }
 
-    private fun startBuildingAction(): Boolean {
-        if (_buildingActionPending.value || _propertyActionInFlight.value) return false
-
-        _buildingActionPending.value = true
-        return true
-    }
 }

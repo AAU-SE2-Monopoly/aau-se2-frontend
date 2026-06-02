@@ -576,19 +576,8 @@ private fun ManagedPropertyCard(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(s.dp(19f))
-                        .background(propColor.copy(alpha = if (isMortgaged) 0.35f else 1f)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    if (property.color == null) {
-                        Text(
-                            text = "OWNABLE",
-                            color = Color.White,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = s.sp(8f),
-                            letterSpacing = 0.8.sp
-                        )
-                    }
-                }
+                        .background(propColor.copy(alpha = if (isMortgaged) 0.35f else 1f))
+                )
 
                 Text(
                     text = property.name,
@@ -779,7 +768,7 @@ private fun PropertyActionPanel(
                         )
                     }
 
-                    if (property.houses > 0 && !property.isMortgaged) {
+                    if (property.color != null && property.houses > 0 && !property.isMortgaged) {
                         ActionChip(
                             text = "Sell House",
                             sub = "+€${property.sellHouseValue}",
@@ -791,7 +780,7 @@ private fun PropertyActionPanel(
                         )
                     }
 
-                    if (property.hasHotel && !property.isMortgaged) {
+                    if (property.color != null && property.hasHotel && !property.isMortgaged) {
                         ActionChip(
                             text = "Sell Hotel",
                             sub = "+€${property.sellHotelValue}",
@@ -815,7 +804,7 @@ private fun PropertyActionPanel(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    if (!property.isMortgaged && !property.hasHotel && property.houses < 4) {
+                    if (property.color != null && !property.isMortgaged && !property.hasHotel && property.houses < 4) {
                         ActionChip(
                             text = "Buy House",
                             sub = "-€${property.houseCost}",
@@ -827,7 +816,7 @@ private fun PropertyActionPanel(
                         )
                     }
 
-                    if (!property.isMortgaged && !property.hasHotel && property.houses == 4) {
+                    if (property.color != null && !property.isMortgaged && !property.hasHotel && property.houses == 4) {
                         ActionChip(
                             text = "Buy Hotel",
                             sub = "-€${property.hotelCost}",

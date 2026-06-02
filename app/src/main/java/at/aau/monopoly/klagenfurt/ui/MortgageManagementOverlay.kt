@@ -43,14 +43,12 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import at.aau.monopoly.klagenfurt.model.enums.PropertyColor
-import at.aau.monopoly.klagenfurt.ui.theme.MyApplicationTheme
 import at.aau.monopoly.klagenfurt.ui.util.toPropertyComposeColor
 
 private val ManagedCardBackground = Color(0xFFFFF8E1)
@@ -931,163 +929,4 @@ private fun colorKey(prop: ManageableProperty): Int {
         else -> 100
     }
     return if (prop.isMortgaged) base + 200 else base
-}
-
-
-@Preview(showBackground = true, widthDp = 800, heightDp = 400)
-@Composable
-fun MortgageManagementPreview() {
-    val sampleProperties = listOf(
-        ManageableProperty(
-            fieldId = 1, name = "Heiligengeistplatz", color = "brown",
-            price = 60, mortgageValue = 30, unmortgageCost = 33,
-            houses = 0, hasHotel = true, isMortgaged = false,
-            houseCost = 50, hotelCost = 50, sellHouseValue = 25, sellHotelValue = 25
-        ),
-        ManageableProperty(
-            fieldId = 2, name = "Heiligengeistplatz", color = "brown",
-            price = 60, mortgageValue = 30, unmortgageCost = 33,
-            houses = 0, hasHotel = false, isMortgaged = true,
-            houseCost = 50, hotelCost = 50, sellHouseValue = 25, sellHotelValue = 25
-        ),
-        ManageableProperty(
-            fieldId = 3, name = "Heiligengeistplatz", color = null,
-            price = 200, mortgageValue = 100, unmortgageCost = 110,
-            houses = 0, hasHotel = false, isMortgaged = false,
-            houseCost = 0, hotelCost = 0, sellHouseValue = 0, sellHotelValue = 0
-        ),
-        ManageableProperty(
-            fieldId = 4, name = "Heiligengeistplatz", color = "light_blue",
-            price = 100, mortgageValue = 50, unmortgageCost = 55,
-            houses = 4, hasHotel = false, isMortgaged = false,
-            houseCost = 50, hotelCost = 50, sellHouseValue = 25, sellHotelValue = 25
-        ),
-        ManageableProperty(
-            fieldId = 5, name = "Heiligengeistplatz", color = "light_blue",
-            price = 120, mortgageValue = 60, unmortgageCost = 66,
-            houses = 0, hasHotel = true, isMortgaged = false,
-            houseCost = 50, hotelCost = 50, sellHouseValue = 25, sellHotelValue = 25
-        ),
-        ManageableProperty(
-            fieldId = 6, name = "Heiligengeistplatz", color = "pink",
-            price = 140, mortgageValue = 70, unmortgageCost = 77,
-            houses = 0, hasHotel = false, isMortgaged = true,
-            houseCost = 100, hotelCost = 100, sellHouseValue = 50, sellHotelValue = 50
-        )
-    )
-
-    MyApplicationTheme {
-        Surface(color = Color.DarkGray) {
-            MortgageManagementContent(
-                properties = sampleProperties,
-                currentMoney = 1200,
-                actionInFlight = false,
-                onBuyHouse = {},
-                onBuyHotel = {},
-                onMortgage = {},
-                onUnmortgage = {},
-                onSellHouse = {},
-                onSellHotel = {},
-                onDismiss = {}
-            )
-        }
-    }
-}
-
-@Preview(showBackground = true)
-@Composable
-fun ManagedPropertyCardPreview() {
-    val prop = ManageableProperty(
-        fieldId = 1, name = "Heiligengeistplatz", color = "brown",
-        price = 60, mortgageValue = 30, unmortgageCost = 33,
-        houses = 2, hasHotel = false, isMortgaged = false,
-        houseCost = 50, hotelCost = 50, sellHouseValue = 25, sellHotelValue = 25
-    )
-    MyApplicationTheme {
-        Box(modifier = Modifier.padding(16.dp)) {
-            ManagedPropertyCard(
-                property = prop,
-                isSelected = true,
-                cardWidth = 120.dp,
-                cardHeight = 192.dp,
-                onClick = {}
-            )
-        }
-    }
-}
-
-@Preview(showBackground = true)
-@Composable
-fun MortgagedManagedPropertyCardPreview() {
-    val prop = ManageableProperty(
-        fieldId = 2, name = "Heiligengeistplatz", color = "brown",
-        price = 60, mortgageValue = 30, unmortgageCost = 33,
-        houses = 0, hasHotel = false, isMortgaged = true,
-        houseCost = 50, hotelCost = 50, sellHouseValue = 25, sellHotelValue = 25
-    )
-    MyApplicationTheme {
-        Box(modifier = Modifier.padding(16.dp)) {
-            ManagedPropertyCard(
-                property = prop,
-                isSelected = false,
-                cardWidth = 120.dp,
-                cardHeight = 192.dp,
-                onClick = {}
-            )
-        }
-    }
-}
-
-@Preview(showBackground = true, backgroundColor = 0xFF333333)
-@Composable
-fun PropertyActionPanelPreview() {
-    val prop = ManageableProperty(
-        fieldId = 1, name = "Heiligengeistplatz", color = "brown",
-        price = 60, mortgageValue = 30, unmortgageCost = 33,
-        houses = 2, hasHotel = false, isMortgaged = false,
-        houseCost = 50, hotelCost = 50, sellHouseValue = 25, sellHotelValue = 25
-    )
-    MyApplicationTheme {
-        Box(modifier = Modifier.padding(16.dp)) {
-            PropertyActionPanel(
-                property = prop,
-                currentMoney = 1200,
-                actionInFlight = false,
-                chipHeight = 48.dp,
-                onBuyHouse = {},
-                onBuyHotel = {},
-                onMortgage = {},
-                onUnmortgage = {},
-                onSellHouse = {},
-                onSellHotel = {}
-            )
-        }
-    }
-}
-
-@Preview(showBackground = true, backgroundColor = 0xFF333333)
-@Composable
-fun MortgagedPropertyActionPanelPreview() {
-    val prop = ManageableProperty(
-        fieldId = 1, name = "Heiligengeistplatz", color = "brown",
-        price = 60, mortgageValue = 30, unmortgageCost = 33,
-        houses = 0, hasHotel = false, isMortgaged = true,
-        houseCost = 50, hotelCost = 50, sellHouseValue = 25, sellHotelValue = 25
-    )
-    MyApplicationTheme {
-        Box(modifier = Modifier.padding(16.dp)) {
-            PropertyActionPanel(
-                property = prop,
-                currentMoney = 20, // Not enough to unmortgage
-                actionInFlight = false,
-                chipHeight = 48.dp,
-                onBuyHouse = {},
-                onBuyHotel = {},
-                onMortgage = {},
-                onUnmortgage = {},
-                onSellHouse = {},
-                onSellHotel = {}
-            )
-        }
-    }
 }

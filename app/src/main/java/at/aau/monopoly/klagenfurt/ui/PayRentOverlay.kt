@@ -26,7 +26,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 
@@ -262,64 +261,4 @@ fun PayRentOverlay(
             content()
         }
     }
-}
-
-@Preview(showBackground = true, name = "Pay Rent - Can Afford")
-@Composable
-fun PayRentOverlayPreview_CanPay() {
-    PayRentOverlay(
-        isVisible = true,
-        rentAmount = 200,
-        ownerName = "Just a Random Dude",
-        fieldName = "Heiligengeistplatz",
-        currentMoney = 1500,
-        canPay = true,
-        canRaiseFunds = true,
-        paymentInFlight = false,
-        propertyInFlight = false,
-        onPay = {},
-        onManageProperties = {},
-        onDeclareBankruptcy = {},
-        onDismiss = {}
-    )
-}
-
-@Preview(showBackground = true, name = "Pay Rent - Insufficient Cash but can raise")
-@Composable
-fun PayRentOverlayPreview_CannotPay() {
-    PayRentOverlay(
-        isVisible = true,
-        rentAmount = 2000,
-        ownerName = "Another Random Dude",
-        fieldName = "Heiligengeistplatz",
-        currentMoney = 500,
-        canPay = false,
-        canRaiseFunds = true,
-        paymentInFlight = false,
-        propertyInFlight = false,
-        onPay = {},
-        onManageProperties = {},
-        onDeclareBankruptcy = {},
-        onDismiss = {}
-    )
-}
-
-@Preview(showBackground = true, name = "Pay Rent - Bankrupt")
-@Composable
-fun PayRentOverlayPreview_Bankrupt() {
-    PayRentOverlay(
-        isVisible = true,
-        rentAmount = 5000,
-        ownerName = "Another Random Dude",
-        fieldName = "Heiligengeistplatz",
-        currentMoney = 100,
-        canPay = false,
-        canRaiseFunds = false,
-        paymentInFlight = false,
-        propertyInFlight = false,
-        onPay = {},
-        onManageProperties = {},
-        onDeclareBankruptcy = {},
-        onDismiss = {}
-    )
 }

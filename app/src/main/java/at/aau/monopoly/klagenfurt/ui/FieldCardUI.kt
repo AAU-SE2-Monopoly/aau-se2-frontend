@@ -14,7 +14,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
@@ -272,41 +271,6 @@ internal fun ColumnScope.ThinDivider(
         modifier = Modifier.padding(horizontal = s.dp(8f), vertical = s.dp(1.5f)),
         thickness = 0.5.dp,
         color = color
-    )
-}
-
-// ── Previews ─────────────────────────────────────────────────────────
-
-@Preview(showBackground = true)
-@Composable
-private fun PreviewPropertyCard() {
-    FieldCardUI(
-        field = PropertyField(
-            id = 1, name = "Herrengasse", color = PropertyColor.BROWN,
-            price = 60, rent = listOf(2, 10, 30, 90, 160, 250),
-            houseCost = 50, hotelCost = 50
-        )
-    )
-}
-
-@Preview(showBackground = true)
-@Composable
-private fun PreviewPropertyCardSmall() {
-    FieldCardUI(
-        field = PropertyField(
-            id = 1, name = "Herrengasse", color = PropertyColor.BROWN,
-            price = 60, rent = listOf(2, 10, 30, 90, 160, 250),
-            houseCost = 50, hotelCost = 50
-        ),
-        modifier = Modifier.size(56.dp, 89.6.dp)
-    )
-}
-
-@Preview(showBackground = true)
-@Composable
-private fun PreviewRailroadCard() {
-    FieldCardUI(
-        field = RailroadField(id = 5, name = "Hauptbahnhof")
     )
 }
 

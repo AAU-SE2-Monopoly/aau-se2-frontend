@@ -19,6 +19,7 @@ import androidx.compose.ui.test.performClick
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import at.aau.monopoly.klagenfurt.model.GameState
 import at.aau.monopoly.klagenfurt.model.Player
+import at.aau.monopoly.klagenfurt.model.enums.GamePhase
 import at.aau.monopoly.klagenfurt.model.enums.PropertyColor
 import at.aau.monopoly.klagenfurt.model.field.ChanceField
 import at.aau.monopoly.klagenfurt.model.field.CommunityChestField
@@ -581,15 +582,16 @@ class GameboardScreenCoverageTest {
         canEndTurn: Boolean = false,
         currentPlayerId: String = "player1",
         players: List<Player> = emptyList(),
-        fields: List<Field> = emptyList()
-
+        fields: List<Field> = emptyList(),
+        phase: GamePhase = GamePhase.BUYING
     ): GameViewModel {
         val vm = mockk<GameViewModel>(relaxed = true)
         val gameState = GameState(
             gameId = "test_game",
             fields = fields,
             players = players.toMutableList(),
-            currentPlayerIndex = players.indexOfFirst { it.id == currentPlayerId }.takeIf { it >= 0 } ?: 0
+            currentPlayerIndex = players.indexOfFirst { it.id == currentPlayerId }.takeIf { it >= 0 } ?: 0,
+            phase = phase
         )
 
 
@@ -1093,7 +1095,7 @@ class GameboardScreenCoverageTest {
     }
 
     @Test
-    fun `Manage Properties button not visible when not current player turn`() {
+    fun `Manage Properties button visible when not current player turn`() {
         val player1 = Player(id = "player1", name = "P1", position = 0)
         val player2 = Player(id = "player2", name = "P2", position = 1)
 
@@ -1109,7 +1111,7 @@ class GameboardScreenCoverageTest {
 
         composeTestRule.setContent { GameboardScreen(viewModel = mockVm) }
 
-        composeTestRule.onNodeWithTag("manage_properties_button").assertDoesNotExist()
+        composeTestRule.onNodeWithTag("manage_properties_button").assertExists()
     }
 
     @Test
@@ -1153,7 +1155,8 @@ class GameboardScreenCoverageTest {
             isBuyingPhase = true,
             canEndTurn = false,
             currentPlayerId = "player1",
-            players = listOf(player)
+            players = listOf(player),
+            phase = GamePhase.PAYING_RENT
         )
 
         every { mockVm.hasPendingPayment } returns MutableStateFlow(true)

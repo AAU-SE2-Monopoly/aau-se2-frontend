@@ -219,7 +219,7 @@ class FakeGameService : GameService {
 
     override fun useJailCard(){}
 
-    fun emitGameState(gameState: GameState) {
+    suspend fun emitGameState(gameState: GameState) {
         val event = GameEvent(
             gameId = gameState.gameId,
             event = "STATE_SNAPSHOT",
@@ -228,7 +228,7 @@ class FakeGameService : GameService {
 
         val json = JacksonProvider.objectMapper.writeValueAsString(event)
 
-        _events.tryEmit(json)
+        _events.emit(json)
     }
 
 }

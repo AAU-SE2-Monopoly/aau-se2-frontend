@@ -65,24 +65,32 @@ class JoinActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-        val joinStatus = intent.getStringExtra("JOIN_STATUS")
-            ?.let { try { GameJoinStatus.valueOf(it) } catch (_: Exception) {null} }
-            ?: GameJoinStatus.OPEN
-        val gameId    = intent.getStringExtra("GAME_ID") ?: intent.getStringExtra("gameId") ?: ""
-        val isNewGame = intent.getBooleanExtra("isNewGame", false)
 
-        if (!isNewGame && gameId.isNotEmpty()) {
-            viewModel.observeGame(gameId)
-        }
+        val joinStatus = intent.getStringExtra("JOIN_STATUS")
+            ?.let { try { GameJoinStatus.valueOf(it) } catch (_: Exception) { null } }
+            ?: GameJoinStatus.OPEN
+
+        val gameId = intent.getStringExtra("GAME_ID") ?: intent.getStringExtra("gameId") ?: ""
+        val isNewGame = intent.getBooleanExtra("isNewGame", false)
 
         setContent {
             MyApplicationTheme(dynamicColor = false) {
+                // Subscription logic cleanly integrated into Compose
+                LaunchedEffect(gameId, isNewGame) {
+                    if (!isNewGame && gameId.isNotEmpty()) {
+                        viewModel.observeGame(gameId)
+                    }
+                }
+
                 val joinState by viewModel.joinState.collectAsState()
 
                 // React to terminal states: navigate on success, stay on error
                 LaunchedEffect(joinState) {
                     when (val state = joinState) {
                         is JoinViewModel.JoinState.Success -> {
+                            // Clean up before navigating to GameboardUI (if necessary)
+                            viewModel.stopObserving()
+
                             startActivity(
                                 Intent(this@JoinActivity, GameboardUI::class.java)
                                     .putExtra("GAME_ID", state.gameId)
@@ -98,15 +106,16 @@ class JoinActivity : ComponentActivity() {
                 val takenIcons by viewModel.takenIcons.collectAsState()
 
                 JoinScreen(
-                    gameId      = gameId,
-                    isNewGame   = isNewGame,
-                    joinState   = joinState,
-                    joinStatus  = joinStatus,
+                    gameId = gameId,
+                    isNewGame = isNewGame,
+                    joinState = joinState,
+                    joinStatus = joinStatus,
                     isConnected = isConnected,
                     reconnectFailed = reconnectFailed,
-                    takenIcons  = takenIcons,
+                    takenIcons = takenIcons,
                     onReconnect = { viewModel.reconnect() },
                     onBackClicked = {
+                        // Explicit reset including subscription cancellation before finish
                         viewModel.resetState()
                         finish()
                     },
@@ -360,7 +369,7 @@ fun JoinScreen(
 
             Spacer(modifier = Modifier.height(4.dp))
             Text(
-                text = if (currentIconTaken) "Icon bereits belegt" else "Tap to change icon",
+                text = if (currentIconTaken) "Icon already taken" else "Tap to change icon",
                 color = if (currentIconTaken) Color(0xFFEF9A9A) else Color.White.copy(alpha = 0.4f),
                 fontSize = 11.sp
             )

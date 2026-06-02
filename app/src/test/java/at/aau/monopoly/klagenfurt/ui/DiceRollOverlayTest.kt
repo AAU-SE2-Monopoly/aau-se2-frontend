@@ -149,6 +149,24 @@ class DiceRollOverlayTest {
         }
         composeTestRule.onNodeWithTag("dice_instruction_text").assertIsDisplayed()
     }
+
+    @Test
+    fun overlay_autoDismisses_afterResultDisplayed() {
+        var closeCalled = false
+        composeTestRule.setContent {
+            DiceRollOverlay(
+                isVisible = true,
+                diceResult = 3 to 4,
+                isRolling = false,
+                hasShaken = true,
+                onClose = { closeCalled = true }
+            )
+        }
+
+        composeTestRule.mainClock.advanceTimeBy(3000)
+        composeTestRule.waitForIdle()
+        assertTrue("onClose should be called after auto-dismiss delay", closeCalled)
+    }
 }
 
 @Composable

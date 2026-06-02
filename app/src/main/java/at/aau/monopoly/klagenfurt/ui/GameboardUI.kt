@@ -160,7 +160,6 @@ fun GameboardScreen(
     val isOnCommunityChestField = currentField is CommunityChestField
     val eventLog by viewModel.eventLog.collectAsState()
 
-
     val isRollingPhaseForCurrentPlayer by viewModel.isRollingPhaseForCurrentPlayer.collectAsState()
     val isBuyingPhaseForCurrentPlayer by viewModel.isBuyingPhaseForCurrentPlayer.collectAsState()
     val lastDiceRoll by viewModel.lastDiceRoll.collectAsState()
@@ -259,9 +258,28 @@ fun GameboardScreen(
     // Tracks whether the user has shaken to trigger the actual roll.
     var hasShaken by remember { mutableStateOf(false) }
 
+    // Detect emulator to auto-trigger shake (emulators lack accelerometer)
+    val isEmulator = remember {
+        android.os.Build.FINGERPRINT.startsWith("generic")
+                || android.os.Build.FINGERPRINT.startsWith("unknown")
+                || android.os.Build.MODEL.contains("google_sdk")
+                || android.os.Build.MODEL.contains("Emulator")
+                || android.os.Build.MODEL.contains("Android SDK built for x86")
+                || android.os.Build.PRODUCT.contains("sdk")
+                || android.os.Build.PRODUCT.contains("emulator")
+    }
+
     // Reset on overlay open and on phase changes so each turn starts fresh.
     LaunchedEffect(showOverlay) {
         if (showOverlay) hasShaken = false
+    }
+
+    // Auto-click shake on emulator when overlay is visible and it's rolling phase
+    LaunchedEffect(showOverlay, isRollingPhaseForCurrentPlayer, hasShaken) {
+        if (isEmulator && showOverlay && isRollingPhaseForCurrentPlayer && !hasShaken) {
+            hasShaken = true
+            viewModel.rollDice()
+        }
     }
     LaunchedEffect(isRollingPhaseForCurrentPlayer) {
         if (isRollingPhaseForCurrentPlayer) hasShaken = false
@@ -271,6 +289,14 @@ fun GameboardScreen(
     LaunchedEffect(isBuyingPhaseForCurrentPlayer, canEndTurnForCurrentPlayer) {
         if (!isBuyingPhaseForCurrentPlayer && !isRollingPhaseForCurrentPlayer && showOverlay) {
             showOverlay = false
+        }
+    }
+
+    // Auto-end turn after dice overlay closes when a double was rolled
+    val pendingDoubleAutoEnd by viewModel.pendingDoubleAutoEnd.collectAsState()
+    LaunchedEffect(showOverlay, pendingDoubleAutoEnd) {
+        if (!showOverlay && pendingDoubleAutoEnd) {
+            viewModel.consumeDoubleAutoEnd()
         }
     }
 
@@ -388,7 +414,10 @@ fun GameboardScreen(
                     }
                 }
 
-                if (canEndTurnForCurrentPlayer) {
+                // Hide End Turn if on a card field and card not yet drawn
+                val mustDrawCard = (isOnCommunityChestField && !communityChestCardDrawnThisTurn) ||
+                        (isOnChanceField && !chanceCardDrawnThisTurn)
+                if (canEndTurnForCurrentPlayer && !mustDrawCard && !showActionCardOverlay) {
                     GlassButton(
                         onClick = { viewModel.endTurn() },
                         modifier = Modifier
@@ -426,25 +455,26 @@ fun GameboardScreen(
                     }
                 }
 
-                if (isOnChanceField && isBuyingPhaseForCurrentPlayer) {
+                if (isOnChanceField && isBuyingPhaseForCurrentPlayer && !chanceCardDrawnThisTurn) {
                     DrawCardButton(
                         cardType = "CHANCE",
-                        alreadyDrawn = chanceCardDrawnThisTurn,
+                        alreadyDrawn = false,
                         enabled = !showActionCardOverlay,
                         label = "🎰 Draw Chance",
                         onDraw = { viewModel.drawCard("CHANCE") }
                     )
                 }
 
-                if (isOnCommunityChestField && isBuyingPhaseForCurrentPlayer) {
+                if (isOnCommunityChestField && isBuyingPhaseForCurrentPlayer && !communityChestCardDrawnThisTurn) {
                     DrawCardButton(
                         cardType = "COMMUNITY_CHEST",
-                        alreadyDrawn = communityChestCardDrawnThisTurn,
+                        alreadyDrawn = false,
                         enabled = !showActionCardOverlay,
                         label = "⭐ Draw Community",
                         onDraw = { viewModel.drawCard("COMMUNITY_CHEST") }
                     )
                 }
+
             }
 
             GameboardOverlayLayer(eventLog = bufferedEventLog)
@@ -770,7 +800,4 @@ fun GameboardScreen(
             contentScale = ContentScale.FillBounds
         )
     }
-
-
-
 

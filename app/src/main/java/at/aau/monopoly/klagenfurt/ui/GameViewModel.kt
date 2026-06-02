@@ -10,6 +10,8 @@ import at.aau.monopoly.klagenfurt.model.GameState
 import at.aau.monopoly.klagenfurt.model.Player
 import at.aau.monopoly.klagenfurt.model.card.Card
 import at.aau.monopoly.klagenfurt.model.enums.GamePhase
+import at.aau.monopoly.klagenfurt.model.field.ChanceField
+import at.aau.monopoly.klagenfurt.model.field.CommunityChestField
 import at.aau.monopoly.klagenfurt.model.field.Field
 import at.aau.monopoly.klagenfurt.networking.GameService
 import at.aau.monopoly.klagenfurt.networking.JacksonProvider
@@ -91,6 +93,9 @@ class GameViewModel(
 
     private val _selectedPlayerForOverlay = MutableStateFlow<Player?>(null)
     val selectedPlayerForOverlay: StateFlow<Player?> = _selectedPlayerForOverlay.asStateFlow()
+
+    private val _pendingDoubleAutoEnd = MutableStateFlow(false)
+    val pendingDoubleAutoEnd: StateFlow<Boolean> = _pendingDoubleAutoEnd.asStateFlow()
 
     private val _chanceCardDrawnThisTurn = MutableStateFlow(false)
     val chanceCardDrawnThisTurn: StateFlow<Boolean> = _chanceCardDrawnThisTurn.asStateFlow()
@@ -191,7 +196,19 @@ class GameViewModel(
                     _chanceCardDrawnThisTurn.value = false
                     _communityChestCardDrawnThisTurn.value = false
                     _buildingActionPending.value = false
+                    _pendingDoubleAutoEnd.value = false
                     lastCurrentPlayerIdForCardDraw = null
+                }
+
+                // Track doubles for auto-end after dice overlay closes
+                if (event.event == "DICE_ROLLED") {
+                    val state = event.gameState
+                    val diceRoll = state?.lastDiceRoll
+                    if (diceRoll != null && diceRoll.isDouble &&
+                        state.currentPlayer?.id == gameService.currentPlayerId
+                    ) {
+                        _pendingDoubleAutoEnd.value = true
+                    }
                 }
 
 
@@ -401,6 +418,20 @@ class GameViewModel(
     }
 
     fun endTurn() = gameService.endTurn()
+
+    fun consumeDoubleAutoEnd() {
+        if (!_pendingDoubleAutoEnd.value) return
+        // Do not auto-end if the player must still draw a card
+        val state = previousGameState ?: return
+        val currentPlayer = state.currentPlayer ?: return
+        val currentField = state.fields.getOrNull(currentPlayer.position)
+        val mustDrawCard = (currentField is CommunityChestField && !_communityChestCardDrawnThisTurn.value) ||
+                (currentField is ChanceField && !_chanceCardDrawnThisTurn.value)
+        if (mustDrawCard) return
+        if (_pendingDoubleAutoEnd.compareAndSet(expect = true, update = false)) {
+            gameService.endTurn()
+        }
+    }
 
     fun payJailFine() = gameService.payJailFine()
     fun useJailCard() = gameService.useJailCard()

@@ -14,7 +14,7 @@ data class Player(
     val ownedPropertyIds: MutableList<Int> = mutableListOf()
 ) {
     /** Returns true if the player is bankrupt (no money and no properties). */
-    fun isBankrupt(): Boolean = money <= 0 && ownedPropertyIds.isEmpty()
+    fun isBankrupt(): Boolean = eliminated || (money <= 0 && ownedPropertyIds.isEmpty())
 
     fun goToJail(jailPosition: Int = 10) {
         position = jailPosition

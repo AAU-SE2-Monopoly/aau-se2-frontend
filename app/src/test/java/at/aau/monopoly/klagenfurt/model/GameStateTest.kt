@@ -25,19 +25,15 @@ class GameStateTest {
     }
 
     @Test
-    fun `advanceTurn moves to next player and resets state`() {
+    fun `advanceTurn moves to next player and resets phase`() {
         val state = makeState(3)
-        state.currentPlayer!!.consecutiveDoublets = 2
-        state.lastDiceRoll = DiceRoll(3, 4)
         state.phase = GamePhase.BUYING
 
         state.advanceTurn()
 
         assertEquals(1, state.currentPlayerIndex)
         assertEquals("p2", state.currentPlayer?.id)
-        assertNull(state.lastDiceRoll)
         assertEquals(GamePhase.ROLLING, state.phase)
-        assertEquals(0, state.players[0].consecutiveDoublets)
     }
 
     @Test

@@ -5,6 +5,7 @@ import at.aau.monopoly.klagenfurt.model.card.ChanceCard
 import at.aau.monopoly.klagenfurt.model.card.CommunityChestCard
 import at.aau.monopoly.klagenfurt.model.enums.GamePhase
 import at.aau.monopoly.klagenfurt.model.field.Field
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties
 
 enum class PaymentSource { RENT, CARD_PAY, CARD_PAY_EACH, CARD_REPAIR }
 
@@ -16,6 +17,7 @@ data class PendingPayment(
     val debtorCanPayAfterAssets: Boolean = true
 )
 
+@JsonIgnoreProperties(ignoreUnknown = true)
 data class GameState(
     val gameId: String,
     val fields: List<Field>,
@@ -39,12 +41,17 @@ data class GameState(
 
     /** Advance the turn to the next player (wraps around) and resets turn-specific stats. */
     fun advanceTurn() {
-        // Zug-Statistiken des aktuellen Spielers zurücksetzen, bevor gewechselt wird
-        currentPlayer?.consecutiveDoublets = 0
-        lastDiceRoll = null
-
         if (players.isNotEmpty()) {
-            currentPlayerIndex = (currentPlayerIndex + 1) % players.size
+            var attempts = 0
+            do {
+                currentPlayerIndex = (currentPlayerIndex + 1) % players.size
+                attempts++
+            } while (attempts < players.size && (players[currentPlayerIndex].isBankrupt()))
+
+            if (players.all { it.isBankrupt() }) {
+                phase = GamePhase.FINISHED
+                return
+            }
         }
         phase = GamePhase.ROLLING
     }

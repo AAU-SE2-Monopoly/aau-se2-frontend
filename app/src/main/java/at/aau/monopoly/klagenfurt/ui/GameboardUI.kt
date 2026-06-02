@@ -315,6 +315,7 @@ fun GameboardScreen(
                 selectedPlayerForOverlay = selectedPlayer,
                 onDismissOverlay = { viewModel.hidePlayerOverlay() },
                 movementAnimationState = movementState,
+                gameState = gameState,
                 modifier = Modifier.fillMaxSize()
             )
 
@@ -566,6 +567,7 @@ fun GameboardScreen(
         selectedPlayerForOverlay: Player? = null,
         onDismissOverlay: () -> Unit = {},
         movementAnimationState: MovementAnimationState? = null,
+        gameState: at.aau.monopoly.klagenfurt.model.GameState? = null,
         modifier: Modifier = Modifier
     ) {
         val myPlayer = players.find { it.id == currentPlayerId }
@@ -615,7 +617,8 @@ fun GameboardScreen(
                                     animatingStep = movementAnimationState?.let {
                                         if (it.currentStepIndex in it.path.indices) it.path[it.currentStepIndex] else null
                                     },
-                                    animationComplete = movementAnimationState?.isComplete ?: true
+                                    animationComplete = movementAnimationState?.isComplete ?: true,
+                                    freeParkingMoney = gameState?.freeParkingMoney ?: 0
                                 )
                             }
                         }

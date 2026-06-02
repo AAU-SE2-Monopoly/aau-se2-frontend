@@ -216,7 +216,8 @@ fun FieldItem(
     playersOnField: List<Player> = emptyList(),
     animatingPlayerId: String? = null,
     animatingStep: Int? = null,
-    animationComplete: Boolean = true
+    animationComplete: Boolean = true,
+    freeParkingMoney: Int = 0
 ) {
     val bounds = remember(index, sw, sh) { calculateFieldBounds(index, sw, sh) }
     val side = (index / 10) % 4
@@ -266,6 +267,14 @@ fun FieldItem(
                 animatingStep = animatingStep,
                 animationComplete = animationComplete
             )
+
+            // Show free parking money on the Free Parking field (index 20)
+            if (index == 20 && freeParkingMoney > 0) {
+                FreeParkingMoneyDisplay(
+                    amount = freeParkingMoney,
+                    index = index
+                )
+            }
         } else {
             // Non-corner: unified image + title block via Column
             NonCornerFieldContent(
@@ -1078,3 +1087,52 @@ private fun BoxScope.BuildingIndicator(
         )
     }
 }
+
+/**
+ * Display for Free Parking Money pot.
+ * Shows the accumulated money in the Free Parking field (corner field index 20).
+ */
+@Composable
+private fun BoxScope.FreeParkingMoneyDisplay(
+    amount: Int,
+    index: Int
+) {
+    val textColor = when (amount) {
+        0 -> Color.Gray
+        in 1..100 -> Color.Green
+        in 101..500 -> Color(0xFFFF9800)  // Orange
+        else -> Color.Red
+    }
+
+    // Position the money display on the Free Parking field
+    // Usually in the upper right area of the corner field
+    val alignment = Alignment.TopEnd
+
+    Box(
+        modifier = Modifier
+            .align(alignment)
+            .padding(4.dp)
+            .background(Color.White.copy(alpha = 0.8f), shape = CircleShape)
+            .border(1.dp, textColor, CircleShape)
+            .padding(4.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier.padding(2.dp)
+        ) {
+            Text(
+                text = "💰",
+                fontSize = 4.sp
+            )
+            Text(
+                text = amount.toString(),
+                fontSize = 3.sp,
+                fontWeight = FontWeight.Bold,
+                color = textColor,
+                maxLines = 1
+            )
+        }
+    }
+}
+

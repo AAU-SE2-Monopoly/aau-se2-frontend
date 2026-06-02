@@ -44,6 +44,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
@@ -188,6 +189,12 @@ fun MortgageManagementContent(
         val cardWidth = (screenWidth * 0.28f).coerceIn(80.dp, 160.dp)
         val cardHeight = cardWidth * 1.4f
         val buttonHeight = (screenHeight * 0.075f).coerceIn(32.dp, 44.dp)
+        val actionChipHeight = (screenHeight * 0.065f).coerceIn(30.dp, 40.dp)
+
+        val headerTextSize = (screenHeight.value * 0.02f).coerceIn(14f, 18f).sp
+        val balanceTextSize = (screenHeight.value * 0.016f).coerceIn(12f, 14f).sp
+        val closeButtonTextSize = (screenHeight.value * 0.017f).coerceIn(12f, 14f).sp
+        val emptyMessageSize = (screenHeight.value * 0.02f).coerceIn(14f, 18f).sp
 
         Surface(
             modifier = Modifier
@@ -212,7 +219,7 @@ fun MortgageManagementContent(
                     Text(
                         text = "Property Management",
                         color = Color.White,
-                        fontSize = 16.sp,
+                        fontSize = headerTextSize,
                         fontWeight = FontWeight.ExtraBold,
                         letterSpacing = 1.sp
                     )
@@ -229,7 +236,7 @@ fun MortgageManagementContent(
                 ) {
                     Text(
                         text = "Balance: €$currentMoney",
-                        fontSize = 13.sp,
+                        fontSize = balanceTextSize,
                         fontWeight = FontWeight.SemiBold,
                         color = Color(0xFF69F0AE)
                     )
@@ -246,7 +253,7 @@ fun MortgageManagementContent(
                     ) {
                         Text(
                             text = "You don't own any properties",
-                            fontSize = 16.sp,
+                            fontSize = emptyMessageSize,
                             color = Color.White.copy(alpha = 0.6f)
                         )
                     }
@@ -264,8 +271,6 @@ fun MortgageManagementContent(
 
                     Spacer(modifier = Modifier.height(8.dp))
 
-                    val actionChipHeight = (screenHeight * 0.065f).coerceIn(30.dp, 40.dp)
-
                     AnimatedVisibility(
                         visible = selectedProperty != null,
                         enter = fadeIn() + slideInVertically { it / 2 },
@@ -278,6 +283,7 @@ fun MortgageManagementContent(
                                 actionInFlight = actionInFlight,
                                 isPayingRent = isPayingRent,
                                 chipHeight = actionChipHeight,
+                                screenHeight = screenHeight,
                                 onBuyHouse = {
                                     onBuyHouse(prop.fieldId)
                                     selectedProperty = findNextInGroup(sortedProperties, prop) { it.canBuyHouse }
@@ -321,7 +327,7 @@ fun MortgageManagementContent(
                 ) {
                     Text(
                         text = "Close",
-                        fontSize = 13.sp,
+                        fontSize = closeButtonTextSize,
                         fontWeight = FontWeight.Bold,
                         color = Color.White
                     )
@@ -349,9 +355,16 @@ fun MortgageManagementContent(
                         modifier = Modifier.padding(20.dp),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
+                        val dialogTitleSize = (screenHeight.value * 0.02f).coerceIn(14f, 18f).sp
+                        val dialogTextSize = (screenHeight.value * 0.016f).coerceIn(12f, 14f).sp
+                        val dialogMainTextSize = (screenHeight.value * 0.018f).coerceIn(14f, 16f).sp
+                        val dialogAmountLabelSize = (screenHeight.value * 0.013f).coerceIn(10f, 12f).sp
+                        val dialogAmountSize = (screenHeight.value * 0.022f).coerceIn(16f, 20f).sp
+                        val dialogWarningSize = (screenHeight.value * 0.013f).coerceIn(10f, 12f).sp
+
                         Text(
                             text = "Mortgage Property",
-                            fontSize = 16.sp,
+                            fontSize = dialogTitleSize,
                             fontWeight = FontWeight.ExtraBold,
                             color = Color(0xFFFF5252)
                         )
@@ -360,13 +373,13 @@ fun MortgageManagementContent(
 
                         Text(
                             text = "Do you really want to mortgage",
-                            fontSize = 13.sp,
+                            fontSize = dialogTextSize,
                             color = Color.White.copy(alpha = 0.8f),
                             textAlign = TextAlign.Center
                         )
                         Text(
                             text = "${pending.name}?",
-                            fontSize = 15.sp,
+                            fontSize = dialogMainTextSize,
                             fontWeight = FontWeight.Bold,
                             color = Color.White,
                             textAlign = TextAlign.Center
@@ -384,12 +397,12 @@ fun MortgageManagementContent(
                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                 Text(
                                     text = "You will receive",
-                                    fontSize = 11.sp,
+                                    fontSize = dialogAmountLabelSize,
                                     color = Color.White.copy(alpha = 0.7f)
                                 )
                                 Text(
                                     text = "€${pending.mortgageValue}",
-                                    fontSize = 18.sp,
+                                    fontSize = dialogAmountSize,
                                     fontWeight = FontWeight.Bold,
                                     color = Color(0xFF69F0AE)
                                 )
@@ -400,7 +413,7 @@ fun MortgageManagementContent(
 
                         Text(
                             text = "Rent cannot be collected while mortgaged.",
-                            fontSize = 11.sp,
+                            fontSize = dialogWarningSize,
                             color = Color(0xFFFF8A80).copy(alpha = 0.85f),
                             textAlign = TextAlign.Center
                         )
@@ -672,6 +685,7 @@ private fun PropertyActionPanel(
     actionInFlight: Boolean,
     isPayingRent: Boolean = false,
     chipHeight: Dp,
+    screenHeight: Dp,
     onBuyHouse: () -> Unit,
     onBuyHotel: () -> Unit,
     onMortgage: () -> Unit,
@@ -680,6 +694,13 @@ private fun PropertyActionPanel(
     onSellHotel: () -> Unit
 ) {
     val canUnmortgage = currentMoney >= property.unmortgageCost
+
+    val nameTextSize = (screenHeight.value * 0.016f).coerceIn(12f, 14f).sp
+    val statusTextSize = (screenHeight.value * 0.014f).coerceIn(10f, 12f).sp
+    val buildingInfoSize = (screenHeight.value * 0.014f).coerceIn(10f, 12f).sp
+    val chipMainTextSize = (screenHeight.value * 0.014f).coerceIn(10f, 12f).sp
+    val chipSubTextSize = (screenHeight.value * 0.012f).coerceIn(9f, 11f).sp
+    val needMoreSize = (screenHeight.value * 0.012f).coerceIn(9f, 11f).sp
 
     Surface(
         modifier = Modifier.fillMaxWidth(),
@@ -697,14 +718,14 @@ private fun PropertyActionPanel(
             ) {
                 Text(
                     text = property.name,
-                    fontSize = 13.sp,
+                    fontSize = nameTextSize,
                     fontWeight = FontWeight.ExtraBold,
                     color = Color.White,
                     modifier = Modifier.weight(1f)
                 )
                 Text(
                     text = if (property.isMortgaged) "MORTGAGED" else "Owned",
-                    fontSize = 11.sp,
+                    fontSize = statusTextSize,
                     fontWeight = FontWeight.Bold,
                     color = if (property.isMortgaged) Color(0xFFFF5252) else Color(0xFF69F0AE)
                 )
@@ -718,14 +739,14 @@ private fun PropertyActionPanel(
                     if (property.hasHotel) {
                         Text(
                             "Hotel",
-                            fontSize = 11.sp,
+                            fontSize = buildingInfoSize,
                             color = Color(0xFFFFD700),
                             fontWeight = FontWeight.Bold
                         )
                     } else {
                         Text(
                             "${property.houses} House${if (property.houses > 1) "s" else ""}",
-                            fontSize = 11.sp,
+                            fontSize = buildingInfoSize,
                             color = Color.White
                         )
                     }
@@ -752,7 +773,9 @@ private fun PropertyActionPanel(
                             enabled = !actionInFlight && property.canMortgage,
                             chipHeight = chipHeight,
                             modifier = Modifier.weight(1f),
-                            onClick = onMortgage
+                            onClick = onMortgage,
+                            textSize = chipMainTextSize,
+                            subTextSize = chipSubTextSize
                         )
                     }
 
@@ -764,7 +787,9 @@ private fun PropertyActionPanel(
                             enabled = !isPayingRent && canUnmortgage && !actionInFlight,
                             chipHeight = chipHeight,
                             modifier = Modifier.weight(1f),
-                            onClick = onUnmortgage
+                            onClick = onUnmortgage,
+                            textSize = chipMainTextSize,
+                            subTextSize = chipSubTextSize
                         )
                     }
 
@@ -776,7 +801,9 @@ private fun PropertyActionPanel(
                             enabled = !actionInFlight && property.canSellHouse,
                             chipHeight = chipHeight,
                             modifier = Modifier.weight(1f),
-                            onClick = onSellHouse
+                            onClick = onSellHouse,
+                            textSize = chipMainTextSize,
+                            subTextSize = chipSubTextSize
                         )
                     }
 
@@ -788,7 +815,9 @@ private fun PropertyActionPanel(
                             enabled = !actionInFlight && property.canSellHotel,
                             chipHeight = chipHeight,
                             modifier = Modifier.weight(1f),
-                            onClick = onSellHotel
+                            onClick = onSellHotel,
+                            textSize = chipMainTextSize,
+                            subTextSize = chipSubTextSize
                         )
                     }
                 }
@@ -812,7 +841,9 @@ private fun PropertyActionPanel(
                             enabled = !isPayingRent && !actionInFlight && currentMoney >= property.houseCost && property.canBuyHouse,
                             chipHeight = chipHeight,
                             modifier = Modifier.weight(1f),
-                            onClick = onBuyHouse
+                            onClick = onBuyHouse,
+                            textSize = chipMainTextSize,
+                            subTextSize = chipSubTextSize
                         )
                     }
 
@@ -824,7 +855,9 @@ private fun PropertyActionPanel(
                             enabled = !isPayingRent && !actionInFlight && currentMoney >= property.hotelCost && property.canBuyHotel,
                             chipHeight = chipHeight,
                             modifier = Modifier.weight(1f),
-                            onClick = onBuyHotel
+                            onClick = onBuyHotel,
+                            textSize = chipMainTextSize,
+                            subTextSize = chipSubTextSize
                         )
                     }
                 }
@@ -834,7 +867,7 @@ private fun PropertyActionPanel(
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
                     text = "Need €${property.unmortgageCost - currentMoney} more",
-                    fontSize = 10.sp,
+                    fontSize = needMoreSize,
                     color = Color(0xFFFF5252).copy(alpha = 0.8f),
                     modifier = Modifier.fillMaxWidth(),
                     textAlign = TextAlign.Center
@@ -854,7 +887,9 @@ private fun ActionChip(
     enabled: Boolean,
     chipHeight: Dp,
     modifier: Modifier = Modifier,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    textSize: TextUnit = 11.sp,
+    subTextSize: TextUnit = 10.sp
 ) {
     Button(
         onClick = onClick,
@@ -869,13 +904,13 @@ private fun ActionChip(
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Text(
                 text = text,
-                fontSize = 11.sp,
+                fontSize = textSize,
                 fontWeight = FontWeight.Bold,
                 color = Color.White
             )
             Text(
                 text = sub,
-                fontSize = 10.sp,
+                fontSize = subTextSize,
                 color = Color.White.copy(alpha = 0.85f)
             )
         }

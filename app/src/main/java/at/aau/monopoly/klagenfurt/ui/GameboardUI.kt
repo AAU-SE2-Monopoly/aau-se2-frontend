@@ -83,6 +83,7 @@ import at.aau.monopoly.klagenfurt.model.field.ChanceField
 import at.aau.monopoly.klagenfurt.model.field.CommunityChestField
 import kotlin.math.hypot
 import at.aau.monopoly.klagenfurt.model.field.PropertyField
+import at.aau.monopoly.klagenfurt.model.enums.GamePhase
 import com.example.myapplication.BuildConfig
 
 
@@ -166,6 +167,13 @@ fun GameboardScreen(
         isBuyingPhaseForCurrentPlayer &&
                 isBuyableField &&
                 isUnownedField
+
+    val gameStarted = gameState?.phase != null &&
+            gameState!!.phase != GamePhase.WAITING &&
+            gameState!!.phase != GamePhase.FINISHED
+
+    val myPlayer = gameState?.players?.find { it.id == currentPlayerId }
+    val myPlayerIsActive = myPlayer != null && !myPlayer.eliminated && gameStarted
 
     val ownedCompleteColorSetProperties = remember(fields, currentPlayerId) {
         fields
@@ -460,9 +468,9 @@ fun GameboardScreen(
                     }
                 }
 
-                // Visible any time during the current player's turn (Monopoly rule):
+                // Visible any time during the game for any non-eliminated player (Monopoly rule):
                 // mortgage/unmortgage/sell buildings are allowed at any point.
-                if (currentTurnPlayer?.id == currentPlayerId && !currentTurnPlayer.eliminated) {
+                if (myPlayerIsActive == true) {
                     GlassButton(
                         onClick = { viewModel.showMortgageManagementOverlay() },
                         modifier = Modifier
@@ -496,7 +504,7 @@ fun GameboardScreen(
 
                 if (
                     ownedCompleteColorSetProperties.isNotEmpty() &&
-                    canEndTurnForCurrentPlayer
+                    myPlayerIsActive == true
                 ) {
                     GlassButton(
                         onClick = { showBuildingManager = true },
@@ -601,9 +609,9 @@ fun GameboardScreen(
             )
 
             MortgageManagementOverlay(
-                isVisible = showMortgageOverlay && currentTurnPlayer?.id == currentPlayerId,
+                isVisible = showMortgageOverlay && myPlayerIsActive == true,
                 properties = manageableProperties,
-                currentMoney = currentTurnPlayer?.money ?: 0,
+                currentMoney = myPlayer?.money ?: 0,
                 actionInFlight = propertyActionInFlight,
                 onBuyHouse = { fieldId -> viewModel.buyHouse(fieldId) },
                 onBuyHotel = { fieldId -> viewModel.buyHotel(fieldId) },

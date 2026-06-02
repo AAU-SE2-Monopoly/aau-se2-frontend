@@ -7,6 +7,7 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.animateScrollBy
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -21,6 +22,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -28,6 +30,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -56,8 +59,7 @@ private val SelectedManagedCardBorder = Color(0xFF69F0AE)
 private val MortgagedManagedCardRed = Color(0xFFD32F2F)
 
 /**
- * Sorts [ManageableProperty] instances by color first, keeping same-color groups together.
- * Within each color: buildings first, then vacant, then mortgaged.
+ * Sorts [ManageableProperty] instances by color group, then by name.
  */
 fun sortManageableProperties(properties: List<ManageableProperty>): List<ManageableProperty> {
     return properties.sortedWith(
@@ -74,18 +76,6 @@ fun sortManageableProperties(properties: List<ManageableProperty>): List<Managea
                 else -> 100
             }
         }
-            .thenBy { prop ->
-                when {
-                    prop.isMortgaged -> 2
-                    prop.houses > 0 || prop.hasHotel -> 0
-                    else -> 1
-                }
-            }
-            .thenByDescending { prop ->
-                if (!prop.isMortgaged && (prop.houses > 0 || prop.hasHotel))
-                    if (prop.hasHotel) 5 else prop.houses
-                else 0
-            }
             .thenBy { it.name }
     )
 }
@@ -289,12 +279,31 @@ fun MortgageManagementContent(
                                 actionInFlight = actionInFlight,
                                 isPayingRent = isPayingRent,
                                 chipHeight = actionChipHeight,
-                                onBuyHouse = { onBuyHouse(prop.fieldId); selectedProperty = null },
-                                onBuyHotel = { onBuyHotel(prop.fieldId); selectedProperty = null },
-                                onMortgage = { onMortgage(prop.fieldId); selectedProperty = null },
-                                onUnmortgage = { onUnmortgage(prop.fieldId); selectedProperty = null },
-                                onSellHouse = { onSellHouse(prop.fieldId); selectedProperty = null },
-                                onSellHotel = { onSellHotel(prop.fieldId); selectedProperty = null }
+                                onBuyHouse = {
+                                    onBuyHouse(prop.fieldId)
+                                    selectedProperty = findNextInGroup(sortedProperties, prop) { it.canBuyHouse }
+                                },
+                                onBuyHotel = {
+                                    onBuyHotel(prop.fieldId)
+                                    selectedProperty = findNextInGroup(sortedProperties, prop) { it.canBuyHotel }
+                                },
+                                onMortgage = {
+                                    onMortgage(prop.fieldId)
+                                    selectedProperty = findNextInGroup(sortedProperties, prop) { it.canMortgage }
+                                },
+                                onUnmortgage = {
+                                    onUnmortgage(prop.fieldId)
+                                    selectedProperty = findNextInGroup(sortedProperties, prop) { it.isMortgaged }
+                                },
+                                onSellHouse = {
+                                    onSellHouse(prop.fieldId)
+                                    selectedProperty = findNextInGroup(sortedProperties, prop) { it.canSellHouse }
+                                },
+                                onSellHotel = {
+                                    onSellHotel(prop.fieldId)
+                                    val nextHotel = findNextInGroup(sortedProperties, prop) { it.canSellHotel }
+                                    selectedProperty = if (nextHotel.fieldId != prop.fieldId) nextHotel else prop
+                                }
                             )
                         }
                     }
@@ -336,8 +345,31 @@ private fun PropertyCardRow(
     modifier: Modifier = Modifier
 ) {
     val grouped = remember(properties) { groupByColor(properties) }
+    val listState = rememberLazyListState()
+
+    LaunchedEffect(selectedProperty) {
+        selectedProperty?.let { selected ->
+            val flatIdx = findGroupedIndex(grouped, selected.fieldId)
+
+            if (flatIdx != null) {
+                // Try to center using measured visible items
+                val itemInfo = listState.layoutInfo.visibleItemsInfo
+                    .firstOrNull { it.index == flatIdx }
+                if (itemInfo != null) {
+                    val vpStart = listState.layoutInfo.viewportStartOffset
+                    val vpEnd = listState.layoutInfo.viewportEndOffset
+                    val viewportCenter = (vpEnd - vpStart) / 2
+                    val itemCenter = itemInfo.offset + itemInfo.size / 2
+                    listState.animateScrollBy((itemCenter - viewportCenter).toFloat())
+                } else {
+                    listState.animateScrollToItem(flatIdx)
+                }
+            }
+        }
+    }
 
     LazyRow(
+        state = listState,
         modifier = modifier.fillMaxWidth(),
         contentPadding = PaddingValues(horizontal = 4.dp),
         horizontalArrangement = Arrangement.spacedBy(0.dp)
@@ -364,6 +396,25 @@ private fun PropertyCardRow(
             }
         }
     }
+}
+
+/**
+ * Find the flat LazyRow item index for [fieldId] in [grouped],
+ * accounting for spacer items between color groups.
+ */
+private fun findGroupedIndex(
+    grouped: List<ColorGroup>,
+    fieldId: Int
+): Int? {
+    var flatIdx = 0
+    for ((gi, group) in grouped.withIndex()) {
+        if (gi > 0) flatIdx++
+        for (prop in group.properties) {
+            if (prop.fieldId == fieldId) return flatIdx
+            flatIdx++
+        }
+    }
+    return null
 }
 
 // card in the row
@@ -491,6 +542,23 @@ private fun ManagedPropertyCard(
     }
 }
 
+/**
+ * Find the next property within the same color group as [current] that matches [predicate].
+ * Searches forward through siblings only, wrapping around within the group.
+ * Falls back to [current] if no other sibling matches, keeping the panel open.
+ */
+internal fun findNextInGroup(
+    sortedProperties: List<ManageableProperty>,
+    current: ManageableProperty,
+    predicate: (ManageableProperty) -> Boolean
+): ManageableProperty {
+    val siblings = sortedProperties.filter { it.color == current.color }
+    val idx = siblings.indexOfFirst { it.fieldId == current.fieldId }
+    if (idx < 0) return current
+    val afterInGroup = siblings.drop(idx + 1) + siblings.take(idx)
+    return afterInGroup.firstOrNull { predicate(it) } ?: current
+}
+
 // below cards, appears when a card is tapped
 
 @Composable
@@ -564,87 +632,97 @@ private fun PropertyActionPanel(
             HorizontalDivider(color = Color.White.copy(alpha = 0.15f), thickness = 1.dp)
             Spacer(modifier = Modifier.height(6.dp))
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            // Sell / debit actions — always occupy fixed height so buy row never shifts
+            Box(
+                modifier = Modifier.fillMaxWidth().height(chipHeight)
             ) {
-                if (!property.isMortgaged && property.houses == 0 && !property.hasHotel) {
-                    ActionChip(
-                        text = "Mortgage",
-                        sub = "+€${property.mortgageValue}",
-                        backgroundColor = Color(0xFFC62828),
-                        enabled = !actionInFlight && property.canMortgage,
-                        chipHeight = chipHeight,
-                        modifier = Modifier.weight(1f),
-                        onClick = onMortgage
-                    )
-                }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    if (!property.isMortgaged && property.houses == 0 && !property.hasHotel) {
+                        ActionChip(
+                            text = "Mortgage",
+                            sub = "+€${property.mortgageValue}",
+                            backgroundColor = Color(0xFFC62828),
+                            enabled = !actionInFlight && property.canMortgage,
+                            chipHeight = chipHeight,
+                            modifier = Modifier.weight(1f),
+                            onClick = onMortgage
+                        )
+                    }
 
-                if (property.isMortgaged) {
-                    ActionChip(
-                        text = "Unmortgage",
-                        sub = "-€${property.unmortgageCost}",
-                        backgroundColor = Color(0xFF2E7D32),
-                        enabled = !isPayingRent && canUnmortgage && !actionInFlight,
-                        chipHeight = chipHeight,
-                        modifier = Modifier.weight(1f),
-                        onClick = onUnmortgage
-                    )
-                }
+                    if (property.isMortgaged) {
+                        ActionChip(
+                            text = "Unmortgage",
+                            sub = "-€${property.unmortgageCost}",
+                            backgroundColor = Color(0xFF2E7D32),
+                            enabled = !isPayingRent && canUnmortgage && !actionInFlight,
+                            chipHeight = chipHeight,
+                            modifier = Modifier.weight(1f),
+                            onClick = onUnmortgage
+                        )
+                    }
 
-                if (property.houses > 0 && !property.isMortgaged) {
-                    ActionChip(
-                        text = "Sell House",
-                        sub = "+€${property.sellHouseValue}",
-                        backgroundColor = Color(0xFFC77700),
-                        enabled = !actionInFlight && property.canSellHouse,
-                        chipHeight = chipHeight,
-                        modifier = Modifier.weight(1f),
-                        onClick = onSellHouse
-                    )
-                }
+                    if (property.houses > 0 && !property.isMortgaged) {
+                        ActionChip(
+                            text = "Sell House",
+                            sub = "+€${property.sellHouseValue}",
+                            backgroundColor = Color(0xFFC77700),
+                            enabled = !actionInFlight && property.canSellHouse,
+                            chipHeight = chipHeight,
+                            modifier = Modifier.weight(1f),
+                            onClick = onSellHouse
+                        )
+                    }
 
-                if (property.hasHotel && !property.isMortgaged) {
-                    ActionChip(
-                        text = "Sell Hotel",
-                        sub = "+€${property.sellHotelValue}",
-                        backgroundColor = Color(0xFFC77700),
-                        enabled = !actionInFlight && property.canSellHotel,
-                        chipHeight = chipHeight,
-                        modifier = Modifier.weight(1f),
-                        onClick = onSellHotel
-                    )
+                    if (property.hasHotel && !property.isMortgaged) {
+                        ActionChip(
+                            text = "Sell Hotel",
+                            sub = "+€${property.sellHotelValue}",
+                            backgroundColor = Color(0xFFC77700),
+                            enabled = !actionInFlight && property.canSellHotel,
+                            chipHeight = chipHeight,
+                            modifier = Modifier.weight(1f),
+                            onClick = onSellHotel
+                        )
+                    }
                 }
             }
 
             Spacer(modifier = Modifier.height(6.dp))
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            // Buy actions — always occupy fixed height
+            Box(
+                modifier = Modifier.fillMaxWidth().height(chipHeight)
             ) {
-                if (!property.isMortgaged && !property.hasHotel && property.houses < 4) {
-                    ActionChip(
-                        text = "Buy House",
-                        sub = "-€${property.houseCost}",
-                        backgroundColor = Color(0xFF2E7D32),
-                        enabled = !isPayingRent && !actionInFlight && currentMoney >= property.houseCost && property.canBuyHouse,
-                        chipHeight = chipHeight,
-                        modifier = Modifier.weight(1f),
-                        onClick = onBuyHouse
-                    )
-                }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    if (!property.isMortgaged && !property.hasHotel && property.houses < 4) {
+                        ActionChip(
+                            text = "Buy House",
+                            sub = "-€${property.houseCost}",
+                            backgroundColor = Color(0xFF2E7D32),
+                            enabled = !isPayingRent && !actionInFlight && currentMoney >= property.houseCost && property.canBuyHouse,
+                            chipHeight = chipHeight,
+                            modifier = Modifier.weight(1f),
+                            onClick = onBuyHouse
+                        )
+                    }
 
-                if (!property.isMortgaged && !property.hasHotel && property.houses == 4) {
-                    ActionChip(
-                        text = "Buy Hotel",
-                        sub = "-€${property.hotelCost}",
-                        backgroundColor = Color(0xFF1565C0),
-                        enabled = !isPayingRent && !actionInFlight && currentMoney >= property.hotelCost && property.canBuyHotel,
-                        chipHeight = chipHeight,
-                        modifier = Modifier.weight(1f),
-                        onClick = onBuyHotel
-                    )
+                    if (!property.isMortgaged && !property.hasHotel && property.houses == 4) {
+                        ActionChip(
+                            text = "Buy Hotel",
+                            sub = "-€${property.hotelCost}",
+                            backgroundColor = Color(0xFF1565C0),
+                            enabled = !isPayingRent && !actionInFlight && currentMoney >= property.hotelCost && property.canBuyHotel,
+                            chipHeight = chipHeight,
+                            modifier = Modifier.weight(1f),
+                            onClick = onBuyHotel
+                        )
+                    }
                 }
             }
 

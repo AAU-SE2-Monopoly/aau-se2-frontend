@@ -172,6 +172,8 @@ fun GameboardScreen(
             gameState!!.phase != GamePhase.WAITING &&
             gameState!!.phase != GamePhase.FINISHED
 
+    val isPayingRent = gameState?.phase == GamePhase.PAYING_RENT
+
     val myPlayer = gameState?.players?.find { it.id == currentPlayerId }
     val myPlayerIsActive = myPlayer != null && !myPlayer.eliminated && gameStarted
 
@@ -561,7 +563,8 @@ fun GameboardScreen(
                     onSellHouse = { viewModel.sellHouse(it) },
                     onSellHotel = { viewModel.sellHotel(it) },
                     onDismiss = { showBuildingManager = false },
-                    isBuildingActionPending = buildingActionPending
+                    isBuildingActionPending = buildingActionPending,
+                    isPayingRent = isPayingRent == true
 
                 )
             }
@@ -613,6 +616,7 @@ fun GameboardScreen(
                 properties = manageableProperties,
                 currentMoney = myPlayer?.money ?: 0,
                 actionInFlight = propertyActionInFlight,
+                isPayingRent = isPayingRent == true,
                 onBuyHouse = { fieldId -> viewModel.buyHouse(fieldId) },
                 onBuyHotel = { fieldId -> viewModel.buyHotel(fieldId) },
                 onMortgage = { fieldId -> viewModel.mortgageProperty(fieldId) },

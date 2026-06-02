@@ -28,7 +28,8 @@ fun BuildingManagerOverlay(
     onSellHouse: (Int) -> Unit,
     onSellHotel: (Int) -> Unit,
     onDismiss: () -> Unit,
-    isBuildingActionPending: Boolean
+    isBuildingActionPending: Boolean,
+    isPayingRent: Boolean = false
 ) {
     Box(
         modifier = Modifier
@@ -65,7 +66,8 @@ fun BuildingManagerOverlay(
                             onBuyHotel = onBuyHotel,
                             onSellHouse = onSellHouse,
                             onSellHotel = onSellHotel,
-                            isBuildingActionPending = isBuildingActionPending
+                            isBuildingActionPending = isBuildingActionPending,
+                            isPayingRent = isPayingRent
                         )
                     }
                 }
@@ -101,8 +103,8 @@ private fun PropertyCard(
     onBuyHotel: (Int) -> Unit,
     onSellHouse: (Int) -> Unit,
     onSellHotel: (Int) -> Unit,
-    isBuildingActionPending: Boolean
-
+    isBuildingActionPending: Boolean,
+    isPayingRent: Boolean = false
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -120,7 +122,8 @@ private fun PropertyCard(
                 onBuyHotel = onBuyHotel,
                 onSellHouse = onSellHouse,
                 onSellHotel = onSellHotel,
-                isBuildingActionPending = isBuildingActionPending
+                isBuildingActionPending = isBuildingActionPending,
+                isPayingRent = isPayingRent
             )
         }
     }
@@ -161,14 +164,15 @@ private fun BuildingButtons(
     onBuyHotel: (Int) -> Unit,
     onSellHouse: (Int) -> Unit,
     onSellHotel: (Int) -> Unit,
-    isBuildingActionPending: Boolean
+    isBuildingActionPending: Boolean,
+    isPayingRent: Boolean = false
 ) {
     Row(
         horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         if (!property.hasHotel && property.houses < 4) {
             Button(onClick = { onBuyHouse(property.id) },
-                enabled = !isBuildingActionPending) {
+                enabled = !isPayingRent && !isBuildingActionPending) {
                 Text("Buy 🏠")
             }
         }
@@ -182,7 +186,7 @@ private fun BuildingButtons(
 
         if (property.houses == 4 && !property.hasHotel) {
             Button(onClick = { onBuyHotel(property.id) },
-                enabled = !isBuildingActionPending) {
+                enabled = !isPayingRent && !isBuildingActionPending) {
                 Text("Buy 🏨")
             }
         }

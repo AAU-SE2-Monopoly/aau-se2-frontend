@@ -506,7 +506,9 @@ fun GameboardScreen(
 
                 if (
                     ownedCompleteColorSetProperties.isNotEmpty() &&
-                    myPlayerIsActive == true
+                    myPlayerIsActive == true &&
+                    !isPayingRent &&
+                    canEndTurnForCurrentPlayer
                 ) {
                     GlassButton(
                         onClick = { showBuildingManager = true },
@@ -563,9 +565,7 @@ fun GameboardScreen(
                     onSellHouse = { viewModel.sellHouse(it) },
                     onSellHotel = { viewModel.sellHotel(it) },
                     onDismiss = { showBuildingManager = false },
-                    isBuildingActionPending = buildingActionPending,
-                    isPayingRent = isPayingRent == true
-
+                    isBuildingActionPending = buildingActionPending
                 )
             }
 

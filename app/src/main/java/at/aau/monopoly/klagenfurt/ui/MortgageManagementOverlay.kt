@@ -168,6 +168,7 @@ fun MortgageManagementContent(
     modifier: Modifier = Modifier
 ) {
     var selectedProperty by remember { mutableStateOf<ManageableProperty?>(null) }
+    var mortgagePendingProperty by remember { mutableStateOf<ManageableProperty?>(null) }
 
     // Sort: buildings first -> color-grouped -> mortgaged
     val sortedProperties = remember(properties) { sortManageableProperties(properties) }
@@ -288,8 +289,7 @@ fun MortgageManagementContent(
                                     selectedProperty = findNextInGroup(sortedProperties, prop) { it.canBuyHotel }
                                 },
                                 onMortgage = {
-                                    onMortgage(prop.fieldId)
-                                    selectedProperty = findNextInGroup(sortedProperties, prop) { it.canMortgage }
+                                    mortgagePendingProperty = prop
                                 },
                                 onUnmortgage = {
                                     onUnmortgage(prop.fieldId)
@@ -327,6 +327,123 @@ fun MortgageManagementContent(
                         fontWeight = FontWeight.Bold,
                         color = Color.White
                     )
+                }
+            }
+        }
+
+        mortgagePendingProperty?.let { pending ->
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.7f))
+                    .clickable(enabled = false) {},
+                contentAlignment = Alignment.Center
+            ) {
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth(0.85f)
+                        .padding(16.dp),
+                    color = Color(0xFF1A1A1A),
+                    shape = RoundedCornerShape(16.dp),
+                    shadowElevation = 12.dp
+                ) {
+                    Column(
+                        modifier = Modifier.padding(20.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            text = "Mortgage Property",
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.ExtraBold,
+                            color = Color(0xFFFF5252)
+                        )
+
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        Text(
+                            text = "Do you really want to mortgage",
+                            fontSize = 13.sp,
+                            color = Color.White.copy(alpha = 0.8f),
+                            textAlign = TextAlign.Center
+                        )
+                        Text(
+                            text = "${pending.name}?",
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White,
+                            textAlign = TextAlign.Center
+                        )
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(Color(0xFF2D2D2D), RoundedCornerShape(8.dp))
+                                .padding(10.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Text(
+                                    text = "You will receive",
+                                    fontSize = 11.sp,
+                                    color = Color.White.copy(alpha = 0.7f)
+                                )
+                                Text(
+                                    text = "€${pending.mortgageValue}",
+                                    fontSize = 18.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color(0xFF69F0AE)
+                                )
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        Text(
+                            text = "Rent cannot be collected while mortgaged.",
+                            fontSize = 11.sp,
+                            color = Color(0xFFFF8A80).copy(alpha = 0.85f),
+                            textAlign = TextAlign.Center
+                        )
+
+                        Spacer(modifier = Modifier.height(14.dp))
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            Button(
+                                onClick = { mortgagePendingProperty = null },
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(40.dp),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = Color(0xFF424242)
+                                ),
+                                shape = RoundedCornerShape(10.dp)
+                            ) {
+                                Text("Cancel", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                            }
+                            Button(
+                                onClick = {
+                                    val fieldId = pending.fieldId
+                                    mortgagePendingProperty = null
+                                    onMortgage(fieldId)
+                                    selectedProperty = findNextInGroup(sortedProperties, pending) { it.canMortgage }
+                                },
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(40.dp),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = Color(0xFFC62828)
+                                ),
+                                shape = RoundedCornerShape(10.dp)
+                            ) {
+                                Text("Mortgage", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                            }
+                        }
+                    }
                 }
             }
         }

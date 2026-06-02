@@ -41,11 +41,11 @@ fun Field.toManageableProperty(allFields: List<Field>): ManageableProperty = whe
         val newHouseCount = houses - 1
         val canSell = houses > 0 && !isMortgaged &&
             siblings.all { it.houses in newHouseCount..houses }
-        val canSellH = hasHotel && !isMortgaged && siblings.all { it.houses >= 4 }
+        val canSellH = hasHotel && !isMortgaged && siblings.all { it.houses >= 4 || it.hasHotel }
         val canBuy = allUnmortgaged && ownsMonopoly && houses < 4 && !hasHotel &&
             siblings.all { it.houses >= houses }
         val canBuyH = allUnmortgaged && ownsMonopoly && houses == 4 && !hasHotel &&
-            siblings.all { it.houses == 4 }
+            siblings.all { it.houses == 4 || it.hasHotel }
         val siblingHasBuildings = siblings.any { it.houses > 0 || it.hasHotel }
         val canMortgage = !isMortgaged && houses == 0 && !hasHotel && !siblingHasBuildings
         ManageableProperty(

@@ -215,6 +215,41 @@ class FakeGameService : GameService {
         _reconnectFailed.value = failed
     }
 
+    var payRentCalled = false
+    var lastPayRentFieldId: Int? = null
+    var lastPayRentDiceTotal: Int? = null
+
+    var mortgagePropertyCalled = false
+    var lastMortgageFieldId: Int? = null
+
+    var unmortgagePropertyCalled = false
+    var lastUnmortgageFieldId: Int? = null
+
+    var declareBankruptcyCalled = false
+
+    override fun payRent(fieldId: Int?, diceTotal: Int) {
+        payRentCalled = true
+        lastPayRentFieldId = fieldId
+        lastPayRentDiceTotal = diceTotal
+    }
+
+    override fun mortgageProperty(fieldId: Int) {
+        mortgagePropertyCalled = true
+        lastMortgageFieldId = fieldId
+    }
+
+    override fun unmortgageProperty(fieldId: Int) {
+        unmortgagePropertyCalled = true
+        lastUnmortgageFieldId = fieldId
+    }
+
+    override fun declareBankruptcy() {
+        declareBankruptcyCalled = true
+    }
+
+    override fun debugForwardGame() {}
+    override fun debugSetupBankruptcy() {}
+
     override fun payJailFine(){}
 
     override fun useJailCard(){}

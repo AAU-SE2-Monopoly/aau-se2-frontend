@@ -211,4 +211,71 @@ class JoinActivityTest {
         val fallbackIcon = GameJoinStatus.iconIdForIndex(99)
         assertEquals("lindwurm", fallbackIcon)
     }
+
+    @Test
+    fun autoSkipsTakenIcon_whenTakenIconsUpdate() {
+        val intent = Intent(ApplicationProvider.getApplicationContext(), JoinActivity::class.java).apply {
+            putExtra("gameId", "test-game-123")
+            putExtra("isNewGame", false)
+        }
+
+        ActivityScenario.launch<JoinActivity>(intent).use {
+            composeTestRule.waitForIdle()
+
+            val gameState = at.aau.monopoly.klagenfurt.model.GameState(
+                gameId = "test-game-123",
+                fields = emptyList(),
+                players = mutableListOf(
+                    at.aau.monopoly.klagenfurt.model.Player(id = "p1", name = "Alice", iconId = "lindwurm")
+                )
+            )
+
+            runBlocking {
+                fakeService.emitGameState(gameState)
+            }
+            composeTestRule.waitForIdle()
+
+            composeTestRule.onNodeWithTag("ActionButton").performClick()
+            composeTestRule.waitForIdle()
+
+            assertEquals(1, fakeService.joinGameCalls)
+            assertEquals("woerthersee", fakeService.lastJoinedIconId)
+        }
+    }
+
+    @Test
+    fun iconPickerSkipsTakenIcons_whenUserCyclesIcons() {
+        val intent = Intent(ApplicationProvider.getApplicationContext(), JoinActivity::class.java).apply {
+            putExtra("gameId", "test-game-123")
+            putExtra("isNewGame", false)
+        }
+
+        ActivityScenario.launch<JoinActivity>(intent).use {
+            composeTestRule.waitForIdle()
+
+            val gameState = at.aau.monopoly.klagenfurt.model.GameState(
+                gameId = "test-game-123",
+                fields = emptyList(),
+                players = mutableListOf(
+                    at.aau.monopoly.klagenfurt.model.Player(id = "p1", name = "Alice", iconId = "woerthersee")
+                )
+            )
+
+            runBlocking {
+                fakeService.emitGameState(gameState)
+            }
+            composeTestRule.waitForIdle()
+
+            val iconButton = composeTestRule.onNodeWithContentDescription("Selected Icon")
+            iconButton.performClick()
+            composeTestRule.waitForIdle()
+
+            composeTestRule.onNodeWithTag("ActionButton").performClick()
+            composeTestRule.waitForIdle()
+
+            assertEquals(1, fakeService.joinGameCalls)
+            assertEquals("gti", fakeService.lastJoinedIconId)
+        }
+    }
+
 }

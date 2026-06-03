@@ -13,6 +13,7 @@ import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -616,21 +617,26 @@ class GameViewModelTest {
 
         fakeService.emitTestEvent(
             """
-        {
-          "event": "STATE_UPDATED",
-          "gameId": "g1",
-          "gameState": {
-            "gameId": "g1",
-            "fields": [],
-            "players": [
-              { "id": "p1", "name": "Alice" },
-              { "id": "p2", "name": "Bob" }
-            ],
-            "currentPlayerIndex": 0,
-            "phase": "BUYING"
-          }
-        }
-        """.trimIndent()
+            {
+              "event": "RENT_DUE",
+              "gameId": "g1",
+              "gameState": {
+                "gameId": "g1",
+                "fields": [],
+                "players": [{"id":"p1","name":"Alice","money":500,"ownedPropertyIds":[]}],
+                "currentPlayerIndex": 0,
+                "phase": "PAYING_RENT",
+                "pendingPayment": {
+                  "amount": 100,
+                  "source": "RENT",
+                  "sourceFieldId": 5,
+                  "creditorPlayerId": "p2",
+                  "goesToFreeParking": false
+                },
+                "lastDiceRoll": {"die1":3,"die2":4}
+              }
+            }
+            """.trimIndent()
         )
 
         advanceUntilIdle()
@@ -749,6 +755,74 @@ class GameViewModelTest {
         assertEquals(5, fakeService.lastBoughtFieldId)
     }
     @Test
+    fun `RENT_PAID event should clear all payment state flows`() = runTest {
+        val job = launch {
+            viewModel.showPayRentOverlay.collect {}
+            viewModel.currentRentAmount.collect {}
+            viewModel.currentRentOwnerId.collect {}
+            viewModel.currentRentFieldId.collect {}
+        }
+
+        // First set non-default values via RENT_DUE
+        fakeService.emitTestEvent(
+            """
+{
+  "event": "RENT_DUE",
+  "gameId": "g1",
+  "gameState": {
+    "gameId": "g1",
+    "fields": [],
+    "players": [{"id":"p1","name":"Alice","money":500,"ownedPropertyIds":[]}],
+    "currentPlayerIndex": 0,
+    "phase": "PAYING_RENT",
+    "pendingPayment": {
+      "amount": 100,
+      "source": "RENT",
+      "sourceFieldId": 5,
+      "creditorPlayerId": "p2",
+      "goesToFreeParking": false
+    },
+    "lastDiceRoll": {"die1":3,"die2":4}
+  }
+}
+        """.trimIndent()
+        )
+        advanceUntilIdle()
+
+        assertTrue(viewModel.showPayRentOverlay.value)
+        assertEquals(100, viewModel.currentRentAmount.value)
+        assertEquals("p2", viewModel.currentRentOwnerId.value)
+        assertEquals(5, viewModel.currentRentFieldId.value)
+
+        // Now send RENT_PAID
+        fakeService.emitTestEvent(
+            """
+        {
+          "event": "RENT_PAID",
+          "gameId": "g1",
+          "gameState": {
+            "gameId": "g1",
+            "fields": [],
+            "players": [{"id":"p1","name":"Alice","money":400,"ownedPropertyIds":[]}],
+            "currentPlayerIndex": 0,
+            "phase": "TURN_END",
+            "pendingPayment": null,
+            "lastDiceRoll": null
+          }
+        }
+        """.trimIndent()
+        )
+        advanceUntilIdle()
+
+        assertFalse(viewModel.showPayRentOverlay.value)
+        assertEquals(0, viewModel.currentRentAmount.value)
+        assertEquals(null, viewModel.currentRentOwnerId.value)
+        assertEquals(null, viewModel.currentRentFieldId.value)
+
+        job.cancel()
+    }
+
+    @Test
     fun `setSelectedPlayerForOverlay should update selected player`() {
         val player = Player(id = "p99", name = "Overlay Test")
 
@@ -824,4 +898,874 @@ class GameViewModelTest {
         assertTrue(viewModel.buildingActionPending.value)
     }
 
+    @Test
+    fun `PAYMENT_FAILED shows error message`() = runTest {
+        val captured = mutableListOf<String?>()
+        val job = launch { viewModel.errorMessage.collect { captured.add(it) } }
+        advanceUntilIdle()
+
+        fakeService.emitTestEvent("""
+        {
+          "event": "PAYMENT_FAILED",
+          "gameId": "g1",
+          "message": "Insufficient funds. Need 100 but have 50."
+        }
+        """.trimIndent())
+        advanceUntilIdle()
+
+        assertTrue(captured.any { it?.contains("Insufficient") == true })
+
+        job.cancel()
+    }
+
+    @Test
+    fun `BANKRUPTCY_DECLARED sets showBankruptcyOverlay to true`() = runTest {
+        val job = launch { viewModel.showBankruptcyOverlay.collect {} }
+
+        fakeService.emitTestEvent("""
+        {
+          "event": "BANKRUPTCY_DECLARED",
+          "gameId": "g1",
+          "gameState": {
+            "gameId": "g1",
+            "fields": [],
+            "players": [{"id":"p1","name":"Alice","money":0}],
+            "currentPlayerIndex": 0,
+            "phase": "TURN_END",
+            "pendingPayment": null,
+            "bankruptcyTotalAssets": 50,
+            "bankruptcyTotalDebt": 100,
+            "bankruptcyPropertiesCount": 1,
+            "bankruptcyOwnedFieldIds": [1],
+            "lastDiceRoll": null
+          }
+        }
+        """.trimIndent())
+        advanceUntilIdle()
+
+        assertTrue(viewModel.showBankruptcyOverlay.value)
+
+        job.cancel()
+    }
+
+    @Test
+    fun `BANKRUPTCY_DECLARED populates bankruptcyPlayerName from bankruptcyPlayerId`() = runTest {
+        val job = launch { viewModel.bankruptcyPlayerName.collect {} }
+
+        fakeService.emitTestEvent("""
+        {
+          "event": "BANKRUPTCY_DECLARED",
+          "gameId": "g1",
+          "gameState": {
+            "gameId": "g1",
+            "fields": [],
+            "players": [{"id":"p1","name":"BankruptPlayer"}, {"id":"p2","name":"NextPlayer"}],
+            "currentPlayerIndex": 1,
+            "phase": "ROLLING",
+            "bankruptcyTotalAssets": 50,
+            "bankruptcyTotalDebt": 100,
+            "bankruptcyPropertiesCount": 1,
+            "bankruptcyOwnedFieldIds": [],
+            "bankruptcyPlayerId": "p1"
+          }
+        }
+        """.trimIndent())
+        advanceUntilIdle()
+
+        assertEquals("BankruptPlayer", viewModel.bankruptcyPlayerName.value)
+
+        job.cancel()
+    }
+
+    @Test
+    fun `BANKRUPTCY_DECLARED populates bankruptcyTotalAssets correctly`() = runTest {
+        val job = launch { viewModel.bankruptcyTotalAssets.collect {} }
+
+        fakeService.emitTestEvent("""
+        {
+          "event": "BANKRUPTCY_DECLARED",
+          "gameId": "g1",
+          "gameState": {
+            "gameId": "g1",
+            "fields": [],
+            "players": [{"id":"p1","name":"Alice"}],
+            "currentPlayerIndex": 0,
+            "phase": "TURN_END",
+            "bankruptcyTotalAssets": 500,
+            "bankruptcyTotalDebt": 1200,
+            "bankruptcyPropertiesCount": 3,
+            "bankruptcyOwnedFieldIds": []
+          }
+        }
+        """.trimIndent())
+        advanceUntilIdle()
+
+        assertEquals(500, viewModel.bankruptcyTotalAssets.value)
+
+        job.cancel()
+    }
+
+    @Test
+    fun `PROPERTY_MORTGAGED clears propertyActionInFlight`() = runTest {
+        val job = launch { viewModel.propertyActionInFlight.collect {} }
+
+        viewModel.mortgageProperty(1)
+        assertTrue(viewModel.propertyActionInFlight.value)
+
+        fakeService.emitTestEvent("""
+        {
+          "event": "PROPERTY_MORTGAGED",
+          "gameId": "g1",
+          "gameState": {
+            "gameId": "g1",
+            "fields": [],
+            "players": [],
+            "phase": "BUYING"
+          }
+        }
+        """.trimIndent())
+        advanceUntilIdle()
+
+        assertFalse(viewModel.propertyActionInFlight.value)
+
+        job.cancel()
+    }
+
+    @Test
+    fun `PROPERTY_UNMORTGAGED clears propertyActionInFlight`() = runTest {
+        val job = launch { viewModel.propertyActionInFlight.collect {} }
+
+        viewModel.unmortgageProperty(1)
+        assertTrue(viewModel.propertyActionInFlight.value)
+
+        fakeService.emitTestEvent("""
+        {
+          "event": "PROPERTY_UNMORTGAGED",
+          "gameId": "g1",
+          "gameState": {
+            "gameId": "g1",
+            "fields": [],
+            "players": [],
+            "phase": "BUYING"
+          }
+        }
+        """.trimIndent())
+        advanceUntilIdle()
+
+        assertFalse(viewModel.propertyActionInFlight.value)
+
+        job.cancel()
+    }
+
+    @Test
+    fun `hasPendingPayment true when pendingPayment amount is positive`() = runTest {
+        val job = launch { viewModel.hasPendingPayment.collect {} }
+
+        fakeService.emitTestEvent("""
+        {
+          "event": "RENT_DUE",
+          "gameId": "g1",
+          "gameState": {
+            "gameId": "g1",
+            "fields": [],
+            "players": [{"id":"p1","name":"Alice","money":500}],
+            "currentPlayerIndex": 0,
+            "phase": "PAYING_RENT",
+            "pendingPayment": {
+              "amount": 100,
+              "source": "RENT",
+              "sourceFieldId": 5,
+              "creditorPlayerId": "p2"
+            },
+            "lastDiceRoll": {"die1":3,"die2":4}
+          }
+        }
+        """.trimIndent())
+        advanceUntilIdle()
+
+        assertTrue(viewModel.hasPendingPayment.value)
+
+        job.cancel()
+    }
+
+    @Test
+    fun `hasPendingPayment false when pendingPayment is null`() = runTest {
+        val job = launch { viewModel.hasPendingPayment.collect {} }
+
+        fakeService.emitTestEvent("""
+        {
+          "event": "RENT_PAID",
+          "gameId": "g1",
+          "gameState": {
+            "gameId": "g1",
+            "fields": [],
+            "players": [{"id":"p1","name":"Alice","money":400}],
+            "currentPlayerIndex": 0,
+            "phase": "TURN_END",
+            "pendingPayment": null
+          }
+        }
+        """.trimIndent())
+        advanceUntilIdle()
+
+        assertFalse(viewModel.hasPendingPayment.value)
+
+        job.cancel()
+    }
+
+    @Test
+    fun `canEndTurnForCurrentPlayer false when hasPendingPayment is true`() = runTest {
+        val job = launch { viewModel.canEndTurnForCurrentPlayer.collect {} }
+
+        fakeService.currentPlayerId = "p1"
+
+        fakeService.emitTestEvent("""
+        {
+          "event": "RENT_DUE",
+          "gameId": "g1",
+          "gameState": {
+            "gameId": "g1",
+            "fields": [],
+            "players": [{"id":"p1","name":"Alice","money":500}],
+            "currentPlayerIndex": 0,
+            "phase": "PAYING_RENT",
+            "pendingPayment": {"amount":100,"source":"RENT","sourceFieldId":5,"creditorPlayerId":"p2"},
+            "lastDiceRoll": {"die1":3,"die2":4}
+          }
+        }
+        """.trimIndent())
+        advanceUntilIdle()
+
+        viewModel.dismissPayRentOverlay()
+
+        fakeService.emitTestEvent("""
+        {
+          "event": "STATE_UPDATED",
+          "gameId": "g1",
+          "gameState": {
+            "gameId": "g1",
+            "fields": [],
+            "players": [{"id":"p1","name":"Alice","money":500}],
+            "currentPlayerIndex": 0,
+            "phase": "BUYING",
+            "pendingPayment": {"amount":100,"source":"RENT","sourceFieldId":5,"creditorPlayerId":"p2"},
+            "lastDiceRoll": null
+          }
+        }
+        """.trimIndent())
+        advanceUntilIdle()
+
+        assertTrue(viewModel.hasPendingPayment.value)
+        assertFalse(viewModel.showPayRentOverlay.value)
+        assertFalse(viewModel.canEndTurnForCurrentPlayer.value)
+
+        job.cancel()
+    }
+
+    @Test
+    fun `canEndTurnForCurrentPlayer false when showPayRentOverlay is true`() = runTest {
+        val job = launch { viewModel.canEndTurnForCurrentPlayer.collect {} }
+
+        fakeService.currentPlayerId = "p1"
+        fakeService.emitTestEvent("""
+        {
+          "event": "RENT_DUE",
+          "gameId": "g1",
+          "gameState": {
+            "gameId": "g1",
+            "fields": [],
+            "players": [{"id":"p1","name":"Alice","money":500}],
+            "currentPlayerIndex": 0,
+            "phase": "PAYING_RENT",
+            "pendingPayment": {"amount":100,"source":"RENT","sourceFieldId":5,"creditorPlayerId":"p2"},
+            "lastDiceRoll": {"die1":3,"die2":4}
+          }
+        }
+        """.trimIndent())
+        advanceUntilIdle()
+
+        assertFalse(viewModel.canEndTurnForCurrentPlayer.value)
+
+        job.cancel()
+    }
+
+    @Test
+    fun `canEndTurnForCurrentPlayer false when showBankruptcyOverlay is true`() = runTest {
+        val job = launch { viewModel.canEndTurnForCurrentPlayer.collect {} }
+
+        fakeService.currentPlayerId = "p1"
+
+        fakeService.emitTestEvent("""
+        {
+          "event": "BANKRUPTCY_DECLARED",
+          "gameId": "g1",
+          "gameState": {
+            "gameId": "g1",
+            "fields": [],
+            "players": [{"id":"p1","name":"Alice","money":0}],
+            "currentPlayerIndex": 0,
+            "phase": "TURN_END",
+            "bankruptcyTotalAssets": 0,
+            "bankruptcyTotalDebt": 100,
+            "bankruptcyPropertiesCount": 0,
+            "bankruptcyOwnedFieldIds": []
+          }
+        }
+        """.trimIndent())
+        advanceUntilIdle()
+
+        assertFalse(viewModel.canEndTurnForCurrentPlayer.value)
+
+        job.cancel()
+    }
+
+    @Test
+    fun `payRent does nothing when paymentActionInFlight is true`() = runTest {
+        val job = launch { viewModel.currentRentAmount.collect {} }
+
+        fakeService.emitTestEvent("""
+        {
+          "event": "RENT_DUE",
+          "gameId": "g1",
+          "gameState": {
+            "gameId": "g1",
+            "fields": [],
+            "players": [{"id":"p1","name":"Alice","money":500}],
+            "currentPlayerIndex": 0,
+            "phase": "PAYING_RENT",
+            "pendingPayment": {"amount":100,"source":"RENT","sourceFieldId":5,"creditorPlayerId":"p2"},
+            "lastDiceRoll": {"die1":3,"die2":4}
+          }
+        }
+        """.trimIndent())
+        advanceUntilIdle()
+
+        fakeService.payRentCalled = false
+        viewModel.payRent()
+        assertTrue(fakeService.payRentCalled)
+
+        fakeService.payRentCalled = false
+        viewModel.payRent()
+        assertFalse(fakeService.payRentCalled)
+
+        job.cancel()
+    }
+
+    @Test
+    fun `declareBankruptcy shows confirmation instead of sending to backend`() = runTest {
+        val job = launch { viewModel.currentRentAmount.collect {} }
+
+        fakeService.emitTestEvent("""
+        {
+          "event": "RENT_DUE",
+          "gameId": "g1",
+          "gameState": {
+            "gameId": "g1",
+            "fields": [],
+            "players": [{"id":"p1","name":"Alice","money":500}],
+            "currentPlayerIndex": 0,
+            "phase": "PAYING_RENT",
+            "pendingPayment": {"amount":100,"source":"RENT","sourceFieldId":5,"creditorPlayerId":"p2"},
+            "lastDiceRoll": {"die1":3,"die2":4}
+          }
+        }
+        """.trimIndent())
+        advanceUntilIdle()
+
+        fakeService.declareBankruptcyCalled = false
+        viewModel.declareBankruptcy()
+        assertFalse(fakeService.declareBankruptcyCalled)
+        assertTrue(viewModel.showBankruptcyConfirmation.value)
+
+        job.cancel()
+    }
+
+    @Test
+    fun `confirmDeclareBankruptcy sends action to backend`() = runTest {
+        val job = launch { viewModel.showBankruptcyConfirmation.collect {} }
+
+        fakeService.emitTestEvent("""
+        {
+          "event": "RENT_DUE",
+          "gameId": "g1",
+          "gameState": {
+            "gameId": "g1",
+            "fields": [],
+            "players": [{"id":"p1","name":"Alice","money":500}],
+            "currentPlayerIndex": 0,
+            "phase": "PAYING_RENT",
+            "pendingPayment": {"amount":100,"source":"RENT","sourceFieldId":5,"creditorPlayerId":"p2"},
+            "lastDiceRoll": {"die1":3,"die2":4}
+          }
+        }
+        """.trimIndent())
+        advanceUntilIdle()
+
+        fakeService.declareBankruptcyCalled = false
+        viewModel.confirmDeclareBankruptcy()
+        assertTrue(fakeService.declareBankruptcyCalled)
+        assertFalse(viewModel.showBankruptcyConfirmation.value)
+
+        job.cancel()
+    }
+
+    @Test
+    fun `declareBankruptcy does nothing when confirmation already open`() = runTest {
+        val job = launch { viewModel.showBankruptcyConfirmation.collect {} }
+        val job2 = launch { viewModel.showPayRentOverlay.collect {} }
+
+        fakeService.emitTestEvent("""
+        {
+          "event": "RENT_DUE",
+          "gameId": "g1",
+          "gameState": {
+            "gameId": "g1",
+            "fields": [],
+            "players": [{"id":"p1","name":"Alice","money":500}],
+            "currentPlayerIndex": 0,
+            "phase": "PAYING_RENT",
+            "pendingPayment": {"amount":100,"source":"RENT","sourceFieldId":5,"creditorPlayerId":"p2"},
+            "lastDiceRoll": {"die1":3,"die2":4}
+          }
+        }
+        """.trimIndent())
+        advanceUntilIdle()
+
+        viewModel.declareBankruptcy()
+        assertTrue(viewModel.showBankruptcyConfirmation.value)
+        viewModel.declareBankruptcy()
+        assertTrue(viewModel.showBankruptcyConfirmation.value)
+
+        job.cancel()
+        job2.cancel()
+    }
+
+    @Test
+    fun `cancelDeclareBankruptcy reopens pay rent overlay`() = runTest {
+        val job = launch { viewModel.showBankruptcyConfirmation.collect {} }
+        val job2 = launch { viewModel.showPayRentOverlay.collect {} }
+
+        fakeService.emitTestEvent("""
+        {
+          "event": "RENT_DUE",
+          "gameId": "g1",
+          "gameState": {
+            "gameId": "g1",
+            "fields": [],
+            "players": [{"id":"p1","name":"Alice","money":500}],
+            "currentPlayerIndex": 0,
+            "phase": "PAYING_RENT",
+            "pendingPayment": {"amount":100,"source":"RENT","sourceFieldId":5,"creditorPlayerId":"p2"},
+            "lastDiceRoll": {"die1":3,"die2":4}
+          }
+        }
+        """.trimIndent())
+        advanceUntilIdle()
+
+        viewModel.declareBankruptcy()
+        assertFalse(viewModel.showPayRentOverlay.value)
+        assertTrue(viewModel.showBankruptcyConfirmation.value)
+
+        viewModel.cancelDeclareBankruptcy()
+        assertFalse(viewModel.showBankruptcyConfirmation.value)
+        assertTrue(viewModel.showPayRentOverlay.value)
+
+        job.cancel()
+        job2.cancel()
+    }
+
+    @Test
+    fun `dismissing PayRentOverlay does not clear pending rent reopen capability`() = runTest {
+        val job = launch { viewModel.showPayRentOverlay.collect {} }
+
+        fakeService.emitTestEvent("""
+        {
+          "event": "RENT_DUE",
+          "gameId": "g1",
+          "gameState": {
+            "gameId": "g1",
+            "fields": [],
+            "players": [{"id":"p1","name":"Alice","money":500}],
+            "currentPlayerIndex": 0,
+            "phase": "PAYING_RENT",
+            "pendingPayment": {"amount":100,"source":"RENT","sourceFieldId":5,"creditorPlayerId":"p2"},
+            "lastDiceRoll": {"die1":3,"die2":4}
+          }
+        }
+        """.trimIndent())
+        advanceUntilIdle()
+
+        assertTrue(viewModel.showPayRentOverlay.value)
+
+        viewModel.dismissPayRentOverlay()
+        assertFalse(viewModel.showPayRentOverlay.value)
+
+        viewModel.showPayRentOverlay(100, "p2", 5)
+        assertTrue(viewModel.showPayRentOverlay.value)
+
+        job.cancel()
+    }
+
+    @Test
+    fun `after bankruptcy overlay dismissed player can still view board`() = runTest {
+        val job = launch { viewModel.showBankruptcyOverlay.collect {} }
+
+        fakeService.emitTestEvent("""
+        {
+          "event": "BANKRUPTCY_DECLARED",
+          "gameId": "g1",
+          "gameState": {
+            "gameId": "g1",
+            "fields": [],
+            "players": [{"id":"p1","name":"Alice","money":0,"eliminated":true}],
+            "currentPlayerIndex": 0,
+            "phase": "TURN_END",
+            "bankruptcyTotalAssets": 0,
+            "bankruptcyTotalDebt": 100,
+            "bankruptcyPropertiesCount": 0,
+            "bankruptcyOwnedFieldIds": []
+          }
+        }
+        """.trimIndent())
+        advanceUntilIdle()
+
+        assertTrue(viewModel.showBankruptcyOverlay.value)
+
+        viewModel.dismissBankruptcyOverlay()
+        assertFalse(viewModel.showBankruptcyOverlay.value)
+        assertNotNull(viewModel.gameState.value)
+
+        job.cancel()
+    }
+
+    @Test
+    fun `canRaiseFunds true when debtorCanPayAfterAssets is true`() = runTest {
+        val job = launch { viewModel.canRaiseFunds.collect {} }
+
+        fakeService.emitTestEvent("""
+        {
+          "event": "RENT_DUE",
+          "gameId": "g1",
+          "gameState": {
+            "gameId": "g1",
+            "fields": [],
+            "players": [{"id":"p1","name":"Alice","money":500}],
+            "currentPlayerIndex": 0,
+            "phase": "PAYING_RENT",
+            "pendingPayment": {
+              "amount": 200,
+              "source": "RENT",
+              "sourceFieldId": 5,
+              "creditorPlayerId": "p2",
+              "debtorCanPayAfterAssets": true
+            },
+            "lastDiceRoll": {"die1":3,"die2":4}
+          }
+        }
+        """.trimIndent())
+        advanceUntilIdle()
+
+        assertTrue(viewModel.canRaiseFunds.value)
+
+        job.cancel()
+    }
+
+    @Test
+    fun `canRaiseFunds false when debtorCanPayAfterAssets is false`() = runTest {
+        val job = launch { viewModel.canRaiseFunds.collect {} }
+
+        fakeService.emitTestEvent("""
+        {
+          "event": "RENT_DUE",
+          "gameId": "g1",
+          "gameState": {
+            "gameId": "g1",
+            "fields": [],
+            "players": [{"id":"p1","name":"Alice","money":50}],
+            "currentPlayerIndex": 0,
+            "phase": "PAYING_RENT",
+            "pendingPayment": {
+              "amount": 500,
+              "source": "RENT",
+              "sourceFieldId": 5,
+              "creditorPlayerId": "p2",
+              "debtorCanPayAfterAssets": false
+            },
+            "lastDiceRoll": {"die1":3,"die2":4}
+          }
+        }
+        """.trimIndent())
+        advanceUntilIdle()
+
+        assertFalse(viewModel.canRaiseFunds.value)
+
+        job.cancel()
+    }
+
+    @Test
+    fun `canRaiseFunds false when pendingPayment is null`() = runTest {
+        val job = launch { viewModel.canRaiseFunds.collect {} }
+
+        fakeService.emitTestEvent("""
+        {
+          "event": "STATE_UPDATED",
+          "gameId": "g1",
+          "gameState": {
+            "gameId": "g1",
+            "fields": [],
+            "players": [],
+            "phase": "ROLLING",
+            "pendingPayment": null
+          }
+        }
+        """.trimIndent())
+        advanceUntilIdle()
+
+        assertFalse(viewModel.canRaiseFunds.value)
+
+        job.cancel()
+    }
+
+    @Test
+    fun `canRaiseFunds false when gameState is null initially`() = runTest {
+        val job = launch { viewModel.canRaiseFunds.collect {} }
+        advanceUntilIdle()
+
+        assertFalse(viewModel.canRaiseFunds.value)
+
+        job.cancel()
+    }
+
+    @Test
+    fun `mortgageProperty blocked when propertyActionInFlight is true`() {
+        fakeService.mortgagePropertyCalled = false
+        viewModel.mortgageProperty(1)
+        assertTrue(fakeService.mortgagePropertyCalled)
+
+        fakeService.mortgagePropertyCalled = false
+        viewModel.mortgageProperty(1)
+        assertFalse(fakeService.mortgagePropertyCalled)
+    }
+
+    @Test
+    fun `unmortgageProperty blocked when propertyActionInFlight is true`() {
+        fakeService.unmortgagePropertyCalled = false
+        viewModel.unmortgageProperty(1)
+        assertTrue(fakeService.unmortgagePropertyCalled)
+
+        fakeService.unmortgagePropertyCalled = false
+        viewModel.unmortgageProperty(1)
+        assertFalse(fakeService.unmortgagePropertyCalled)
+    }
+
+    @Test
+    fun `sellHouse blocked when propertyActionInFlight is true`() {
+        fakeService.sellHouseCalled = false
+        viewModel.sellHouse(1)
+        assertTrue(fakeService.sellHouseCalled)
+
+        fakeService.sellHouseCalled = false
+        viewModel.sellHouse(1)
+        assertFalse(fakeService.sellHouseCalled)
+    }
+
+    @Test
+    fun `sellHouse blocked when buildingActionPending is true`() {
+        fakeService.sellHouseCalled = false
+        fakeService.buyHouseCalled = false
+        fakeService.buyHouseCalled = false
+        viewModel.buyHouse(1)
+        assertTrue(viewModel.buildingActionPending.value)
+
+        fakeService.sellHouseCalled = false
+        viewModel.sellHouse(1)
+        assertFalse(fakeService.sellHouseCalled)
+    }
+
+    @Test
+    fun `sellHotel blocked when propertyActionInFlight is true`() {
+        fakeService.sellHotelCalled = false
+        viewModel.sellHotel(1)
+        assertTrue(fakeService.sellHotelCalled)
+
+        fakeService.sellHotelCalled = false
+        viewModel.sellHotel(1)
+        assertFalse(fakeService.sellHotelCalled)
+    }
+
+    @Test
+    fun `sellHotel blocked when buildingActionPending is true`() {
+        fakeService.buyHouseCalled = false
+        viewModel.buyHouse(1)
+
+        fakeService.sellHotelCalled = false
+        viewModel.sellHotel(1)
+        assertFalse(fakeService.sellHotelCalled)
+    }
+
+    @Test
+    fun `buyHouse blocked when buildingActionPending is true`() {
+        fakeService.buyHouseCalled = false
+        viewModel.buyHouse(1)
+        assertTrue(fakeService.buyHouseCalled)
+
+        fakeService.buyHouseCalled = false
+        viewModel.buyHouse(1)
+        assertFalse(fakeService.buyHouseCalled)
+    }
+
+    @Test
+    fun `manageableProperties canSellHouse reacts to sibling house changes`() = runTest {
+        val job = launch { viewModel.manageableProperties.collect {} }
+        fakeService.currentPlayerId = "p1"
+
+        // Two owned BROWN properties: Field1 has 2 houses, Field2 has 0 houses.
+        // Selling from Field1 → newHouseCount = 1, sibling Field2 has 0 < 1 → canSellHouse = false
+        fakeService.emitTestEvent("""
+        {
+          "event": "STATE_UPDATED",
+          "gameId": "g1",
+          "gameState": {
+            "gameId": "g1",
+            "phase": "BUYING",
+            "currentPlayerIndex": 0,
+            "players": [{"id":"p1","name":"Alice","money":1500}],
+            "fields": [
+              {"id":1,"name":"F1","type":"PROPERTY","color":"BROWN","price":60,"rent":[2,10,30,90,160,250],"houseCost":50,"hotelCost":50,"ownerId":"p1","houses":2,"hasHotel":false,"isMortgaged":false},
+              {"id":2,"name":"F2","type":"PROPERTY","color":"BROWN","price":60,"rent":[2,10,30,90,160,250],"houseCost":50,"hotelCost":50,"ownerId":"p1","houses":0,"hasHotel":false,"isMortgaged":false}
+            ],
+            "pendingPayment": null
+          }
+        }
+        """.trimIndent())
+        advanceUntilIdle()
+
+        val prop1 = viewModel.manageableProperties.value.find { it.fieldId == 1 }
+        assertNotNull(prop1)
+        assertEquals(2, prop1!!.houses)
+        assertFalse("Sell House should be blocked: newHouseCount=1, sibling has 0 < 1", prop1.canSellHouse)
+
+        // Field2 gains a house → both now have 2 and 1.
+        // Selling from Field1 → newHouseCount=1, sibling Field2 has 1 >= 1 → canSellHouse = true
+        fakeService.emitTestEvent("""
+        {
+          "event": "STATE_UPDATED",
+          "gameId": "g1",
+          "gameState": {
+            "gameId": "g1",
+            "phase": "BUYING",
+            "currentPlayerIndex": 0,
+            "players": [{"id":"p1","name":"Alice","money":1500}],
+            "fields": [
+              {"id":1,"name":"F1","type":"PROPERTY","color":"BROWN","price":60,"rent":[2,10,30,90,160,250],"houseCost":50,"hotelCost":50,"ownerId":"p1","houses":2,"hasHotel":false,"isMortgaged":false},
+              {"id":2,"name":"F2","type":"PROPERTY","color":"BROWN","price":60,"rent":[2,10,30,90,160,250],"houseCost":50,"hotelCost":50,"ownerId":"p1","houses":1,"hasHotel":false,"isMortgaged":false}
+            ],
+            "pendingPayment": null
+          }
+        }
+        """.trimIndent())
+        advanceUntilIdle()
+
+        val prop1Updated = viewModel.manageableProperties.value.find { it.fieldId == 1 }
+        assertNotNull(prop1Updated)
+        assertTrue("Sell House should now be allowed: newHouseCount=1, sibling has 1 >= 1", prop1Updated!!.canSellHouse)
+
+        job.cancel()
+    }
+
+    @Test
+    fun `manageableProperties canSellHouse blocked when sibling has more houses`() = runTest {
+        val job = launch { viewModel.manageableProperties.collect {} }
+        fakeService.currentPlayerId = "p1"
+
+        // Field1 has 1 house, Field2 (sibling) has 3 houses.
+        // Selling from Field1 → newHouseCount = 0, but sibling 3 > 1 → blocked
+        fakeService.emitTestEvent("""
+        {
+          "event": "STATE_UPDATED",
+          "gameId": "g1",
+          "gameState": {
+            "gameId": "g1",
+            "phase": "BUYING",
+            "currentPlayerIndex": 0,
+            "players": [{"id":"p1","name":"Alice","money":1500}],
+            "fields": [
+              {"id":1,"name":"F1","type":"PROPERTY","color":"BROWN","price":60,"rent":[2,10,30,90,160,250],"houseCost":50,"hotelCost":50,"ownerId":"p1","houses":1,"hasHotel":false,"isMortgaged":false},
+              {"id":2,"name":"F2","type":"PROPERTY","color":"BROWN","price":60,"rent":[2,10,30,90,160,250],"houseCost":50,"hotelCost":50,"ownerId":"p1","houses":3,"hasHotel":false,"isMortgaged":false}
+            ],
+            "pendingPayment": null
+          }
+        }
+        """.trimIndent())
+        advanceUntilIdle()
+
+        val prop1 = viewModel.manageableProperties.value.find { it.fieldId == 1 }
+        assertNotNull(prop1)
+        // OLD rule would allow (3 in 0..1 = false)... wait, 3 in 0..1 IS false. So old rule also blocks?
+        // Actually old rule was it.houses >= newHouseCount: 3 >= 0 = true → allowed ✗
+        // New rule: 3 in 0..1 = false → blocked ✓
+        assertFalse("Sell House from lower-count property blocked: sibling has 3 > 1", prop1!!.canSellHouse)
+        assertEquals("Sibling has 3 houses, canSellHouse must be false", false, prop1.canSellHouse)
+
+        job.cancel()
+    }
+
+    @Test
+    fun `manageableProperties canSellHotel reacts to sibling house changes`() = runTest {
+        val job = launch { viewModel.manageableProperties.collect {} }
+        fakeService.currentPlayerId = "p1"
+
+        // Two owned BROWN properties: Field1 has hotel, Field2 has 3 houses.
+        // Selling hotel → need all siblings >= 4, Field2 has 3 < 4 → canSellHotel = false
+        fakeService.emitTestEvent("""
+        {
+          "event": "STATE_UPDATED",
+          "gameId": "g1",
+          "gameState": {
+            "gameId": "g1",
+            "phase": "BUYING",
+            "currentPlayerIndex": 0,
+            "players": [{"id":"p1","name":"Alice","money":1500}],
+            "fields": [
+              {"id":1,"name":"F1","type":"PROPERTY","color":"BROWN","price":60,"rent":[2,10,30,90,160,250],"houseCost":50,"hotelCost":50,"ownerId":"p1","houses":0,"hasHotel":true,"isMortgaged":false},
+              {"id":2,"name":"F2","type":"PROPERTY","color":"BROWN","price":60,"rent":[2,10,30,90,160,250],"houseCost":50,"hotelCost":50,"ownerId":"p1","houses":3,"hasHotel":false,"isMortgaged":false}
+            ],
+            "pendingPayment": null
+          }
+        }
+        """.trimIndent())
+        advanceUntilIdle()
+
+        val prop1 = viewModel.manageableProperties.value.find { it.fieldId == 1 }
+        assertNotNull(prop1)
+        assertTrue(prop1!!.hasHotel)
+        assertFalse("Sell Hotel should be blocked: sibling has 3 < 4", prop1.canSellHotel)
+
+        // Field2 gains another house → now has 4 houses.
+        // Selling hotel → need all siblings >= 4, Field2 has 4 >= 4 → canSellHotel = true
+        fakeService.emitTestEvent("""
+        {
+          "event": "STATE_UPDATED",
+          "gameId": "g1",
+          "gameState": {
+            "gameId": "g1",
+            "phase": "BUYING",
+            "currentPlayerIndex": 0,
+            "players": [{"id":"p1","name":"Alice","money":1500}],
+            "fields": [
+              {"id":1,"name":"F1","type":"PROPERTY","color":"BROWN","price":60,"rent":[2,10,30,90,160,250],"houseCost":50,"hotelCost":50,"ownerId":"p1","houses":0,"hasHotel":true,"isMortgaged":false},
+              {"id":2,"name":"F2","type":"PROPERTY","color":"BROWN","price":60,"rent":[2,10,30,90,160,250],"houseCost":50,"hotelCost":50,"ownerId":"p1","houses":4,"hasHotel":false,"isMortgaged":false}
+            ],
+            "pendingPayment": null
+          }
+        }
+        """.trimIndent())
+        advanceUntilIdle()
+
+        val prop1Updated = viewModel.manageableProperties.value.find { it.fieldId == 1 }
+        assertNotNull(prop1Updated)
+        assertTrue("Sell Hotel should now be allowed: sibling has 4 >= 4", prop1Updated!!.canSellHotel)
+
+        job.cancel()
+    }
 }

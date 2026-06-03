@@ -15,7 +15,6 @@ import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import at.aau.monopoly.klagenfurt.model.card.Card
@@ -147,57 +146,5 @@ private fun CardActionDetails(card: Card, accentColor: Color, s: CardScale) {
             }
         }
     }
-}
-
-@Preview(showBackground = true)
-@Composable
-private fun PreviewChanceCard() {
-    CardUI(
-        card = ChanceCard(
-            id = 1,
-            description = "Advance to Go. Collect \$200.",
-            action = CardAction.COLLECT_MONEY,
-            amount = 200
-        )
-    )
-}
-
-@Preview(showBackground = true)
-@Composable
-private fun PreviewChanceCardSmall() {
-    CardUI(
-        card = ChanceCard(
-            id = 1,
-            description = "Advance to Go. Collect \$200.",
-            action = CardAction.COLLECT_MONEY,
-            amount = 200
-        ),
-        modifier = Modifier.size(56.dp, 89.6.dp)
-    )
-}
-
-@Preview(showBackground = true)
-@Composable
-private fun PreviewCommunityChestCard() {
-    CardUI(
-        card = CommunityChestCard(
-            id = 2,
-            description = "You have been elected Chairman of the Board. Pay each player \$50.",
-            action = CardAction.PAY_EACH_PLAYER,
-            amount = 50
-        )
-    )
-}
-
-@Preview(showBackground = true)
-@Composable
-private fun PreviewGoToJailCard() {
-    CardUI(
-        card = ChanceCard(
-            id = 3,
-            description = "Go directly to Jail. Do not pass Go. Do not collect \$200.",
-            action = CardAction.GO_TO_JAIL
-        )
-    )
 }
 

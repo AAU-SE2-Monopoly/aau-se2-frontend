@@ -2,9 +2,13 @@ package at.aau.monopoly.klagenfurt.ui
 
 import android.content.pm.ActivityInfo
 import android.view.KeyEvent
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.assertIsEnabled
+import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
@@ -15,6 +19,7 @@ import androidx.compose.ui.test.performClick
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import at.aau.monopoly.klagenfurt.model.GameState
 import at.aau.monopoly.klagenfurt.model.Player
+import at.aau.monopoly.klagenfurt.model.enums.GamePhase
 import at.aau.monopoly.klagenfurt.model.enums.PropertyColor
 import at.aau.monopoly.klagenfurt.model.field.ChanceField
 import at.aau.monopoly.klagenfurt.model.field.CommunityChestField
@@ -575,19 +580,18 @@ class GameboardScreenCoverageTest {
         isRollingPhase: Boolean = false,
         isBuyingPhase: Boolean = false,
         canEndTurn: Boolean = false,
-        chanceCardDrawn: Boolean = false,
-        communityChestCardDrawn: Boolean = false,
         currentPlayerId: String = "player1",
         players: List<Player> = emptyList(),
-        fields: List<Field> = emptyList()
-
+        fields: List<Field> = emptyList(),
+        phase: GamePhase = GamePhase.BUYING
     ): GameViewModel {
         val vm = mockk<GameViewModel>(relaxed = true)
         val gameState = GameState(
             gameId = "test_game",
             fields = fields,
             players = players.toMutableList(),
-            currentPlayerIndex = players.indexOfFirst { it.id == currentPlayerId }.takeIf { it >= 0 } ?: 0
+            currentPlayerIndex = players.indexOfFirst { it.id == currentPlayerId }.takeIf { it >= 0 } ?: 0,
+            phase = phase
         )
 
 
@@ -597,12 +601,8 @@ class GameboardScreenCoverageTest {
         every { vm.eventLog } returns MutableStateFlow(emptyList())
         every { vm.isRollingPhaseForCurrentPlayer } returns MutableStateFlow(isRollingPhase)
         every { vm.isBuyingPhaseForCurrentPlayer } returns MutableStateFlow(isBuyingPhase)
-        every { vm.chanceCardDrawnThisTurn } returns MutableStateFlow(chanceCardDrawn)
-        every { vm.communityChestCardDrawnThisTurn } returns MutableStateFlow(communityChestCardDrawn)
         every { vm.canEndTurnForCurrentPlayer } returns MutableStateFlow(isBuyingPhase)
         every { vm.lastDiceRoll } returns MutableStateFlow(null)
-        every { vm.chanceCardDrawnThisTurn } returns MutableStateFlow(chanceCardDrawn)
-        every { vm.communityChestCardDrawnThisTurn } returns MutableStateFlow(communityChestCardDrawn)
         every { vm.currentActionCard } returns MutableStateFlow(null)
         every { vm.isExecutingAction } returns MutableStateFlow(false)
         every { vm.showActionCardOverlay } returns MutableStateFlow(false)
@@ -618,6 +618,26 @@ class GameboardScreenCoverageTest {
         every { vm.diceResultForCurrentPlayer } returns MutableStateFlow(null)
         every { vm.errorMessage } returns MutableStateFlow(null)
         every { vm.canEndTurnForCurrentPlayer } returns MutableStateFlow(canEndTurn)
+
+
+        every { vm.showPayRentOverlay } returns MutableStateFlow(false)
+        every { vm.showMortgageOverlay } returns MutableStateFlow(false)
+        every { vm.showBankruptcyOverlay } returns MutableStateFlow(false)
+        every { vm.showBankruptcyConfirmation } returns MutableStateFlow(false)
+        every { vm.canPayRent } returns MutableStateFlow(false)
+        every { vm.canRaiseFunds } returns MutableStateFlow(false)
+        every { vm.currentRentAmount } returns MutableStateFlow(0)
+        every { vm.currentRentOwnerId } returns MutableStateFlow(null)
+        every { vm.currentRentFieldId } returns MutableStateFlow(null)
+        every { vm.manageableProperties } returns MutableStateFlow(emptyList())
+        every { vm.paymentActionInFlight } returns MutableStateFlow(false)
+        every { vm.propertyActionInFlight } returns MutableStateFlow(false)
+        every { vm.bankruptcyPlayerId } returns MutableStateFlow("")
+        every { vm.bankruptcyPlayerName } returns MutableStateFlow("")
+        every { vm.bankruptcyTotalAssets } returns MutableStateFlow(0)
+        every { vm.bankruptcyTotalDebt } returns MutableStateFlow(0)
+        every { vm.bankruptcyPropertiesOwned } returns MutableStateFlow(emptyList())
+        every { vm.hasPendingPayment } returns MutableStateFlow(false)
 
         return vm
     }
@@ -665,66 +685,27 @@ class GameboardScreenCoverageTest {
     }
 
     @Test
-    fun testChanceCardAlreadyDrawn() {
+    fun testDrawChanceCardButtonShowsOnChanceField() {
         val player = Player(id = "player1", name = "P1", position = 0)
 
         val mockVm = createMockViewModel(
             isBuyingPhase = true,
-            chanceCardDrawn = true,
             players = listOf(player),
             fields = listOf(ChanceField(id = 0, name = "Chance"))
         )
 
         composeTestRule.setContent { GameboardScreen(viewModel = mockVm) }
 
-        // With the fix, the draw button is hidden entirely when card already drawn
-        composeTestRule.onNodeWithText("🎰 Draw Chance").assertDoesNotExist()
+        composeTestRule.onNodeWithText("🎰 Draw Chance").assertExists()
     }
 
     @Test
-    fun testEndTurnHiddenWhenMustDrawCommunityChestCard() {
+    fun testEndTurnShowsOnCommunityChestField() {
         val player = Player(id = "player1", name = "P1", position = 0)
 
         val mockVm = createMockViewModel(
             isBuyingPhase = true,
             canEndTurn = true,
-            communityChestCardDrawn = false,
-            players = listOf(player),
-            fields = listOf(CommunityChestField(id = 0, name = "Community Chest"))
-        )
-
-        composeTestRule.setContent { GameboardScreen(viewModel = mockVm) }
-
-        // End Turn should be hidden because community chest card must be drawn first
-        composeTestRule.onNodeWithTag("end_turn_button").assertDoesNotExist()
-    }
-
-    @Test
-    fun testEndTurnHiddenWhenMustDrawChanceCard() {
-        val player = Player(id = "player1", name = "P1", position = 0)
-
-        val mockVm = createMockViewModel(
-            isBuyingPhase = true,
-            canEndTurn = true,
-            chanceCardDrawn = false,
-            players = listOf(player),
-            fields = listOf(ChanceField(id = 0, name = "Chance"))
-        )
-
-        composeTestRule.setContent { GameboardScreen(viewModel = mockVm) }
-
-        // End Turn should be hidden because chance card must be drawn first
-        composeTestRule.onNodeWithTag("end_turn_button").assertDoesNotExist()
-    }
-
-    @Test
-    fun testEndTurnVisibleAfterCommunityChestCardDrawn() {
-        val player = Player(id = "player1", name = "P1", position = 0)
-
-        val mockVm = createMockViewModel(
-            isBuyingPhase = true,
-            canEndTurn = true,
-            communityChestCardDrawn = true,
             players = listOf(player),
             fields = listOf(CommunityChestField(id = 0, name = "Community Chest"))
         )
@@ -735,20 +716,50 @@ class GameboardScreenCoverageTest {
     }
 
     @Test
-    fun testCommunityChestCardAlreadyDrawn() {
+    fun testEndTurnShowsOnChanceField() {
         val player = Player(id = "player1", name = "P1", position = 0)
 
         val mockVm = createMockViewModel(
             isBuyingPhase = true,
-            communityChestCardDrawn = true,
+            canEndTurn = true,
+            players = listOf(player),
+            fields = listOf(ChanceField(id = 0, name = "Chance"))
+        )
+
+        composeTestRule.setContent { GameboardScreen(viewModel = mockVm) }
+
+        composeTestRule.onNodeWithTag("end_turn_button").assertExists()
+    }
+
+    @Test
+    fun testEndTurnVisibleOnCommunityChestField() {
+        val player = Player(id = "player1", name = "P1", position = 0)
+
+        val mockVm = createMockViewModel(
+            isBuyingPhase = true,
+            canEndTurn = true,
             players = listOf(player),
             fields = listOf(CommunityChestField(id = 0, name = "Community Chest"))
         )
 
         composeTestRule.setContent { GameboardScreen(viewModel = mockVm) }
 
-        // Draw button hidden when card already drawn
-        composeTestRule.onNodeWithText("⭐ Draw Community").assertDoesNotExist()
+        composeTestRule.onNodeWithTag("end_turn_button").assertExists()
+    }
+
+    @Test
+    fun testDrawCommunityChestCardButtonShowsOnCommunityChestField() {
+        val player = Player(id = "player1", name = "P1", position = 0)
+
+        val mockVm = createMockViewModel(
+            isBuyingPhase = true,
+            players = listOf(player),
+            fields = listOf(CommunityChestField(id = 0, name = "Community Chest"))
+        )
+
+        composeTestRule.setContent { GameboardScreen(viewModel = mockVm) }
+
+        composeTestRule.onNodeWithText("⭐ Draw Community").assertExists()
     }
 
     @Test
@@ -949,5 +960,1123 @@ class GameboardScreenCoverageTest {
             .performClick()
 
         verify { mockVm.buyHouse(property1.id) }
+    }
+
+    @Test
+    fun `PayRentOverlay visible for current player`() {
+        composeTestRule.setContent {
+            PayRentOverlay(
+                isVisible = true,
+                rentAmount = 200,
+                ownerName = "Bob",
+                fieldName = "Herrengasse",
+                currentMoney = 500,
+                canPay = true,
+                canRaiseFunds = true,
+                paymentInFlight = false,
+                propertyInFlight = false,
+                onPay = {},
+                onManageProperties = {},
+                onDeclareBankruptcy = {},
+                onDismiss = {}
+            )
+        }
+
+        composeTestRule.onNodeWithText("RENT DUE").assertExists()
+        composeTestRule.onNodeWithText("Pay Rent").assertExists()
+    }
+
+    @Test
+    fun `PayRentOverlay not visible when isVisible false`() {
+        composeTestRule.setContent {
+            PayRentOverlay(
+                isVisible = false,
+                rentAmount = 200,
+                ownerName = "Bob",
+                fieldName = "Herrengasse",
+                currentMoney = 500,
+                canPay = true,
+                canRaiseFunds = true,
+                paymentInFlight = false,
+                propertyInFlight = false,
+                onPay = {},
+                onManageProperties = {},
+                onDeclareBankruptcy = {},
+                onDismiss = {}
+            )
+        }
+
+        composeTestRule.onNodeWithText("RENT DUE").assertDoesNotExist()
+    }
+
+    @Test
+    fun `MortgageManagementOverlay visible when isVisible true`() {
+        val props = listOf(
+            ManageableProperty(
+                fieldId = 1, name = "Herrengasse", color = "brown",
+                price = 60, mortgageValue = 30, unmortgageCost = 33,
+                houses = 0, hasHotel = false, isMortgaged = false,
+                houseCost = 50, hotelCost = 50, sellHouseValue = 25, sellHotelValue = 25
+            )
+        )
+
+        composeTestRule.setContent {
+            MortgageManagementOverlay(
+                isVisible = true,
+                properties = props,
+                currentMoney = 500,
+                actionInFlight = false,
+                onBuyHouse = {},
+                onBuyHotel = {},
+                onMortgage = {},
+                onUnmortgage = {},
+                onSellHouse = {},
+                onSellHotel = {},
+                onDismiss = {}
+            )
+        }
+
+        composeTestRule.onNodeWithText("Property Management").assertExists()
+    }
+
+    @Test
+    fun `BankruptcyResolutionOverlay visible for current player`() {
+        composeTestRule.setContent {
+            BankruptcyResolutionOverlay(
+                isVisible = true,
+                playerName = "Alice",
+                totalAssets = 50,
+                totalDebt = 400,
+                propertiesOwned = 1,
+                onConfirm = {},
+                onDismiss = {}
+            )
+        }
+
+        composeTestRule.onNodeWithText("BANKRUPTCY").assertExists()
+        composeTestRule.onNodeWithText("Close").assertExists()
+    }
+
+    @Test
+    fun `Pay Rent reopen button visible when hasPendingPayment and overlay closed`() {
+        val player = Player(id = "player1", name = "P1", position = 0)
+
+        val mockVm = createMockViewModel(
+            isBuyingPhase = true,
+            canEndTurn = false,
+            currentPlayerId = "player1",
+            players = listOf(player)
+        )
+
+        every { mockVm.hasPendingPayment } returns MutableStateFlow(true)
+        every { mockVm.showPayRentOverlay } returns MutableStateFlow(false)
+        every { mockVm.currentRentAmount } returns MutableStateFlow(100)
+        every { mockVm.currentRentOwnerId } returns MutableStateFlow("p2")
+        every { mockVm.currentRentFieldId } returns MutableStateFlow(1)
+        every { mockVm.canEndTurnForCurrentPlayer } returns MutableStateFlow(false)
+
+        composeTestRule.setContent { GameboardScreen(viewModel = mockVm) }
+
+        composeTestRule.onNodeWithTag("pay_rent_reopen_button").assertExists()
+    }
+
+    @Test
+    fun `Manage Properties button visible during current player turn`() {
+        val player = Player(id = "player1", name = "P1", position = 0)
+
+        val mockVm = createMockViewModel(
+            isBuyingPhase = true,
+            canEndTurn = true,
+            currentPlayerId = "player1",
+            players = listOf(player)
+        )
+
+        composeTestRule.setContent { GameboardScreen(viewModel = mockVm) }
+
+        composeTestRule.onNodeWithTag("manage_properties_button").assertExists()
+    }
+
+    @Test
+    fun `Manage Properties button visible when not current player turn`() {
+        val player1 = Player(id = "player1", name = "P1", position = 0)
+        val player2 = Player(id = "player2", name = "P2", position = 1)
+
+        val mockVm = createMockViewModel(
+            isBuyingPhase = true,
+            canEndTurn = true,
+            currentPlayerId = "player1",
+            players = listOf(player1, player2)
+        )
+
+        val modifiedState = mockVm.gameState.value!!.apply { currentPlayerIndex = 1 }
+        every { mockVm.gameState } returns MutableStateFlow(modifiedState)
+
+        composeTestRule.setContent { GameboardScreen(viewModel = mockVm) }
+
+        composeTestRule.onNodeWithTag("manage_properties_button").assertExists()
+    }
+
+    @Test
+    fun `Manage Properties button hidden for eliminated player`() {
+        val player = Player(id = "player1", name = "P1", position = 0, eliminated = true)
+
+        val mockVm = createMockViewModel(
+            isBuyingPhase = true,
+            canEndTurn = true,
+            currentPlayerId = "player1",
+            players = listOf(player)
+        )
+
+        composeTestRule.setContent { GameboardScreen(viewModel = mockVm) }
+
+        composeTestRule.onNodeWithTag("manage_properties_button").assertDoesNotExist()
+    }
+
+    @Test
+    fun `Manage Properties visible during ROLLING phase`() {
+        val player = Player(id = "player1", name = "P1", position = 0)
+
+        val mockVm = createMockViewModel(
+            isRollingPhase = true,
+            isBuyingPhase = false,
+            canEndTurn = false,
+            currentPlayerId = "player1",
+            players = listOf(player)
+        )
+
+        composeTestRule.setContent { GameboardScreen(viewModel = mockVm) }
+
+        composeTestRule.onNodeWithTag("manage_properties_button").assertExists()
+    }
+
+    @Test
+    fun `during PAYING_RENT with overlay dismissed end turn blocked but manage visible`() {
+        val player = Player(id = "player1", name = "P1", position = 0)
+
+        val mockVm = createMockViewModel(
+            isBuyingPhase = true,
+            canEndTurn = false,
+            currentPlayerId = "player1",
+            players = listOf(player),
+            phase = GamePhase.PAYING_RENT
+        )
+
+        every { mockVm.hasPendingPayment } returns MutableStateFlow(true)
+        every { mockVm.showPayRentOverlay } returns MutableStateFlow(false)
+        every { mockVm.currentRentAmount } returns MutableStateFlow(100)
+        every { mockVm.currentRentOwnerId } returns MutableStateFlow("p2")
+        every { mockVm.currentRentFieldId } returns MutableStateFlow(1)
+        every { mockVm.canEndTurnForCurrentPlayer } returns MutableStateFlow(false)
+
+        composeTestRule.setContent { GameboardScreen(viewModel = mockVm) }
+
+        composeTestRule.onNodeWithTag("pay_rent_reopen_button").assertExists()
+        composeTestRule.onNodeWithTag("manage_properties_button").assertExists()
+        composeTestRule.onNodeWithTag("end_turn_button").assertDoesNotExist()
+    }
+
+    @Test
+    fun `BankruptcyResolutionOverlay shows confirm button and summary`() {
+        composeTestRule.setContent {
+            BankruptcyResolutionOverlay(
+                isVisible = true,
+                playerName = "Alice",
+                isConfirmation = true,
+                totalAssets = 50,
+                totalDebt = 400,
+                propertiesOwned = 1,
+                onConfirm = {},
+                onDismiss = {}
+            )
+        }
+
+        composeTestRule.onNodeWithText("Confirm").assertExists()
+        composeTestRule.onNodeWithText("BANKRUPTCY").assertExists()
+    }
+
+    @Test
+    fun `End Turn button disabled while hasPendingPayment is true`() {
+        val player = Player(id = "player1", name = "P1", position = 0)
+
+        val mockVm = createMockViewModel(
+            isBuyingPhase = true,
+            canEndTurn = false,
+            currentPlayerId = "player1",
+            players = listOf(player)
+        )
+
+        every { mockVm.hasPendingPayment } returns MutableStateFlow(true)
+        every { mockVm.showPayRentOverlay } returns MutableStateFlow(false)
+        every { mockVm.canEndTurnForCurrentPlayer } returns MutableStateFlow(false)
+
+        composeTestRule.setContent { GameboardScreen(viewModel = mockVm) }
+
+        composeTestRule.onNodeWithTag("end_turn_button").assertDoesNotExist()
+    }
+
+    @Test
+    fun `PayRentOverlay Pay Rent button enabled when canPay is true`() {
+        composeTestRule.setContent {
+            PayRentOverlay(
+                isVisible = true, rentAmount = 200, ownerName = "Bob",
+                fieldName = "Herrengasse", currentMoney = 500,
+                canPay = true, canRaiseFunds = true,
+                paymentInFlight = false, propertyInFlight = false,
+                onPay = {}, onManageProperties = {}, onDeclareBankruptcy = {}, onDismiss = {}
+            )
+        }
+
+        composeTestRule.onNodeWithText("Pay Rent").assertExists()
+    }
+
+    @Test
+    fun `PayRentOverlay Pay Rent button shows Insufficient Funds when canPay is false`() {
+        composeTestRule.setContent {
+            PayRentOverlay(
+                isVisible = true, rentAmount = 200, ownerName = "Bob",
+                fieldName = "Herrengasse", currentMoney = 50,
+                canPay = false, canRaiseFunds = true,
+                paymentInFlight = false, propertyInFlight = false,
+                onPay = {}, onManageProperties = {}, onDeclareBankruptcy = {}, onDismiss = {}
+            )
+        }
+
+        composeTestRule.onNodeWithText("Insufficient Funds").assertExists()
+    }
+
+    @Test
+    fun `PayRentOverlay shows Processing when paymentInFlight ignores canPay`() {
+        composeTestRule.setContent {
+            PayRentOverlay(
+                isVisible = true, rentAmount = 200, ownerName = "Bob",
+                fieldName = "Herrengasse", currentMoney = 500,
+                canPay = true, canRaiseFunds = true,
+                paymentInFlight = true, propertyInFlight = false,
+                onPay = {}, onManageProperties = {}, onDeclareBankruptcy = {}, onDismiss = {}
+            )
+        }
+
+        composeTestRule.onNodeWithText("Processing...").assertExists()
+    }
+
+    @Test
+    fun `PayRentOverlay shows Processing when canPay is false and paymentInFlight is true`() {
+        composeTestRule.setContent {
+            PayRentOverlay(
+                isVisible = true, rentAmount = 500, ownerName = "Bob",
+                fieldName = "Herrengasse", currentMoney = 50,
+                canPay = false, canRaiseFunds = false,
+                paymentInFlight = true, propertyInFlight = false,
+                onPay = {}, onManageProperties = {}, onDeclareBankruptcy = {}, onDismiss = {}
+            )
+        }
+
+        composeTestRule.onAllNodesWithText("Processing...").assertCountEquals(2)
+    }
+
+    @Test
+    fun `PayRentOverlay shows Declare Bankruptcy button when canRaiseFunds is false`() {
+        composeTestRule.setContent {
+            PayRentOverlay(
+                isVisible = true, rentAmount = 500, ownerName = "Bob",
+                fieldName = "Herrengasse", currentMoney = 50,
+                canPay = false, canRaiseFunds = false,
+                paymentInFlight = false, propertyInFlight = false,
+                onPay = {}, onManageProperties = {}, onDeclareBankruptcy = {}, onDismiss = {}
+            )
+        }
+
+        composeTestRule.onNodeWithText("Declare Bankruptcy").assertExists()
+    }
+
+    @Test
+    fun `PayRentOverlay hides Declare Bankruptcy button when canRaiseFunds is true`() {
+        composeTestRule.setContent {
+            PayRentOverlay(
+                isVisible = true, rentAmount = 200, ownerName = "Bob",
+                fieldName = "Herrengasse", currentMoney = 1500,
+                canPay = true, canRaiseFunds = true,
+                paymentInFlight = false, propertyInFlight = false,
+                onPay = {}, onManageProperties = {}, onDeclareBankruptcy = {}, onDismiss = {}
+            )
+        }
+
+        composeTestRule.onNodeWithText("Declare Bankruptcy").assertDoesNotExist()
+    }
+
+    @Test
+    fun `PayRentOverlay shows Manage Properties button regardless of canRaiseFunds`() {
+        composeTestRule.setContent {
+            PayRentOverlay(
+                isVisible = true, rentAmount = 200, ownerName = "Bob",
+                fieldName = "Herrengasse", currentMoney = 500,
+                canPay = true, canRaiseFunds = true,
+                paymentInFlight = false, propertyInFlight = false,
+                onPay = {}, onManageProperties = {}, onDeclareBankruptcy = {}, onDismiss = {}
+            )
+        }
+
+        composeTestRule.onNodeWithText("Manage Properties").assertExists()
+    }
+
+    // ─── MortgageManagementContent Sell House / Sell Hotel button state ───────
+
+    private fun testSellableProperty(
+        houses: Int = 1,
+        hasHotel: Boolean = false,
+        canSellHouse: Boolean = true,
+        canSellHotel: Boolean = true
+    ): ManageableProperty = ManageableProperty(
+        fieldId = 1, name = "TestProp", color = "brown",
+        price = 60, mortgageValue = 30, unmortgageCost = 33,
+        houses = houses, hasHotel = hasHotel,
+        isMortgaged = false, houseCost = 50, hotelCost = 50,
+        sellHouseValue = 25, sellHotelValue = 25,
+        canSellHouse = canSellHouse, canSellHotel = canSellHotel
+    )
+
+    @Test
+    fun `Sell House button disabled when even-building rule violated`() {
+        val prop = testSellableProperty(canSellHouse = false)
+
+        composeTestRule.setContent {
+            MortgageManagementContent(
+                properties = listOf(prop),
+                currentMoney = 500,
+                actionInFlight = false,
+                onBuyHouse = {},
+                onBuyHotel = {},
+                onMortgage = {},
+                onUnmortgage = {},
+                onSellHouse = {},
+                onSellHotel = {},
+                onDismiss = {}
+            )
+        }
+
+        composeTestRule.onNodeWithText("TestProp").performClick()
+        composeTestRule.onNodeWithText("Sell House").assertExists()
+        composeTestRule.onNodeWithText("Sell House").assertIsNotEnabled()
+    }
+
+    @Test
+    fun `Sell House button enabled when even-building rule satisfied`() {
+        val prop = testSellableProperty(canSellHouse = true)
+
+        composeTestRule.setContent {
+            MortgageManagementContent(
+                properties = listOf(prop),
+                currentMoney = 500,
+                actionInFlight = false,
+                onBuyHouse = {},
+                onBuyHotel = {},
+                onMortgage = {},
+                onUnmortgage = {},
+                onSellHouse = {},
+                onSellHotel = {},
+                onDismiss = {}
+            )
+        }
+
+        composeTestRule.onNodeWithText("TestProp").performClick()
+        composeTestRule.onNodeWithText("Sell House").assertExists()
+        composeTestRule.onNodeWithText("Sell House").assertIsEnabled()
+    }
+
+    @Test
+    fun `Sell Hotel button disabled when even-building rule violated`() {
+        val prop = testSellableProperty(hasHotel = true, canSellHotel = false)
+
+        composeTestRule.setContent {
+            MortgageManagementContent(
+                properties = listOf(prop),
+                currentMoney = 500,
+                actionInFlight = false,
+                onBuyHouse = {},
+                onBuyHotel = {},
+                onMortgage = {},
+                onUnmortgage = {},
+                onSellHouse = {},
+                onSellHotel = {},
+                onDismiss = {}
+            )
+        }
+
+        composeTestRule.onNodeWithText("TestProp").performClick()
+        composeTestRule.onNodeWithText("Sell Hotel").assertExists()
+        composeTestRule.onNodeWithText("Sell Hotel").assertIsNotEnabled()
+    }
+
+    @Test
+    fun `Sell Hotel button enabled when even-building rule satisfied`() {
+        val prop = testSellableProperty(hasHotel = true, canSellHotel = true)
+
+        composeTestRule.setContent {
+            MortgageManagementContent(
+                properties = listOf(prop),
+                currentMoney = 500,
+                actionInFlight = false,
+                onBuyHouse = {},
+                onBuyHotel = {},
+                onMortgage = {},
+                onUnmortgage = {},
+                onSellHouse = {},
+                onSellHotel = {},
+                onDismiss = {}
+            )
+        }
+
+        composeTestRule.onNodeWithText("TestProp").performClick()
+        composeTestRule.onNodeWithText("Sell Hotel").assertExists()
+        composeTestRule.onNodeWithText("Sell Hotel").assertIsEnabled()
+    }
+
+    @Test
+    fun `Sell House re-enables reactively when even-building rule becomes satisfied`() {
+        val propsState = mutableStateOf(
+            listOf(testSellableProperty(canSellHouse = false))
+        )
+
+        composeTestRule.setContent {
+            MortgageManagementContent(
+                properties = propsState.value,
+                currentMoney = 500,
+                actionInFlight = false,
+                onBuyHouse = {},
+                onBuyHotel = {},
+                onMortgage = {},
+                onUnmortgage = {},
+                onSellHouse = {},
+                onSellHotel = {},
+                onDismiss = {}
+            )
+        }
+
+        composeTestRule.onNodeWithText("TestProp").performClick()
+        composeTestRule.onNodeWithText("Sell House").assertIsNotEnabled()
+
+        propsState.value = listOf(testSellableProperty(canSellHouse = true))
+        composeTestRule.waitForIdle()
+
+        composeTestRule.onNodeWithText("Sell House").assertIsEnabled()
+    }
+
+    @Test
+    fun `Sell Hotel re-enables reactively when even-building rule becomes satisfied`() {
+        val propsState = mutableStateOf(
+            listOf(testSellableProperty(hasHotel = true, canSellHotel = false))
+        )
+
+        composeTestRule.setContent {
+            MortgageManagementContent(
+                properties = propsState.value,
+                currentMoney = 500,
+                actionInFlight = false,
+                onBuyHouse = {},
+                onBuyHotel = {},
+                onMortgage = {},
+                onUnmortgage = {},
+                onSellHouse = {},
+                onSellHotel = {},
+                onDismiss = {}
+            )
+        }
+
+        composeTestRule.onNodeWithText("TestProp").performClick()
+        composeTestRule.onNodeWithText("Sell Hotel").assertIsNotEnabled()
+
+        propsState.value = listOf(testSellableProperty(hasHotel = true, canSellHotel = true))
+        composeTestRule.waitForIdle()
+
+        composeTestRule.onNodeWithText("Sell Hotel").assertIsEnabled()
+    }
+
+    // ─── MortgageManagementContent Buy House / Buy Hotel / Mortgage button state ───────
+
+    private fun testBuyableProperty(
+        houses: Int = 2,
+        hasHotel: Boolean = false,
+        isMortgaged: Boolean = false,
+        canBuyHouse: Boolean = true,
+        canBuyHotel: Boolean = false,
+        canMortgage: Boolean = true
+    ): ManageableProperty = ManageableProperty(
+        fieldId = 1, name = "TestProp", color = "brown",
+        price = 60, mortgageValue = 30, unmortgageCost = 33,
+        houses = houses, hasHotel = hasHotel,
+        isMortgaged = isMortgaged, houseCost = 100, hotelCost = 100,
+        sellHouseValue = 50, sellHotelValue = 50,
+        canSellHouse = false, canSellHotel = false,
+        canBuyHouse = canBuyHouse, canBuyHotel = canBuyHotel,
+        canMortgage = canMortgage
+    )
+
+    // ---------- Buy House ----------
+
+    @Test
+    fun `Buy House button disabled when even-building rule violated`() {
+        val prop = testBuyableProperty(canBuyHouse = false)
+
+        composeTestRule.setContent {
+            MortgageManagementContent(
+                properties = listOf(prop),
+                currentMoney = 500,
+                actionInFlight = false,
+                onBuyHouse = {},
+                onBuyHotel = {},
+                onMortgage = {},
+                onUnmortgage = {},
+                onSellHouse = {},
+                onSellHotel = {},
+                onDismiss = {}
+            )
+        }
+
+        composeTestRule.onNodeWithText("TestProp").performClick()
+        composeTestRule.onNodeWithText("Buy House").assertExists()
+        composeTestRule.onNodeWithText("Buy House").assertIsNotEnabled()
+    }
+
+    @Test
+    fun `Buy House button disabled when insufficient funds`() {
+        val prop = testBuyableProperty(canBuyHouse = true)
+
+        composeTestRule.setContent {
+            MortgageManagementContent(
+                properties = listOf(prop),
+                currentMoney = 50,
+                actionInFlight = false,
+                onBuyHouse = {},
+                onBuyHotel = {},
+                onMortgage = {},
+                onUnmortgage = {},
+                onSellHouse = {},
+                onSellHotel = {},
+                onDismiss = {}
+            )
+        }
+
+        composeTestRule.onNodeWithText("TestProp").performClick()
+        composeTestRule.onNodeWithText("Buy House").assertExists()
+        composeTestRule.onNodeWithText("Buy House").assertIsNotEnabled()
+    }
+
+    @Test
+    fun `Buy House button enabled when rule satisfied and sufficient funds`() {
+        val prop = testBuyableProperty(canBuyHouse = true)
+
+        composeTestRule.setContent {
+            MortgageManagementContent(
+                properties = listOf(prop),
+                currentMoney = 500,
+                actionInFlight = false,
+                onBuyHouse = {},
+                onBuyHotel = {},
+                onMortgage = {},
+                onUnmortgage = {},
+                onSellHouse = {},
+                onSellHotel = {},
+                onDismiss = {}
+            )
+        }
+
+        composeTestRule.onNodeWithText("TestProp").performClick()
+        composeTestRule.onNodeWithText("Buy House").assertExists()
+        composeTestRule.onNodeWithText("Buy House").assertIsEnabled()
+    }
+
+    @Test
+    fun `Buy House re-enables reactively when even-building rule becomes satisfied`() {
+        val propsState = mutableStateOf(
+            listOf(testBuyableProperty(canBuyHouse = false))
+        )
+
+        composeTestRule.setContent {
+            MortgageManagementContent(
+                properties = propsState.value,
+                currentMoney = 500,
+                actionInFlight = false,
+                onBuyHouse = {},
+                onBuyHotel = {},
+                onMortgage = {},
+                onUnmortgage = {},
+                onSellHouse = {},
+                onSellHotel = {},
+                onDismiss = {}
+            )
+        }
+
+        composeTestRule.onNodeWithText("TestProp").performClick()
+        composeTestRule.onNodeWithText("Buy House").assertIsNotEnabled()
+
+        propsState.value = listOf(testBuyableProperty(canBuyHouse = true))
+        composeTestRule.waitForIdle()
+
+        composeTestRule.onNodeWithText("Buy House").assertIsEnabled()
+    }
+
+    @Test
+    fun `Buy House button not visible when mortgaged`() {
+        val prop = testBuyableProperty(isMortgaged = true)
+
+        composeTestRule.setContent {
+            MortgageManagementContent(
+                properties = listOf(prop),
+                currentMoney = 500,
+                actionInFlight = false,
+                onBuyHouse = {},
+                onBuyHotel = {},
+                onMortgage = {},
+                onUnmortgage = {},
+                onSellHouse = {},
+                onSellHotel = {},
+                onDismiss = {}
+            )
+        }
+
+        composeTestRule.onNodeWithText("TestProp").performClick()
+        composeTestRule.onNodeWithText("Buy House").assertDoesNotExist()
+    }
+
+    @Test
+    fun `Buy House button not visible when has hotel`() {
+        val prop = testBuyableProperty(hasHotel = true, canBuyHouse = false)
+
+        composeTestRule.setContent {
+            MortgageManagementContent(
+                properties = listOf(prop),
+                currentMoney = 500,
+                actionInFlight = false,
+                onBuyHouse = {},
+                onBuyHotel = {},
+                onMortgage = {},
+                onUnmortgage = {},
+                onSellHouse = {},
+                onSellHotel = {},
+                onDismiss = {}
+            )
+        }
+
+        composeTestRule.onNodeWithText("TestProp").performClick()
+        composeTestRule.onNodeWithText("Buy House").assertDoesNotExist()
+    }
+
+    @Test
+    fun `Buy House button appears reactively after unmortgaging`() {
+        val propsState = mutableStateOf(
+            listOf(testBuyableProperty(isMortgaged = true, canBuyHouse = false))
+        )
+
+        composeTestRule.setContent {
+            MortgageManagementContent(
+                properties = propsState.value,
+                currentMoney = 500,
+                actionInFlight = false,
+                onBuyHouse = {},
+                onBuyHotel = {},
+                onMortgage = {},
+                onUnmortgage = {},
+                onSellHouse = {},
+                onSellHotel = {},
+                onDismiss = {}
+            )
+        }
+
+        composeTestRule.onNodeWithText("TestProp").performClick()
+        composeTestRule.onNodeWithText("Buy House").assertDoesNotExist()
+
+        propsState.value = listOf(testBuyableProperty(isMortgaged = false, canBuyHouse = true))
+        composeTestRule.waitForIdle()
+
+        composeTestRule.onNodeWithText("Buy House").assertExists()
+        composeTestRule.onNodeWithText("Buy House").assertIsEnabled()
+    }
+
+    @Test
+    fun `Buy House button disappears reactively when reaching 4 houses`() {
+        val propsState = mutableStateOf(
+            listOf(testBuyableProperty(houses = 3, canBuyHouse = true))
+        )
+
+        composeTestRule.setContent {
+            MortgageManagementContent(
+                properties = propsState.value,
+                currentMoney = 500,
+                actionInFlight = false,
+                onBuyHouse = {},
+                onBuyHotel = {},
+                onMortgage = {},
+                onUnmortgage = {},
+                onSellHouse = {},
+                onSellHotel = {},
+                onDismiss = {}
+            )
+        }
+
+        composeTestRule.onNodeWithText("TestProp").performClick()
+        composeTestRule.onNodeWithText("Buy House").assertExists()
+
+        propsState.value = listOf(testBuyableProperty(houses = 4, canBuyHouse = false, canBuyHotel = false))
+        composeTestRule.waitForIdle()
+
+        composeTestRule.onNodeWithText("Buy House").assertDoesNotExist()
+    }
+
+    // ---------- Buy Hotel ----------
+
+    @Test
+    fun `Buy Hotel button disabled when even-building rule violated`() {
+        val prop = testBuyableProperty(houses = 4, canBuyHotel = false)
+
+        composeTestRule.setContent {
+            MortgageManagementContent(
+                properties = listOf(prop),
+                currentMoney = 500,
+                actionInFlight = false,
+                onBuyHouse = {},
+                onBuyHotel = {},
+                onMortgage = {},
+                onUnmortgage = {},
+                onSellHouse = {},
+                onSellHotel = {},
+                onDismiss = {}
+            )
+        }
+
+        composeTestRule.onNodeWithText("TestProp").performClick()
+        composeTestRule.onNodeWithText("Buy Hotel").assertExists()
+        composeTestRule.onNodeWithText("Buy Hotel").assertIsNotEnabled()
+    }
+
+    @Test
+    fun `Buy Hotel button enabled when rule satisfied and sufficient funds`() {
+        val prop = testBuyableProperty(houses = 4, canBuyHotel = true)
+
+        composeTestRule.setContent {
+            MortgageManagementContent(
+                properties = listOf(prop),
+                currentMoney = 500,
+                actionInFlight = false,
+                onBuyHouse = {},
+                onBuyHotel = {},
+                onMortgage = {},
+                onUnmortgage = {},
+                onSellHouse = {},
+                onSellHotel = {},
+                onDismiss = {}
+            )
+        }
+
+        composeTestRule.onNodeWithText("TestProp").performClick()
+        composeTestRule.onNodeWithText("Buy Hotel").assertExists()
+        composeTestRule.onNodeWithText("Buy Hotel").assertIsEnabled()
+    }
+
+    @Test
+    fun `Buy Hotel button disabled when insufficient funds`() {
+        val prop = testBuyableProperty(houses = 4, canBuyHotel = true)
+
+        composeTestRule.setContent {
+            MortgageManagementContent(
+                properties = listOf(prop),
+                currentMoney = 50,
+                actionInFlight = false,
+                onBuyHouse = {},
+                onBuyHotel = {},
+                onMortgage = {},
+                onUnmortgage = {},
+                onSellHouse = {},
+                onSellHotel = {},
+                onDismiss = {}
+            )
+        }
+
+        composeTestRule.onNodeWithText("TestProp").performClick()
+        composeTestRule.onNodeWithText("Buy Hotel").assertExists()
+        composeTestRule.onNodeWithText("Buy Hotel").assertIsNotEnabled()
+    }
+
+    @Test
+    fun `Buy Hotel re-enables reactively when even-building rule becomes satisfied`() {
+        val propsState = mutableStateOf(
+            listOf(testBuyableProperty(houses = 4, canBuyHotel = false))
+        )
+
+        composeTestRule.setContent {
+            MortgageManagementContent(
+                properties = propsState.value,
+                currentMoney = 500,
+                actionInFlight = false,
+                onBuyHouse = {},
+                onBuyHotel = {},
+                onMortgage = {},
+                onUnmortgage = {},
+                onSellHouse = {},
+                onSellHotel = {},
+                onDismiss = {}
+            )
+        }
+
+        composeTestRule.onNodeWithText("TestProp").performClick()
+        composeTestRule.onNodeWithText("Buy Hotel").assertIsNotEnabled()
+
+        propsState.value = listOf(testBuyableProperty(houses = 4, canBuyHotel = true))
+        composeTestRule.waitForIdle()
+
+        composeTestRule.onNodeWithText("Buy Hotel").assertIsEnabled()
+    }
+
+    @Test
+    fun `Buy Hotel button appears reactively when reaching 4 houses`() {
+        val propsState = mutableStateOf(
+            listOf(testBuyableProperty(houses = 3, canBuyHotel = false))
+        )
+
+        composeTestRule.setContent {
+            MortgageManagementContent(
+                properties = propsState.value,
+                currentMoney = 500,
+                actionInFlight = false,
+                onBuyHouse = {},
+                onBuyHotel = {},
+                onMortgage = {},
+                onUnmortgage = {},
+                onSellHouse = {},
+                onSellHotel = {},
+                onDismiss = {}
+            )
+        }
+
+        composeTestRule.onNodeWithText("TestProp").performClick()
+        composeTestRule.onNodeWithText("Buy Hotel").assertDoesNotExist()
+
+        propsState.value = listOf(testBuyableProperty(houses = 4, canBuyHotel = true))
+        composeTestRule.waitForIdle()
+
+        composeTestRule.onNodeWithText("Buy Hotel").assertExists()
+        composeTestRule.onNodeWithText("Buy Hotel").assertIsEnabled()
+    }
+
+    @Test
+    fun `Buy Hotel button disappears reactively when mortgaged`() {
+        val propsState = mutableStateOf(
+            listOf(testBuyableProperty(houses = 4, canBuyHotel = true))
+        )
+
+        composeTestRule.setContent {
+            MortgageManagementContent(
+                properties = propsState.value,
+                currentMoney = 500,
+                actionInFlight = false,
+                onBuyHouse = {},
+                onBuyHotel = {},
+                onMortgage = {},
+                onUnmortgage = {},
+                onSellHouse = {},
+                onSellHotel = {},
+                onDismiss = {}
+            )
+        }
+
+        composeTestRule.onNodeWithText("TestProp").performClick()
+        composeTestRule.onNodeWithText("Buy Hotel").assertExists()
+
+        propsState.value = listOf(testBuyableProperty(houses = 4, isMortgaged = true, canBuyHotel = false))
+        composeTestRule.waitForIdle()
+
+        composeTestRule.onNodeWithText("Buy Hotel").assertDoesNotExist()
+    }
+
+    // ---------- Mortgage ----------
+
+    @Test
+    fun `Mortgage button disabled when sibling has buildings`() {
+        val prop = testBuyableProperty(houses = 0, canMortgage = false)
+
+        composeTestRule.setContent {
+            MortgageManagementContent(
+                properties = listOf(prop),
+                currentMoney = 500,
+                actionInFlight = false,
+                onBuyHouse = {},
+                onBuyHotel = {},
+                onMortgage = {},
+                onUnmortgage = {},
+                onSellHouse = {},
+                onSellHotel = {},
+                onDismiss = {}
+            )
+        }
+
+        composeTestRule.onNodeWithText("TestProp").performClick()
+        composeTestRule.onAllNodesWithText("Mortgage")[1].apply {
+            assertExists()
+            assertIsNotEnabled()
+        }
+    }
+
+    @Test
+    fun `Mortgage button enabled when no buildings`() {
+        val prop = testBuyableProperty(houses = 0, canMortgage = true)
+
+        composeTestRule.setContent {
+            MortgageManagementContent(
+                properties = listOf(prop),
+                currentMoney = 500,
+                actionInFlight = false,
+                onBuyHouse = {},
+                onBuyHotel = {},
+                onMortgage = {},
+                onUnmortgage = {},
+                onSellHouse = {},
+                onSellHotel = {},
+                onDismiss = {}
+            )
+        }
+
+        composeTestRule.onNodeWithText("TestProp").performClick()
+        composeTestRule.onAllNodesWithText("Mortgage")[1].apply {
+            assertExists()
+            assertIsEnabled()
+        }
+    }
+
+    @Test
+    fun `Mortgage re-enables reactively when sibling buildings sold`() {
+        val propsState = mutableStateOf(
+            listOf(testBuyableProperty(houses = 0, canMortgage = false))
+        )
+
+        composeTestRule.setContent {
+            MortgageManagementContent(
+                properties = propsState.value,
+                currentMoney = 500,
+                actionInFlight = false,
+                onBuyHouse = {},
+                onBuyHotel = {},
+                onMortgage = {},
+                onUnmortgage = {},
+                onSellHouse = {},
+                onSellHotel = {},
+                onDismiss = {}
+            )
+        }
+
+        composeTestRule.onNodeWithText("TestProp").performClick()
+        composeTestRule.onAllNodesWithText("Mortgage")[1].assertIsNotEnabled()
+
+        propsState.value = listOf(testBuyableProperty(houses = 0, canMortgage = true))
+        composeTestRule.waitForIdle()
+
+        composeTestRule.onAllNodesWithText("Mortgage")[1].assertIsEnabled()
+    }
+
+    @Test
+    fun `Mortgage button not visible when has houses`() {
+        val prop = testBuyableProperty(houses = 2, canMortgage = false)
+
+        composeTestRule.setContent {
+            MortgageManagementContent(
+                properties = listOf(prop),
+                currentMoney = 500,
+                actionInFlight = false,
+                onBuyHouse = {},
+                onBuyHotel = {},
+                onMortgage = {},
+                onUnmortgage = {},
+                onSellHouse = {},
+                onSellHotel = {},
+                onDismiss = {}
+            )
+        }
+
+        composeTestRule.onNodeWithText("TestProp").performClick()
+        composeTestRule.onAllNodesWithText("Mortgage").assertCountEquals(1)
+    }
+
+    @Test
+    fun `Mortgage button not visible when has hotel`() {
+        val prop = testBuyableProperty(hasHotel = true, canMortgage = false)
+
+        composeTestRule.setContent {
+            MortgageManagementContent(
+                properties = listOf(prop),
+                currentMoney = 500,
+                actionInFlight = false,
+                onBuyHouse = {},
+                onBuyHotel = {},
+                onMortgage = {},
+                onUnmortgage = {},
+                onSellHouse = {},
+                onSellHotel = {},
+                onDismiss = {}
+            )
+        }
+
+        composeTestRule.onNodeWithText("TestProp").performClick()
+        composeTestRule.onAllNodesWithText("Mortgage").assertCountEquals(1)
+    }
+
+    @Test
+    fun `Mortgage button appears reactively after selling all houses`() {
+        val propsState = mutableStateOf(
+            listOf(testBuyableProperty(houses = 2, canMortgage = false))
+        )
+
+        composeTestRule.setContent {
+            MortgageManagementContent(
+                properties = propsState.value,
+                currentMoney = 500,
+                actionInFlight = false,
+                onBuyHouse = {},
+                onBuyHotel = {},
+                onMortgage = {},
+                onUnmortgage = {},
+                onSellHouse = {},
+                onSellHotel = {},
+                onDismiss = {}
+            )
+        }
+
+        composeTestRule.onNodeWithText("TestProp").performClick()
+        composeTestRule.onAllNodesWithText("Mortgage").assertCountEquals(1)
+
+        propsState.value = listOf(testBuyableProperty(houses = 0, canMortgage = true))
+        composeTestRule.waitForIdle()
+
+        composeTestRule.onAllNodesWithText("Mortgage").apply {
+            assertCountEquals(2)
+            get(1).assertIsEnabled()
+        }
+    }
+
+    @Test
+    fun `Mortgage button disappears reactively when building a house`() {
+        val propsState = mutableStateOf(
+            listOf(testBuyableProperty(houses = 0, canMortgage = true))
+        )
+
+        composeTestRule.setContent {
+            MortgageManagementContent(
+                properties = propsState.value,
+                currentMoney = 500,
+                actionInFlight = false,
+                onBuyHouse = {},
+                onBuyHotel = {},
+                onMortgage = {},
+                onUnmortgage = {},
+                onSellHouse = {},
+                onSellHotel = {},
+                onDismiss = {}
+            )
+        }
+
+        composeTestRule.onNodeWithText("TestProp").performClick()
+        composeTestRule.onAllNodesWithText("Mortgage").assertCountEquals(2)
+
+        propsState.value = listOf(testBuyableProperty(houses = 1, canBuyHouse = true))
+        composeTestRule.waitForIdle()
+
+        composeTestRule.onAllNodesWithText("Mortgage").assertCountEquals(1)
     }
 }

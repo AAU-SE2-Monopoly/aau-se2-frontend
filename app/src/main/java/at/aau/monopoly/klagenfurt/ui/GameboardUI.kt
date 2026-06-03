@@ -9,7 +9,6 @@ import androidx.activity.compose.setContent
 import androidx.activity.viewModels
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -48,12 +47,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -62,7 +59,6 @@ import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.Lifecycle
@@ -82,12 +78,13 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.filter
 import android.view.KeyEvent
-import at.aau.monopoly.klagenfurt.model.enums.GamePhase
 import androidx.compose.foundation.shape.RoundedCornerShape
 import at.aau.monopoly.klagenfurt.model.field.ChanceField
 import at.aau.monopoly.klagenfurt.model.field.CommunityChestField
 import kotlin.math.hypot
 import at.aau.monopoly.klagenfurt.model.field.PropertyField
+import at.aau.monopoly.klagenfurt.model.enums.GamePhase
+import com.example.myapplication.BuildConfig
 
 
 
@@ -164,14 +161,21 @@ fun GameboardScreen(
     val isBuyingPhaseForCurrentPlayer by viewModel.isBuyingPhaseForCurrentPlayer.collectAsState()
     val lastDiceRoll by viewModel.lastDiceRoll.collectAsState()
     val canStartGame by viewModel.canStartGame.collectAsState()
-    val chanceCardDrawnThisTurn by viewModel.chanceCardDrawnThisTurn.collectAsState()
-    val communityChestCardDrawnThisTurn by viewModel.communityChestCardDrawnThisTurn.collectAsState()
     val canEndTurnForCurrentPlayer by viewModel.canEndTurnForCurrentPlayer.collectAsState()
     val buildingActionPending by viewModel.buildingActionPending.collectAsState()
     val canBuyCurrentField =
         isBuyingPhaseForCurrentPlayer &&
                 isBuyableField &&
                 isUnownedField
+
+    val gameStarted = gameState?.phase != null &&
+            gameState!!.phase != GamePhase.WAITING &&
+            gameState!!.phase != GamePhase.FINISHED
+
+    val isPayingRent = gameState?.phase == GamePhase.PAYING_RENT
+
+    val myPlayer = gameState?.players?.find { it.id == currentPlayerId }
+    val myPlayerIsActive = myPlayer != null && !myPlayer.eliminated && gameStarted
 
     val ownedCompleteColorSetProperties = remember(fields, currentPlayerId) {
         fields
@@ -188,6 +192,26 @@ fun GameboardScreen(
     val currentActionCard by viewModel.currentActionCard.collectAsState()
     val isExecutingAction by viewModel.isExecutingAction.collectAsState()
     val showActionCardOverlay by viewModel.showActionCardOverlay.collectAsState()
+
+    // Payment overlay states
+    val showPayRentOverlay by viewModel.showPayRentOverlay.collectAsState()
+    val showMortgageOverlay by viewModel.showMortgageOverlay.collectAsState()
+    val showBankruptcyOverlay by viewModel.showBankruptcyOverlay.collectAsState()
+    val showBankruptcyConfirmation by viewModel.showBankruptcyConfirmation.collectAsState()
+    val currentRentAmount by viewModel.currentRentAmount.collectAsState()
+    val currentRentOwnerId by viewModel.currentRentOwnerId.collectAsState()
+    val currentRentFieldId by viewModel.currentRentFieldId.collectAsState()
+    val manageableProperties by viewModel.manageableProperties.collectAsState()
+    val canPayRent by viewModel.canPayRent.collectAsState()
+    val canRaiseFunds by viewModel.canRaiseFunds.collectAsState()
+    val paymentActionInFlight by viewModel.paymentActionInFlight.collectAsState()
+    val propertyActionInFlight by viewModel.propertyActionInFlight.collectAsState()
+    val bankruptcyPlayerId by viewModel.bankruptcyPlayerId.collectAsState()
+    val bankruptcyPlayerName by viewModel.bankruptcyPlayerName.collectAsState()
+    val bankruptcyTotalAssets by viewModel.bankruptcyTotalAssets.collectAsState()
+    val bankruptcyTotalDebt by viewModel.bankruptcyTotalDebt.collectAsState()
+    val bankruptcyPropertiesOwned by viewModel.bankruptcyPropertiesOwned.collectAsState()
+    val hasPendingPayment by viewModel.hasPendingPayment.collectAsState()
 
     val context = LocalContext.current
 
@@ -413,10 +437,7 @@ fun GameboardScreen(
                     }
                 }
 
-                // Hide End Turn if on a card field and card not yet drawn
-                val mustDrawCard = (isOnCommunityChestField && !communityChestCardDrawnThisTurn) ||
-                        (isOnChanceField && !chanceCardDrawnThisTurn)
-                if (canEndTurnForCurrentPlayer && !mustDrawCard && !showActionCardOverlay) {
+                if (canEndTurnForCurrentPlayer && !showActionCardOverlay) {
                     GlassButton(
                         onClick = { viewModel.endTurn() },
                         modifier = Modifier
@@ -424,6 +445,17 @@ fun GameboardScreen(
                             .testTag("end_turn_button")
                     ) {
                         Text("End Turn")
+                    }
+                }
+
+                if (hasPendingPayment && !showPayRentOverlay && currentTurnPlayer?.id == currentPlayerId) {
+                    GlassButton(
+                        onClick = { viewModel.showPayRentOverlay(currentRentAmount, currentRentOwnerId, currentRentFieldId) },
+                        modifier = Modifier
+                            .padding(top = 8.dp)
+                            .testTag("pay_rent_reopen_button")
+                    ) {
+                        Text("Pay Rent Due")
                     }
                 }
 
@@ -440,8 +472,44 @@ fun GameboardScreen(
                     }
                 }
 
+                // Visible any time during the game for any non-eliminated player (Monopoly rule):
+                // mortgage/unmortgage/sell buildings are allowed at any point.
+                if (myPlayerIsActive == true) {
+                    GlassButton(
+                        onClick = { viewModel.showMortgageManagementOverlay() },
+                        modifier = Modifier
+                            .padding(top = 8.dp)
+                            .testTag("manage_properties_button")
+                    ) {
+                        Text("Manage Properties")
+                    }
+                }
+
+                /** DEBUG remove this block of code to remove */
+                if (BuildConfig.DEBUG && currentTurnPlayer?.id == currentPlayerId) {
+                    GlassButton(
+                        onClick = { viewModel.debugForwardGame() },
+                        modifier = Modifier
+                            .padding(top = 8.dp)
+                            .testTag("debug_forward_game_button")
+                    ) {
+                        Text("DEBUG: Forward Game")
+                    }
+
+                    GlassButton(
+                        onClick = { viewModel.debugSetupBankruptcy() },
+                        modifier = Modifier
+                            .padding(top = 8.dp)
+                            .testTag("debug_bankruptcy_setup_button")
+                    ) {
+                        Text("DEBUG: Bankruptcy Setup")
+                    }
+                }
+
                 if (
                     ownedCompleteColorSetProperties.isNotEmpty() &&
+                    myPlayerIsActive == true &&
+                    !isPayingRent &&
                     canEndTurnForCurrentPlayer
                 ) {
                     GlassButton(
@@ -454,7 +522,7 @@ fun GameboardScreen(
                     }
                 }
 
-                if (isOnChanceField && isBuyingPhaseForCurrentPlayer && !chanceCardDrawnThisTurn) {
+                if (isOnChanceField && isBuyingPhaseForCurrentPlayer) {
                     DrawCardButton(
                         cardType = "CHANCE",
                         alreadyDrawn = false,
@@ -464,7 +532,7 @@ fun GameboardScreen(
                     )
                 }
 
-                if (isOnCommunityChestField && isBuyingPhaseForCurrentPlayer && !communityChestCardDrawnThisTurn) {
+                if (isOnCommunityChestField && isBuyingPhaseForCurrentPlayer) {
                     DrawCardButton(
                         cardType = "COMMUNITY_CHEST",
                         alreadyDrawn = false,
@@ -500,7 +568,6 @@ fun GameboardScreen(
                     onSellHotel = { viewModel.sellHotel(it) },
                     onDismiss = { showBuildingManager = false },
                     isBuildingActionPending = buildingActionPending
-
                 )
             }
 
@@ -523,6 +590,66 @@ fun GameboardScreen(
                     }
                 },
                 onClose = { showOverlay = false }
+            )
+
+            // Payment overlays
+            PayRentOverlay(
+                isVisible = showPayRentOverlay && currentTurnPlayer?.id == currentPlayerId,
+                rentAmount = currentRentAmount,
+                ownerName = currentRentOwnerId?.let { ownerId ->
+                    players.find { it.id == ownerId }?.name
+                },
+                fieldName = currentRentFieldId?.let { id ->
+                    fields.find { it.id == id }?.name
+                } ?: "",
+                currentMoney = currentTurnPlayer?.money ?: 0,
+                canPay = canPayRent,
+                canRaiseFunds = canRaiseFunds,
+                paymentInFlight = paymentActionInFlight,
+                propertyInFlight = propertyActionInFlight,
+                onPay = { viewModel.payRent() },
+                onManageProperties = { viewModel.showMortgageManagementOverlay() },
+                onDeclareBankruptcy = { viewModel.declareBankruptcy() },
+                onDismiss = { viewModel.dismissPayRentOverlay() }
+            )
+
+            MortgageManagementOverlay(
+                isVisible = showMortgageOverlay && myPlayerIsActive == true,
+                properties = manageableProperties,
+                currentMoney = myPlayer?.money ?: 0,
+                actionInFlight = propertyActionInFlight,
+                isPayingRent = isPayingRent == true,
+                onBuyHouse = { fieldId -> viewModel.buyHouse(fieldId) },
+                onBuyHotel = { fieldId -> viewModel.buyHotel(fieldId) },
+                onMortgage = { fieldId -> viewModel.mortgageProperty(fieldId) },
+                onUnmortgage = { fieldId -> viewModel.unmortgageProperty(fieldId) },
+                onSellHouse = { fieldId -> viewModel.sellHouse(fieldId) },
+                onSellHotel = { fieldId -> viewModel.sellHotel(fieldId) },
+                onDismiss = { viewModel.dismissMortgageOverlay() }
+            )
+
+            // Bankruptcy confirmation (shown to current player only, before backend call)
+            BankruptcyResolutionOverlay(
+                isVisible = showBankruptcyConfirmation && currentTurnPlayer?.id == currentPlayerId,
+                playerName = currentTurnPlayer?.name ?: "",
+                isConfirmation = true,
+                totalAssets = currentTurnPlayer?.money ?: 0,
+                totalDebt = currentRentAmount,
+                propertiesOwned = manageableProperties.size,
+                onConfirm = { viewModel.confirmDeclareBankruptcy() },
+                onDismiss = { viewModel.cancelDeclareBankruptcy() }
+            )
+
+            // Bankruptcy result (shown to all players after backend processes)
+            BankruptcyResolutionOverlay(
+                isVisible = showBankruptcyOverlay,
+                playerName = bankruptcyPlayerName,
+                isOwnBankruptcy = bankruptcyPlayerId == currentPlayerId,
+                totalAssets = bankruptcyTotalAssets,
+                totalDebt = bankruptcyTotalDebt,
+                propertiesOwned = bankruptcyPropertiesOwned.size,
+                onConfirm = { viewModel.acceptBankruptcyResolution() },
+                onDismiss = { viewModel.dismissBankruptcyOverlay() }
             )
         }
 

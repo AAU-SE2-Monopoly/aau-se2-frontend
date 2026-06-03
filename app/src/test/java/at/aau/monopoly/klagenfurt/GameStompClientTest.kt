@@ -1666,4 +1666,146 @@ class GameStompClientTest {
         }
     }
 
+    @Test
+    fun payRent_sends_pay_rent_action() = runTest(testDispatcher) {
+        coEvery { stompClient.connect(any<String>()) } returns stompSession
+        coEvery { stompSession.subscribeText(any<String>()) } returns flowOf()
+        coEvery { stompSession.sendText(any<String>(), any<String>()) } returns mockk()
+
+        gameStompClient.connect()
+        advanceUntilIdle()
+        gameStompClient.setGameId("game-1")
+
+        gameStompClient.payRent(5, 8)
+        advanceUntilIdle()
+
+        coVerify {
+            stompSession.sendText(
+                "/app/game/action",
+                match {
+                    it.contains("\"action\":\"PAY_RENT\"") &&
+                            it.contains("\"fieldId\":\"5\"") &&
+                            it.contains("\"diceTotal\":\"8\"")
+                }
+            )
+        }
+    }
+
+    @Test
+    fun mortgageProperty_sends_mortgage_action() = runTest(testDispatcher) {
+        coEvery { stompClient.connect(any<String>()) } returns stompSession
+        coEvery { stompSession.subscribeText(any<String>()) } returns flowOf()
+        coEvery { stompSession.sendText(any<String>(), any<String>()) } returns mockk()
+
+        gameStompClient.connect()
+        advanceUntilIdle()
+        gameStompClient.setGameId("game-1")
+
+        gameStompClient.mortgageProperty(3)
+        advanceUntilIdle()
+
+        coVerify {
+            stompSession.sendText(
+                "/app/game/action",
+                match {
+                    it.contains("\"action\":\"MORTGAGE_PROPERTY\"") &&
+                            it.contains("\"fieldId\":\"3\"")
+                }
+            )
+        }
+    }
+
+    @Test
+    fun unmortgageProperty_sends_unmortgage_action() = runTest(testDispatcher) {
+        coEvery { stompClient.connect(any<String>()) } returns stompSession
+        coEvery { stompSession.subscribeText(any<String>()) } returns flowOf()
+        coEvery { stompSession.sendText(any<String>(), any<String>()) } returns mockk()
+
+        gameStompClient.connect()
+        advanceUntilIdle()
+        gameStompClient.setGameId("game-1")
+
+        gameStompClient.unmortgageProperty(7)
+        advanceUntilIdle()
+
+        coVerify {
+            stompSession.sendText(
+                "/app/game/action",
+                match {
+                    it.contains("\"action\":\"UNMORTGAGE_PROPERTY\"") &&
+                            it.contains("\"fieldId\":\"7\"")
+                }
+            )
+        }
+    }
+
+    @Test
+    fun declareBankruptcy_sends_bankruptcy_action() = runTest(testDispatcher) {
+        coEvery { stompClient.connect(any<String>()) } returns stompSession
+        coEvery { stompSession.subscribeText(any<String>()) } returns flowOf()
+        coEvery { stompSession.sendText(any<String>(), any<String>()) } returns mockk()
+
+        gameStompClient.connect()
+        advanceUntilIdle()
+        gameStompClient.setGameId("game-1")
+
+        gameStompClient.declareBankruptcy()
+        advanceUntilIdle()
+
+        coVerify {
+            stompSession.sendText(
+                "/app/game/action",
+                match {
+                    it.contains("\"action\":\"DECLARE_BANKRUPTCY\"")
+                }
+            )
+        }
+    }
+
+    @Test
+    fun debugForwardGame_sends_debug_action() = runTest(testDispatcher) {
+        coEvery { stompClient.connect(any<String>()) } returns stompSession
+        coEvery { stompSession.subscribeText(any<String>()) } returns flowOf()
+        coEvery { stompSession.sendText(any<String>(), any<String>()) } returns mockk()
+
+        gameStompClient.connect()
+        advanceUntilIdle()
+        gameStompClient.setGameId("game-1")
+
+        gameStompClient.debugForwardGame()
+        advanceUntilIdle()
+
+        coVerify {
+            stompSession.sendText(
+                "/app/game/action",
+                match {
+                    it.contains("\"action\":\"DEBUG_FORWARD_GAME\"")
+                }
+            )
+        }
+    }
+
+    @Test
+    fun debugSetupBankruptcy_sends_debug_action() = runTest(testDispatcher) {
+        coEvery { stompClient.connect(any<String>()) } returns stompSession
+        coEvery { stompSession.subscribeText(any<String>()) } returns flowOf()
+        coEvery { stompSession.sendText(any<String>(), any<String>()) } returns mockk()
+
+        gameStompClient.connect()
+        advanceUntilIdle()
+        gameStompClient.setGameId("game-1")
+
+        gameStompClient.debugSetupBankruptcy()
+        advanceUntilIdle()
+
+        coVerify {
+            stompSession.sendText(
+                "/app/game/action",
+                match {
+                    it.contains("\"action\":\"DEBUG_SETUP_BANKRUPTCY\"")
+                }
+            )
+        }
+    }
+
 }

@@ -55,4 +55,12 @@ interface GameService {
     fun sellHotel(fieldId: Int)
 
 
+    fun payRent(fieldId: Int?, diceTotal: Int = 0)
+    fun mortgageProperty(fieldId: Int)
+    fun unmortgageProperty(fieldId: Int)
+    fun declareBankruptcy()
+    /** DEBUG remove this block of code to remove */
+    fun debugForwardGame()
+    /** DEBUG remove this block of code to remove */
+    fun debugSetupBankruptcy()
 }

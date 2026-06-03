@@ -11,11 +11,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
@@ -221,16 +219,19 @@ class CardScale(val ratio: Float) {
 // ── Shared helpers ───────────────────────────────────────────────────
 
 @Composable
-private fun CardShell(
+internal fun CardShell(
     borderColor: Color,
     modifier: Modifier = Modifier,
+    borderWidth: Dp = 1.dp,
+    backgroundColor: Color = CardBg,
     content: @Composable ColumnScope.(CardScale) -> Unit
 ) {
+    val shape = RoundedCornerShape(4.dp)
     BoxWithConstraints(
         modifier = modifier
-            .clip(RoundedCornerShape(4.dp))
-            .border(1.dp, borderColor, RoundedCornerShape(4.dp))
-            .background(CardBg)
+            .clip(shape)
+            .border(borderWidth, borderColor, shape)
+            .background(backgroundColor)
     ) {
         val scale = CardScale(maxWidth.value / REF_W)
         Column(
@@ -243,59 +244,33 @@ private fun CardShell(
 }
 
 @Composable
-private fun ColumnScope.RentRow(label: String, value: String, s: CardScale) {
+internal fun ColumnScope.RentRow(
+    label: String,
+    value: String,
+    s: CardScale,
+    labelColor: Color = Color.DarkGray,
+    valueColor: Color = Color.Black
+) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = s.dp(6f), vertical = s.dp(0.5f)),
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
-        Text(label, fontSize = s.sp(7.5f), color = Color.DarkGray, maxLines = 1)
-        Text(value, fontSize = s.sp(7.5f), fontWeight = FontWeight.Bold, maxLines = 1)
+        Text(label, fontSize = s.sp(7.5f), color = labelColor, maxLines = 1)
+        Text(value, fontSize = s.sp(7.5f), color = valueColor, fontWeight = FontWeight.Bold, maxLines = 1)
     }
 }
 
 @Composable
-private fun ColumnScope.ThinDivider(s: CardScale) {
+internal fun ColumnScope.ThinDivider(
+    s: CardScale,
+    color: Color = Color.LightGray
+) {
     HorizontalDivider(
         modifier = Modifier.padding(horizontal = s.dp(8f), vertical = s.dp(1.5f)),
         thickness = 0.5.dp,
-        color = Color.LightGray
-    )
-}
-
-// ── Previews ─────────────────────────────────────────────────────────
-
-@Preview(showBackground = true)
-@Composable
-private fun PreviewPropertyCard() {
-    FieldCardUI(
-        field = PropertyField(
-            id = 1, name = "Herrengasse", color = PropertyColor.BROWN,
-            price = 60, rent = listOf(2, 10, 30, 90, 160, 250),
-            houseCost = 50, hotelCost = 50
-        )
-    )
-}
-
-@Preview(showBackground = true)
-@Composable
-private fun PreviewPropertyCardSmall() {
-    FieldCardUI(
-        field = PropertyField(
-            id = 1, name = "Herrengasse", color = PropertyColor.BROWN,
-            price = 60, rent = listOf(2, 10, 30, 90, 160, 250),
-            houseCost = 50, hotelCost = 50
-        ),
-        modifier = Modifier.size(56.dp, 89.6.dp)
-    )
-}
-
-@Preview(showBackground = true)
-@Composable
-private fun PreviewRailroadCard() {
-    FieldCardUI(
-        field = RailroadField(id = 5, name = "Hauptbahnhof")
+        color = color
     )
 }
 

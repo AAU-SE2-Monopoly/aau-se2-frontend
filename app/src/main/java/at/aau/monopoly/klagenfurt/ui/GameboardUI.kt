@@ -692,7 +692,6 @@ fun GameboardScreen(
                         val sh = this.maxHeight.value
 
                         FullscreenImage(R.drawable.background, "Klagenfurt-Map")
-                        FullscreenImage(R.drawable.pathreworked, "Path - Klagenfurt-Ring")
                         // Semi-transparent warm overlay to match field backgrounds
                         Box(
                             modifier = Modifier

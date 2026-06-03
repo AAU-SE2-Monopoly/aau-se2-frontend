@@ -64,7 +64,7 @@ fun Field.toManageableProperty(allFields: List<Field>): ManageableProperty = whe
             canMortgage = canMortgage
         )
     }
-    is RailroadField -> ManageableProperty(
+    is RailroadField, is UtilityField -> ManageableProperty(
         fieldId = id, name = name, color = null,
         price = price, mortgageValue = price / 2,
         unmortgageCost = ceil(price / 2.0 * 1.1).toInt(),
@@ -73,16 +73,6 @@ fun Field.toManageableProperty(allFields: List<Field>): ManageableProperty = whe
         sellHouseValue = 0, sellHotelValue = 0,
         canMortgage = !isMortgaged
     )
-    is UtilityField -> ManageableProperty(
-        fieldId = id, name = name, color = null,
-        price = price, mortgageValue = price / 2,
-        unmortgageCost = ceil(price / 2.0 * 1.1).toInt(),
-        houses = 0, hasHotel = false, isMortgaged = isMortgaged,
-        houseCost = 0, hotelCost = 0,
-        sellHouseValue = 0, sellHotelValue = 0,
-        canMortgage = !isMortgaged
-    )
-    //dead code: only called after filtering for PropertyField/RailroadField/UtilityField.
 
     else -> ManageableProperty(
         fieldId = id, name = name, color = null,

@@ -362,6 +362,8 @@ fun GameboardScreen(
                 modifier = Modifier.fillMaxSize()
             )
 
+            val buttonWidth = 180.dp
+
             Column(
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
@@ -372,9 +374,9 @@ fun GameboardScreen(
                 if (canStartGame) {
                     GlassButton(
                         onClick = { viewModel.startGame() },
-                        modifier = Modifier.padding(bottom = 8.dp)
+                        modifier = Modifier.width(buttonWidth)
                     ) {
-                        Text("Start Game")
+                        Text("▶️ Start Game")
                     }
                 }
 
@@ -383,7 +385,7 @@ fun GameboardScreen(
                     if (currentTurnPlayer.inJail) {
 
                         Text(
-                            text = "Im Gefängnis (Versuch ${currentTurnPlayer.jailTurns + 1}/3)",
+                            text = "🔒 Im Gefängnis (Versuch ${currentTurnPlayer.jailTurns + 1}/3)",
                             modifier = Modifier
                                 .background(
                                     Color.Black.copy(alpha = 0.35f),
@@ -396,7 +398,7 @@ fun GameboardScreen(
                         GlassButton(
                             onClick = { viewModel.payJailFine() },
                             enabled = currentTurnPlayer.money >= 50,
-                            modifier = Modifier.testTag("pay_jail_fine_button")
+                            modifier = Modifier.width(buttonWidth).testTag("pay_jail_fine_button")
                         ) {
                             Text("💰 50 M zahlen")
                         }
@@ -405,7 +407,7 @@ fun GameboardScreen(
                         if (currentTurnPlayer.getOutOfJailCards > 0) {
                             GlassButton(
                                 onClick = { viewModel.useJailCard() },
-                                modifier = Modifier.testTag("use_jail_card_button")
+                                modifier = Modifier.width(buttonWidth).testTag("use_jail_card_button")
                             ) {
                                 Text("🃏 Karte nutzen (${currentTurnPlayer.getOutOfJailCards})")
                             }
@@ -414,17 +416,14 @@ fun GameboardScreen(
 
                         GlassButton(
                             onClick = { showOverlay = true },
-                            modifier = Modifier.testTag("roll_dice_button")
+                            modifier = Modifier.width(buttonWidth).testTag("roll_dice_button")
                         ) {
                             Text("🎲 Pasch versuchen")
                         }
                     } else {
                         GlassButton(
-                            onClick = {
-
-                                showOverlay = true
-                            },
-                            modifier = Modifier.testTag("roll_dice_button")
+                            onClick = { showOverlay = true },
+                            modifier = Modifier.width(buttonWidth).testTag("roll_dice_button")
                         ) {
                             Text("🎲 Roll Dice")
                         }
@@ -434,22 +433,18 @@ fun GameboardScreen(
                 if (canEndTurnForCurrentPlayer && !showActionCardOverlay) {
                     GlassButton(
                         onClick = { viewModel.endTurn() },
-                        modifier = Modifier
-                            .padding(top = 8.dp)
-                            .testTag("end_turn_button")
+                        modifier = Modifier.width(buttonWidth).testTag("end_turn_button")
                     ) {
-                        Text("End Turn")
+                        Text("⏭️ End Turn")
                     }
                 }
 
                 if (hasPendingPayment && !showPayRentOverlay && currentTurnPlayer?.id == currentPlayerId) {
                     GlassButton(
                         onClick = { viewModel.showPayRentOverlay(currentRentAmount, currentRentOwnerId, currentRentFieldId) },
-                        modifier = Modifier
-                            .padding(top = 8.dp)
-                            .testTag("pay_rent_reopen_button")
+                        modifier = Modifier.width(buttonWidth).testTag("pay_rent_reopen_button")
                     ) {
-                        Text("Pay Rent Due")
+                        Text("💸 Pay Rent Due")
                     }
                 }
 
@@ -458,37 +453,11 @@ fun GameboardScreen(
                         onClick = {
                             viewModel.buyProperty(currentTurnPlayer.position)
                         },
-                        modifier = Modifier
-                            .padding(top = 8.dp)
-                            .testTag("buy_property_button")
+                        modifier = Modifier.width(buttonWidth).testTag("buy_property_button")
                     ) {
-                        Text("Buy Property")
+                        Text("🏠 Buy Property")
                     }
                 }
-
-
-
-                /** DEBUG remove this block of code to remove */
-                if (BuildConfig.DEBUG && DebugSettings.isEnabled && currentTurnPlayer?.id == currentPlayerId) {
-                    GlassButton(
-                        onClick = { viewModel.debugForwardGame() },
-                        modifier = Modifier
-                            .padding(top = 8.dp)
-                            .testTag("debug_forward_game_button")
-                    ) {
-                        Text("DEBUG: Forward Game")
-                    }
-
-                    GlassButton(
-                        onClick = { viewModel.debugSetupBankruptcy() },
-                        modifier = Modifier
-                            .padding(top = 8.dp)
-                            .testTag("debug_bankruptcy_setup_button")
-                    ) {
-                        Text("DEBUG: Bankruptcy Setup")
-                    }
-                }
-
 
                 if (isOnChanceField && isBuyingPhaseForCurrentPlayer) {
                     DrawCardButton(
@@ -496,7 +465,8 @@ fun GameboardScreen(
                         alreadyDrawn = false,
                         enabled = !showActionCardOverlay,
                         label = "🎰 Draw Chance",
-                        onDraw = { viewModel.drawCard("CHANCE") }
+                        onDraw = { viewModel.drawCard("CHANCE") },
+                        modifier = Modifier.width(buttonWidth)
                     )
                 }
 
@@ -506,10 +476,36 @@ fun GameboardScreen(
                         alreadyDrawn = false,
                         enabled = !showActionCardOverlay,
                         label = "⭐ Draw Community",
-                        onDraw = { viewModel.drawCard("COMMUNITY_CHEST") }
+                        onDraw = { viewModel.drawCard("COMMUNITY_CHEST") },
+                        modifier = Modifier.width(buttonWidth)
                     )
                 }
 
+            }
+
+            /** DEBUG remove this block of code to remove */
+            if (BuildConfig.DEBUG && DebugSettings.isEnabled && currentTurnPlayer?.id == currentPlayerId) {
+                Column(
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(20.dp),
+                    horizontalAlignment = Alignment.End,
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    GlassButton(
+                        onClick = { viewModel.debugForwardGame() },
+                        modifier = Modifier.width(buttonWidth).testTag("debug_forward_game_button")
+                    ) {
+                        Text("⚡ DEBUG: Forward")
+                    }
+
+                    GlassButton(
+                        onClick = { viewModel.debugSetupBankruptcy() },
+                        modifier = Modifier.width(buttonWidth).testTag("debug_bankruptcy_setup_button")
+                    ) {
+                        Text("💀 DEBUG: Bankrupt")
+                    }
+                }
             }
 
             GameboardOverlayLayer(eventLog = bufferedEventLog)
@@ -822,12 +818,13 @@ fun GameboardScreen(
         alreadyDrawn: Boolean,
         enabled: Boolean,
         label: String,
-        onDraw: () -> Unit
+        onDraw: () -> Unit,
+        modifier: Modifier = Modifier
     ) {
         GlassButton(
             onClick = onDraw,
             enabled = enabled && !alreadyDrawn,
-            modifier = Modifier.padding(top = 8.dp)
+            modifier = modifier
         ) {
             Text(if (alreadyDrawn) "✓ Card Drawn" else label)
         }

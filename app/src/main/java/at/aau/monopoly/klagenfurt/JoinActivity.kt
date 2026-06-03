@@ -244,7 +244,7 @@ fun JoinScreen(
     val isLoading = joinState is JoinViewModel.JoinState.Loading
     val errorMessage = (joinState as? JoinViewModel.JoinState.Error)?.message
     val interactionDisabled = !isConnected || isLoading || isFull
-    val isJoinDisabled = interactionDisabled || isCurrentIconTaken
+    val isJoinDisabled = interactionDisabled || isCurrentIconTaken || playerName.isBlank()
 
     Box(
         modifier = Modifier
@@ -410,8 +410,7 @@ fun JoinScreen(
 
             Button(
                 onClick = {
-                    val name = playerName.ifBlank { "Player" }
-                    onJoin(name, selectedIconIndex)
+                    onJoin(playerName.trim(), selectedIconIndex)
                 },
                 enabled = !isJoinDisabled,
                 modifier = Modifier

@@ -1,20 +1,23 @@
 package at.aau.monopoly.klagenfurt.ui
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.launch
+
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import at.aau.monopoly.klagenfurt.messaging.GameEvent
 import at.aau.monopoly.klagenfurt.networking.GameService
 import at.aau.monopoly.klagenfurt.networking.JacksonProvider
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
+
 /**
- * Manages the create-game and join-game flows for [JoinActivity].
+ * Manages the create-game and join-game flows for JoinActivity.
  *
  * The actual waiting for server confirmation is handled inside
- * [GameService.createGame] and [GameService.joinGame], so the
+ * GameService.createGame and GameService.joinGame, so the
  * ViewModel only needs to react to the final Result.
  */
 class JoinViewModel(private val gameService: GameService) : ViewModel() {
@@ -35,14 +38,71 @@ class JoinViewModel(private val gameService: GameService) : ViewModel() {
 
     val reconnectFailed: StateFlow<Boolean> = gameService.reconnectFailed
 
-    // -------------------------------------------------------------------------
-    // Create game
-    // -------------------------------------------------------------------------
+    private val _takenIcons = MutableStateFlow<Set<String>>(emptySet())
+    val takenIcons: StateFlow<Set<String>> = _takenIcons.asStateFlow()
+
+    private var stateObservationJob: Job? = null
+    private var currentObservedGameId: String? = null
+
+    fun observeGame(gameId: String) {
+        if (gameId.isBlank()) return
+
+        // Prevent duplicate subscriptions to the same game
+        if (currentObservedGameId == gameId) return
+
+        stopObserving()
+        currentObservedGameId = gameId
+
+        stateObservationJob = viewModelScope.launch {
+            // FIX Issue 4: Launch the collector BEFORE subscribing to ensure
+            // the initial GAME_CREATED/STATE_SNAPSHOT event is not missed.
+            launch {
+                gameService.events.collect { raw ->
+                    // FIX Issue 5: Silence state updates once we are successfully navigating away
+                    if (_joinState.value is JoinState.Success) return@collect
+
+                    try {
+                        // FIX Issue 6: Fast-path string check to prevent Jackson from parsing irrelevant events
+                        if (!raw.contains(gameId)) return@collect
+
+                        val event = objectMapper.readValue(raw, GameEvent::class.java)
+                        if (event.gameId == gameId && event.gameState != null) {
+                            val taken = event.gameState.players.map { it.iconId }.toSet()
+                            _takenIcons.value = taken
+                        }
+                    } catch (e: Exception) {
+                        // FIX Issue 6: Never swallow JSON parsing exceptions silently
+                        Log.e("JoinViewModel", "Failed to parse GameEvent. Payload: $raw", e)
+                    }
+                }
+            }
+
+            // Now that the collector is active, trigger the STOMP subscription
+            gameService.subscribeToGame(gameId)
+        }
+    }
+
+    /**
+     * Cancels the active observation job and cleans up the STOMP subscription.
+     */
+    fun stopObserving() {
+        stateObservationJob?.cancel()
+        stateObservationJob = null
+
+        // If your GameService has an explicit unsubscribe method, call it here:
+        // currentObservedGameId?.let { gameService.unsubscribeFromGame(it) }
+
+        currentObservedGameId = null
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        stopObserving()
+    }
 
     fun createGame(playerName: String, iconId: String) {
         if (_joinState.value is JoinState.Loading) return
 
-        // Guard: refuse to send commands when disconnected
         if (!gameService.connectionState.value) {
             _joinState.value = JoinState.Error("Not connected to server. Please wait…")
             return
@@ -51,9 +111,6 @@ class JoinViewModel(private val gameService: GameService) : ViewModel() {
         _joinState.value = JoinState.Loading
 
         viewModelScope.launch {
-            // GameStompClient.createGame() sends the request, waits for GAME_CREATED
-            // on the personal topic, subscribes to the game topic, and returns the
-            // gameId (or null on failure).
             val createdGameId = gameService.createGame(playerName, iconId)
 
             if (createdGameId != null) {
@@ -64,14 +121,9 @@ class JoinViewModel(private val gameService: GameService) : ViewModel() {
         }
     }
 
-    // -------------------------------------------------------------------------
-    // Join existing game
-    // -------------------------------------------------------------------------
-
     fun joinGame(gameId: String, playerName: String, iconId: String) {
         if (_joinState.value is JoinState.Loading) return
 
-        // Guard: refuse to send commands when disconnected
         if (!gameService.connectionState.value) {
             _joinState.value = JoinState.Error("Not connected to server. Please wait…")
             return
@@ -80,9 +132,6 @@ class JoinViewModel(private val gameService: GameService) : ViewModel() {
         _joinState.value = JoinState.Loading
 
         viewModelScope.launch {
-            // GameStompClient.joinGame() subscribes to the game topic, sends the join
-            // command, then waits for PLAYER_JOINED (success, filtered by player ID) or
-            // ERROR (failure with the server's message). Returns Result<GameEvent>.
             val result = gameService.joinGame(gameId, playerName, iconId)
 
             result.fold(
@@ -94,17 +143,15 @@ class JoinViewModel(private val gameService: GameService) : ViewModel() {
             )
         }
     }
+
     fun resetState() {
+        stopObserving()
         _joinState.value = JoinState.Idle
     }
 
     fun reconnect() {
         gameService.connect()
     }
-
-    // -------------------------------------------------------------------------
-    // Factory
-    // -------------------------------------------------------------------------
 
     class Factory(private val gameService: GameService) : ViewModelProvider.Factory {
         override fun <T : ViewModel> create(modelClass: Class<T>): T {

@@ -136,12 +136,18 @@ class FakeGameService : GameService {
         _subscriptionReady.value = true
     }
 
+    var executeActionCalled = false
+
     override fun executeAction(playerId: String) {
-        TODO("Not yet implemented")
+        executeActionCalled = true
     }
 
+    var drawCardCalled = false
+    var lastDrawCardType: String? = null
+
     override fun drawCard(cardType: String) {
-        TODO("Not yet implemented")
+        drawCardCalled = true
+        lastDrawCardType = cardType
     }
 
     var buyPropertyCalled = false

@@ -3,6 +3,7 @@ package at.aau.monopoly.klagenfurt.ui
 
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import at.aau.monopoly.klagenfurt.SettingsScreen
@@ -269,5 +270,39 @@ class SettingsActivityTest {
         // Dismiss by clicking "Got it"
         composeTestRule.onNodeWithText("Got it").performClick()
         composeTestRule.onNodeWithText("Cheat Code").assertDoesNotExist()
+    }
+
+    @Test
+    fun settingsScreen_toggleServerSwitchToGlobalDisablesDebug_viaCallback() {
+        // Start: local, debug enabled
+        ServerConfig.isGlobal = false
+        DebugSettings.isEnabled = true
+
+        setUpSettingsScreen()
+
+        // Click the server toggle switch directly via testTag
+        composeTestRule.onNodeWithTag("server_toggle_switch").performClick()
+        composeTestRule.waitForIdle()
+
+        // After toggling to global (it = true), the callback disables debug
+        assertTrue("Server should now be global", ServerConfig.isGlobal)
+        assertFalse("Debug should be disabled when switching to global", DebugSettings.isEnabled)
+    }
+
+    @Test
+    fun settingsScreen_toggleServerSwitchToLocalKeepsDebug_viaCallback() {
+        // Start: global, debug disabled
+        ServerConfig.isGlobal = true
+        DebugSettings.isEnabled = false
+
+        setUpSettingsScreen()
+
+        // Click the server toggle switch directly via testTag to switch to local
+        composeTestRule.onNodeWithTag("server_toggle_switch").performClick()
+        composeTestRule.waitForIdle()
+
+        // After toggling to local (it = false), debug is not force-enabled
+        assertFalse("Server should now be local", ServerConfig.isGlobal)
+        assertFalse("Debug remains disabled", DebugSettings.isEnabled)
     }
 }

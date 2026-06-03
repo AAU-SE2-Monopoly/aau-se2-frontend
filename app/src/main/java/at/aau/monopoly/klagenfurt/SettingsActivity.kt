@@ -32,6 +32,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -74,7 +75,8 @@ fun SettingsScreen(onBackClicked: () -> Unit) {
                 ServiceLocator.resetGameService()
                 // Disable debug mode when switching to global
                 if (it) DebugSettings.isEnabled = false
-            }
+            },
+            testTag = "server_toggle_switch"
         )
 
         Spacer(modifier = Modifier.height(16.dp))
@@ -171,7 +173,8 @@ fun SettingsToggleRow(
     label: String,
     checked: Boolean,
     onCheckedChange: (Boolean) -> Unit,
-    enabled: Boolean = true
+    enabled: Boolean = true,
+    testTag: String = ""
 ) {
     Row(
         modifier = Modifier
@@ -191,6 +194,7 @@ fun SettingsToggleRow(
             checked = checked,
             onCheckedChange = onCheckedChange,
             enabled = enabled,
+            modifier = if (testTag.isNotEmpty()) Modifier.testTag(testTag) else Modifier,
             colors = SwitchDefaults.colors(
                 checkedThumbColor = Color.White,
                 checkedTrackColor = PrimaryBlue,

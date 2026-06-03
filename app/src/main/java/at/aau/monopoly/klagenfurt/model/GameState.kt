@@ -33,7 +33,8 @@ data class GameState(
     val bankruptcyTotalAssets: Int = 0,
     val bankruptcyTotalDebt: Int = 0,
     val bankruptcyPropertiesCount: Int = 0,
-    val bankruptcyOwnedFieldIds: List<Int> = emptyList()
+    val bankruptcyOwnedFieldIds: List<Int> = emptyList(),
+    val bankruptcyPlayerId: String = ""
 ) {
     /** The player whose turn it currently is. */
     val currentPlayer: Player?

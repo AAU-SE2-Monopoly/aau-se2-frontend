@@ -293,8 +293,8 @@ class GameViewModel(
 
                 if (event.event == "BANKRUPTCY_DECLARED") {
                     val gs = event.gameState
-                    _bankruptcyPlayerName.value = gs?.currentPlayer?.name ?: ""
-                    // extract bankruptcy summary from game state
+                    _bankruptcyPlayerId.value = gs?.bankruptcyPlayerId ?: ""
+                    _bankruptcyPlayerName.value = gs?.players?.find { it.id == gs.bankruptcyPlayerId }?.name ?: ""
                     _bankruptcyTotalAssets.value = gs?.bankruptcyTotalAssets ?: 0
                     _bankruptcyTotalDebt.value = gs?.bankruptcyTotalDebt ?: 0
                     _bankruptcyPropertiesOwned.value = gs?.let { state ->
@@ -456,14 +456,17 @@ class GameViewModel(
 
     private val _showBankruptcyOverlay = MutableStateFlow(false)
     val showBankruptcyOverlay: StateFlow<Boolean> = _showBankruptcyOverlay.asStateFlow()
+    private val _showBankruptcyConfirmation = MutableStateFlow(false)
+    val showBankruptcyConfirmation: StateFlow<Boolean> = _showBankruptcyConfirmation.asStateFlow()
 
     val canEndTurnForCurrentPlayer: StateFlow<Boolean> =
-        combine(gameState, _showPayRentOverlay, _showBankruptcyOverlay, _hasPendingPayment) { state, payOverlay, bankruptcyOverlay, hasPending ->
+        combine(gameState, _showPayRentOverlay, _showBankruptcyOverlay, _showBankruptcyConfirmation, _hasPendingPayment) { state, payOverlay, bankruptcyOverlay, bankruptcyConfirm, hasPending ->
             (state?.phase == GamePhase.BUYING ||
                     state?.phase == GamePhase.TURN_END) &&
                     state?.currentPlayer?.id == gameService.currentPlayerId &&
                     !payOverlay &&
                     !bankruptcyOverlay &&
+                    !bankruptcyConfirm &&
                     !hasPending
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
@@ -558,6 +561,8 @@ class GameViewModel(
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     // Bankruptcy overlay state flows
+    private val _bankruptcyPlayerId = MutableStateFlow("")
+    val bankruptcyPlayerId: StateFlow<String> = _bankruptcyPlayerId.asStateFlow()
     private val _bankruptcyPlayerName = MutableStateFlow("")
     val bankruptcyPlayerName: StateFlow<String> = _bankruptcyPlayerName.asStateFlow()
 
@@ -650,10 +655,21 @@ class GameViewModel(
     }
 
     fun declareBankruptcy() {
+        if (_paymentActionInFlight.value || _showBankruptcyConfirmation.value) return
+        _showPayRentOverlay.value = false
+        _showBankruptcyConfirmation.value = true
+    }
+
+    fun confirmDeclareBankruptcy() {
         if (_paymentActionInFlight.value) return
+        _showBankruptcyConfirmation.value = false
         startPaymentAction()
         gameService.declareBankruptcy()
-        // overlay dismissal handled by BANKRUPTCY_DECLARED event
+    }
+
+    fun cancelDeclareBankruptcy() {
+        _showBankruptcyConfirmation.value = false
+        _showPayRentOverlay.value = true
     }
 
     /** DEBUG remove this block of code to remove */
@@ -699,6 +715,8 @@ class GameViewModel(
 
     fun acceptBankruptcyResolution() {
         _showBankruptcyOverlay.value = false
+        _bankruptcyPlayerId.value = ""
+        _bankruptcyPlayerName.value = ""
     }
 
     fun requestState() = gameService.requestState()

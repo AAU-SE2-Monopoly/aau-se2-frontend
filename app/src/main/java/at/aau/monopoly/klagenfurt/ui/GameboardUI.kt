@@ -197,6 +197,7 @@ fun GameboardScreen(
     val showPayRentOverlay by viewModel.showPayRentOverlay.collectAsState()
     val showMortgageOverlay by viewModel.showMortgageOverlay.collectAsState()
     val showBankruptcyOverlay by viewModel.showBankruptcyOverlay.collectAsState()
+    val showBankruptcyConfirmation by viewModel.showBankruptcyConfirmation.collectAsState()
     val currentRentAmount by viewModel.currentRentAmount.collectAsState()
     val currentRentOwnerId by viewModel.currentRentOwnerId.collectAsState()
     val currentRentFieldId by viewModel.currentRentFieldId.collectAsState()
@@ -205,6 +206,7 @@ fun GameboardScreen(
     val canRaiseFunds by viewModel.canRaiseFunds.collectAsState()
     val paymentActionInFlight by viewModel.paymentActionInFlight.collectAsState()
     val propertyActionInFlight by viewModel.propertyActionInFlight.collectAsState()
+    val bankruptcyPlayerId by viewModel.bankruptcyPlayerId.collectAsState()
     val bankruptcyPlayerName by viewModel.bankruptcyPlayerName.collectAsState()
     val bankruptcyTotalAssets by viewModel.bankruptcyTotalAssets.collectAsState()
     val bankruptcyTotalDebt by viewModel.bankruptcyTotalDebt.collectAsState()
@@ -626,9 +628,23 @@ fun GameboardScreen(
                 onDismiss = { viewModel.dismissMortgageOverlay() }
             )
 
+            // Bankruptcy confirmation (shown to current player only, before backend call)
             BankruptcyResolutionOverlay(
-                isVisible = showBankruptcyOverlay && currentTurnPlayer?.id == currentPlayerId,
+                isVisible = showBankruptcyConfirmation && currentTurnPlayer?.id == currentPlayerId,
+                playerName = currentTurnPlayer?.name ?: "",
+                isConfirmation = true,
+                totalAssets = currentTurnPlayer?.money ?: 0,
+                totalDebt = currentRentAmount,
+                propertiesOwned = manageableProperties.size,
+                onConfirm = { viewModel.confirmDeclareBankruptcy() },
+                onDismiss = { viewModel.cancelDeclareBankruptcy() }
+            )
+
+            // Bankruptcy result (shown to all players after backend processes)
+            BankruptcyResolutionOverlay(
+                isVisible = showBankruptcyOverlay,
                 playerName = bankruptcyPlayerName,
+                isOwnBankruptcy = bankruptcyPlayerId == currentPlayerId,
                 totalAssets = bankruptcyTotalAssets,
                 totalDebt = bankruptcyTotalDebt,
                 propertiesOwned = bankruptcyPropertiesOwned.size,

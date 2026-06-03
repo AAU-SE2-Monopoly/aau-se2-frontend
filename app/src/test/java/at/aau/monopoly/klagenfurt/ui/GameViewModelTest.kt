@@ -949,7 +949,7 @@ class GameViewModelTest {
     }
 
     @Test
-    fun `BANKRUPTCY_DECLARED populates bankruptcyPlayerName correctly`() = runTest {
+    fun `BANKRUPTCY_DECLARED populates bankruptcyPlayerName from bankruptcyPlayerId`() = runTest {
         val job = launch { viewModel.bankruptcyPlayerName.collect {} }
 
         fakeService.emitTestEvent("""
@@ -959,13 +959,14 @@ class GameViewModelTest {
           "gameState": {
             "gameId": "g1",
             "fields": [],
-            "players": [{"id":"p1","name":"BankruptPlayer"}],
-            "currentPlayerIndex": 0,
-            "phase": "TURN_END",
+            "players": [{"id":"p1","name":"BankruptPlayer"}, {"id":"p2","name":"NextPlayer"}],
+            "currentPlayerIndex": 1,
+            "phase": "ROLLING",
             "bankruptcyTotalAssets": 50,
             "bankruptcyTotalDebt": 100,
             "bankruptcyPropertiesCount": 1,
-            "bankruptcyOwnedFieldIds": []
+            "bankruptcyOwnedFieldIds": [],
+            "bankruptcyPlayerId": "p1"
           }
         }
         """.trimIndent())
@@ -1251,7 +1252,7 @@ class GameViewModelTest {
     }
 
     @Test
-    fun `declareBankruptcy does nothing when paymentActionInFlight is true`() = runTest {
+    fun `declareBankruptcy shows confirmation instead of sending to backend`() = runTest {
         val job = launch { viewModel.currentRentAmount.collect {} }
 
         fakeService.emitTestEvent("""
@@ -1273,13 +1274,104 @@ class GameViewModelTest {
 
         fakeService.declareBankruptcyCalled = false
         viewModel.declareBankruptcy()
-        assertTrue(fakeService.declareBankruptcyCalled)
-
-        fakeService.declareBankruptcyCalled = false
-        viewModel.declareBankruptcy()
         assertFalse(fakeService.declareBankruptcyCalled)
+        assertTrue(viewModel.showBankruptcyConfirmation.value)
 
         job.cancel()
+    }
+
+    @Test
+    fun `confirmDeclareBankruptcy sends action to backend`() = runTest {
+        val job = launch { viewModel.showBankruptcyConfirmation.collect {} }
+
+        fakeService.emitTestEvent("""
+        {
+          "event": "RENT_DUE",
+          "gameId": "g1",
+          "gameState": {
+            "gameId": "g1",
+            "fields": [],
+            "players": [{"id":"p1","name":"Alice","money":500}],
+            "currentPlayerIndex": 0,
+            "phase": "PAYING_RENT",
+            "pendingPayment": {"amount":100,"source":"RENT","sourceFieldId":5,"creditorPlayerId":"p2"},
+            "lastDiceRoll": {"die1":3,"die2":4}
+          }
+        }
+        """.trimIndent())
+        advanceUntilIdle()
+
+        fakeService.declareBankruptcyCalled = false
+        viewModel.confirmDeclareBankruptcy()
+        assertTrue(fakeService.declareBankruptcyCalled)
+        assertFalse(viewModel.showBankruptcyConfirmation.value)
+
+        job.cancel()
+    }
+
+    @Test
+    fun `declareBankruptcy does nothing when confirmation already open`() = runTest {
+        val job = launch { viewModel.showBankruptcyConfirmation.collect {} }
+        val job2 = launch { viewModel.showPayRentOverlay.collect {} }
+
+        fakeService.emitTestEvent("""
+        {
+          "event": "RENT_DUE",
+          "gameId": "g1",
+          "gameState": {
+            "gameId": "g1",
+            "fields": [],
+            "players": [{"id":"p1","name":"Alice","money":500}],
+            "currentPlayerIndex": 0,
+            "phase": "PAYING_RENT",
+            "pendingPayment": {"amount":100,"source":"RENT","sourceFieldId":5,"creditorPlayerId":"p2"},
+            "lastDiceRoll": {"die1":3,"die2":4}
+          }
+        }
+        """.trimIndent())
+        advanceUntilIdle()
+
+        viewModel.declareBankruptcy()
+        assertTrue(viewModel.showBankruptcyConfirmation.value)
+        viewModel.declareBankruptcy()
+        assertTrue(viewModel.showBankruptcyConfirmation.value)
+
+        job.cancel()
+        job2.cancel()
+    }
+
+    @Test
+    fun `cancelDeclareBankruptcy reopens pay rent overlay`() = runTest {
+        val job = launch { viewModel.showBankruptcyConfirmation.collect {} }
+        val job2 = launch { viewModel.showPayRentOverlay.collect {} }
+
+        fakeService.emitTestEvent("""
+        {
+          "event": "RENT_DUE",
+          "gameId": "g1",
+          "gameState": {
+            "gameId": "g1",
+            "fields": [],
+            "players": [{"id":"p1","name":"Alice","money":500}],
+            "currentPlayerIndex": 0,
+            "phase": "PAYING_RENT",
+            "pendingPayment": {"amount":100,"source":"RENT","sourceFieldId":5,"creditorPlayerId":"p2"},
+            "lastDiceRoll": {"die1":3,"die2":4}
+          }
+        }
+        """.trimIndent())
+        advanceUntilIdle()
+
+        viewModel.declareBankruptcy()
+        assertFalse(viewModel.showPayRentOverlay.value)
+        assertTrue(viewModel.showBankruptcyConfirmation.value)
+
+        viewModel.cancelDeclareBankruptcy()
+        assertFalse(viewModel.showBankruptcyConfirmation.value)
+        assertTrue(viewModel.showPayRentOverlay.value)
+
+        job.cancel()
+        job2.cancel()
     }
 
     @Test

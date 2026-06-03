@@ -37,6 +37,8 @@ import androidx.compose.ui.window.DialogProperties
 fun BankruptcyResolutionOverlay(
     isVisible: Boolean,
     playerName: String,
+    isOwnBankruptcy: Boolean = false,
+    isConfirmation: Boolean = false,
     totalAssets: Int,
     totalDebt: Int,
     propertiesOwned: Int,
@@ -55,6 +57,8 @@ fun BankruptcyResolutionOverlay(
     ) {
         BankruptcyResolutionContent(
             playerName = playerName,
+            isOwnBankruptcy = isOwnBankruptcy,
+            isConfirmation = isConfirmation,
             totalAssets = totalAssets,
             totalDebt = totalDebt,
             propertiesOwned = propertiesOwned,
@@ -69,6 +73,8 @@ fun BankruptcyResolutionOverlay(
 @Composable
 fun BankruptcyResolutionContent(
     playerName: String,
+    isOwnBankruptcy: Boolean = false,
+    isConfirmation: Boolean = false,
     totalAssets: Int,
     totalDebt: Int,
     propertiesOwned: Int,
@@ -142,7 +148,9 @@ fun BankruptcyResolutionContent(
                 Spacer(modifier = Modifier.height(smallSpacerHeight))
 
                 Text(
-                    text = "has declared bankruptcy",
+                    text = if (isConfirmation) "Are you sure you want to declare bankruptcy?"
+                    else if (isOwnBankruptcy) "You are bankrupt"
+                    else "has gone bankrupt",
                     fontSize = normalTextSize,
                     color = Color.White.copy(alpha = 0.7f)
                 )
@@ -212,7 +220,7 @@ fun BankruptcyResolutionContent(
                     shape = RoundedCornerShape(12.dp)
                 ) {
                     Text(
-                        text = "Confirm Bankruptcy",
+                        text = if (isConfirmation) "Confirm" else if (isOwnBankruptcy) "Continue" else "Close",
                         fontSize = buttonTextSize,
                         fontWeight = FontWeight.Bold,
                         color = Color.White

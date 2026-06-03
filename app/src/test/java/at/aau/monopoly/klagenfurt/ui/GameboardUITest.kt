@@ -623,6 +623,7 @@ class GameboardScreenCoverageTest {
         every { vm.showPayRentOverlay } returns MutableStateFlow(false)
         every { vm.showMortgageOverlay } returns MutableStateFlow(false)
         every { vm.showBankruptcyOverlay } returns MutableStateFlow(false)
+        every { vm.showBankruptcyConfirmation } returns MutableStateFlow(false)
         every { vm.canPayRent } returns MutableStateFlow(false)
         every { vm.canRaiseFunds } returns MutableStateFlow(false)
         every { vm.currentRentAmount } returns MutableStateFlow(0)
@@ -631,6 +632,7 @@ class GameboardScreenCoverageTest {
         every { vm.manageableProperties } returns MutableStateFlow(emptyList())
         every { vm.paymentActionInFlight } returns MutableStateFlow(false)
         every { vm.propertyActionInFlight } returns MutableStateFlow(false)
+        every { vm.bankruptcyPlayerId } returns MutableStateFlow("")
         every { vm.bankruptcyPlayerName } returns MutableStateFlow("")
         every { vm.bankruptcyTotalAssets } returns MutableStateFlow(0)
         every { vm.bankruptcyTotalDebt } returns MutableStateFlow(0)
@@ -1052,7 +1054,7 @@ class GameboardScreenCoverageTest {
         }
 
         composeTestRule.onNodeWithText("BANKRUPTCY").assertExists()
-        composeTestRule.onNodeWithText("Confirm Bankruptcy").assertExists()
+        composeTestRule.onNodeWithText("Close").assertExists()
     }
 
     @Test
@@ -1179,6 +1181,7 @@ class GameboardScreenCoverageTest {
             BankruptcyResolutionOverlay(
                 isVisible = true,
                 playerName = "Alice",
+                isConfirmation = true,
                 totalAssets = 50,
                 totalDebt = 400,
                 propertiesOwned = 1,
@@ -1187,7 +1190,7 @@ class GameboardScreenCoverageTest {
             )
         }
 
-        composeTestRule.onNodeWithText("Confirm Bankruptcy").assertExists()
+        composeTestRule.onNodeWithText("Confirm").assertExists()
         composeTestRule.onNodeWithText("BANKRUPTCY").assertExists()
     }
 

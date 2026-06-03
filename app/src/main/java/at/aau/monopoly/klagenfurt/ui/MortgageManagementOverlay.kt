@@ -191,7 +191,7 @@ fun MortgageManagementContent(
 
         val cardWidth = (screenWidth * 0.28f).coerceIn(80.dp, 160.dp)
         val cardHeight = cardWidth * 1.4f
-        val actionChipHeight = (screenHeight * 0.065f).coerceIn(30.dp, 40.dp)
+        val actionChipHeight = (screenHeight * 0.065f).coerceIn(36.dp, 44.dp)
 
         val balanceTextSize = (screenHeight.value * 0.016f).coerceIn(12f, 14f).sp
         val emptyMessageSize = (screenHeight.value * 0.02f).coerceIn(14f, 18f).sp
@@ -764,7 +764,7 @@ private fun PropertyActionPanel(
             // All actions in a single horizontal row
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally)
             ) {
                 if (!property.isMortgaged && property.houses == 0 && !property.hasHotel) {
                     ActionChip(
@@ -773,7 +773,6 @@ private fun PropertyActionPanel(
                         backgroundColor = Color(0xFFC62828),
                         enabled = !actionInFlight && property.canMortgage,
                         chipHeight = chipHeight,
-                        modifier = Modifier.weight(1f),
                         onClick = onMortgage,
                         textSize = chipMainTextSize,
                         subTextSize = chipSubTextSize
@@ -787,7 +786,6 @@ private fun PropertyActionPanel(
                         backgroundColor = Color(0xFF2E7D32),
                         enabled = !isPayingRent && canUnmortgage && !actionInFlight,
                         chipHeight = chipHeight,
-                        modifier = Modifier.weight(1f),
                         onClick = onUnmortgage,
                         textSize = chipMainTextSize,
                         subTextSize = chipSubTextSize
@@ -801,7 +799,6 @@ private fun PropertyActionPanel(
                         backgroundColor = Color(0xFFC77700),
                         enabled = !actionInFlight && property.canSellHouse,
                         chipHeight = chipHeight,
-                        modifier = Modifier.weight(1f),
                         onClick = onSellHouse,
                         textSize = chipMainTextSize,
                         subTextSize = chipSubTextSize
@@ -815,7 +812,6 @@ private fun PropertyActionPanel(
                         backgroundColor = Color(0xFFC77700),
                         enabled = !actionInFlight && property.canSellHotel,
                         chipHeight = chipHeight,
-                        modifier = Modifier.weight(1f),
                         onClick = onSellHotel,
                         textSize = chipMainTextSize,
                         subTextSize = chipSubTextSize
@@ -829,7 +825,6 @@ private fun PropertyActionPanel(
                         backgroundColor = Color(0xFF2E7D32),
                         enabled = !isPayingRent && !actionInFlight && currentMoney >= property.houseCost && property.canBuyHouse,
                         chipHeight = chipHeight,
-                        modifier = Modifier.weight(1f),
                         onClick = onBuyHouse,
                         textSize = chipMainTextSize,
                         subTextSize = chipSubTextSize
@@ -843,7 +838,6 @@ private fun PropertyActionPanel(
                         backgroundColor = Color(0xFF1565C0),
                         enabled = !isPayingRent && !actionInFlight && currentMoney >= property.hotelCost && property.canBuyHotel,
                         chipHeight = chipHeight,
-                        modifier = Modifier.weight(1f),
                         onClick = onBuyHotel,
                         textSize = chipMainTextSize,
                         subTextSize = chipSubTextSize

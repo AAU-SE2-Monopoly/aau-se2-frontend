@@ -418,7 +418,11 @@ fun JoinScreen(
                     .height(56.dp)
                     .testTag("ActionButton"),
                 shape = RoundedCornerShape(16.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = PrimaryBlue),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = PrimaryBlue,
+                    disabledContainerColor = Color.Gray.copy(alpha = 0.4f),
+                    disabledContentColor = Color.White.copy(alpha = 0.5f)
+                ),
                 elevation = ButtonDefaults.buttonElevation(defaultElevation = 8.dp)
             ) {
                 if (isLoading) {

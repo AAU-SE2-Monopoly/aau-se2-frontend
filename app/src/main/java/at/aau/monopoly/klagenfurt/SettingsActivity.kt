@@ -58,9 +58,6 @@ class SettingsActivity : ComponentActivity() {
 
 @Composable
 fun SettingsScreen(onBackClicked: () -> Unit) {
-    val soundEnabled = remember { mutableStateOf(true) }
-    val musicEnabled = remember { mutableStateOf(true) }
-
     // State für das Popup
     var showCheatDialog by remember { mutableStateOf(false) }
 
@@ -75,23 +72,25 @@ fun SettingsScreen(onBackClicked: () -> Unit) {
             onCheckedChange = {
                 ServerConfig.isGlobal = it
                 ServiceLocator.resetGameService()
+                // Disable debug mode when switching to global
+                if (it) DebugSettings.isEnabled = false
             }
         )
 
         Spacer(modifier = Modifier.height(16.dp))
 
         SettingsToggleRow(
-            label = "Sounds",
-            checked = soundEnabled.value,
-            onCheckedChange = { soundEnabled.value = it }
+            label = "Debug Mode",
+            checked = DebugSettings.isEnabled,
+            onCheckedChange = { DebugSettings.isEnabled = it },
+            enabled = DebugSettings.canEnable
         )
 
-        Spacer(modifier = Modifier.height(16.dp))
-
-        SettingsToggleRow(
-            label = "Music",
-            checked = musicEnabled.value,
-            onCheckedChange = { musicEnabled.value = it }
+        Text(
+            text = "Debug mode is only available on local environment",
+            color = Color.White.copy(alpha = 0.5f),
+            fontSize = 12.sp,
+            modifier = Modifier.padding(top = 4.dp)
         )
 
         Spacer(modifier = Modifier.height(24.dp))
@@ -171,7 +170,8 @@ fun SettingsScreen(onBackClicked: () -> Unit) {
 fun SettingsToggleRow(
     label: String,
     checked: Boolean,
-    onCheckedChange: (Boolean) -> Unit
+    onCheckedChange: (Boolean) -> Unit,
+    enabled: Boolean = true
 ) {
     Row(
         modifier = Modifier
@@ -182,7 +182,7 @@ fun SettingsToggleRow(
     ) {
         Text(
             text = label,
-            color = Color.White,
+            color = if (enabled) Color.White else Color.White.copy(alpha = 0.4f),
             fontSize = 18.sp,
             fontWeight = FontWeight.Medium,
             letterSpacing = 1.sp
@@ -190,6 +190,7 @@ fun SettingsToggleRow(
         Switch(
             checked = checked,
             onCheckedChange = onCheckedChange,
+            enabled = enabled,
             colors = SwitchDefaults.colors(
                 checkedThumbColor = Color.White,
                 checkedTrackColor = PrimaryBlue,

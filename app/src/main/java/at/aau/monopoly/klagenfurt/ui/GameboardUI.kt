@@ -64,6 +64,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import at.aau.monopoly.klagenfurt.DebugSettings
 import at.aau.monopoly.klagenfurt.ServiceLocator
 import at.aau.monopoly.klagenfurt.model.Player
 import at.aau.monopoly.klagenfurt.model.field.Field
@@ -486,7 +487,7 @@ fun GameboardScreen(
                 }
 
                 /** DEBUG remove this block of code to remove */
-                if (BuildConfig.DEBUG && currentTurnPlayer?.id == currentPlayerId) {
+                if (BuildConfig.DEBUG && DebugSettings.isEnabled && currentTurnPlayer?.id == currentPlayerId) {
                     GlassButton(
                         onClick = { viewModel.debugForwardGame() },
                         modifier = Modifier

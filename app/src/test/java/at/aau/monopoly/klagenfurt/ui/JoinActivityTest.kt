@@ -111,12 +111,14 @@ class JoinActivityTest {
         ActivityScenario.launch<JoinActivity>(intent).use { scenario ->
             composeTestRule.waitForIdle()
 
-            // Intentionally no input -> fallback logic `ifBlank` applies
+            // With empty name, the action button should be disabled (Prevent empty names)
+            // Enter a name to enable it
+            composeTestRule.onNodeWithTag("PlayerNameInput").performTextInput("TestPlayer")
             composeTestRule.onNodeWithTag("ActionButton").performClick()
             composeTestRule.waitForIdle()
 
             assertEquals(1, fakeService.createGameCalls)
-            assertEquals("Player", fakeService.lastCreatedPlayerName)
+            assertEquals("TestPlayer", fakeService.lastCreatedPlayerName)
 
             runBlocking {
                 fakeService.emitTestEvent("""{"event":"GAME_CREATED","gameId":"created-123"}""")
@@ -159,6 +161,9 @@ class JoinActivityTest {
         ActivityScenario.launch<JoinActivity>(intent).use {
             composeTestRule.waitForIdle()
 
+            // Enter a name so button is enabled
+            composeTestRule.onNodeWithTag("PlayerNameInput").performTextInput("Test")
+
             // Cycle through the icons (3 clicks)
             val iconButton = composeTestRule.onNodeWithContentDescription("Selected Icon")
             iconButton.performClick() // Index 1: woerthersee
@@ -187,6 +192,9 @@ class JoinActivityTest {
 
             ActivityScenario.launch<JoinActivity>(intent).use {
                 composeTestRule.waitForIdle()
+
+                // Enter a name so button is enabled
+                composeTestRule.onNodeWithTag("PlayerNameInput").performTextInput("Test")
 
                 // Click according to the current index (0 to 4 times) on the icon
                 val iconButton = composeTestRule.onNodeWithContentDescription("Selected Icon")
@@ -235,6 +243,9 @@ class JoinActivityTest {
             }
             composeTestRule.waitForIdle()
 
+            // Enter a name so button is enabled
+            composeTestRule.onNodeWithTag("PlayerNameInput").performTextInput("Test")
+
             composeTestRule.onNodeWithTag("ActionButton").performClick()
             composeTestRule.waitForIdle()
 
@@ -265,6 +276,9 @@ class JoinActivityTest {
                 fakeService.emitGameState(gameState)
             }
             composeTestRule.waitForIdle()
+
+            // Enter a name so button is enabled
+            composeTestRule.onNodeWithTag("PlayerNameInput").performTextInput("Test")
 
             val iconButton = composeTestRule.onNodeWithContentDescription("Selected Icon")
             iconButton.performClick()

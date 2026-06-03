@@ -37,8 +37,7 @@ class SettingsActivityTest {
         setUpSettingsScreen()
         composeTestRule.onNodeWithText("SETTINGS").assertIsDisplayed()
         composeTestRule.onNodeWithText("Server: Local", substring = true).assertIsDisplayed()
-        composeTestRule.onNodeWithText("Sounds").assertIsDisplayed()
-        composeTestRule.onNodeWithText("Music").assertIsDisplayed()
+        composeTestRule.onNodeWithText("Debug Mode").assertIsDisplayed()
         composeTestRule.onNodeWithText("Back").assertIsDisplayed()
 
 
@@ -65,15 +64,15 @@ class SettingsActivityTest {
     }
 
     @Test
-    fun settingsScreen_soundsToggleCanBeClicked() {
+    fun settingsScreen_debugModeToggleCanBeClicked() {
         setUpSettingsScreen()
-        composeTestRule.onNodeWithText("Sounds").assertIsDisplayed()
+        composeTestRule.onNodeWithText("Debug Mode").assertIsDisplayed()
     }
 
     @Test
-    fun settingsScreen_musicToggleCanBeClicked() {
+    fun settingsScreen_debugModeInfoTextDisplayed() {
         setUpSettingsScreen()
-        composeTestRule.onNodeWithText("Music").assertIsDisplayed()
+        composeTestRule.onNodeWithText("Debug mode is only available on local environment").assertIsDisplayed()
     }
 
 

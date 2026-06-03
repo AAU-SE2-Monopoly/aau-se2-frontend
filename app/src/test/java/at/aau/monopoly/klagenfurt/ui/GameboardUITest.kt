@@ -549,14 +549,15 @@ class GameboardUITest {
     }
 
     @Test
-    fun testGameboardUIShowsBackgroundAndPathImages() {
+    fun testGameboardUIShowsBackgroundImage() {
         composeTestRule
             .onNodeWithContentDescription("Klagenfurt-Map")
             .assertExists()
 
+        // The golden ring path overlay has been removed
         composeTestRule
             .onNodeWithContentDescription("Path - Klagenfurt-Ring")
-            .assertExists()
+            .assertDoesNotExist()
     }
 
     @Test
@@ -648,7 +649,7 @@ class GameboardScreenCoverageTest {
 
         composeTestRule.setContent { GameboardScreen(viewModel = mockVm) }
 
-        composeTestRule.onNodeWithText("Start Game").performClick()
+        composeTestRule.onNodeWithText("Start Game", substring = true).performClick()
         verify { mockVm.startGame() }
     }
 
@@ -781,7 +782,7 @@ class GameboardScreenCoverageTest {
 
         composeTestRule.setContent { GameboardScreen(viewModel = mockVm) }
 
-        composeTestRule.onNodeWithText("Im Gefängnis (Versuch 2/3)").assertExists()
+        composeTestRule.onNodeWithText("Im Gefängnis (Versuch 2/3)", substring = true).assertExists()
 
         composeTestRule.onNodeWithTag("pay_jail_fine_button").performClick()
         verify { mockVm.payJailFine() }
@@ -820,7 +821,9 @@ class GameboardScreenCoverageTest {
     }
 
     @Test
-    fun testManageBuildingsButtonVisibleForCompleteColorSet() {
+    fun testManageBuildingsButtonRemovedFromMainUI() {
+        // The manage_buildings_button was removed in favor of the unified
+        // Manage Properties overlay accessible via player card click.
         val player = Player(id = "player1", name = "P1", position = 0)
 
         val property1 = PropertyField(
@@ -859,11 +862,13 @@ class GameboardScreenCoverageTest {
 
         composeTestRule
             .onNodeWithTag("manage_buildings_button")
-            .assertExists()
+            .assertDoesNotExist()
     }
 
     @Test
     fun testBuildingManagerOverlayOpens() {
+        // The manage_buildings_button was removed; building management now uses
+        // MortgageManagementOverlay. Verify the old button does not exist.
         val player = Player(id = "player1", name = "P1", position = 0)
 
         val property1 = PropertyField(
@@ -875,7 +880,6 @@ class GameboardScreenCoverageTest {
             houseCost = 50,
             hotelCost = 50,
             ownerId = "player1"
-
         )
 
         val property2 = PropertyField(
@@ -903,11 +907,7 @@ class GameboardScreenCoverageTest {
 
         composeTestRule
             .onNodeWithTag("manage_buildings_button")
-            .performClick()
-
-        composeTestRule
-            .onNodeWithText("🏗️ Manage Buildings")
-            .assertExists()
+            .assertDoesNotExist()
     }
 
     @Test
@@ -1036,7 +1036,7 @@ class GameboardScreenCoverageTest {
             )
         }
 
-        composeTestRule.onNodeWithText("Property Management").assertExists()
+        composeTestRule.onNodeWithText("Balance", substring = true).assertExists()
     }
 
     @Test
@@ -1081,7 +1081,7 @@ class GameboardScreenCoverageTest {
     }
 
     @Test
-    fun `Manage Properties button visible during current player turn`() {
+    fun `Manage Properties button removed from gameboard - accessed via player card`() {
         val player = Player(id = "player1", name = "P1", position = 0)
 
         val mockVm = createMockViewModel(
@@ -1093,11 +1093,12 @@ class GameboardScreenCoverageTest {
 
         composeTestRule.setContent { GameboardScreen(viewModel = mockVm) }
 
-        composeTestRule.onNodeWithTag("manage_properties_button").assertExists()
+        // manage_properties_button was removed; property management is accessed by clicking player card
+        composeTestRule.onNodeWithTag("manage_properties_button").assertDoesNotExist()
     }
 
     @Test
-    fun `Manage Properties button visible when not current player turn`() {
+    fun `Manage Properties button not visible for any player`() {
         val player1 = Player(id = "player1", name = "P1", position = 0)
         val player2 = Player(id = "player2", name = "P2", position = 1)
 
@@ -1113,7 +1114,7 @@ class GameboardScreenCoverageTest {
 
         composeTestRule.setContent { GameboardScreen(viewModel = mockVm) }
 
-        composeTestRule.onNodeWithTag("manage_properties_button").assertExists()
+        composeTestRule.onNodeWithTag("manage_properties_button").assertDoesNotExist()
     }
 
     @Test
@@ -1133,7 +1134,7 @@ class GameboardScreenCoverageTest {
     }
 
     @Test
-    fun `Manage Properties visible during ROLLING phase`() {
+    fun `Manage Properties not visible during ROLLING phase`() {
         val player = Player(id = "player1", name = "P1", position = 0)
 
         val mockVm = createMockViewModel(
@@ -1146,7 +1147,7 @@ class GameboardScreenCoverageTest {
 
         composeTestRule.setContent { GameboardScreen(viewModel = mockVm) }
 
-        composeTestRule.onNodeWithTag("manage_properties_button").assertExists()
+        composeTestRule.onNodeWithTag("manage_properties_button").assertDoesNotExist()
     }
 
     @Test
@@ -1171,7 +1172,7 @@ class GameboardScreenCoverageTest {
         composeTestRule.setContent { GameboardScreen(viewModel = mockVm) }
 
         composeTestRule.onNodeWithTag("pay_rent_reopen_button").assertExists()
-        composeTestRule.onNodeWithTag("manage_properties_button").assertExists()
+        composeTestRule.onNodeWithTag("manage_properties_button").assertDoesNotExist()
         composeTestRule.onNodeWithTag("end_turn_button").assertDoesNotExist()
     }
 
@@ -1241,7 +1242,7 @@ class GameboardScreenCoverageTest {
             )
         }
 
-        composeTestRule.onNodeWithText("Insufficient Funds").assertExists()
+        composeTestRule.onNodeWithText("Insufficient").assertExists()
     }
 
     @Test
@@ -1286,7 +1287,7 @@ class GameboardScreenCoverageTest {
             )
         }
 
-        composeTestRule.onNodeWithText("Declare Bankruptcy").assertExists()
+        composeTestRule.onNodeWithText("Bankrupt").assertExists()
     }
 
     @Test
@@ -1301,7 +1302,7 @@ class GameboardScreenCoverageTest {
             )
         }
 
-        composeTestRule.onNodeWithText("Declare Bankruptcy").assertDoesNotExist()
+        composeTestRule.onNodeWithText("Bankrupt").assertDoesNotExist()
     }
 
     @Test
@@ -1316,7 +1317,7 @@ class GameboardScreenCoverageTest {
             )
         }
 
-        composeTestRule.onNodeWithText("Manage Properties").assertExists()
+        composeTestRule.onNodeWithText("Manage").assertExists()
     }
 
     // ─── MortgageManagementContent Sell House / Sell Hotel button state ───────

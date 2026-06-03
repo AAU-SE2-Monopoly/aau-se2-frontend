@@ -83,7 +83,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import at.aau.monopoly.klagenfurt.model.field.ChanceField
 import at.aau.monopoly.klagenfurt.model.field.CommunityChestField
 import kotlin.math.hypot
-import at.aau.monopoly.klagenfurt.model.field.PropertyField
 import at.aau.monopoly.klagenfurt.model.enums.GamePhase
 import com.example.myapplication.BuildConfig
 
@@ -163,7 +162,6 @@ fun GameboardScreen(
     val lastDiceRoll by viewModel.lastDiceRoll.collectAsState()
     val canStartGame by viewModel.canStartGame.collectAsState()
     val canEndTurnForCurrentPlayer by viewModel.canEndTurnForCurrentPlayer.collectAsState()
-    val buildingActionPending by viewModel.buildingActionPending.collectAsState()
     val canBuyCurrentField =
         isBuyingPhaseForCurrentPlayer &&
                 isBuyableField &&
@@ -178,16 +176,6 @@ fun GameboardScreen(
     val myPlayer = gameState?.players?.find { it.id == currentPlayerId }
     val myPlayerIsActive = myPlayer != null && !myPlayer.eliminated && gameStarted
 
-    val ownedCompleteColorSetProperties = remember(fields, currentPlayerId) {
-        fields
-            .filterIsInstance<PropertyField>()
-            .filter { property ->
-                property.ownerId == currentPlayerId &&
-                        fields.filterIsInstance<PropertyField>()
-                            .filter { it.color == property.color }
-                            .all { it.ownerId == currentPlayerId }
-            }
-    }
 
     // Action Card states
     val currentActionCard by viewModel.currentActionCard.collectAsState()
@@ -217,7 +205,6 @@ fun GameboardScreen(
     val context = LocalContext.current
 
     var showOverlay by remember { mutableStateOf(false) }
-    var showBuildingManager by remember { mutableStateOf(false) }
 
     // Filter DICE_ROLLED entries from the log while the overlay is visible,
     // so the dice result appears in chat only after the animation finishes.
@@ -362,7 +349,13 @@ fun GameboardScreen(
                 players = players,
                 currentPlayerId = currentPlayerId,
                 currentTurnPlayer = currentTurnPlayer,
-                onPlayerCardClick = { player -> viewModel.showPlayerOverlay(player) },
+                onPlayerCardClick = { player ->
+                    if (player.id == currentPlayerId && myPlayerIsActive) {
+                        viewModel.showMortgageManagementOverlay()
+                    } else {
+                        viewModel.showPlayerOverlay(player)
+                    }
+                },
                 selectedPlayerForOverlay = selectedPlayer,
                 onDismissOverlay = { viewModel.hidePlayerOverlay() },
                 movementAnimationState = movementState,
@@ -473,18 +466,7 @@ fun GameboardScreen(
                     }
                 }
 
-                // Visible any time during the game for any non-eliminated player (Monopoly rule):
-                // mortgage/unmortgage/sell buildings are allowed at any point.
-                if (myPlayerIsActive == true) {
-                    GlassButton(
-                        onClick = { viewModel.showMortgageManagementOverlay() },
-                        modifier = Modifier
-                            .padding(top = 8.dp)
-                            .testTag("manage_properties_button")
-                    ) {
-                        Text("Manage Properties")
-                    }
-                }
+
 
                 /** DEBUG remove this block of code to remove */
                 if (BuildConfig.DEBUG && DebugSettings.isEnabled && currentTurnPlayer?.id == currentPlayerId) {
@@ -507,21 +489,6 @@ fun GameboardScreen(
                     }
                 }
 
-                if (
-                    ownedCompleteColorSetProperties.isNotEmpty() &&
-                    myPlayerIsActive == true &&
-                    !isPayingRent &&
-                    canEndTurnForCurrentPlayer
-                ) {
-                    GlassButton(
-                        onClick = { showBuildingManager = true },
-                        modifier = Modifier
-                            .padding(top = 8.dp)
-                            .testTag("manage_buildings_button")
-                    ) {
-                        Text("Manage Buildings")
-                    }
-                }
 
                 if (isOnChanceField && isBuyingPhaseForCurrentPlayer) {
                     DrawCardButton(
@@ -547,30 +514,6 @@ fun GameboardScreen(
 
             GameboardOverlayLayer(eventLog = bufferedEventLog)
 
-            LaunchedEffect(
-                showBuildingManager,
-                ownedCompleteColorSetProperties,
-                canEndTurnForCurrentPlayer
-            ) {
-                if (
-                    showBuildingManager &&
-                    (!canEndTurnForCurrentPlayer || ownedCompleteColorSetProperties.isEmpty())
-                ) {
-                    showBuildingManager = false
-                }
-            }
-
-            if (showBuildingManager) {
-                BuildingManagerOverlay(
-                    properties = ownedCompleteColorSetProperties,
-                    onBuyHouse = { viewModel.buyHouse(it) },
-                    onBuyHotel = { viewModel.buyHotel(it) },
-                    onSellHouse = { viewModel.sellHouse(it) },
-                    onSellHotel = { viewModel.sellHotel(it) },
-                    onDismiss = { showBuildingManager = false },
-                    isBuildingActionPending = buildingActionPending
-                )
-            }
 
             ActionCardOverlay(
                 isVisible = showActionCardOverlay,

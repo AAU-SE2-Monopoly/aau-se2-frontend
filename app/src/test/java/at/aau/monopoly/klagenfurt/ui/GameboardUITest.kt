@@ -25,6 +25,9 @@ import at.aau.monopoly.klagenfurt.model.field.ChanceField
 import at.aau.monopoly.klagenfurt.model.field.CommunityChestField
 import at.aau.monopoly.klagenfurt.model.field.Field
 import at.aau.monopoly.klagenfurt.model.field.GoField
+import at.aau.monopoly.klagenfurt.model.field.RailroadField
+import at.aau.monopoly.klagenfurt.model.field.UtilityField
+import at.aau.monopoly.klagenfurt.model.field.TaxField
 import at.aau.monopoly.klagenfurt.ui.board.calculateFieldBounds
 import at.aau.monopoly.klagenfurt.ui.board.getFieldImageMapping
 import at.aau.monopoly.klagenfurt.ui.util.getPlayerTokenResource
@@ -2080,4 +2083,351 @@ class GameboardScreenCoverageTest {
 
         composeTestRule.onAllNodesWithText("Mortgage").assertCountEquals(1)
     }
+
+    // ═══════════════════════════════════════════════
+    // Additional coverage tests for GameboardUI.kt
+    // ═══════════════════════════════════════════════
+
+    @Test
+    fun `End Turn button calls endTurn`() {
+        val player = Player(id = "player1", name = "P1", position = 0)
+
+        val mockVm = createMockViewModel(
+            isBuyingPhase = true,
+            canEndTurn = true,
+            currentPlayerId = "player1",
+            players = listOf(player),
+            fields = listOf(GoField(id = 0, name = "Go"))
+        )
+
+        composeTestRule.setContent { GameboardScreen(viewModel = mockVm) }
+
+        composeTestRule.onNodeWithTag("end_turn_button").performClick()
+        verify { mockVm.endTurn() }
+    }
+
+    @Test
+    fun `Multiple players shows left panel with other players`() {
+        val player1 = Player(id = "player1", name = "Alice", position = 0)
+        val player2 = Player(id = "player2", name = "Bob", position = 5)
+
+        val mockVm = createMockViewModel(
+            isBuyingPhase = true,
+            canEndTurn = true,
+            currentPlayerId = "player1",
+            players = listOf(player1, player2),
+            fields = listOf(GoField(id = 0, name = "Go"))
+        )
+
+        composeTestRule.setContent { GameboardScreen(viewModel = mockVm) }
+
+        // Both players should be displayed
+        composeTestRule.onNodeWithText("Alice", substring = true).assertExists()
+        composeTestRule.onNodeWithText("Bob", substring = true).assertExists()
+    }
+
+    @Test
+    fun `Draw card buttons not visible when not in buying phase`() {
+        val player = Player(id = "player1", name = "P1", position = 0)
+
+        val mockVm = createMockViewModel(
+            isBuyingPhase = false,
+            isRollingPhase = true,
+            currentPlayerId = "player1",
+            players = listOf(player),
+            fields = listOf(ChanceField(id = 0, name = "Chance"))
+        )
+
+        composeTestRule.setContent { GameboardScreen(viewModel = mockVm) }
+
+        composeTestRule.onNodeWithText("🎰 Draw Chance").assertDoesNotExist()
+    }
+
+    @Test
+    fun `Buy Property button visible on unowned PropertyField in buying phase`() {
+        val player = Player(id = "player1", name = "P1", position = 0)
+        val propertyField = PropertyField(
+            id = 0,
+            name = "Test Street",
+            color = PropertyColor.BROWN,
+            price = 60,
+            rent = listOf(2, 10, 30, 90, 160, 250),
+            houseCost = 50,
+            hotelCost = 50,
+            ownerId = null
+        )
+
+        val mockVm = createMockViewModel(
+            isBuyingPhase = true,
+            currentPlayerId = "player1",
+            players = listOf(player),
+            fields = listOf(propertyField)
+        )
+
+        composeTestRule.setContent { GameboardScreen(viewModel = mockVm) }
+
+        composeTestRule.onNodeWithTag("buy_property_button").assertExists()
+    }
+
+    @Test
+    fun `Buy Property button not visible when field is already owned`() {
+        val player = Player(id = "player1", name = "P1", position = 0)
+        val propertyField = PropertyField(
+            id = 0,
+            name = "Test Street",
+            color = PropertyColor.BROWN,
+            price = 60,
+            rent = listOf(2, 10, 30, 90, 160, 250),
+            houseCost = 50,
+            hotelCost = 50,
+            ownerId = "player2"
+        )
+
+        val mockVm = createMockViewModel(
+            isBuyingPhase = true,
+            currentPlayerId = "player1",
+            players = listOf(player),
+            fields = listOf(propertyField)
+        )
+
+        composeTestRule.setContent { GameboardScreen(viewModel = mockVm) }
+
+        composeTestRule.onNodeWithTag("buy_property_button").assertDoesNotExist()
+    }
+
+    @Test
+    fun `Buy Property button visible on unowned RailroadField`() {
+        val player = Player(id = "player1", name = "P1", position = 0)
+        val railroadField = RailroadField(
+            id = 0,
+            name = "Central Station",
+            price = 200,
+            ownerId = null
+        )
+
+        val mockVm = createMockViewModel(
+            isBuyingPhase = true,
+            currentPlayerId = "player1",
+            players = listOf(player),
+            fields = listOf(railroadField)
+        )
+
+        composeTestRule.setContent { GameboardScreen(viewModel = mockVm) }
+
+        composeTestRule.onNodeWithTag("buy_property_button").assertExists()
+    }
+
+    @Test
+    fun `Buy Property button visible on unowned UtilityField`() {
+        val player = Player(id = "player1", name = "P1", position = 0)
+        val utilityField = UtilityField(
+            id = 0,
+            name = "Electric Company",
+            price = 150,
+            ownerId = null
+        )
+
+        val mockVm = createMockViewModel(
+            isBuyingPhase = true,
+            currentPlayerId = "player1",
+            players = listOf(player),
+            fields = listOf(utilityField)
+        )
+
+        composeTestRule.setContent { GameboardScreen(viewModel = mockVm) }
+
+        composeTestRule.onNodeWithTag("buy_property_button").assertExists()
+    }
+
+    @Test
+    fun `Buy Property button not visible on TaxField`() {
+        val player = Player(id = "player1", name = "P1", position = 0)
+        val taxField = TaxField(id = 0, name = "Income Tax", amount = 200)
+
+        val mockVm = createMockViewModel(
+            isBuyingPhase = true,
+            currentPlayerId = "player1",
+            players = listOf(player),
+            fields = listOf(taxField)
+        )
+
+        composeTestRule.setContent { GameboardScreen(viewModel = mockVm) }
+
+        composeTestRule.onNodeWithTag("buy_property_button").assertDoesNotExist()
+    }
+
+    @Test
+    fun `End Turn button hidden when showActionCardOverlay is true`() {
+        val player = Player(id = "player1", name = "P1", position = 0)
+
+        val mockVm = createMockViewModel(
+            isBuyingPhase = true,
+            canEndTurn = true,
+            currentPlayerId = "player1",
+            players = listOf(player),
+            fields = listOf(GoField(id = 0, name = "Go"))
+        )
+
+        every { mockVm.showActionCardOverlay } returns MutableStateFlow(true)
+
+        composeTestRule.setContent { GameboardScreen(viewModel = mockVm) }
+
+        composeTestRule.onNodeWithTag("end_turn_button").assertDoesNotExist()
+    }
+
+    @Test
+    fun `Buttons hidden in WAITING phase`() {
+        val player = Player(id = "player1", name = "P1", position = 0)
+
+        val mockVm = createMockViewModel(
+            isBuyingPhase = false,
+            canEndTurn = false,
+            isRollingPhase = false,
+            canStart = false,
+            currentPlayerId = "player1",
+            players = listOf(player),
+            fields = listOf(GoField(id = 0, name = "Go")),
+            phase = GamePhase.WAITING
+        )
+
+        composeTestRule.setContent { GameboardScreen(viewModel = mockVm) }
+
+        composeTestRule.onNodeWithTag("roll_dice_button").assertDoesNotExist()
+        composeTestRule.onNodeWithTag("end_turn_button").assertDoesNotExist()
+        composeTestRule.onNodeWithTag("buy_property_button").assertDoesNotExist()
+    }
+
+    @Test
+    fun `Roll Dice button shows for non-jailed player in rolling phase`() {
+        val player = Player(id = "player1", name = "P1", position = 0, inJail = false)
+
+        val mockVm = createMockViewModel(
+            isRollingPhase = true,
+            currentPlayerId = "player1",
+            players = listOf(player),
+            fields = listOf(GoField(id = 0, name = "Go"))
+        )
+
+        composeTestRule.setContent { GameboardScreen(viewModel = mockVm) }
+
+        composeTestRule.onNodeWithTag("roll_dice_button").assertExists()
+        // Should show regular "Roll Dice" text
+        composeTestRule.onNodeWithText("🎲 Roll Dice").assertExists()
+    }
+
+    @Test
+    fun `Jail pay button disabled when player has insufficient funds`() {
+        val jailedPlayer = Player(
+            id = "player1",
+            name = "P1",
+            position = 10,
+            inJail = true,
+            jailTurns = 0,
+            money = 30,
+            getOutOfJailCards = 0
+        )
+
+        val mockVm = createMockViewModel(
+            isRollingPhase = true,
+            players = listOf(jailedPlayer)
+        )
+
+        composeTestRule.setContent { GameboardScreen(viewModel = mockVm) }
+
+        composeTestRule.onNodeWithTag("pay_jail_fine_button").assertIsNotEnabled()
+    }
+
+    @Test
+    fun `Jail card button hidden when player has no jail cards`() {
+        val jailedPlayer = Player(
+            id = "player1",
+            name = "P1",
+            position = 10,
+            inJail = true,
+            jailTurns = 0,
+            money = 100,
+            getOutOfJailCards = 0
+        )
+
+        val mockVm = createMockViewModel(
+            isRollingPhase = true,
+            players = listOf(jailedPlayer)
+        )
+
+        composeTestRule.setContent { GameboardScreen(viewModel = mockVm) }
+
+        composeTestRule.onNodeWithTag("use_jail_card_button").assertDoesNotExist()
+    }
+
+    @Test
+    fun `Buy Property button triggers buyProperty with player position`() {
+        val player = Player(id = "player1", name = "P1", position = 0)
+        val propertyField = PropertyField(
+            id = 0,
+            name = "Test Street",
+            color = PropertyColor.BROWN,
+            price = 60,
+            rent = listOf(2, 10, 30, 90, 160, 250),
+            houseCost = 50,
+            hotelCost = 50,
+            ownerId = null
+        )
+
+        val mockVm = createMockViewModel(
+            isBuyingPhase = true,
+            currentPlayerId = "player1",
+            players = listOf(player),
+            fields = listOf(propertyField)
+        )
+
+        composeTestRule.setContent { GameboardScreen(viewModel = mockVm) }
+
+        composeTestRule.onNodeWithTag("buy_property_button").performClick()
+        verify { mockVm.buyProperty(0) }
+    }
+
+    @Test
+    fun `Pay Rent reopen button calls showPayRentOverlay`() {
+        val player = Player(id = "player1", name = "P1", position = 0)
+
+        val mockVm = createMockViewModel(
+            isBuyingPhase = true,
+            canEndTurn = false,
+            currentPlayerId = "player1",
+            players = listOf(player)
+        )
+
+        every { mockVm.hasPendingPayment } returns MutableStateFlow(true)
+        every { mockVm.showPayRentOverlay } returns MutableStateFlow(false)
+        every { mockVm.currentRentAmount } returns MutableStateFlow(150)
+        every { mockVm.currentRentOwnerId } returns MutableStateFlow("p2")
+        every { mockVm.currentRentFieldId } returns MutableStateFlow(3)
+        every { mockVm.canEndTurnForCurrentPlayer } returns MutableStateFlow(false)
+
+        composeTestRule.setContent { GameboardScreen(viewModel = mockVm) }
+
+        composeTestRule.onNodeWithTag("pay_rent_reopen_button").performClick()
+        verify { mockVm.showPayRentOverlay(150, "p2", 3) }
+    }
+
+    @Test
+    fun `Eliminated player does not see mortgage management overlay`() {
+        val player = Player(id = "player1", name = "P1", position = 0, eliminated = true)
+
+        val mockVm = createMockViewModel(
+            isBuyingPhase = true,
+            canEndTurn = true,
+            currentPlayerId = "player1",
+            players = listOf(player),
+            phase = GamePhase.BUYING
+        )
+
+        every { mockVm.showMortgageOverlay } returns MutableStateFlow(true)
+
+        composeTestRule.setContent { GameboardScreen(viewModel = mockVm) }
+
+        // The mortgage overlay should not show for eliminated player (myPlayerIsActive == false)
+        composeTestRule.onNodeWithText("Balance", substring = true).assertDoesNotExist()
+    }
 }
+

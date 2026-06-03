@@ -621,29 +621,29 @@ fun GameboardScreen(
         }
     }
 
-    /**
-     * Shape that clips to a circle expanding from center based on [progress] (0..1).
-     */
-    class CircularRevealShape(private val progress: Float) : androidx.compose.ui.graphics.Shape {
-        override fun createOutline(
-            size: Size,
-            layoutDirection: androidx.compose.ui.unit.LayoutDirection,
-            density: androidx.compose.ui.unit.Density
-        ): androidx.compose.ui.graphics.Outline {
-            val center = Offset(size.width / 2f, size.height / 2f)
-            val maxRadius = hypot(size.width, size.height) / 2f
-            val radius = maxRadius * progress
-            val path = Path().apply {
-                addOval(
-                    androidx.compose.ui.geometry.Rect(
-                        center = center,
-                        radius = radius
-                    )
+/**
+ * Shape that clips to a circle expanding from center based on [progress] (0..1).
+ */
+internal class CircularRevealShape(private val progress: Float) : androidx.compose.ui.graphics.Shape {
+    override fun createOutline(
+        size: Size,
+        layoutDirection: androidx.compose.ui.unit.LayoutDirection,
+        density: androidx.compose.ui.unit.Density
+    ): androidx.compose.ui.graphics.Outline {
+        val center = Offset(size.width / 2f, size.height / 2f)
+        val maxRadius = hypot(size.width, size.height) / 2f
+        val radius = maxRadius * progress
+        val path = Path().apply {
+            addOval(
+                androidx.compose.ui.geometry.Rect(
+                    center = center,
+                    radius = radius
                 )
-            }
-            return androidx.compose.ui.graphics.Outline.Generic(path)
+            )
         }
+        return androidx.compose.ui.graphics.Outline.Generic(path)
     }
+}
 
     @Composable
     fun BoxScope.GameboardOverlayLayer(eventLog: List<GameViewModel.LogEntry>) {

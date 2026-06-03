@@ -213,7 +213,7 @@ class JoinActivityTest {
     }
 
     @Test
-    fun testAutoSkipTakenIcon_LaunchedEffect_coverage() {
+    fun autoSkipsTakenIcon_whenTakenIconsUpdate() {
         val intent = Intent(ApplicationProvider.getApplicationContext(), JoinActivity::class.java).apply {
             putExtra("gameId", "test-game-123")
             putExtra("isNewGame", false)
@@ -244,7 +244,7 @@ class JoinActivityTest {
     }
 
     @Test
-    fun testManualIconSelection_skipsTakenIcons_onClick_coverage() {
+    fun iconPickerSkipsTakenIcons_whenUserCyclesIcons() {
         val intent = Intent(ApplicationProvider.getApplicationContext(), JoinActivity::class.java).apply {
             putExtra("gameId", "test-game-123")
             putExtra("isNewGame", false)

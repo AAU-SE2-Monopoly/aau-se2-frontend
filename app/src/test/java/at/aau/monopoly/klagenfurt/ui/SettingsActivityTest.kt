@@ -1,5 +1,6 @@
 package at.aau.monopoly.klagenfurt.ui
 
+
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
@@ -39,6 +40,9 @@ class SettingsActivityTest {
         composeTestRule.onNodeWithText("Sounds").assertIsDisplayed()
         composeTestRule.onNodeWithText("Music").assertIsDisplayed()
         composeTestRule.onNodeWithText("Back").assertIsDisplayed()
+
+
+        composeTestRule.onNodeWithText("Show Cheating Tutorial").assertIsDisplayed()
     }
 
     @Test
@@ -70,5 +74,35 @@ class SettingsActivityTest {
     fun settingsScreen_musicToggleCanBeClicked() {
         setUpSettingsScreen()
         composeTestRule.onNodeWithText("Music").assertIsDisplayed()
+    }
+
+
+    @Test
+    fun settingsScreen_clickingCheatTutorialShowsDialog() {
+        setUpSettingsScreen()
+
+
+        composeTestRule.onNodeWithText("Cheat Code").assertDoesNotExist()
+
+
+        composeTestRule.onNodeWithText("Show Cheating Tutorial").performClick()
+
+        composeTestRule.onNodeWithText("Cheat Code").assertIsDisplayed()
+        composeTestRule.onNodeWithText("Press the Volume Up button during your turn to automatically roll a double 6!").assertIsDisplayed()
+        composeTestRule.onNodeWithText("Got it").assertIsDisplayed()
+    }
+
+    @Test
+    fun settingsScreen_dismissingCheatTutorialHidesDialog() {
+        setUpSettingsScreen()
+
+
+        composeTestRule.onNodeWithText("Show Cheating Tutorial").performClick()
+        composeTestRule.onNodeWithText("Cheat Code").assertIsDisplayed()
+
+
+        composeTestRule.onNodeWithText("Got it").performClick()
+
+        composeTestRule.onNodeWithText("Cheat Code").assertDoesNotExist()
     }
 }

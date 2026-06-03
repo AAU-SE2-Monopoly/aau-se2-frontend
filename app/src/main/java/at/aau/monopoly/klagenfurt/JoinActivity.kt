@@ -33,9 +33,11 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -65,24 +67,32 @@ class JoinActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-        val joinStatus = intent.getStringExtra("JOIN_STATUS")
-            ?.let { try { GameJoinStatus.valueOf(it) } catch (_: Exception) {null} }
-            ?: GameJoinStatus.OPEN
-        val gameId    = intent.getStringExtra("GAME_ID") ?: intent.getStringExtra("gameId") ?: ""
-        val isNewGame = intent.getBooleanExtra("isNewGame", false)
 
-        if (!isNewGame && gameId.isNotEmpty()) {
-            viewModel.observeGame(gameId)
-        }
+        val joinStatus = intent.getStringExtra("JOIN_STATUS")
+            ?.let { try { GameJoinStatus.valueOf(it) } catch (_: Exception) { null } }
+            ?: GameJoinStatus.OPEN
+
+        val gameId = intent.getStringExtra("GAME_ID") ?: intent.getStringExtra("gameId") ?: ""
+        val isNewGame = intent.getBooleanExtra("isNewGame", false)
 
         setContent {
             MyApplicationTheme(dynamicColor = false) {
+                // Subscription logic cleanly integrated into Compose
+                LaunchedEffect(gameId, isNewGame) {
+                    if (!isNewGame && gameId.isNotEmpty()) {
+                        viewModel.observeGame(gameId)
+                    }
+                }
+
                 val joinState by viewModel.joinState.collectAsState()
 
                 // React to terminal states: navigate on success, stay on error
                 LaunchedEffect(joinState) {
                     when (val state = joinState) {
                         is JoinViewModel.JoinState.Success -> {
+                            // Clean up before navigating to GameboardUI (if necessary)
+                            viewModel.stopObserving()
+
                             startActivity(
                                 Intent(this@JoinActivity, GameboardUI::class.java)
                                     .putExtra("GAME_ID", state.gameId)
@@ -98,15 +108,16 @@ class JoinActivity : ComponentActivity() {
                 val takenIcons by viewModel.takenIcons.collectAsState()
 
                 JoinScreen(
-                    gameId      = gameId,
-                    isNewGame   = isNewGame,
-                    joinState   = joinState,
-                    joinStatus  = joinStatus,
+                    gameId = gameId,
+                    isNewGame = isNewGame,
+                    joinState = joinState,
+                    joinStatus = joinStatus,
                     isConnected = isConnected,
                     reconnectFailed = reconnectFailed,
-                    takenIcons  = takenIcons,
+                    takenIcons = takenIcons,
                     onReconnect = { viewModel.reconnect() },
                     onBackClicked = {
+                        // Explicit reset including subscription cancellation before finish
                         viewModel.resetState()
                         finish()
                     },
@@ -170,7 +181,6 @@ fun JoinScreen(
                 )
             }
 
-            // Back button for finished screen
             Button(
                 onClick = onBackClicked,
                 modifier = Modifier
@@ -211,24 +221,30 @@ fun JoinScreen(
     var playerName by rememberSaveable { mutableStateOf("") }
     var selectedIconIndex by rememberSaveable { mutableIntStateOf(0) }
 
-    LaunchedEffect(takenIcons) {
-        if (takenIcons.isNotEmpty()) {
-            var currentId = GameJoinStatus.iconIdForIndex(selectedIconIndex)
+    // FIX Issue 5: Use derivedStateOf to only recompose when the CURRENTLY selected icon becomes taken.
+    val isCurrentIconTaken by remember(takenIcons, selectedIconIndex) {
+        derivedStateOf {
+            takenIcons.contains(GameJoinStatus.iconIdForIndex(selectedIconIndex))
+        }
+    }
+
+    // Only run the loop if the specific icon we are looking at was actually taken
+    LaunchedEffect(isCurrentIconTaken) {
+        if (isCurrentIconTaken) {
+            var nextIndex = selectedIconIndex
             var attempts = 0
-            while (takenIcons.contains(currentId) && attempts < playerIcons.size) {
-                selectedIconIndex = (selectedIconIndex + 1) % playerIcons.size
-                currentId = GameJoinStatus.iconIdForIndex(selectedIconIndex)
+            while (takenIcons.contains(GameJoinStatus.iconIdForIndex(nextIndex)) && attempts < playerIcons.size) {
+                nextIndex = (nextIndex + 1) % playerIcons.size
                 attempts++
             }
+            selectedIconIndex = nextIndex
         }
     }
 
     val isLoading = joinState is JoinViewModel.JoinState.Loading
     val errorMessage = (joinState as? JoinViewModel.JoinState.Error)?.message
     val interactionDisabled = !isConnected || isLoading || isFull
-
-    val currentIconTaken = takenIcons.contains(GameJoinStatus.iconIdForIndex(selectedIconIndex))
-    val isJoinDisabled = interactionDisabled || currentIconTaken
+    val isJoinDisabled = interactionDisabled || isCurrentIconTaken
 
     Box(
         modifier = Modifier
@@ -267,7 +283,8 @@ fun JoinScreen(
                     fontSize = 12.sp
                 )
             }
-            // Connection warning – shown only when idle and not connected
+
+            // Connection warning
             if (!isConnected && joinState is JoinViewModel.JoinState.Idle) {
                 if (reconnectFailed) {
                     Button(
@@ -298,7 +315,7 @@ fun JoinScreen(
                 Spacer(modifier = Modifier.height(8.dp))
             }
 
-            // Error message from server (e.g. game full)
+            // Error message from server
             if (errorMessage != null) {
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
@@ -309,6 +326,7 @@ fun JoinScreen(
                     fontWeight = FontWeight.Medium
                 )
             }
+
             // Status-specific messages
             if (isFull) {
                 Spacer(modifier = Modifier.height(8.dp))
@@ -352,7 +370,7 @@ fun JoinScreen(
                     Image(
                         painter = painterResource(id = playerIcons[selectedIconIndex]),
                         contentDescription = "Selected Icon",
-                        alpha = if (currentIconTaken) 0.3f else 1f,
+                        alpha = if (isCurrentIconTaken) 0.3f else 1f,
                         modifier = Modifier.size(64.dp)
                     )
                 }
@@ -360,8 +378,8 @@ fun JoinScreen(
 
             Spacer(modifier = Modifier.height(4.dp))
             Text(
-                text = if (currentIconTaken) "Icon already used" else "Tap to change icon",
-                color = if (currentIconTaken) Color(0xFFEF9A9A) else Color.White.copy(alpha = 0.4f),
+                text = if (isCurrentIconTaken) "Icon already taken" else "Tap to change icon",
+                color = if (isCurrentIconTaken) Color(0xFFEF9A9A) else Color.White.copy(alpha = 0.4f),
                 fontSize = 11.sp
             )
             Spacer(modifier = Modifier.height(16.dp))
@@ -425,7 +443,7 @@ fun JoinScreen(
             }
         }
 
-        // Back button – always rendered and functional
+        // Back button
         Button(
             onClick = onBackClicked,
             modifier = Modifier

@@ -15,10 +15,10 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.collect
 
 /**
- * Manages the create-game and join-game flows for [JoinActivity].
+ * Manages the create-game and join-game flows for JoinActivity.
  *
  * The actual waiting for server confirmation is handled inside
- * [GameService.createGame] and [GameService.joinGame], so the
+ * GameService.createGame and GameService.joinGame, so the
  * ViewModel only needs to react to the final Result.
  */
 class JoinViewModel(private val gameService: GameService) : ViewModel() {
@@ -43,34 +43,67 @@ class JoinViewModel(private val gameService: GameService) : ViewModel() {
     val takenIcons: StateFlow<Set<String>> = _takenIcons.asStateFlow()
 
     private var stateObservationJob: Job? = null
+    private var currentObservedGameId: String? = null
 
     fun observeGame(gameId: String) {
         if (gameId.isBlank()) return
-        stateObservationJob?.cancel()
-        stateObservationJob = viewModelScope.launch {
-            gameService.subscribeToGame(gameId)
 
-            gameService.events.collect { raw ->
-                val event = at.aau.monopoly.klagenfurt.ui.util.parseGameEvent(raw) ?: return@collect
-                val state = event.gameState ?: return@collect
-                if (event.gameId == gameId) {
-                    _takenIcons.value = state.players.map { it.iconId }.toSet()
+        // Prevent duplicate subscriptions to the same game
+        if (currentObservedGameId == gameId) return
+
+        stopObserving()
+        currentObservedGameId = gameId
+
+        stateObservationJob = viewModelScope.launch {
+            // FIX Issue 4: Launch the collector BEFORE subscribing to ensure
+            // the initial GAME_CREATED/STATE_SNAPSHOT event is not missed.
+            launch {
+                gameService.events.collect { raw ->
+                    // FIX Issue 5: Silence state updates once we are successfully navigating away
+                    if (_joinState.value is JoinState.Success) return@collect
+
+                    try {
+                        // FIX Issue 6: Fast-path string check to prevent Jackson from parsing irrelevant events
+                        if (!raw.contains(gameId)) return@collect
+
+                        val event = objectMapper.readValue(raw, GameEvent::class.java)
+                        if (event.gameId == gameId && event.gameState != null) {
+                            val taken = event.gameState.players.map { it.iconId }.toSet()
+                            _takenIcons.value = taken
+                        }
+                    } catch (e: Exception) {
+                        // FIX Issue 6: Never swallow JSON parsing exceptions silently
+                        Log.e("JoinViewModel", "Failed to parse GameEvent. Payload: $raw", e)
+                    }
                 }
             }
+
+            // Now that the collector is active, trigger the STOMP subscription
+            gameService.subscribeToGame(gameId)
         }
+    }
+
+    /**
+     * Cancels the active observation job and cleans up the STOMP subscription.
+     */
+    fun stopObserving() {
+        stateObservationJob?.cancel()
+        stateObservationJob = null
+
+        // If your GameService has an explicit unsubscribe method, call it here:
+        // currentObservedGameId?.let { gameService.unsubscribeFromGame(it) }
+
+        currentObservedGameId = null
     }
 
     override fun onCleared() {
         super.onCleared()
-        stateObservationJob?.cancel()
+        stopObserving()
     }
-
-
 
     fun createGame(playerName: String, iconId: String) {
         if (_joinState.value is JoinState.Loading) return
 
-        // Guard: refuse to send commands when disconnected
         if (!gameService.connectionState.value) {
             _joinState.value = JoinState.Error("Not connected to server. Please wait…")
             return
@@ -79,9 +112,6 @@ class JoinViewModel(private val gameService: GameService) : ViewModel() {
         _joinState.value = JoinState.Loading
 
         viewModelScope.launch {
-            // GameStompClient.createGame() sends the request, waits for GAME_CREATED
-            // on the personal topic, subscribes to the game topic, and returns the
-            // gameId (or null on failure).
             val createdGameId = gameService.createGame(playerName, iconId)
 
             if (createdGameId != null) {
@@ -92,11 +122,9 @@ class JoinViewModel(private val gameService: GameService) : ViewModel() {
         }
     }
 
-
     fun joinGame(gameId: String, playerName: String, iconId: String) {
         if (_joinState.value is JoinState.Loading) return
 
-        // Guard: refuse to send commands when disconnected
         if (!gameService.connectionState.value) {
             _joinState.value = JoinState.Error("Not connected to server. Please wait…")
             return
@@ -105,7 +133,6 @@ class JoinViewModel(private val gameService: GameService) : ViewModel() {
         _joinState.value = JoinState.Loading
 
         viewModelScope.launch {
-
             val result = gameService.joinGame(gameId, playerName, iconId)
 
             result.fold(
@@ -119,13 +146,13 @@ class JoinViewModel(private val gameService: GameService) : ViewModel() {
     }
 
     fun resetState() {
+        stopObserving()
         _joinState.value = JoinState.Idle
     }
 
     fun reconnect() {
         gameService.connect()
     }
-
 
     class Factory(private val gameService: GameService) : ViewModelProvider.Factory {
         override fun <T : ViewModel> create(modelClass: Class<T>): T {

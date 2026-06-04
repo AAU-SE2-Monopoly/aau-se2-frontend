@@ -95,7 +95,8 @@ class GameboardContentTest {
         
         // Should at least render the background maps
         composeTestRule.onNodeWithContentDescription("Klagenfurt-Map").assertExists()
-        composeTestRule.onNodeWithContentDescription("Path - Klagenfurt-Ring").assertExists()
+        // Golden ring path overlay has been removed
+        composeTestRule.onNodeWithContentDescription("Path - Klagenfurt-Ring").assertDoesNotExist()
     }
 
     @Test

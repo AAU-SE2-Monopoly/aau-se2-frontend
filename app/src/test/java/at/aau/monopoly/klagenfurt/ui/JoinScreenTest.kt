@@ -10,6 +10,7 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performTextInput
 import at.aau.monopoly.klagenfurt.model.GameJoinStatus
 import at.aau.monopoly.klagenfurt.JoinScreen
 import org.junit.Assert.assertTrue
@@ -461,6 +462,8 @@ class JoinScreenTest {
         }
 
         // Initial icon is index 0 (lindwurm)
+        // Enter a name so button is enabled
+        nameInput().performTextInput("Test")
         val iconButton = iconChooser()
         iconButton.performClick() // now index 1
         iconButton.performClick() // now index 2

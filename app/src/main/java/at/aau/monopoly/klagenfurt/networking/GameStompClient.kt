@@ -280,7 +280,6 @@ class GameStompClient(
         }
     }
 
-
     override fun subscribeToLobby() {
         lobbyChannel.subscribe()
     }
@@ -722,6 +721,20 @@ class GameStompClient(
         )
         sendRaw("/app/game/action", JacksonProvider.objectMapper.writeValueAsString(action))
         Log.d("GameStomp", "Declaring bankruptcy")
+    }
+
+    override fun reportCheater(reportedPlayerId: String) {
+        Log.d("GameStomp", "Reporting cheater: $reportedPlayerId")
+        val action = GameAction(
+            gameId = _currentGameId,
+            playerId = currentPlayerId,
+            action = "REPORT_CHEATER",
+            payload = mapOf(
+                "reportedPlayerId" to reportedPlayerId
+            )
+        )
+        val json = JacksonProvider.objectMapper.writeValueAsString(action)
+        sendRaw("/app/game/action", json)
     }
 
     /** DEBUG remove this block of code to remove */

@@ -18,16 +18,18 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.ui.res.vectorResource
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
@@ -1091,47 +1093,104 @@ private fun BoxScope.BuildingIndicator(
 /**
  * Display for Free Parking Money pot.
  * Shows the accumulated money in the Free Parking field (corner field index 20).
+ * Renders realistic Monopoly-style banknotes with stacked effect.
  */
 @Composable
 private fun BoxScope.FreeParkingMoneyDisplay(
     amount: Int,
     index: Int
 ) {
-    val textColor = when (amount) {
-        0 -> Color.Gray
-        in 1..100 -> Color.Green
-        in 101..500 -> Color(0xFFFF9800)  // Orange
-        else -> Color.Red
-    }
+    // Monopoly banknote colors
+    data class Banknote(val denomination: Int, val color: Color)
 
-    // Position the money display on the Free Parking field
-    // Usually in the upper right area of the corner field
-    val alignment = Alignment.TopEnd
+    val banknotes = listOf(
+        Banknote(500, Color(0xFFFF8A00)),  // Orange
+        Banknote(100, Color(0xFFFFD600)),  // Yellow
+        Banknote(50, Color(0xFFE60000)),   // Red
+        Banknote(20, Color(0xFF00AA00)),   // Green
+        Banknote(10, Color(0xFF0055FF)),   // Blue
+        Banknote(5, Color(0xFFFF55FF)),    // Magenta/Pink
+        Banknote(1, Color(0xFFFFFFFF))     // White
+    )
+
+    // Calculate banknotes needed
+    val calculatedBanknotes = mutableListOf<Banknote>()
+    var remaining = amount
+    for (banknote in banknotes) {
+        while (remaining >= banknote.denomination) {
+            calculatedBanknotes.add(banknote)
+            remaining -= banknote.denomination
+            if (calculatedBanknotes.size >= 5) break  // Max 5 notes to display
+        }
+        if (calculatedBanknotes.size >= 5) break
+    }
 
     Box(
         modifier = Modifier
-            .align(alignment)
-            .padding(4.dp)
-            .background(Color.White.copy(alpha = 0.8f), shape = CircleShape)
-            .border(1.dp, textColor, CircleShape)
-            .padding(4.dp),
-        contentAlignment = Alignment.Center
+            .align(Alignment.TopEnd)
+            .padding(6.dp)
     ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            modifier = Modifier.padding(2.dp)
-        ) {
-            Text(
-                text = "💰",
-                fontSize = 4.sp
-            )
-            Text(
-                text = amount.toString(),
-                fontSize = 3.sp,
-                fontWeight = FontWeight.Bold,
-                color = textColor,
-                maxLines = 1
-            )
+        // Stack of banknotes with rotation effect
+        calculatedBanknotes.forEachIndexed { index, banknote ->
+            val offsetX = (index * 3).dp
+            val offsetY = (index * 2).dp
+            val rotation = (index * 2f) - 4f  // Slight rotation for each note
+
+            Box(
+                modifier = Modifier
+                    .offset(x = offsetX, y = offsetY)
+                    .size(width = 48.dp, height = 28.dp)
+                    .rotate(rotation)
+                    .background(banknote.color, shape = RoundedCornerShape(3.dp))
+                    .border(
+                        width = 1.5.dp,
+                        color = Color.Black.copy(alpha = 0.3f),
+                        shape = RoundedCornerShape(3.dp)
+                    )
+                    .padding(3.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                // Banknote design
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center,
+                    modifier = Modifier.fillMaxSize()
+                ) {
+                    Text(
+                        text = "$${banknote.denomination}",
+                        fontSize = 8.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = if (banknote.denomination == 1) Color.Black else Color.White,
+                        maxLines = 1
+                    )
+                    Text(
+                        text = "M",
+                        fontSize = 5.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = if (banknote.denomination == 1) Color.Black else Color.White.copy(alpha = 0.7f)
+                    )
+                }
+            }
+        }
+
+        // Total amount badge
+        if (calculatedBanknotes.isNotEmpty()) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .offset(x = 8.dp, y = 8.dp)
+                    .background(Color.Black, shape = CircleShape)
+                    .padding(3.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "$$amount",
+                    fontSize = 6.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = Color.White,
+                    maxLines = 1
+                )
+            }
         }
     }
 }

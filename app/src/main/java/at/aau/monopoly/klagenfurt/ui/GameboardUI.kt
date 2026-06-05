@@ -205,6 +205,7 @@ fun GameboardScreen(
     val context = LocalContext.current
 
     var showOverlay by remember { mutableStateOf(false) }
+    var showFreeParkingOverlay by remember { mutableStateOf(false) }
 
     // Filter DICE_ROLLED entries from the log while the overlay is visible,
     // so the dice result appears in chat only after the animation finishes.
@@ -360,6 +361,7 @@ fun GameboardScreen(
                 onDismissOverlay = { viewModel.hidePlayerOverlay() },
                 movementAnimationState = movementState,
                 gameState = gameState,
+                onFreeParkingMoneyClick = { showFreeParkingOverlay = true },
                 modifier = Modifier.fillMaxSize()
             )
 
@@ -532,7 +534,47 @@ fun GameboardScreen(
                 },
                 onClose = { showOverlay = false }
             )
+            if (showFreeParkingOverlay) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(Color.Black.copy(alpha = 0.35f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .background(Color.White, RoundedCornerShape(18.dp))
+                            .padding(24.dp)
+                            .width(280.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Text(
+                            text = "💵 Free Parking Jackpot",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 20.sp,
+                            color = Color.Black
+                        )
 
+                        Text(
+                            text = "$${gameState?.freeParkingMoney ?: 0}",
+                            fontWeight = FontWeight.ExtraBold,
+                            fontSize = 32.sp,
+                            color = Color(0xFF2E7D32)
+                        )
+
+                        Text(
+                            text = "This amount is collected by the next player who lands on Free Parking.",
+                            fontSize = 14.sp,
+                            color = Color.DarkGray
+                        )
+
+                        Button(onClick = { showFreeParkingOverlay = false }) {
+                            Text("Close")
+                        }
+                    }
+                }
+            }
             // Payment overlays
             PayRentOverlay(
                 isVisible = showPayRentOverlay && currentTurnPlayer?.id == currentPlayerId,
@@ -665,6 +707,7 @@ internal class CircularRevealShape(private val progress: Float) : androidx.compo
         onDismissOverlay: () -> Unit = {},
         movementAnimationState: MovementAnimationState? = null,
         gameState: at.aau.monopoly.klagenfurt.model.GameState? = null,
+        onFreeParkingMoneyClick: () -> Unit = {},
         modifier: Modifier = Modifier
     ) {
         val myPlayer = players.find { it.id == currentPlayerId }
@@ -714,7 +757,8 @@ internal class CircularRevealShape(private val progress: Float) : androidx.compo
                                         if (it.currentStepIndex in it.path.indices) it.path[it.currentStepIndex] else null
                                     },
                                     animationComplete = movementAnimationState?.isComplete ?: true,
-                                    freeParkingMoney = gameState?.freeParkingMoney ?: 0
+                                    freeParkingMoney = gameState?.freeParkingMoney ?: 0,
+                                    onFreeParkingMoneyClick = onFreeParkingMoneyClick
                                 )
                             }
                         }

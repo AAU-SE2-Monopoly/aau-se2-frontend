@@ -1127,8 +1127,8 @@ private fun BoxScope.FreeParkingMoneyDisplay(
     Box(
         modifier = Modifier
             .align(Alignment.Center)
-            .offset(y = 4.dp)
-            .size(width = 54.dp, height = 38.dp)
+            .offset(y = 2.dp)
+            .size(width = 46.dp, height = 32.dp)
             .clickable { onClick() }
             .testTag("free_parking_money_stack"),
         contentAlignment = Alignment.Center
@@ -1140,7 +1140,7 @@ private fun BoxScope.FreeParkingMoneyDisplay(
                         x = (noteIndex * 2).dp,
                         y = (noteIndex * 1.5f).dp
                     )
-                    .size(width = 26.dp, height = 15.dp)
+                    .size(width = 22.dp, height = 13.dp)
                     .rotate((noteIndex * 2f) - 3f)
                     .background(banknote.color, RoundedCornerShape(2.dp))
                     .border(
@@ -1168,15 +1168,16 @@ private fun BoxScope.FreeParkingMoneyDisplay(
         Box(
             modifier = Modifier
                 .align(Alignment.BottomEnd)
+                .offset(x = (-2).dp, y = (-2).dp)
                 .background(Color.Black.copy(alpha = 0.85f), CircleShape)
                 .border(0.5.dp, Color.White.copy(alpha = 0.8f), CircleShape)
-                .padding(horizontal = 4.dp, vertical = 2.dp)
+                .padding(horizontal = 3.dp, vertical = 1.dp)
                 .testTag("free_parking_money_amount"),
             contentAlignment = Alignment.Center
         ) {
             Text(
                 text = "$$amount",
-                fontSize = 5.sp,
+                fontSize = 4.sp,
                 fontWeight = FontWeight.ExtraBold,
                 color = Color.White,
                 maxLines = 1

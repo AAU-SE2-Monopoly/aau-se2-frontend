@@ -134,7 +134,7 @@ fun DiceRollOverlay(
                     modifier = Modifier
                         .align(Alignment.TopEnd)
                         .padding(top = 8.dp, end = 8.dp)
-                        .clickable(enabled = !displayRolling || !hasShaken) {
+                        .clickable {
                             userDismissed = true
                             onClose()
                         }

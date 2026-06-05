@@ -64,6 +64,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import at.aau.monopoly.klagenfurt.DebugSettings
 import at.aau.monopoly.klagenfurt.ServiceLocator
 import at.aau.monopoly.klagenfurt.model.Player
 import at.aau.monopoly.klagenfurt.model.field.Field
@@ -82,7 +83,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import at.aau.monopoly.klagenfurt.model.field.ChanceField
 import at.aau.monopoly.klagenfurt.model.field.CommunityChestField
 import kotlin.math.hypot
-import at.aau.monopoly.klagenfurt.model.field.PropertyField
 import at.aau.monopoly.klagenfurt.model.enums.GamePhase
 import com.example.myapplication.BuildConfig
 
@@ -162,7 +162,6 @@ fun GameboardScreen(
     val lastDiceRoll by viewModel.lastDiceRoll.collectAsState()
     val canStartGame by viewModel.canStartGame.collectAsState()
     val canEndTurnForCurrentPlayer by viewModel.canEndTurnForCurrentPlayer.collectAsState()
-    val buildingActionPending by viewModel.buildingActionPending.collectAsState()
     val canBuyCurrentField =
         isBuyingPhaseForCurrentPlayer &&
                 isBuyableField &&
@@ -177,16 +176,6 @@ fun GameboardScreen(
     val myPlayer = gameState?.players?.find { it.id == currentPlayerId }
     val myPlayerIsActive = myPlayer != null && !myPlayer.eliminated && gameStarted
 
-    val ownedCompleteColorSetProperties = remember(fields, currentPlayerId) {
-        fields
-            .filterIsInstance<PropertyField>()
-            .filter { property ->
-                property.ownerId == currentPlayerId &&
-                        fields.filterIsInstance<PropertyField>()
-                            .filter { it.color == property.color }
-                            .all { it.ownerId == currentPlayerId }
-            }
-    }
 
     // Action Card states
     val currentActionCard by viewModel.currentActionCard.collectAsState()
@@ -216,7 +205,6 @@ fun GameboardScreen(
     val context = LocalContext.current
 
     var showOverlay by remember { mutableStateOf(false) }
-    var showBuildingManager by remember { mutableStateOf(false) }
 
     // Filter DICE_ROLLED entries from the log while the overlay is visible,
     // so the dice result appears in chat only after the animation finishes.
@@ -361,13 +349,21 @@ fun GameboardScreen(
                 players = players,
                 currentPlayerId = currentPlayerId,
                 currentTurnPlayer = currentTurnPlayer,
-                onPlayerCardClick = { player -> viewModel.showPlayerOverlay(player) },
+                onPlayerCardClick = { player ->
+                    if (player.id == currentPlayerId && myPlayerIsActive) {
+                        viewModel.showMortgageManagementOverlay()
+                    } else {
+                        viewModel.showPlayerOverlay(player)
+                    }
+                },
                 selectedPlayerForOverlay = selectedPlayer,
                 onDismissOverlay = { viewModel.hidePlayerOverlay() },
                 movementAnimationState = movementState,
                 gameState = gameState,
                 modifier = Modifier.fillMaxSize()
             )
+
+            val buttonWidth = 180.dp
 
             Column(
                 modifier = Modifier
@@ -379,9 +375,9 @@ fun GameboardScreen(
                 if (canStartGame) {
                     GlassButton(
                         onClick = { viewModel.startGame() },
-                        modifier = Modifier.padding(bottom = 8.dp)
+                        modifier = Modifier.width(buttonWidth)
                     ) {
-                        Text("Start Game")
+                        Text("▶️ Start Game")
                     }
                 }
 
@@ -390,7 +386,7 @@ fun GameboardScreen(
                     if (currentTurnPlayer.inJail) {
 
                         Text(
-                            text = "Im Gefängnis (Versuch ${currentTurnPlayer.jailTurns + 1}/3)",
+                            text = "🔒 Im Gefängnis (Versuch ${currentTurnPlayer.jailTurns + 1}/3)",
                             modifier = Modifier
                                 .background(
                                     Color.Black.copy(alpha = 0.35f),
@@ -403,7 +399,7 @@ fun GameboardScreen(
                         GlassButton(
                             onClick = { viewModel.payJailFine() },
                             enabled = currentTurnPlayer.money >= 50,
-                            modifier = Modifier.testTag("pay_jail_fine_button")
+                            modifier = Modifier.width(buttonWidth).testTag("pay_jail_fine_button")
                         ) {
                             Text("💰 50 M zahlen")
                         }
@@ -412,7 +408,7 @@ fun GameboardScreen(
                         if (currentTurnPlayer.getOutOfJailCards > 0) {
                             GlassButton(
                                 onClick = { viewModel.useJailCard() },
-                                modifier = Modifier.testTag("use_jail_card_button")
+                                modifier = Modifier.width(buttonWidth).testTag("use_jail_card_button")
                             ) {
                                 Text("🃏 Karte nutzen (${currentTurnPlayer.getOutOfJailCards})")
                             }
@@ -421,17 +417,14 @@ fun GameboardScreen(
 
                         GlassButton(
                             onClick = { showOverlay = true },
-                            modifier = Modifier.testTag("roll_dice_button")
+                            modifier = Modifier.width(buttonWidth).testTag("roll_dice_button")
                         ) {
                             Text("🎲 Pasch versuchen")
                         }
                     } else {
                         GlassButton(
-                            onClick = {
-
-                                showOverlay = true
-                            },
-                            modifier = Modifier.testTag("roll_dice_button")
+                            onClick = { showOverlay = true },
+                            modifier = Modifier.width(buttonWidth).testTag("roll_dice_button")
                         ) {
                             Text("🎲 Roll Dice")
                         }
@@ -441,22 +434,18 @@ fun GameboardScreen(
                 if (canEndTurnForCurrentPlayer && !showActionCardOverlay) {
                     GlassButton(
                         onClick = { viewModel.endTurn() },
-                        modifier = Modifier
-                            .padding(top = 8.dp)
-                            .testTag("end_turn_button")
+                        modifier = Modifier.width(buttonWidth).testTag("end_turn_button")
                     ) {
-                        Text("End Turn")
+                        Text("⏭️ End Turn")
                     }
                 }
 
                 if (hasPendingPayment && !showPayRentOverlay && currentTurnPlayer?.id == currentPlayerId) {
                     GlassButton(
                         onClick = { viewModel.showPayRentOverlay(currentRentAmount, currentRentOwnerId, currentRentFieldId) },
-                        modifier = Modifier
-                            .padding(top = 8.dp)
-                            .testTag("pay_rent_reopen_button")
+                        modifier = Modifier.width(buttonWidth).testTag("pay_rent_reopen_button")
                     ) {
-                        Text("Pay Rent Due")
+                        Text("💸 Pay Rent Due")
                     }
                 }
 
@@ -465,61 +454,9 @@ fun GameboardScreen(
                         onClick = {
                             viewModel.buyProperty(currentTurnPlayer.position)
                         },
-                        modifier = Modifier
-                            .padding(top = 8.dp)
-                            .testTag("buy_property_button")
+                        modifier = Modifier.width(buttonWidth).testTag("buy_property_button")
                     ) {
-                        Text("Buy Property")
-                    }
-                }
-
-                // Visible any time during the game for any non-eliminated player (Monopoly rule):
-                // mortgage/unmortgage/sell buildings are allowed at any point.
-                if (myPlayerIsActive == true) {
-                    GlassButton(
-                        onClick = { viewModel.showMortgageManagementOverlay() },
-                        modifier = Modifier
-                            .padding(top = 8.dp)
-                            .testTag("manage_properties_button")
-                    ) {
-                        Text("Manage Properties")
-                    }
-                }
-
-                /** DEBUG remove this block of code to remove */
-                if (BuildConfig.DEBUG && currentTurnPlayer?.id == currentPlayerId) {
-                    GlassButton(
-                        onClick = { viewModel.debugForwardGame() },
-                        modifier = Modifier
-                            .padding(top = 8.dp)
-                            .testTag("debug_forward_game_button")
-                    ) {
-                        Text("DEBUG: Forward Game")
-                    }
-
-                    GlassButton(
-                        onClick = { viewModel.debugSetupBankruptcy() },
-                        modifier = Modifier
-                            .padding(top = 8.dp)
-                            .testTag("debug_bankruptcy_setup_button")
-                    ) {
-                        Text("DEBUG: Bankruptcy Setup")
-                    }
-                }
-
-                if (
-                    ownedCompleteColorSetProperties.isNotEmpty() &&
-                    myPlayerIsActive == true &&
-                    !isPayingRent &&
-                    canEndTurnForCurrentPlayer
-                ) {
-                    GlassButton(
-                        onClick = { showBuildingManager = true },
-                        modifier = Modifier
-                            .padding(top = 8.dp)
-                            .testTag("manage_buildings_button")
-                    ) {
-                        Text("Manage Buildings")
+                        Text("🏠 Buy Property")
                     }
                 }
 
@@ -529,7 +466,8 @@ fun GameboardScreen(
                         alreadyDrawn = false,
                         enabled = !showActionCardOverlay,
                         label = "🎰 Draw Chance",
-                        onDraw = { viewModel.drawCard("CHANCE") }
+                        onDraw = { viewModel.drawCard("CHANCE") },
+                        modifier = Modifier.width(buttonWidth)
                     )
                 }
 
@@ -539,38 +477,40 @@ fun GameboardScreen(
                         alreadyDrawn = false,
                         enabled = !showActionCardOverlay,
                         label = "⭐ Draw Community",
-                        onDraw = { viewModel.drawCard("COMMUNITY_CHEST") }
+                        onDraw = { viewModel.drawCard("COMMUNITY_CHEST") },
+                        modifier = Modifier.width(buttonWidth)
                     )
                 }
 
             }
 
-            GameboardOverlayLayer(eventLog = bufferedEventLog)
-
-            LaunchedEffect(
-                showBuildingManager,
-                ownedCompleteColorSetProperties,
-                canEndTurnForCurrentPlayer
-            ) {
-                if (
-                    showBuildingManager &&
-                    (!canEndTurnForCurrentPlayer || ownedCompleteColorSetProperties.isEmpty())
+            /** DEBUG remove this block of code to remove */
+            if (BuildConfig.DEBUG && DebugSettings.isEnabled && currentTurnPlayer?.id == currentPlayerId) {
+                Column(
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(20.dp),
+                    horizontalAlignment = Alignment.End,
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    showBuildingManager = false
+                    GlassButton(
+                        onClick = { viewModel.debugForwardGame() },
+                        modifier = Modifier.width(buttonWidth).testTag("debug_forward_game_button")
+                    ) {
+                        Text("⚡ DEBUG: Forward")
+                    }
+
+                    GlassButton(
+                        onClick = { viewModel.debugSetupBankruptcy() },
+                        modifier = Modifier.width(buttonWidth).testTag("debug_bankruptcy_setup_button")
+                    ) {
+                        Text("💀 DEBUG: Bankrupt")
+                    }
                 }
             }
 
-            if (showBuildingManager) {
-                BuildingManagerOverlay(
-                    properties = ownedCompleteColorSetProperties,
-                    onBuyHouse = { viewModel.buyHouse(it) },
-                    onBuyHotel = { viewModel.buyHotel(it) },
-                    onSellHouse = { viewModel.sellHouse(it) },
-                    onSellHotel = { viewModel.sellHotel(it) },
-                    onDismiss = { showBuildingManager = false },
-                    isBuildingActionPending = buildingActionPending
-                )
-            }
+            GameboardOverlayLayer(eventLog = bufferedEventLog)
+
 
             ActionCardOverlay(
                 isVisible = showActionCardOverlay,
@@ -682,29 +622,29 @@ fun GameboardScreen(
         }
     }
 
-    /**
-     * Shape that clips to a circle expanding from center based on [progress] (0..1).
-     */
-    class CircularRevealShape(private val progress: Float) : androidx.compose.ui.graphics.Shape {
-        override fun createOutline(
-            size: Size,
-            layoutDirection: androidx.compose.ui.unit.LayoutDirection,
-            density: androidx.compose.ui.unit.Density
-        ): androidx.compose.ui.graphics.Outline {
-            val center = Offset(size.width / 2f, size.height / 2f)
-            val maxRadius = hypot(size.width, size.height) / 2f
-            val radius = maxRadius * progress
-            val path = Path().apply {
-                addOval(
-                    androidx.compose.ui.geometry.Rect(
-                        center = center,
-                        radius = radius
-                    )
+/**
+ * Shape that clips to a circle expanding from center based on [progress] (0..1).
+ */
+internal class CircularRevealShape(private val progress: Float) : androidx.compose.ui.graphics.Shape {
+    override fun createOutline(
+        size: Size,
+        layoutDirection: androidx.compose.ui.unit.LayoutDirection,
+        density: androidx.compose.ui.unit.Density
+    ): androidx.compose.ui.graphics.Outline {
+        val center = Offset(size.width / 2f, size.height / 2f)
+        val maxRadius = hypot(size.width, size.height) / 2f
+        val radius = maxRadius * progress
+        val path = Path().apply {
+            addOval(
+                androidx.compose.ui.geometry.Rect(
+                    center = center,
+                    radius = radius
                 )
-            }
-            return androidx.compose.ui.graphics.Outline.Generic(path)
+            )
         }
+        return androidx.compose.ui.graphics.Outline.Generic(path)
     }
+}
 
     @Composable
     fun BoxScope.GameboardOverlayLayer(eventLog: List<GameViewModel.LogEntry>) {
@@ -754,7 +694,6 @@ fun GameboardScreen(
                         val sh = this.maxHeight.value
 
                         FullscreenImage(R.drawable.background, "Klagenfurt-Map")
-                        FullscreenImage(R.drawable.pathreworked, "Path - Klagenfurt-Ring")
                         // Semi-transparent warm overlay to match field backgrounds
                         Box(
                             modifier = Modifier
@@ -881,12 +820,13 @@ fun GameboardScreen(
         alreadyDrawn: Boolean,
         enabled: Boolean,
         label: String,
-        onDraw: () -> Unit
+        onDraw: () -> Unit,
+        modifier: Modifier = Modifier
     ) {
         GlassButton(
             onClick = onDraw,
             enabled = enabled && !alreadyDrawn,
-            modifier = Modifier.padding(top = 8.dp)
+            modifier = modifier
         ) {
             Text(if (alreadyDrawn) "✓ Card Drawn" else label)
         }

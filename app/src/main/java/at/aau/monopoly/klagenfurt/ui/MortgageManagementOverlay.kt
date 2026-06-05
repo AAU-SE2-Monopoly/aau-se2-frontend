@@ -24,9 +24,12 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -188,12 +191,9 @@ fun MortgageManagementContent(
 
         val cardWidth = (screenWidth * 0.28f).coerceIn(80.dp, 160.dp)
         val cardHeight = cardWidth * 1.4f
-        val buttonHeight = (screenHeight * 0.075f).coerceIn(32.dp, 44.dp)
-        val actionChipHeight = (screenHeight * 0.065f).coerceIn(30.dp, 40.dp)
+        val actionChipHeight = (screenHeight * 0.065f).coerceIn(36.dp, 44.dp)
 
-        val headerTextSize = (screenHeight.value * 0.02f).coerceIn(14f, 18f).sp
         val balanceTextSize = (screenHeight.value * 0.016f).coerceIn(12f, 14f).sp
-        val closeButtonTextSize = (screenHeight.value * 0.017f).coerceIn(12f, 14f).sp
         val emptyMessageSize = (screenHeight.value * 0.02f).coerceIn(14f, 18f).sp
 
         Surface(
@@ -209,23 +209,37 @@ fun MortgageManagementContent(
                     .fillMaxWidth()
                     .padding(12.dp)
             ) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(Color(0xFF1565C0), RoundedCornerShape(12.dp))
-                        .padding(vertical = 8.dp),
-                    contentAlignment = Alignment.Center
+                // Back button
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.Start
                 ) {
-                    Text(
-                        text = "Property Management",
-                        color = Color.White,
-                        fontSize = headerTextSize,
-                        fontWeight = FontWeight.ExtraBold,
-                        letterSpacing = 1.sp
-                    )
+                    Button(
+                        onClick = onDismiss,
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color.Transparent,
+                            contentColor = Color.White
+                        ),
+                        elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Back",
+                            tint = Color.White,
+                            modifier = Modifier.height(18.dp).width(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = "Back",
+                            fontSize = 14.sp,
+                            color = Color.White,
+                            fontWeight = FontWeight.Medium,
+                            letterSpacing = 1.sp
+                        )
+                    }
                 }
 
-                Spacer(modifier = Modifier.height(6.dp))
 
                 Box(
                     modifier = Modifier
@@ -313,25 +327,6 @@ fun MortgageManagementContent(
                     }
                 }
 
-                Spacer(modifier = Modifier.height(8.dp))
-
-                Button(
-                    onClick = onDismiss,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(buttonHeight),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFF424242)
-                    ),
-                    shape = RoundedCornerShape(12.dp)
-                ) {
-                    Text(
-                        text = "Close",
-                        fontSize = closeButtonTextSize,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.White
-                    )
-                }
             }
         }
 
@@ -420,21 +415,30 @@ fun MortgageManagementContent(
 
                         Spacer(modifier = Modifier.height(14.dp))
 
-                        Column(
+                        Row(
                             modifier = Modifier.fillMaxWidth(),
-                            verticalArrangement = Arrangement.spacedBy(10.dp)
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
                             Button(
                                 onClick = { mortgagePendingProperty = null },
                                 modifier = Modifier
-                                    .fillMaxWidth()
+                                    .weight(1f)
                                     .height(40.dp),
                                 colors = ButtonDefaults.buttonColors(
-                                    containerColor = Color(0xFF424242)
+                                    containerColor = Color.Transparent,
+                                    contentColor = Color.White
                                 ),
-                                shape = RoundedCornerShape(10.dp)
+                                shape = RoundedCornerShape(10.dp),
+                                elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp)
                             ) {
-                                Text("Cancel", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                                    contentDescription = "Back",
+                                    tint = Color.White,
+                                    modifier = Modifier.height(16.dp).width(16.dp)
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("Back", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.White)
                             }
                             Button(
                                 onClick = {
@@ -444,7 +448,7 @@ fun MortgageManagementContent(
                                     selectedProperty = findNextInGroup(sortedProperties, pending) { it.canMortgage }
                                 },
                                 modifier = Modifier
-                                    .fillMaxWidth()
+                                    .weight(1f)
                                     .height(40.dp),
                                 colors = ButtonDefaults.buttonColors(
                                     containerColor = Color(0xFFC62828)
@@ -757,109 +761,87 @@ private fun PropertyActionPanel(
             HorizontalDivider(color = Color.White.copy(alpha = 0.15f), thickness = 1.dp)
             Spacer(modifier = Modifier.height(6.dp))
 
-            // Sell / debit actions — always occupy fixed height so buy row never shifts
-            Box(
-                modifier = Modifier.fillMaxWidth().height(chipHeight)
+            // All actions in a single horizontal row
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally)
             ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    if (!property.isMortgaged && property.houses == 0 && !property.hasHotel) {
-                        ActionChip(
-                            text = "Mortgage",
-                            sub = "+€${property.mortgageValue}",
-                            backgroundColor = Color(0xFFC62828),
-                            enabled = !actionInFlight && property.canMortgage,
-                            chipHeight = chipHeight,
-                            modifier = Modifier.weight(1f),
-                            onClick = onMortgage,
-                            textSize = chipMainTextSize,
-                            subTextSize = chipSubTextSize
-                        )
-                    }
-
-                    if (property.isMortgaged) {
-                        ActionChip(
-                            text = "Unmortgage",
-                            sub = "-€${property.unmortgageCost}",
-                            backgroundColor = Color(0xFF2E7D32),
-                            enabled = !isPayingRent && canUnmortgage && !actionInFlight,
-                            chipHeight = chipHeight,
-                            modifier = Modifier.weight(1f),
-                            onClick = onUnmortgage,
-                            textSize = chipMainTextSize,
-                            subTextSize = chipSubTextSize
-                        )
-                    }
-
-                    if (property.color != null && property.houses > 0 && !property.isMortgaged) {
-                        ActionChip(
-                            text = "Sell House",
-                            sub = "+€${property.sellHouseValue}",
-                            backgroundColor = Color(0xFFC77700),
-                            enabled = !actionInFlight && property.canSellHouse,
-                            chipHeight = chipHeight,
-                            modifier = Modifier.weight(1f),
-                            onClick = onSellHouse,
-                            textSize = chipMainTextSize,
-                            subTextSize = chipSubTextSize
-                        )
-                    }
-
-                    if (property.color != null && property.hasHotel && !property.isMortgaged) {
-                        ActionChip(
-                            text = "Sell Hotel",
-                            sub = "+€${property.sellHotelValue}",
-                            backgroundColor = Color(0xFFC77700),
-                            enabled = !actionInFlight && property.canSellHotel,
-                            chipHeight = chipHeight,
-                            modifier = Modifier.weight(1f),
-                            onClick = onSellHotel,
-                            textSize = chipMainTextSize,
-                            subTextSize = chipSubTextSize
-                        )
-                    }
+                if (!property.isMortgaged && property.houses == 0 && !property.hasHotel) {
+                    ActionChip(
+                        text = "Mortgage",
+                        sub = "+€${property.mortgageValue}",
+                        backgroundColor = Color(0xFFC62828),
+                        enabled = !actionInFlight && property.canMortgage,
+                        chipHeight = chipHeight,
+                        onClick = onMortgage,
+                        textSize = chipMainTextSize,
+                        subTextSize = chipSubTextSize
+                    )
                 }
-            }
 
-            Spacer(modifier = Modifier.height(6.dp))
+                if (property.isMortgaged) {
+                    ActionChip(
+                        text = "Unmortgage",
+                        sub = "-€${property.unmortgageCost}",
+                        backgroundColor = Color(0xFF2E7D32),
+                        enabled = !isPayingRent && canUnmortgage && !actionInFlight,
+                        chipHeight = chipHeight,
+                        onClick = onUnmortgage,
+                        textSize = chipMainTextSize,
+                        subTextSize = chipSubTextSize
+                    )
+                }
 
-            // Buy actions — always occupy fixed height
-            Box(
-                modifier = Modifier.fillMaxWidth().height(chipHeight)
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    if (property.color != null && !property.isMortgaged && !property.hasHotel && property.houses < 4) {
-                        ActionChip(
-                            text = "Buy House",
-                            sub = "-€${property.houseCost}",
-                            backgroundColor = Color(0xFF2E7D32),
-                            enabled = !isPayingRent && !actionInFlight && currentMoney >= property.houseCost && property.canBuyHouse,
-                            chipHeight = chipHeight,
-                            modifier = Modifier.weight(1f),
-                            onClick = onBuyHouse,
-                            textSize = chipMainTextSize,
-                            subTextSize = chipSubTextSize
-                        )
-                    }
+                if (property.color != null && property.houses > 0 && !property.isMortgaged) {
+                    ActionChip(
+                        text = "Sell House",
+                        sub = "+€${property.sellHouseValue}",
+                        backgroundColor = Color(0xFFC77700),
+                        enabled = !actionInFlight && property.canSellHouse,
+                        chipHeight = chipHeight,
+                        onClick = onSellHouse,
+                        textSize = chipMainTextSize,
+                        subTextSize = chipSubTextSize
+                    )
+                }
 
-                    if (property.color != null && !property.isMortgaged && !property.hasHotel && property.houses == 4) {
-                        ActionChip(
-                            text = "Buy Hotel",
-                            sub = "-€${property.hotelCost}",
-                            backgroundColor = Color(0xFF1565C0),
-                            enabled = !isPayingRent && !actionInFlight && currentMoney >= property.hotelCost && property.canBuyHotel,
-                            chipHeight = chipHeight,
-                            modifier = Modifier.weight(1f),
-                            onClick = onBuyHotel,
-                            textSize = chipMainTextSize,
-                            subTextSize = chipSubTextSize
-                        )
-                    }
+                if (property.color != null && property.hasHotel && !property.isMortgaged) {
+                    ActionChip(
+                        text = "Sell Hotel",
+                        sub = "+€${property.sellHotelValue}",
+                        backgroundColor = Color(0xFFC77700),
+                        enabled = !actionInFlight && property.canSellHotel,
+                        chipHeight = chipHeight,
+                        onClick = onSellHotel,
+                        textSize = chipMainTextSize,
+                        subTextSize = chipSubTextSize
+                    )
+                }
+
+                if (property.color != null && !property.isMortgaged && !property.hasHotel && property.houses < 4) {
+                    ActionChip(
+                        text = "Buy House",
+                        sub = "-€${property.houseCost}",
+                        backgroundColor = Color(0xFF2E7D32),
+                        enabled = !isPayingRent && !actionInFlight && currentMoney >= property.houseCost && property.canBuyHouse,
+                        chipHeight = chipHeight,
+                        onClick = onBuyHouse,
+                        textSize = chipMainTextSize,
+                        subTextSize = chipSubTextSize
+                    )
+                }
+
+                if (property.color != null && !property.isMortgaged && !property.hasHotel && property.houses == 4) {
+                    ActionChip(
+                        text = "Buy Hotel",
+                        sub = "-€${property.hotelCost}",
+                        backgroundColor = Color(0xFF1565C0),
+                        enabled = !isPayingRent && !actionInFlight && currentMoney >= property.hotelCost && property.canBuyHotel,
+                        chipHeight = chipHeight,
+                        onClick = onBuyHotel,
+                        textSize = chipMainTextSize,
+                        subTextSize = chipSubTextSize
+                    )
                 }
             }
 

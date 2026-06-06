@@ -260,8 +260,13 @@ class FakeGameService : GameService {
 
     override fun useJailCard(){}
 
+
+    var reportCheaterCalled = false
+    var lastReportedPlayerId = ""
+
     override fun reportCheater(reportedPlayerId: String) {
-        // Mock implementation for testing
+        reportCheaterCalled = true
+        lastReportedPlayerId = reportedPlayerId
     }
 
     fun emitGameState(gameState: GameState) {

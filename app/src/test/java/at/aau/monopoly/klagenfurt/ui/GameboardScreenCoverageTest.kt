@@ -71,7 +71,7 @@ class GameboardScreenCoverageTest {
         composeTestRule.waitForIdle()
 
         // Jail status text
-        composeTestRule.onNodeWithText("🔒 Im Gefängnis (Versuch 2/3)", substring = true).assertIsDisplayed()
+        composeTestRule.onNodeWithText("🔒 In Jail (Attempt 2/3)", substring = true).assertIsDisplayed()
         // Pay fine button
         composeTestRule.onNodeWithTag("pay_jail_fine_button").assertExists()
         // Roll dice (Pasch versuchen)
@@ -110,7 +110,7 @@ class GameboardScreenCoverageTest {
         composeTestRule.waitForIdle()
 
         composeTestRule.onNodeWithTag("use_jail_card_button").assertExists()
-        composeTestRule.onNodeWithText("🃏 Karte nutzen (2)").assertIsDisplayed()
+        composeTestRule.onNodeWithText("🃏 Use Card (2)").assertIsDisplayed()
     }
 
     @Test

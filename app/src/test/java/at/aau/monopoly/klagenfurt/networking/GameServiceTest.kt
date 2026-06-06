@@ -45,6 +45,7 @@ class GameServiceTest {
 
         override fun payJailFine() {}
         override fun useJailCard() {}
+        override fun reportCheater(reportedPlayerId: String) {}
 
         override suspend fun createGame(
             playerName: String,

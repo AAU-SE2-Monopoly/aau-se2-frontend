@@ -147,7 +147,7 @@ fun SettingsScreen(onBackClicked: () -> Unit) {
             },
             text = {
                 Text(
-                    text = "Press the Volume Up button during your turn to automatically roll a double 6!",
+                    text = "Press the Volume Up button during your turn to automatically roll a double 6! But beware: if opponents catch and report you, you'll pay a 500M fine!",
                     color = Color.White.copy(alpha = 0.9f),
                     fontSize = 16.sp
                 )

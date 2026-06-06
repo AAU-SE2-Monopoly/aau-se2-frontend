@@ -4,6 +4,7 @@ import android.app.Activity
 import android.content.pm.ActivityInfo
 import android.os.Bundle
 import android.util.Log
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.viewModels
@@ -18,10 +19,12 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.BoxWithConstraintsScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -107,10 +110,10 @@ class GameboardUI : ComponentActivity() {
 
     override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
         if (keyCode == KeyEvent.KEYCODE_VOLUME_UP) {
-            // Cheat im ViewModel aktivieren
+            // Activate cheat in ViewModel
             viewModel.activateCheatForNextRoll()
             Log.d("DiceDebug", "Cheat activated via Volume Up!")
-            // WICHTIG: true zurückgeben, damit sich die Lautstärke nicht ändert
+            // IMPORTANT: Return true so volume doesn't change
             return true
         }
         return super.onKeyDown(keyCode, event)
@@ -138,6 +141,15 @@ fun GameboardScreen(
     viewModel: GameViewModel,
     shakeEventsOverride: Flow<Unit>? = null
 ) {
+    val context = LocalContext.current
+
+    // NEW: Listen to drama events (cheater reports) and show Toast
+    LaunchedEffect(Unit) {
+        viewModel.dramaEvent.collect { msg ->
+            Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
+        }
+    }
+
     LaunchedEffect(Unit) {
         viewModel.syncGameboardEntryState()
     }
@@ -202,8 +214,6 @@ fun GameboardScreen(
     val bankruptcyTotalDebt by viewModel.bankruptcyTotalDebt.collectAsState()
     val bankruptcyPropertiesOwned by viewModel.bankruptcyPropertiesOwned.collectAsState()
     val hasPendingPayment by viewModel.hasPendingPayment.collectAsState()
-
-    val context = LocalContext.current
 
     var showOverlay by remember { mutableStateOf(false) }
     var showFreeParkingOverlay by remember { mutableStateOf(false) }
@@ -361,6 +371,8 @@ fun GameboardScreen(
                 selectedPlayerForOverlay = selectedPlayer,
                 onDismissOverlay = { viewModel.hidePlayerOverlay() },
                 movementAnimationState = movementState,
+                // NEW: Pass reportCheater to the content layer
+                onReportCheater = { reportedPlayerId -> viewModel.reportCheater(reportedPlayerId) },
                 gameState = gameState,
                 onFreeParkingMoneyClick = { showFreeParkingOverlay = true },
                 modifier = Modifier.fillMaxSize()
@@ -389,7 +401,7 @@ fun GameboardScreen(
                     if (currentTurnPlayer.inJail) {
 
                         Text(
-                            text = "🔒 Im Gefängnis (Versuch ${currentTurnPlayer.jailTurns + 1}/3)",
+                            text = "🔒 In Jail (Attempt ${currentTurnPlayer.jailTurns + 1}/3)",
                             modifier = Modifier
                                 .background(
                                     Color.Black.copy(alpha = 0.35f),
@@ -404,7 +416,7 @@ fun GameboardScreen(
                             enabled = currentTurnPlayer.money >= 50,
                             modifier = Modifier.width(buttonWidth).testTag("pay_jail_fine_button")
                         ) {
-                            Text("💰 50 M zahlen")
+                            Text("💰 Pay 50 M")
                         }
 
 
@@ -413,7 +425,7 @@ fun GameboardScreen(
                                 onClick = { viewModel.useJailCard() },
                                 modifier = Modifier.width(buttonWidth).testTag("use_jail_card_button")
                             ) {
-                                Text("🃏 Karte nutzen (${currentTurnPlayer.getOutOfJailCards})")
+                                Text("🃏 Use Card (${currentTurnPlayer.getOutOfJailCards})")
                             }
                         }
 
@@ -422,7 +434,7 @@ fun GameboardScreen(
                             onClick = { showOverlay = true },
                             modifier = Modifier.width(buttonWidth).testTag("roll_dice_button")
                         ) {
-                            Text("🎲 Pasch versuchen")
+                            Text("🎲 Attempt Double")
                         }
                     } else {
                         GlassButton(
@@ -606,33 +618,33 @@ fun GameboardScreen(
             )
         }
 
-            // Back button animated from top
-            val activity = context as? Activity
-            val backOffsetYDp = backButtonOffsetY.value.dp
-            GlassButton(
-                onClick = { activity?.finish() },
-                modifier = Modifier
-                    .align(Alignment.TopStart)
-                    .padding(16.dp)
-                    .offset(y = backOffsetYDp)
-            ) {
-                Icon(
-                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                    contentDescription = "Back",
-                    tint = Color.White,
-                    modifier = Modifier.size(18.dp)
-                )
-                Spacer(modifier = Modifier.width(6.dp))
-                Text(
-                    text = "Back",
-                    fontSize = 14.sp,
-                    color = Color.White,
-                    fontWeight = FontWeight.Medium,
-                    letterSpacing = 1.sp
-                )
-            }
+        // Back button animated from top
+        val activity = context as? Activity
+        val backOffsetYDp = backButtonOffsetY.value.dp
+        GlassButton(
+            onClick = { activity?.finish() },
+            modifier = Modifier
+                .align(Alignment.TopStart)
+                .padding(16.dp)
+                .offset(y = backOffsetYDp)
+        ) {
+            Icon(
+                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                contentDescription = "Back",
+                tint = Color.White,
+                modifier = Modifier.size(18.dp)
+            )
+            Spacer(modifier = Modifier.width(6.dp))
+            Text(
+                text = "Back",
+                fontSize = 14.sp,
+                color = Color.White,
+                fontWeight = FontWeight.Medium,
+                letterSpacing = 1.sp
+            )
         }
     }
+}
 
 /**
  * Shape that clips to a circle expanding from center based on [progress] (0..1).
@@ -658,14 +670,29 @@ internal class CircularRevealShape(private val progress: Float) : androidx.compo
     }
 }
 
-    @Composable
-    fun BoxScope.GameboardOverlayLayer(eventLog: List<GameViewModel.LogEntry>) {
-        ChatOverlay(
-            entries = eventLog,
-            modifier = Modifier.align(Alignment.TopCenter)
-        )
-    }
+@Composable
+fun BoxScope.GameboardOverlayLayer(eventLog: List<GameViewModel.LogEntry>) {
+    ChatOverlay(
+        entries = eventLog,
+        modifier = Modifier.align(Alignment.TopCenter)
+    )
+}
 
+@Composable
+fun GameboardContent(
+    fields: List<Field>,
+    players: List<Player> = emptyList(),
+    currentPlayerId: String = "",
+    currentTurnPlayer: Player? = null,
+    onPlayerCardClick: (Player) -> Unit = {},
+    selectedPlayerForOverlay: Player? = null,
+    onDismissOverlay: () -> Unit = {},
+    movementAnimationState: MovementAnimationState? = null,
+    onReportCheater: (String) -> Unit = {}, // NEW: Report Lambda
+    modifier: Modifier = Modifier
+) {
+    val myPlayer = players.find { it.id == currentPlayerId }
+    val otherPlayers = players.filter { it.id != currentPlayerId }
     @Composable
     fun GameboardContent(
         fields: List<Field>,
@@ -683,37 +710,54 @@ internal class CircularRevealShape(private val progress: Float) : androidx.compo
         val myPlayer = players.find { it.id == currentPlayerId }
         val otherPlayers = players.filter { it.id != currentPlayerId }
 
-        val currentField = currentTurnPlayer?.let { p ->
-            fields.getOrNull(p.position)
-        }
+    val currentField = currentTurnPlayer?.let { p ->
+        fields.getOrNull(p.position)
+    }
 
-        val playersByField: Map<Int, List<Player>> = remember(players) {
-            players.groupBy { it.position }
-        }
+    val playersByField: Map<Int, List<Player>> = remember(players) {
+        players.groupBy { it.position }
+    }
 
-        BoxWithConstraints(modifier = modifier.fillMaxSize()) {
-            val panelWidth = maxWidth * 0.32f
-            val panelMargin = 8.dp
-            // Board layer (zoomable)
-            ZoomableWrapper(modifier = Modifier.fillMaxSize()) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .aspectRatio(3840f / 2160f),
-                    contentAlignment = Alignment.Center
-                ) {
-                    BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
-                        val sw = this.maxWidth.value
-                        val sh = this.maxHeight.value
+    BoxWithConstraints(modifier = modifier.fillMaxSize()) {
+        val panelWidth = maxWidth * 0.32f
+        val panelMargin = 8.dp
+        // Board layer (zoomable)
+        ZoomableWrapper(modifier = Modifier.fillMaxSize()) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .aspectRatio(3840f / 2160f),
+                contentAlignment = Alignment.Center
+            ) {
+                BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+                    val sw = this.maxWidth.value
+                    val sh = this.maxHeight.value
 
-                        FullscreenImage(R.drawable.background, "Klagenfurt-Map")
-                        // Semi-transparent warm overlay to match field backgrounds
-                        Box(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .background(Color(0xFFFFF3E0).copy(alpha = 0.40f))
-                        )
+                    FullscreenImage(R.drawable.background, "Klagenfurt-Map")
+                    // Semi-transparent warm overlay to match field backgrounds
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(Color(0xFFFFF3E0).copy(alpha = 0.40f))
+                    )
 
+                    fields.forEachIndexed { index, field ->
+                        key(field.id) {
+                            FieldItem(
+                                index = index,
+                                field = field,
+                                sw = sw,
+                                sh = sh,
+                                playersOnField = playersByField[field.id] ?: emptyList(),
+                                animatingPlayerId = movementAnimationState?.playerId,
+                                animatingStep = movementAnimationState?.let {
+                                    if (it.currentStepIndex in it.path.indices) it.path[it.currentStepIndex] else null
+                                },
+                                animationComplete = movementAnimationState?.isComplete ?: true
+                            )
+                        }
+                    }
+                }
                         fields.forEachIndexed { index, field ->
                             key(field.id) {
                                 FieldItem(
@@ -735,31 +779,33 @@ internal class CircularRevealShape(private val progress: Float) : androidx.compo
                     }
 
 
-                    // Field card centered on the board
-                    if (currentField != null) {
-                        BoxWithConstraints {
-                            val cw = (maxWidth * 0.12f).coerceAtMost(140.dp)
-                            val ch = cw * (224f / 140f)
-                            FieldCardUI(
-                                field = currentField,
-                                cardWidth = cw,
-                                cardHeight = ch,
-                                modifier = Modifier.padding(8.dp)
-                            )
-                        }
+                // Field card centered on the board
+                if (currentField != null) {
+                    BoxWithConstraints {
+                        val cw = (maxWidth * 0.12f).coerceAtMost(140.dp)
+                        val ch = cw * (224f / 140f)
+                        FieldCardUI(
+                            field = currentField,
+                            cardWidth = cw,
+                            cardHeight = ch,
+                            modifier = Modifier.padding(8.dp)
+                        )
                     }
                 }
             }
+        }
 
-            // Overlay: Left panel – other players
-            if (otherPlayers.isNotEmpty()) {
-                PlayerPanel(
-                    alignment = Alignment.CenterStart,
-                    panelWidth = panelWidth,
-                    panelMargin = panelMargin,
-                    verticalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterVertically)
-                ) {
-                    otherPlayers.forEach { player ->
+        // Overlay: Left panel – other players
+        if (otherPlayers.isNotEmpty()) {
+            PlayerPanel(
+                alignment = Alignment.CenterStart,
+                panelWidth = panelWidth,
+                panelMargin = panelMargin,
+                verticalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterVertically)
+            ) {
+                otherPlayers.forEach { player ->
+                    // NEW: Wrap PlayerInfo in a Column to add the Report Button below it
+                    Column(horizontalAlignment = Alignment.End) {
                         PlayerInfoPanel(
                             player = player,
                             fields = fields,
@@ -767,108 +813,134 @@ internal class CircularRevealShape(private val progress: Float) : androidx.compo
                             isCurrentTurn = player.id == currentTurnPlayer?.id,
                             onCardClick = { onPlayerCardClick(player) }
                         )
+
+                        // NEW: 🚨 Report Button
+                        Button(
+                            onClick = { onReportCheater(player.id) },
+                            modifier = Modifier
+                                .padding(top = 4.dp, end = 4.dp)
+                                .height(26.dp),
+                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFAA0000)),
+                            shape = RoundedCornerShape(6.dp)
+                        ) {
+                            Text("🚨 Report", fontSize = 11.sp, color = Color.White, fontWeight = FontWeight.Bold)
+                        }
                     }
                 }
             }
+        }
 
 
-            // Overlay: Right panel – own player
-            if (myPlayer != null) {
-                PlayerPanel(
-                    alignment = Alignment.CenterEnd,
-                    panelWidth = panelWidth,
-                    panelMargin = panelMargin,
-                    verticalArrangement = Arrangement.Center
-                ) {
-                    PlayerInfoPanel(
-                        player = myPlayer,
-                        fields = fields,
-                        cards = emptyList(),
-                        isCurrentTurn = myPlayer.id == currentTurnPlayer?.id,
-                        isOwnPlayer = true,
-                        onCardClick = { onPlayerCardClick(myPlayer) }
-                    )
-                }
-            }
-
-            // Player Property Overlay
-            selectedPlayerForOverlay?.let { player ->
-                PlayerPropertyOverlay(
-                    player = player,
-                    allFields = fields,
-                    onDismiss = onDismissOverlay
+        // Overlay: Right panel – own player
+        if (myPlayer != null) {
+            PlayerPanel(
+                alignment = Alignment.CenterEnd,
+                panelWidth = panelWidth,
+                panelMargin = panelMargin,
+                verticalArrangement = Arrangement.Center
+            ) {
+                PlayerInfoPanel(
+                    player = myPlayer,
+                    fields = fields,
+                    cards = emptyList(),
+                    isCurrentTurn = myPlayer.id == currentTurnPlayer?.id,
+                    isOwnPlayer = true,
+                    onCardClick = { onPlayerCardClick(myPlayer) }
                 )
             }
         }
-    }
 
-    /**
-     * Semi-transparent rounded button used throughout the gameboard UI.
-     */
-    @Composable
-    private fun GlassButton(
-        onClick: () -> Unit,
-        modifier: Modifier = Modifier,
-        enabled: Boolean = true,
-        content: @Composable RowScope.() -> Unit
-    ) {
-        Button(
-            onClick = onClick,
-            modifier = modifier,
-            enabled = enabled,
-            colors = ButtonDefaults.buttonColors(
-                containerColor = Color.Black.copy(alpha = 0.35f),
-                contentColor = Color.White
-            ),
-            shape = RoundedCornerShape(12.dp),
-            content = content
-        )
-    }
-
-    /**
-     * Draw-card button used for Chance and Community Chest fields.
-     */
-    @Composable
-    private fun DrawCardButton(
-        cardType: String,
-        alreadyDrawn: Boolean,
-        enabled: Boolean,
-        label: String,
-        onDraw: () -> Unit,
-        modifier: Modifier = Modifier
-    ) {
-        GlassButton(
-            onClick = onDraw,
-            enabled = enabled && !alreadyDrawn,
-            modifier = modifier
-        ) {
-            Text(if (alreadyDrawn) "✓ Card Drawn" else label)
+        // Player Property Overlay
+        selectedPlayerForOverlay?.let { player ->
+            PlayerPropertyOverlay(
+                player = player,
+                allFields = fields,
+                onDismiss = onDismissOverlay
+            )
         }
     }
+}
 
-    /**
-     * Scrollable side panel used for player info on left/right edges of the gameboard.
-     */
-    @Composable
-    private fun BoxWithConstraintsScope.PlayerPanel(
-        alignment: Alignment,
-        panelWidth: androidx.compose.ui.unit.Dp,
-        panelMargin: androidx.compose.ui.unit.Dp,
-        verticalArrangement: Arrangement.Vertical,
-        content: @Composable ColumnScope.() -> Unit
+/**
+ * Semi-transparent rounded button used throughout the gameboard UI.
+ */
+@Composable
+private fun GlassButton(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+    content: @Composable RowScope.() -> Unit
+) {
+    Button(
+        onClick = onClick,
+        modifier = modifier,
+        enabled = enabled,
+        colors = ButtonDefaults.buttonColors(
+            containerColor = Color.Black.copy(alpha = 0.35f),
+            contentColor = Color.White
+        ),
+        shape = RoundedCornerShape(12.dp),
+        content = content
+    )
+}
+
+/**
+ * Draw-card button used for Chance and Community Chest fields.
+ */
+@Composable
+private fun DrawCardButton(
+    cardType: String,
+    alreadyDrawn: Boolean,
+    enabled: Boolean,
+    label: String,
+    onDraw: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    GlassButton(
+        onClick = onDraw,
+        enabled = enabled && !alreadyDrawn,
+        modifier = modifier
     ) {
-        Column(
-            modifier = Modifier
-                .align(alignment)
-                .width(panelWidth)
-                .padding(panelMargin)
-                .wrapContentHeight()
-                .verticalScroll(rememberScrollState()),
-            verticalArrangement = verticalArrangement,
-            content = content
-        )
+        Text(if (alreadyDrawn) "✓ Card Drawn" else label)
     }
+}
 
+/**
+ * Scrollable side panel used for player info on left/right edges of the gameboard.
+ */
+@Composable
+private fun BoxWithConstraintsScope.PlayerPanel(
+    alignment: Alignment,
+    panelWidth: androidx.compose.ui.unit.Dp,
+    panelMargin: androidx.compose.ui.unit.Dp,
+    verticalArrangement: Arrangement.Vertical,
+    content: @Composable ColumnScope.() -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .align(alignment)
+            .width(panelWidth)
+            .padding(panelMargin)
+            .wrapContentHeight()
+            .verticalScroll(rememberScrollState()),
+        verticalArrangement = verticalArrangement,
+        content = content
+    )
+}
+
+/**
+ * Full-size image layer used for board background layers.
+ */
+@Composable
+private fun FullscreenImage(@androidx.annotation.DrawableRes resId: Int, description: String) {
+    Image(
+        painter = painterResource(id = resId),
+        contentDescription = description,
+        modifier = Modifier.fillMaxSize(),
+        contentScale = ContentScale.FillBounds
+    )
+}
     /**
      * Full-size image layer used for board background layers.
      */

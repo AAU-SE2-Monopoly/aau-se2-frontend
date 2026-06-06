@@ -264,6 +264,15 @@ class FakeGameService : GameService {
 
     override fun useJailCard(){}
 
+
+    var reportCheaterCalled = false
+    var lastReportedPlayerId = ""
+
+    override fun reportCheater(reportedPlayerId: String) {
+        reportCheaterCalled = true
+        lastReportedPlayerId = reportedPlayerId
+    }
+
     fun emitGameState(gameState: GameState) {
         val event = GameEvent(
             gameId = gameState.gameId,

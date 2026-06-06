@@ -9,8 +9,9 @@ data class Player(
     var inJail: Boolean = false,
     var jailTurns: Int = 0,
     var getOutOfJailCards: Int = 0,
-    var consecutiveDoublets: Int = 0, // Zählt die Paschs im aktuellen Zug
+    var consecutiveDoublets: Int = 0, // Counts doubles rolled in the current turn
     var eliminated: Boolean = false,
+    var hasCheated: Boolean = false,  // Indicates if the player cheated on their last roll
     val ownedPropertyIds: MutableList<Int> = mutableListOf()
 ) {
     /** Returns true if the player is bankrupt (no money and no properties). */

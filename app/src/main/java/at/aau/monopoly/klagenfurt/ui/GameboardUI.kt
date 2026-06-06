@@ -688,27 +688,13 @@ fun GameboardContent(
     selectedPlayerForOverlay: Player? = null,
     onDismissOverlay: () -> Unit = {},
     movementAnimationState: MovementAnimationState? = null,
-    onReportCheater: (String) -> Unit = {}, // NEW: Report Lambda
+    onReportCheater: (String) -> Unit = {},
+    gameState: at.aau.monopoly.klagenfurt.model.GameState? = null,
+    onFreeParkingMoneyClick: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val myPlayer = players.find { it.id == currentPlayerId }
     val otherPlayers = players.filter { it.id != currentPlayerId }
-    @Composable
-    fun GameboardContent(
-        fields: List<Field>,
-        players: List<Player> = emptyList(),
-        currentPlayerId: String = "",
-        currentTurnPlayer: Player? = null,
-        onPlayerCardClick: (Player) -> Unit = {},
-        selectedPlayerForOverlay: Player? = null,
-        onDismissOverlay: () -> Unit = {},
-        movementAnimationState: MovementAnimationState? = null,
-        gameState: at.aau.monopoly.klagenfurt.model.GameState? = null,
-        onFreeParkingMoneyClick: () -> Unit = {},
-        modifier: Modifier = Modifier
-    ) {
-        val myPlayer = players.find { it.id == currentPlayerId }
-        val otherPlayers = players.filter { it.id != currentPlayerId }
 
     val currentField = currentTurnPlayer?.let { p ->
         fields.getOrNull(p.position)
@@ -721,7 +707,7 @@ fun GameboardContent(
     BoxWithConstraints(modifier = modifier.fillMaxSize()) {
         val panelWidth = maxWidth * 0.32f
         val panelMargin = 8.dp
-        // Board layer (zoomable)
+
         ZoomableWrapper(modifier = Modifier.fillMaxSize()) {
             Box(
                 modifier = Modifier
@@ -734,7 +720,7 @@ fun GameboardContent(
                     val sh = this.maxHeight.value
 
                     FullscreenImage(R.drawable.background, "Klagenfurt-Map")
-                    // Semi-transparent warm overlay to match field backgrounds
+
                     Box(
                         modifier = Modifier
                             .fillMaxSize()
@@ -753,33 +739,14 @@ fun GameboardContent(
                                 animatingStep = movementAnimationState?.let {
                                     if (it.currentStepIndex in it.path.indices) it.path[it.currentStepIndex] else null
                                 },
-                                animationComplete = movementAnimationState?.isComplete ?: true
+                                animationComplete = movementAnimationState?.isComplete ?: true,
+                                freeParkingMoney = gameState?.freeParkingMoney ?: 0,
+                                onFreeParkingMoneyClick = onFreeParkingMoneyClick
                             )
                         }
                     }
                 }
-                        fields.forEachIndexed { index, field ->
-                            key(field.id) {
-                                FieldItem(
-                                    index = index,
-                                    field = field,
-                                    sw = sw,
-                                    sh = sh,
-                                    playersOnField = playersByField[field.id] ?: emptyList(),
-                                    animatingPlayerId = movementAnimationState?.playerId,
-                                    animatingStep = movementAnimationState?.let {
-                                        if (it.currentStepIndex in it.path.indices) it.path[it.currentStepIndex] else null
-                                    },
-                                    animationComplete = movementAnimationState?.isComplete ?: true,
-                                    freeParkingMoney = gameState?.freeParkingMoney ?: 0,
-                                    onFreeParkingMoneyClick = onFreeParkingMoneyClick
-                                )
-                            }
-                        }
-                    }
 
-
-                // Field card centered on the board
                 if (currentField != null) {
                     BoxWithConstraints {
                         val cw = (maxWidth * 0.12f).coerceAtMost(140.dp)
@@ -795,7 +762,6 @@ fun GameboardContent(
             }
         }
 
-        // Overlay: Left panel – other players
         if (otherPlayers.isNotEmpty()) {
             PlayerPanel(
                 alignment = Alignment.CenterStart,
@@ -804,7 +770,6 @@ fun GameboardContent(
                 verticalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterVertically)
             ) {
                 otherPlayers.forEach { player ->
-                    // NEW: Wrap PlayerInfo in a Column to add the Report Button below it
                     Column(horizontalAlignment = Alignment.End) {
                         PlayerInfoPanel(
                             player = player,
@@ -814,7 +779,6 @@ fun GameboardContent(
                             onCardClick = { onPlayerCardClick(player) }
                         )
 
-                        // NEW: 🚨 Report Button
                         Button(
                             onClick = { onReportCheater(player.id) },
                             modifier = Modifier
@@ -831,8 +795,6 @@ fun GameboardContent(
             }
         }
 
-
-        // Overlay: Right panel – own player
         if (myPlayer != null) {
             PlayerPanel(
                 alignment = Alignment.CenterEnd,
@@ -851,7 +813,6 @@ fun GameboardContent(
             }
         }
 
-        // Player Property Overlay
         selectedPlayerForOverlay?.let { player ->
             PlayerPropertyOverlay(
                 player = player,
@@ -932,15 +893,6 @@ private fun BoxWithConstraintsScope.PlayerPanel(
 /**
  * Full-size image layer used for board background layers.
  */
-@Composable
-private fun FullscreenImage(@androidx.annotation.DrawableRes resId: Int, description: String) {
-    Image(
-        painter = painterResource(id = resId),
-        contentDescription = description,
-        modifier = Modifier.fillMaxSize(),
-        contentScale = ContentScale.FillBounds
-    )
-}
     /**
      * Full-size image layer used for board background layers.
      */

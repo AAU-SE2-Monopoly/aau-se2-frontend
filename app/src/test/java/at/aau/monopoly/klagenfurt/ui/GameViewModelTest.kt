@@ -1768,4 +1768,60 @@ class GameViewModelTest {
 
         job.cancel()
     }
+
+
+
+    @Test
+    fun `reportCheater should delegate to gameService`() {
+        val suspectId = "player-99"
+
+        viewModel.reportCheater(suspectId)
+
+        assertTrue(fakeService.reportCheaterCalled)
+        assertEquals(suspectId, fakeService.lastReportedPlayerId)
+    }
+
+    @Test
+    fun `CHEATER_REPORTED event emits message to dramaEvent flow`() = runTest {
+        val dramaMessages = mutableListOf<String>()
+        val job = launch { viewModel.dramaEvent.collect { dramaMessages.add(it) } }
+
+        val testMessage = "Alice successfully reported Bob for cheating!"
+
+        fakeService.emitTestEvent("""
+        {
+          "event": "CHEATER_REPORTED",
+          "gameId": "g1",
+          "message": "$testMessage"
+        }
+        """.trimIndent())
+
+        advanceUntilIdle()
+
+        assertTrue("Expected dramaEvent to emit the message", dramaMessages.contains(testMessage))
+
+        job.cancel()
+    }
+
+    @Test
+    fun `CHEATER_REPORT_FAILED event emits message to dramaEvent flow`() = runTest {
+        val dramaMessages = mutableListOf<String>()
+        val job = launch { viewModel.dramaEvent.collect { dramaMessages.add(it) } }
+
+        val testMessage = "Alice falsely accused Bob of cheating!"
+
+        fakeService.emitTestEvent("""
+        {
+          "event": "CHEATER_REPORT_FAILED",
+          "gameId": "g1",
+          "message": "$testMessage"
+        }
+        """.trimIndent())
+
+        advanceUntilIdle()
+
+        assertTrue("Expected dramaEvent to emit the message", dramaMessages.contains(testMessage))
+
+        job.cancel()
+    }
 }

@@ -26,10 +26,12 @@ import at.aau.monopoly.klagenfurt.ui.util.toManageableProperty
 import kotlin.math.ceil
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.launchIn
@@ -92,6 +94,10 @@ class GameViewModel(
 
     private val _errorMessage = MutableStateFlow<String?>(null)
     val errorMessage: StateFlow<String?> = _errorMessage.asStateFlow()
+
+    // NEW: Stream for UI Toasts (Drama Events)
+    private val _dramaEvent = MutableSharedFlow<String>()
+    val dramaEvent: SharedFlow<String> = _dramaEvent.asSharedFlow()
 
     private var errorToken: Long = 0
 
@@ -172,6 +178,11 @@ class GameViewModel(
                     gameService.currentGameId.isBlank()
                 ) {
                     gameService.setGameId(event.gameId)
+                }
+
+                // NEW: Trigger cheater events to UI
+                if (event.event == "CHEATER_REPORTED" || event.event == "CHEATER_REPORT_FAILED") {
+                    event.message?.let { msg -> _dramaEvent.emit(msg) }
                 }
 
                 // Capture old state before updating, then remember the new state.
@@ -259,8 +270,6 @@ class GameViewModel(
                         _pendingDoubleAutoEnd.value = true
                     }
                 }
-
-
 
                 if (event.event == "ERROR") {
                     showTransientError(event.message ?: "An unknown error occurred")
@@ -469,7 +478,8 @@ class GameViewModel(
                     !bankruptcyConfirm &&
                     !hasPending
         }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+
     val diceResultForCurrentPlayer: StateFlow<DiceRoll?> = gameState
         .map { state ->
             if (
@@ -535,7 +545,7 @@ class GameViewModel(
         if (player == null || amount <= 0) false
         else player.money >= amount
     }
-    .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
     // Whether total assets (cash + mortgage value + building sellback) cover the rent,
     // computed by the backend to avoid duplicated logic drift.
@@ -723,6 +733,11 @@ class GameViewModel(
 
     fun setGameId(gameId: String) = gameService.setGameId(gameId)
 
+    // NEW: Pass report to GameService
+    fun reportCheater(reportedPlayerId: String) {
+        gameService.reportCheater(reportedPlayerId)
+    }
+
     private fun updatePendingPaymentState(state: GameState?) {
         if (state == null) {
             Log.d("GameViewModel", "updatePendingPaymentState: state=null, clearing fieldId")
@@ -819,8 +834,6 @@ class GameViewModel(
             "TURN_ENDED" -> "Turn ended"
             "STATE_UPDATED" -> "Game state updated"
             "STATE_SNAPSHOT" -> "State snapshot synced"
-
-
             "JAIL_FINE_PAID" -> "Bail paid: 50M"
             "JAIL_CARD_USED" -> "Used 'Get out of jail free' card"
             "PLAYER_JAILED" -> "Player went to jail!"
@@ -830,6 +843,9 @@ class GameViewModel(
             "RENT_PAID" -> "Rent paid"
             "PAYMENT_FAILED" -> "Payment failed"
             "BANKRUPTCY_DECLARED" -> "Player went bankrupt!"
+            // NEW: Fallback strings for report events
+            "CHEATER_REPORTED" -> "🚨 Cheater successfully reported!"
+            "CHEATER_REPORT_FAILED" -> "🚨 False cheater accusation!"
             else -> eventType.replace("_", " ")
                 .lowercase()
                 .replaceFirstChar { it.uppercase() }

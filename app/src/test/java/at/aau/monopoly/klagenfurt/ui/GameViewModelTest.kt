@@ -1768,4 +1768,20 @@ class GameViewModelTest {
 
         job.cancel()
     }
+
+    @Test
+    fun `payTax calls gameService payTax with current field id`() = runTest {
+        val service = FakeGameService()
+        val viewModel = GameViewModel(service)
+
+        viewModel.showPayRentOverlay(
+            amount = 200,
+            ownerId = null,
+            fieldId = 4
+        )
+
+        viewModel.payTax()
+
+        assertEquals(4, service.lastPaidTaxFieldId)
+    }
 }

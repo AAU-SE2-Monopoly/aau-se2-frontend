@@ -535,47 +535,11 @@ fun GameboardScreen(
                 },
                 onClose = { showOverlay = false }
             )
-            if (showFreeParkingOverlay) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(Color.Black.copy(alpha = 0.35f)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Column(
-                        modifier = Modifier
-                            .background(Color.White, RoundedCornerShape(18.dp))
-                            .padding(24.dp)
-                            .width(280.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        Text(
-                            text = "💵 Free Parking Jackpot",
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 20.sp,
-                            color = Color.Black
-                        )
-
-                        Text(
-                            text = "$${gameState?.freeParkingMoney ?: 0}",
-                            fontWeight = FontWeight.ExtraBold,
-                            fontSize = 32.sp,
-                            color = Color(0xFF2E7D32)
-                        )
-
-                        Text(
-                            text = "This amount is collected by the next player who lands on Free Parking.",
-                            fontSize = 14.sp,
-                            color = Color.DarkGray
-                        )
-
-                        Button(onClick = { showFreeParkingOverlay = false }) {
-                            Text("Close")
-                        }
-                    }
-                }
-            }
+            FreeParkingJackpotOverlay(
+                isVisible = showFreeParkingOverlay,
+                amount = gameState?.freeParkingMoney ?: 0,
+                onClose = { showFreeParkingOverlay = false }
+            )
             // Payment overlays
             val isTaxPayment = gameState?.pendingPayment?.source == PaymentSource.TAX
             PayRentOverlay(
@@ -917,4 +881,53 @@ internal class CircularRevealShape(private val progress: Float) : androidx.compo
             contentScale = ContentScale.FillBounds
         )
     }
+
+@Composable
+fun FreeParkingJackpotOverlay(
+    isVisible: Boolean,
+    amount: Int,
+    onClose: () -> Unit
+) {
+    if (!isVisible) return
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.Black.copy(alpha = 0.35f)),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            modifier = Modifier
+                .background(Color.White, RoundedCornerShape(18.dp))
+                .padding(24.dp)
+                .width(280.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Text(
+                text = "💵 Free Parking Jackpot",
+                fontWeight = FontWeight.Bold,
+                fontSize = 20.sp,
+                color = Color.Black
+            )
+
+            Text(
+                text = "$$amount",
+                fontWeight = FontWeight.ExtraBold,
+                fontSize = 32.sp,
+                color = Color(0xFF2E7D32)
+            )
+
+            Text(
+                text = "This amount is collected by the next player who lands on Free Parking.",
+                fontSize = 14.sp,
+                color = Color.DarkGray
+            )
+
+            Button(onClick = onClose) {
+                Text("Close")
+            }
+        }
+    }
+}
 

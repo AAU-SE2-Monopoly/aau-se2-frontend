@@ -275,5 +275,74 @@ class GameboardContentTest {
         assertTrue(clicked)
     }
 
+    @Test
+    fun `GameboardContent does not show free parking money when jackpot is zero`() {
+        val fields = (0..39).map { index ->
+            if (index == 20) {
+                FreeParkingField()
+            } else {
+                object : Field(
+                    id = index,
+                    name = "Field $index",
+                    type = FieldType.PROPERTY
+                ) {}
+            }
+        }
+
+        val gameState = GameState(
+            gameId = "game-1",
+            fields = fields,
+            freeParkingMoney = 0
+        )
+
+        composeTestRule.setContent {
+            Box(modifier = Modifier.size(1200.dp, 700.dp)) {
+                GameboardContent(
+                    fields = fields,
+                    gameState = gameState,
+                    modifier = Modifier.fillMaxSize()
+                )
+            }
+        }
+
+        composeTestRule
+            .onNodeWithTag("free_parking_money_stack", useUnmergedTree = true)
+            .assertDoesNotExist()
+    }
+
+    @Test
+    fun `FreeParkingJackpotOverlay shows amount and closes`() {
+        var closed = false
+
+        composeTestRule.setContent {
+            FreeParkingJackpotOverlay(
+                isVisible = true,
+                amount = 500,
+                onClose = { closed = true }
+            )
+        }
+
+        composeTestRule.onNodeWithText("💵 Free Parking Jackpot").assertExists()
+        composeTestRule.onNodeWithText("$500").assertExists()
+        composeTestRule.onNodeWithText("This amount is collected by the next player who lands on Free Parking.").assertExists()
+
+        composeTestRule.onNodeWithText("Close").performClick()
+
+        assertTrue(closed)
+    }
+    @Test
+    fun `FreeParkingJackpotOverlay is hidden when not visible`() {
+        composeTestRule.setContent {
+            FreeParkingJackpotOverlay(
+                isVisible = false,
+                amount = 500,
+                onClose = {}
+            )
+        }
+
+        composeTestRule.onNodeWithText("💵 Free Parking Jackpot").assertDoesNotExist()
+    }
+
+
 
 }

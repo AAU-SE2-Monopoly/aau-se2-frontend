@@ -1,6 +1,10 @@
 package at.aau.monopoly.klagenfurt.ui
 
 import androidx.activity.ComponentActivity
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.size
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
@@ -17,6 +21,13 @@ import at.aau.monopoly.klagenfurt.ui.board.MovementAnimationState
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
+import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.performClick
+import androidx.compose.ui.unit.dp
+import at.aau.monopoly.klagenfurt.model.GameState
+import at.aau.monopoly.klagenfurt.model.field.Field
+import at.aau.monopoly.klagenfurt.model.field.FreeParkingField
+import org.junit.Assert.assertTrue
 
 @RunWith(AndroidJUnit4::class)
 class GameboardContentTest {
@@ -220,4 +231,49 @@ class GameboardContentTest {
 
         composeTestRule.onNodeWithText("🏨").assertExists()
     }
+
+    @Test
+    fun `GameboardContent forwards free parking money click`() {
+        var clicked = false
+
+        val fields = (0..39).map { index ->
+            if (index == 20) {
+                FreeParkingField()
+            } else {
+                object : Field(
+                    id = index,
+                    name = "Field $index",
+                    type = FieldType.PROPERTY
+                ) {}
+            }
+        }
+
+        val gameState = GameState(
+            gameId = "game-1",
+            fields = fields,
+            freeParkingMoney = 500
+        )
+
+        composeTestRule.setContent {
+            Box(modifier = Modifier.size(1200.dp, 700.dp)) {
+                GameboardContent(
+                    fields = fields,
+                    players = emptyList(),
+                    currentPlayerId = "p1",
+                    currentTurnPlayer = null,
+                    gameState = gameState,
+                    onFreeParkingMoneyClick = { clicked = true },
+                    modifier = Modifier.fillMaxSize()
+                )
+            }
+        }
+
+        composeTestRule
+            .onNodeWithTag("free_parking_money_stack", useUnmergedTree = true)
+            .performClick()
+
+        assertTrue(clicked)
+    }
+
+
 }

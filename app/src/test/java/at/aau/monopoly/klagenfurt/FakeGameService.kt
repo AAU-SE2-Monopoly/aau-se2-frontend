@@ -255,6 +255,9 @@ class FakeGameService : GameService {
 
     override fun debugForwardGame() {}
     override fun debugSetupBankruptcy() {}
+    override fun payTax(fieldId: Int) {
+        TODO("Not yet implemented")
+    }
 
     override fun payJailFine(){}
 

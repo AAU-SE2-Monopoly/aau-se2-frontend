@@ -1808,4 +1808,32 @@ class GameStompClientTest {
         }
     }
 
+    @Test
+    fun reportCheater_sends_report_cheater_action_with_target_id() = runTest(testDispatcher) {
+        coEvery { stompClient.connect(any<String>()) } returns stompSession
+        coEvery { stompSession.subscribeText(any<String>()) } returns flowOf()
+        coEvery { stompSession.sendText(any<String>(), any<String>()) } returns mockk()
+
+        gameStompClient.connect()
+        advanceUntilIdle()
+        gameStompClient.setGameId("game-1")
+
+        val suspectedCheaterId = "player-42"
+
+        gameStompClient.reportCheater(suspectedCheaterId)
+        advanceUntilIdle()
+
+        verify { Log.d("GameStomp", "Reporting cheater: $suspectedCheaterId") }
+
+        coVerify {
+            stompSession.sendText(
+                "/app/game/action",
+                match {
+                    it.contains("\"action\":\"REPORT_CHEATER\"") &&
+                            it.contains("\"reportedPlayerId\":\"$suspectedCheaterId\"")
+                }
+            )
+        }
+    }
+
 }

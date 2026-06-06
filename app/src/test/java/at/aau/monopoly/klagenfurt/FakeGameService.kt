@@ -260,6 +260,10 @@ class FakeGameService : GameService {
 
     override fun useJailCard(){}
 
+    override fun reportCheater(reportedPlayerId: String) {
+        // Mock implementation for testing
+    }
+
     fun emitGameState(gameState: GameState) {
         val event = GameEvent(
             gameId = gameState.gameId,

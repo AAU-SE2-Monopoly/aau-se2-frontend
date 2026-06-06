@@ -85,6 +85,7 @@ import at.aau.monopoly.klagenfurt.model.field.CommunityChestField
 import kotlin.math.hypot
 import at.aau.monopoly.klagenfurt.model.enums.GamePhase
 import com.example.myapplication.BuildConfig
+import at.aau.monopoly.klagenfurt.model.PaymentSource
 
 
 
@@ -576,6 +577,7 @@ fun GameboardScreen(
                 }
             }
             // Payment overlays
+            val isTaxPayment = gameState?.pendingPayment?.source == PaymentSource.TAX
             PayRentOverlay(
                 isVisible = showPayRentOverlay && currentTurnPlayer?.id == currentPlayerId,
                 rentAmount = currentRentAmount,
@@ -590,7 +592,11 @@ fun GameboardScreen(
                 canRaiseFunds = canRaiseFunds,
                 paymentInFlight = paymentActionInFlight,
                 propertyInFlight = propertyActionInFlight,
-                onPay = { viewModel.payRent() },
+                isTaxPayment = isTaxPayment,
+                onPay = {
+                    if (isTaxPayment) viewModel.payTax()
+                    else viewModel.payRent()
+                },
                 onManageProperties = { viewModel.showMortgageManagementOverlay() },
                 onDeclareBankruptcy = { viewModel.declareBankruptcy() },
                 onDismiss = { viewModel.dismissPayRentOverlay() }

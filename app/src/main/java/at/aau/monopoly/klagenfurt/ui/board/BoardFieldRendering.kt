@@ -1104,24 +1104,30 @@ private fun BoxScope.FreeParkingMoneyDisplay(
 ) {
     data class Banknote(val denomination: Int, val color: Color)
 
-    val banknotes = listOf(
-        Banknote(500, Color(0xFFFF8A00)),
-        Banknote(100, Color(0xFFFFD600)),
-        Banknote(50, Color(0xFFE60000)),
-        Banknote(20, Color(0xFF00AA00)),
-        Banknote(10, Color(0xFF0055FF)),
-        Banknote(5, Color(0xFFFF55FF)),
-        Banknote(1, Color.White)
-    )
+    val banknotes = remember {
+        listOf(
+            Banknote(500, Color(0xFFFF8A00)),
+            Banknote(100, Color(0xFFFFD600)),
+            Banknote(50, Color(0xFFE60000)),
+            Banknote(20, Color(0xFF00AA00)),
+            Banknote(10, Color(0xFF0055FF)),
+            Banknote(5, Color(0xFFFF55FF)),
+            Banknote(1, Color.White)
+        )
+    }
 
-    val calculatedBanknotes = mutableListOf<Banknote>()
-    var remaining = amount
+    val calculatedBanknotes = remember(amount) {
+        val result = mutableListOf<Banknote>()
+        var remaining = amount
 
-    for (banknote in banknotes) {
-        while (remaining >= banknote.denomination && calculatedBanknotes.size < 4) {
-            calculatedBanknotes.add(banknote)
-            remaining -= banknote.denomination
+        for (banknote in banknotes) {
+            while (remaining >= banknote.denomination && result.size < 4) {
+                result.add(banknote)
+                remaining -= banknote.denomination
+            }
         }
+
+        result
     }
 
     Box(

@@ -1116,18 +1116,17 @@ private fun BoxScope.FreeParkingMoneyDisplay(
         )
     }
 
-    val calculatedBanknotes = remember(amount) {
-        val result = mutableListOf<Banknote>()
-        var remaining = amount
+    val calculatedBanknotes: List<Banknote> = remember(amount) {
+        buildList {
+            var remaining = amount
 
-        for (banknote in banknotes) {
-            while (remaining >= banknote.denomination && result.size < 4) {
-                result.add(banknote)
-                remaining -= banknote.denomination
+            for (banknote in banknotes) {
+                while (remaining >= banknote.denomination && size < 4) {
+                    add(banknote)
+                    remaining -= banknote.denomination
+                }
             }
         }
-
-        result
     }
 
     Box(

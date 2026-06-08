@@ -1830,6 +1830,9 @@ class GameViewModelTest {
         val job = launch { viewModel.eventLog.collect {} }
 
         val testCases = listOf(
+            "TAX_DUE" to "Tax is due!",
+            "TAX_PAID" to "Tax paid",
+            "FREE_PARKING_COLLECTED" to "Free Parking jackpot collected!",
             "PROPERTY_BOUGHT" to "Property bought",
             "PROPERTY_MORTGAGED" to "Property mortgaged",
             "PROPERTY_UNMORTGAGED" to "Property unmortgaged",

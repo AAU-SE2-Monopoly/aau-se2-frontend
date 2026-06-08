@@ -291,8 +291,9 @@ class GameViewModel(
                     _bankruptcyPropertiesOwned.value = emptyList()
                 }
 
-                if (event.event == "RENT_PAID") {
+                if (event.event == "RENT_PAID" || event.event == "TAX_PAID") {
                     finishPaymentAction()
+                    _showPayRentOverlay.value = false
                 }
 
                 if (event.event == "PAYMENT_FAILED") {
@@ -645,6 +646,21 @@ class GameViewModel(
         // wait for RENT_PAID event before dismissing
     }
 
+    fun payTax() {
+        Log.d(
+            "GameViewModel",
+            "payTax() called, inFlight=${_paymentActionInFlight.value}, fieldId=${currentRentFieldId.value}"
+        )
+
+        if (_paymentActionInFlight.value) return
+
+        val fieldId = currentRentFieldId.value ?: return
+
+        startPaymentAction()
+
+        gameService.payTax(fieldId)
+    }
+
     fun mortgageProperty(fieldId: Int) {
         if (_propertyActionInFlight.value) return
         startPropertyAction()
@@ -841,6 +857,9 @@ class GameViewModel(
             "ACTION_EXECUTED" -> "Action executed"
             "RENT_DUE" -> "Rent is due!"
             "RENT_PAID" -> "Rent paid"
+            "TAX_DUE" -> "Tax is due!"
+            "TAX_PAID" -> "Tax paid"
+            "FREE_PARKING_COLLECTED" -> "Free Parking jackpot collected!"
             "PAYMENT_FAILED" -> "Payment failed"
             "BANKRUPTCY_DECLARED" -> "Player went bankrupt!"
             // NEW: Fallback strings for report events

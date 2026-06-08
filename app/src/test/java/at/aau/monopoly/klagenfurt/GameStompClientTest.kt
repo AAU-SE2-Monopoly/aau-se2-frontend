@@ -1836,4 +1836,28 @@ class GameStompClientTest {
         }
     }
 
+    @Test
+    fun payTax_sends_pay_tax_action() = runTest(testDispatcher) {
+        coEvery { stompClient.connect(any<String>()) } returns stompSession
+        coEvery { stompSession.subscribeText(any<String>()) } returns flowOf()
+        coEvery { stompSession.sendText(any<String>(), any<String>()) } returns mockk()
+
+        gameStompClient.connect()
+        advanceUntilIdle()
+        gameStompClient.setGameId("game-1")
+
+        gameStompClient.payTax(4)
+        advanceUntilIdle()
+
+        coVerify {
+            stompSession.sendText(
+                "/app/game/action",
+                match {
+                    it.contains("\"action\":\"PAY_TAX\"") &&
+                            it.contains("\"fieldId\":\"4\"")
+                }
+            )
+        }
+    }
+
 }

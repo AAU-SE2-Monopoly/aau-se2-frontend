@@ -225,5 +225,64 @@ class PayRentOverlayTest {
         renderOverlay(propertyInFlight = false)
         composeTestRule.onNodeWithText("Manage").assertIsEnabled()
     }
+
+    @Test
+    fun `shows tax texts when payment is tax`() {
+        composeTestRule.setContent {
+            PayRentOverlay(
+                isVisible = true,
+                rentAmount = 200,
+                ownerName = null,
+                fieldName = "Income Tax",
+                currentMoney = 500,
+                canPay = true,
+                canRaiseFunds = true,
+                paymentInFlight = false,
+                propertyInFlight = false,
+                isTaxPayment = true,
+                onPay = {},
+                onManageProperties = {},
+                onDeclareBankruptcy = {},
+                onDismiss = {}
+            )
+        }
+
+        composeTestRule.onNodeWithText("TAX DUE").assertExists()
+        composeTestRule.onNodeWithText("Pay Tax").assertExists()
+        composeTestRule.onNodeWithText("Owner: Unknown").assertDoesNotExist()
+    }
+
+    @Test
+    fun `PayRentOverlay shows tax payment UI when isTaxPayment is true`() {
+        var paid = false
+
+        composeTestRule.setContent {
+            PayRentOverlay(
+                isVisible = true,
+                rentAmount = 200,
+                ownerName = null,
+                fieldName = "Reichensteuer",
+                currentMoney = 500,
+                canPay = true,
+                canRaiseFunds = false,
+                paymentInFlight = false,
+                propertyInFlight = false,
+                isTaxPayment = true,
+                onPay = { paid = true },
+                onManageProperties = {},
+                onDeclareBankruptcy = {},
+                onDismiss = {}
+            )
+        }
+
+        composeTestRule.onNodeWithText("TAX DUE").assertExists()
+        composeTestRule.onNodeWithText("Tax Amount").assertExists()
+        composeTestRule.onNodeWithText("Pay Tax").assertExists()
+        composeTestRule.onNodeWithText("Owner: Unknown").assertDoesNotExist()
+
+        composeTestRule.onNodeWithText("Pay Tax").performClick()
+
+        assertTrue(paid)
+    }
 }
 

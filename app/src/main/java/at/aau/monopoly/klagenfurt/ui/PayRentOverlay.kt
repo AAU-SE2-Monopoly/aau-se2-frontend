@@ -51,7 +51,8 @@ fun PayRentOverlay(
     onPay: () -> Unit,
     onManageProperties: () -> Unit,
     onDeclareBankruptcy: () -> Unit,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
+    isTaxPayment: Boolean = false,
 ) {
     if (!isVisible) return
 
@@ -128,14 +129,14 @@ fun PayRentOverlay(
                         modifier = Modifier
                             .fillMaxWidth()
                             .background(
-                                Color(0xFFC62828),
+                                if (isTaxPayment) Color(0xFFFFA000) else Color(0xFFC62828),
                                 RoundedCornerShape(12.dp)
                             )
                             .padding(vertical = verticalPadding),
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = "RENT DUE",
+                            text = if (isTaxPayment) "TAX DUE" else "RENT DUE",
                             color = Color.White,
                             fontSize = headerTextSize,
                             fontWeight = FontWeight.ExtraBold,
@@ -155,12 +156,14 @@ fun PayRentOverlay(
                     )
 
                     // Owner info
-                    Spacer(modifier = Modifier.height(smallSpacerHeight))
-                    Text(
-                        text = "Owner: ${ownerName ?: "Unknown"}",
-                        fontSize = ownerInfoSize,
-                        color = Color.White.copy(alpha = 0.8f)
-                    )
+                    if (!isTaxPayment) {
+                        Spacer(modifier = Modifier.height(smallSpacerHeight))
+                        Text(
+                            text = "Owner: ${ownerName ?: "Unknown"}",
+                            fontSize = ownerInfoSize,
+                            color = Color.White.copy(alpha = 0.8f)
+                        )
+                    }
 
                     Spacer(modifier = Modifier.height(mediumSpacerHeight))
 
@@ -174,7 +177,7 @@ fun PayRentOverlay(
                     ) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             Text(
-                                text = "Amount to Pay",
+                                text = if (isTaxPayment) "Tax Amount" else "Amount to Pay",
                                 fontSize = ownerInfoSize,
                                 color = Color.White.copy(alpha = 0.7f)
                             )
@@ -230,7 +233,7 @@ fun PayRentOverlay(
                             Text(
                                 text = when {
                                     paymentInFlight -> "Processing..."
-                                    canPay -> "Pay Rent"
+                                    canPay -> if (isTaxPayment) "Pay Tax" else "Pay Rent"
                                     else -> "Insufficient"
                                 },
                                 fontSize = buttonTextSize,
@@ -286,6 +289,7 @@ fun PayRentOverlay(
 
                     // Note
                     val noteText = when {
+                        canPay && isTaxPayment -> "Click Pay Tax to pay the tax"
                         canPay -> "Click Pay Rent to pay the rent"
                         canRaiseFunds -> "Manage properties to raise cash"
                         else -> "Insufficient total assets — declare bankruptcy"

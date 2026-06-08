@@ -18,16 +18,18 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.ui.res.vectorResource
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
@@ -62,6 +64,7 @@ import com.example.myapplication.R
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.sqrt
+import androidx.compose.foundation.clickable
 
 /**
  * A composable that draws a [Painter] at zoom-aware resolution, preventing
@@ -216,7 +219,9 @@ fun FieldItem(
     playersOnField: List<Player> = emptyList(),
     animatingPlayerId: String? = null,
     animatingStep: Int? = null,
-    animationComplete: Boolean = true
+    animationComplete: Boolean = true,
+    freeParkingMoney: Int = 0,
+    onFreeParkingMoneyClick: () -> Unit = {}
 ) {
     val bounds = remember(index, sw, sh) { calculateFieldBounds(index, sw, sh) }
     val side = (index / 10) % 4
@@ -266,6 +271,14 @@ fun FieldItem(
                 animatingStep = animatingStep,
                 animationComplete = animationComplete
             )
+
+            // Show free parking money on the Free Parking field (index 20)
+            if (index == 20 && freeParkingMoney > 0) {
+                FreeParkingMoneyDisplay(
+                    amount = freeParkingMoney,
+                    onClick = onFreeParkingMoneyClick
+                )
+            }
         } else {
             // Non-corner: unified image + title block via Column
             NonCornerFieldContent(
@@ -1076,5 +1089,104 @@ private fun BoxScope.BuildingIndicator(
             text = buildingText,
             fontSize = 3.5.sp
         )
+    }
+}
+
+/**
+ * Display for Free Parking Money pot.
+ * Shows the accumulated money in the Free Parking field (corner field index 20).
+ * Renders realistic Monopoly-style banknotes with stacked effect.
+ */
+@Composable
+private fun BoxScope.FreeParkingMoneyDisplay(
+    amount: Int,
+    onClick: () -> Unit = {}
+) {
+    data class Banknote(val denomination: Int, val color: Color)
+
+    val banknotes = remember {
+        listOf(
+            Banknote(500, Color(0xFFFF8A00)),
+            Banknote(100, Color(0xFFFFD600)),
+            Banknote(50, Color(0xFFE60000)),
+            Banknote(20, Color(0xFF00AA00)),
+            Banknote(10, Color(0xFF0055FF)),
+            Banknote(5, Color(0xFFFF55FF)),
+            Banknote(1, Color.White)
+        )
+    }
+
+    val calculatedBanknotes: List<Banknote> = remember(amount) {
+        buildList {
+            var remaining = amount
+
+            for (banknote in banknotes) {
+                while (remaining >= banknote.denomination && size < 4) {
+                    add(banknote)
+                    remaining -= banknote.denomination
+                }
+            }
+        }
+    }
+
+    Box(
+        modifier = Modifier
+            .align(Alignment.Center)
+            .offset(y = 2.dp)
+            .size(width = 46.dp, height = 32.dp)
+            .clickable { onClick() }
+            .testTag("free_parking_money_stack"),
+        contentAlignment = Alignment.Center
+    ) {
+        calculatedBanknotes.forEachIndexed { noteIndex, banknote ->
+            Box(
+                modifier = Modifier
+                    .offset(
+                        x = (noteIndex * 2).dp,
+                        y = (noteIndex * 1.5f).dp
+                    )
+                    .size(width = 22.dp, height = 13.dp)
+                    .rotate((noteIndex * 2f) - 3f)
+                    .background(banknote.color, RoundedCornerShape(2.dp))
+                    .border(
+                        width = 0.6.dp,
+                        color = Color.Black.copy(alpha = 0.35f),
+                        shape = RoundedCornerShape(2.dp)
+                    )
+                    .padding(1.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "$${banknote.denomination}",
+                    fontSize = 4.5.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = if (banknote.denomination == 1 || banknote.denomination == 100) {
+                        Color.Black
+                    } else {
+                        Color.White
+                    },
+                    maxLines = 1
+                )
+            }
+        }
+
+        Box(
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .offset(x = (-2).dp, y = (-2).dp)
+                .background(Color.Black.copy(alpha = 0.85f), CircleShape)
+                .border(0.5.dp, Color.White.copy(alpha = 0.8f), CircleShape)
+                .padding(horizontal = 3.dp, vertical = 1.dp)
+                .testTag("free_parking_money_amount"),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = "$$amount",
+                fontSize = 4.sp,
+                fontWeight = FontWeight.ExtraBold,
+                color = Color.White,
+                maxLines = 1
+            )
+        }
     }
 }

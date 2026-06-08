@@ -36,11 +36,13 @@ class PendingPaymentTest {
     @Test
     fun `PaymentSource has all expected values`() {
         val values = PaymentSource.entries
-        assertEquals(4, values.size)
+        assertEquals(5, values.size)
         assertNotNull(PaymentSource.valueOf("RENT"))
         assertNotNull(PaymentSource.valueOf("CARD_PAY"))
         assertNotNull(PaymentSource.valueOf("CARD_PAY_EACH"))
         assertNotNull(PaymentSource.valueOf("CARD_REPAIR"))
+        assertNotNull(PaymentSource.valueOf("TAX"))
+
     }
 
     @Test

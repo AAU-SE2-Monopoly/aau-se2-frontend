@@ -7,7 +7,7 @@ import at.aau.monopoly.klagenfurt.model.enums.GamePhase
 import at.aau.monopoly.klagenfurt.model.field.Field
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties
 
-enum class PaymentSource { RENT, CARD_PAY, CARD_PAY_EACH, CARD_REPAIR }
+enum class PaymentSource { RENT, CARD_PAY, CARD_PAY_EACH, CARD_REPAIR, TAX }
 
 data class PendingPayment(
     val amount: Int,

@@ -760,4 +760,20 @@ class GameStompClient(
         sendRaw("/app/game/action", JacksonProvider.objectMapper.writeValueAsString(action))
         Log.d("GameStomp", "Debug bankruptcy setup requested")
     }
+
+    override fun payTax(fieldId: Int) {
+        val action = GameAction(
+            gameId = _currentGameId,
+            playerId = currentPlayerId,
+            action = "PAY_TAX",
+            payload = mapOf("fieldId" to fieldId.toString())
+        )
+
+        sendRaw(
+            "/app/game/action",
+            JacksonProvider.objectMapper.writeValueAsString(action)
+        )
+
+        Log.d("GameStomp", "Paying tax on field: $fieldId")
+    }
 }

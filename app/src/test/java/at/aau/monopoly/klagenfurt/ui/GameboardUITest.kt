@@ -2,14 +2,26 @@ package at.aau.monopoly.klagenfurt.ui
 
 import android.content.pm.ActivityInfo
 import android.view.KeyEvent
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.size
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
+import androidx.compose.ui.unit.dp
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import at.aau.monopoly.klagenfurt.model.GameState
+import at.aau.monopoly.klagenfurt.model.Player
+import at.aau.monopoly.klagenfurt.model.enums.FieldType
 import at.aau.monopoly.klagenfurt.model.enums.PropertyColor
+import at.aau.monopoly.klagenfurt.model.field.Field
+import at.aau.monopoly.klagenfurt.model.field.FreeParkingField
 import at.aau.monopoly.klagenfurt.ui.board.calculateFieldBounds
 import at.aau.monopoly.klagenfurt.ui.board.getFieldImageMapping
 import at.aau.monopoly.klagenfurt.ui.util.getPlayerTokenResource
@@ -576,6 +588,8 @@ class GameboardUITest {
         assertFalse(bounds.isCorner)
         assertEquals(180f, bounds.rotation)
     }
+
+
 
 }
 

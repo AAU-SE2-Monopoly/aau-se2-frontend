@@ -88,6 +88,7 @@ import at.aau.monopoly.klagenfurt.model.field.CommunityChestField
 import kotlin.math.hypot
 import at.aau.monopoly.klagenfurt.model.enums.GamePhase
 import com.example.myapplication.BuildConfig
+import at.aau.monopoly.klagenfurt.model.PaymentSource
 
 
 
@@ -215,6 +216,7 @@ fun GameboardScreen(
     val hasPendingPayment by viewModel.hasPendingPayment.collectAsState()
 
     var showOverlay by remember { mutableStateOf(false) }
+    var showFreeParkingOverlay by remember { mutableStateOf(false) }
 
     // Filter DICE_ROLLED entries from the log while the overlay is visible,
     // so the dice result appears in chat only after the animation finishes.
@@ -371,6 +373,8 @@ fun GameboardScreen(
                 movementAnimationState = movementState,
                 // NEW: Pass reportCheater to the content layer
                 onReportCheater = { reportedPlayerId -> viewModel.reportCheater(reportedPlayerId) },
+                gameState = gameState,
+                onFreeParkingMoneyClick = { showFreeParkingOverlay = true },
                 modifier = Modifier.fillMaxSize()
             )
 
@@ -543,8 +547,13 @@ fun GameboardScreen(
                 },
                 onClose = { showOverlay = false }
             )
-
+            FreeParkingJackpotOverlay(
+                isVisible = showFreeParkingOverlay,
+                amount = gameState?.freeParkingMoney ?: 0,
+                onClose = { showFreeParkingOverlay = false }
+            )
             // Payment overlays
+            val isTaxPayment = gameState?.pendingPayment?.source == PaymentSource.TAX
             PayRentOverlay(
                 isVisible = showPayRentOverlay && currentTurnPlayer?.id == currentPlayerId,
                 rentAmount = currentRentAmount,
@@ -559,7 +568,11 @@ fun GameboardScreen(
                 canRaiseFunds = canRaiseFunds,
                 paymentInFlight = paymentActionInFlight,
                 propertyInFlight = propertyActionInFlight,
-                onPay = { viewModel.payRent() },
+                isTaxPayment = isTaxPayment,
+                onPay = {
+                    if (isTaxPayment) viewModel.payTax()
+                    else viewModel.payRent()
+                },
                 onManageProperties = { viewModel.showMortgageManagementOverlay() },
                 onDeclareBankruptcy = { viewModel.declareBankruptcy() },
                 onDismiss = { viewModel.dismissPayRentOverlay() }
@@ -675,7 +688,9 @@ fun GameboardContent(
     selectedPlayerForOverlay: Player? = null,
     onDismissOverlay: () -> Unit = {},
     movementAnimationState: MovementAnimationState? = null,
-    onReportCheater: (String) -> Unit = {}, // NEW: Report Lambda
+    onReportCheater: (String) -> Unit = {},
+    gameState: at.aau.monopoly.klagenfurt.model.GameState? = null,
+    onFreeParkingMoneyClick: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val myPlayer = players.find { it.id == currentPlayerId }
@@ -692,7 +707,7 @@ fun GameboardContent(
     BoxWithConstraints(modifier = modifier.fillMaxSize()) {
         val panelWidth = maxWidth * 0.32f
         val panelMargin = 8.dp
-        // Board layer (zoomable)
+
         ZoomableWrapper(modifier = Modifier.fillMaxSize()) {
             Box(
                 modifier = Modifier
@@ -705,7 +720,7 @@ fun GameboardContent(
                     val sh = this.maxHeight.value
 
                     FullscreenImage(R.drawable.background, "Klagenfurt-Map")
-                    // Semi-transparent warm overlay to match field backgrounds
+
                     Box(
                         modifier = Modifier
                             .fillMaxSize()
@@ -724,14 +739,14 @@ fun GameboardContent(
                                 animatingStep = movementAnimationState?.let {
                                     if (it.currentStepIndex in it.path.indices) it.path[it.currentStepIndex] else null
                                 },
-                                animationComplete = movementAnimationState?.isComplete ?: true
+                                animationComplete = movementAnimationState?.isComplete ?: true,
+                                freeParkingMoney = gameState?.freeParkingMoney ?: 0,
+                                onFreeParkingMoneyClick = onFreeParkingMoneyClick
                             )
                         }
                     }
                 }
 
-
-                // Field card centered on the board
                 if (currentField != null) {
                     BoxWithConstraints {
                         val cw = (maxWidth * 0.12f).coerceAtMost(140.dp)
@@ -747,7 +762,6 @@ fun GameboardContent(
             }
         }
 
-        // Overlay: Left panel – other players
         if (otherPlayers.isNotEmpty()) {
             PlayerPanel(
                 alignment = Alignment.CenterStart,
@@ -756,7 +770,6 @@ fun GameboardContent(
                 verticalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterVertically)
             ) {
                 otherPlayers.forEach { player ->
-                    // NEW: Wrap PlayerInfo in a Column to add the Report Button below it
                     Column(horizontalAlignment = Alignment.End) {
                         PlayerInfoPanel(
                             player = player,
@@ -766,7 +779,6 @@ fun GameboardContent(
                             onCardClick = { onPlayerCardClick(player) }
                         )
 
-                        // NEW: 🚨 Report Button
                         Button(
                             onClick = { onReportCheater(player.id) },
                             modifier = Modifier
@@ -783,8 +795,6 @@ fun GameboardContent(
             }
         }
 
-
-        // Overlay: Right panel – own player
         if (myPlayer != null) {
             PlayerPanel(
                 alignment = Alignment.CenterEnd,
@@ -803,7 +813,6 @@ fun GameboardContent(
             }
         }
 
-        // Player Property Overlay
         selectedPlayerForOverlay?.let { player ->
             PlayerPropertyOverlay(
                 player = player,
@@ -884,12 +893,65 @@ private fun BoxWithConstraintsScope.PlayerPanel(
 /**
  * Full-size image layer used for board background layers.
  */
+    /**
+     * Full-size image layer used for board background layers.
+     */
+    @Composable
+    private fun FullscreenImage(@androidx.annotation.DrawableRes resId: Int, description: String) {
+        Image(
+            painter = painterResource(id = resId),
+            contentDescription = description,
+            modifier = Modifier.fillMaxSize(),
+            contentScale = ContentScale.FillBounds
+        )
+    }
+
 @Composable
-private fun FullscreenImage(@androidx.annotation.DrawableRes resId: Int, description: String) {
-    Image(
-        painter = painterResource(id = resId),
-        contentDescription = description,
-        modifier = Modifier.fillMaxSize(),
-        contentScale = ContentScale.FillBounds
-    )
+fun FreeParkingJackpotOverlay(
+    isVisible: Boolean,
+    amount: Int,
+    onClose: () -> Unit
+) {
+    if (!isVisible) return
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.Black.copy(alpha = 0.35f)),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            modifier = Modifier
+                .background(Color.White, RoundedCornerShape(18.dp))
+                .padding(24.dp)
+                .width(280.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Text(
+                text = "💵 Free Parking Jackpot",
+                fontWeight = FontWeight.Bold,
+                fontSize = 20.sp,
+                color = Color.Black
+            )
+
+            Text(
+                text = "$$amount",
+                fontWeight = FontWeight.ExtraBold,
+                fontSize = 32.sp,
+                color = Color(0xFF2E7D32)
+            )
+
+            Text(
+                text = "This amount is collected by the next player who lands on Free Parking.",
+                fontSize = 14.sp,
+                color = Color.DarkGray
+            )
+
+            Button(onClick = onClose) {
+                Text("Close")
+            }
+        }
+    }
 }
+

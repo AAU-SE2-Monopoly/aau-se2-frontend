@@ -255,6 +255,10 @@ class FakeGameService : GameService {
 
     override fun debugForwardGame() {}
     override fun debugSetupBankruptcy() {}
+    var lastPaidTaxFieldId: Int? = null
+    override fun payTax(fieldId: Int) {
+        lastPaidTaxFieldId = fieldId
+    }
 
     override fun payJailFine(){}
 

@@ -63,4 +63,5 @@ interface GameService {
     fun debugForwardGame()
     /** DEBUG remove this block of code to remove */
     fun debugSetupBankruptcy()
+    fun payTax(fieldId: Int)
 }

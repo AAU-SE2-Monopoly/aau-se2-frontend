@@ -94,6 +94,9 @@ class GameServiceTest {
         override fun declareBankruptcy() { declareBankruptcyCalled = true }
         override fun debugForwardGame() { debugForwardCalled = true }
         override fun debugSetupBankruptcy() { debugSetupCalled = true }
+        override fun payTax(fieldId: Int) {
+            // no-op
+        }
     }
 
     @Test

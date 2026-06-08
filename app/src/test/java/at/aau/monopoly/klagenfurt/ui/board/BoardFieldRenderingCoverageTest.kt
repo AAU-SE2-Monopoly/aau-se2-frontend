@@ -12,7 +12,9 @@ import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
 import androidx.compose.ui.unit.dp
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import at.aau.monopoly.klagenfurt.model.Player
@@ -32,6 +34,7 @@ import at.aau.monopoly.klagenfurt.ui.zoom.LocalZoomScale
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -899,5 +902,63 @@ class BoardFieldRenderingCoverageTest {
         val method = owner.getDeclaredMethod(name, *parameterTypes)
         method.isAccessible = true
         return method.invoke(null, *args)
+    }
+    @Test
+    fun `FieldItem shows free parking money stack only on free parking field`() {
+        composeTestRule.setContent {
+            Box {
+                FieldItem(
+                    index = 20,
+                    field = FreeParkingField(),
+                    sw = 3840f,
+                    sh = 2160f,
+                    freeParkingMoney = 350
+                )
+            }
+        }
+
+        composeTestRule.onNodeWithTag("free_parking_money_stack", useUnmergedTree = true).assertExists()
+        composeTestRule.onNodeWithTag("free_parking_money_amount", useUnmergedTree = true).assertExists()
+        composeTestRule.onNodeWithText("$350", useUnmergedTree = true).assertExists()
+    }
+
+    @Test
+    fun `FieldItem does not show free parking money stack when amount is zero`() {
+        composeTestRule.setContent {
+            Box {
+                FieldItem(
+                    index = 20,
+                    field = FreeParkingField(),
+                    sw = 3840f,
+                    sh = 2160f,
+                    freeParkingMoney = 0
+                )
+            }
+        }
+
+        composeTestRule.onNodeWithTag("free_parking_money_stack", useUnmergedTree = true).assertDoesNotExist()
+        composeTestRule.onNodeWithTag("free_parking_money_amount", useUnmergedTree = true).assertDoesNotExist()
+    }
+
+    @Test
+    fun `FieldItem free parking money stack is clickable`() {
+        var clicked = false
+
+        composeTestRule.setContent {
+            Box {
+                FieldItem(
+                    index = 20,
+                    field = FreeParkingField(),
+                    sw = 3840f,
+                    sh = 2160f,
+                    freeParkingMoney = 275,
+                    onFreeParkingMoneyClick = { clicked = true }
+                )
+            }
+        }
+
+        composeTestRule.onNodeWithTag("free_parking_money_stack", useUnmergedTree = true).performClick()
+
+        assertTrue(clicked)
     }
 }

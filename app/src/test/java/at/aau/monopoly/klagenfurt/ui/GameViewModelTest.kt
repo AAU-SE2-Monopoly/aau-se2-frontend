@@ -166,6 +166,76 @@ class GameViewModelTest {
         assertEquals("trade-2", fakeService.lastRejectedTradeId)
     }
 
+    @Test
+    fun `TRADE_COMPLETED should clear selected trade partner`() = runTest {
+        val job = launch { viewModel.selectedPlayerForTrade.collect {} }
+        viewModel.showTradeOverlay(Player(id = "p2", name = "Bob"))
+
+        fakeService.emitTestEvent("""
+        {
+          "event": "TRADE_COMPLETED",
+          "gameId": "game-1",
+          "gameState": {
+            "gameId": "game-1",
+            "fields": [],
+            "players": [{"id":"p1","name":"Alice"},{"id":"p2","name":"Bob"}],
+            "currentPlayerIndex": 0
+          }
+        }
+        """.trimIndent())
+        advanceUntilIdle()
+
+        assertNull(viewModel.selectedPlayerForTrade.value)
+        job.cancel()
+    }
+
+    @Test
+    fun `TRADE_REJECTED should clear selected trade partner`() = runTest {
+        val job = launch { viewModel.selectedPlayerForTrade.collect {} }
+        viewModel.showTradeOverlay(Player(id = "p2", name = "Bob"))
+
+        fakeService.emitTestEvent("""
+        {
+          "event": "TRADE_REJECTED",
+          "gameId": "game-1",
+          "gameState": {
+            "gameId": "game-1",
+            "fields": [],
+            "players": [{"id":"p1","name":"Alice"},{"id":"p2","name":"Bob"}],
+            "currentPlayerIndex": 0
+          }
+        }
+        """.trimIndent())
+        advanceUntilIdle()
+
+        assertNull(viewModel.selectedPlayerForTrade.value)
+        job.cancel()
+    }
+
+    @Test
+    fun `unrelated game event should keep selected trade partner`() = runTest {
+        val job = launch { viewModel.selectedPlayerForTrade.collect {} }
+        val tradePartner = Player(id = "p2", name = "Bob")
+        viewModel.showTradeOverlay(tradePartner)
+
+        fakeService.emitTestEvent("""
+        {
+          "event": "TRADE_UPDATED",
+          "gameId": "game-1",
+          "gameState": {
+            "gameId": "game-1",
+            "fields": [],
+            "players": [{"id":"p1","name":"Alice"},{"id":"p2","name":"Bob"}],
+            "currentPlayerIndex": 0
+          }
+        }
+        """.trimIndent())
+        advanceUntilIdle()
+
+        assertEquals(tradePartner, viewModel.selectedPlayerForTrade.value)
+        job.cancel()
+    }
+
     // --- FACTORY TEST ---
 
     @Test

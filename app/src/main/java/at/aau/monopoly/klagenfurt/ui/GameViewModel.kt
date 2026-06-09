@@ -332,7 +332,7 @@ class GameViewModel(
                     finishPropertyAction()
                 }
 
-                if (event.event == "TRADE_ACCEPTED" || event.event == "TRADE_REJECTED") {
+                if (event.event == "TRADE_COMPLETED" || event.event == "TRADE_REJECTED") {
                     _selectedPlayerForTrade.value = null
                 }
 
@@ -867,7 +867,6 @@ class GameViewModel(
             offerJailCards = offerJailCards,
             requestJailCards = requestJailCards
         )
-        _selectedPlayerForTrade.value = null
     }
 
     fun acceptTrade(tradeId: String) = gameService.acceptTrade(tradeId)

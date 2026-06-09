@@ -26,7 +26,8 @@ data class TradeOffer(
     val offerPropertyIds: List<Int> = emptyList(),
     val requestPropertyIds: List<Int> = emptyList(),
     val offerJailCards: Int = 0,
-    val requestJailCards: Int = 0
+    val requestJailCards: Int = 0,
+    val acceptedByPlayerIds: List<String> = emptyList()
 )
 
 @JsonIgnoreProperties(ignoreUnknown = true)

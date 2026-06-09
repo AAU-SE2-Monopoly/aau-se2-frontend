@@ -388,7 +388,18 @@ fun GameboardScreen(
                 movementAnimationState = movementState,
                 // NEW: Pass reportCheater to the content layer
                 onReportCheater = { reportedPlayerId -> viewModel.reportCheater(reportedPlayerId) },
-                onStartTrade = { player -> viewModel.showTradeOverlay(player) },
+                onStartTrade = { player ->
+                    viewModel.showTradeOverlay(player)
+                    viewModel.proposeTrade(
+                        toPlayerId = player.id,
+                        offerMoney = 0,
+                        requestMoney = 0,
+                        offerPropertyIds = emptyList(),
+                        requestPropertyIds = emptyList(),
+                        offerJailCards = 0,
+                        requestJailCards = 0
+                    )
+                },
                 gameState = gameState,
                 onFreeParkingMoneyClick = { showFreeParkingOverlay = true },
                 modifier = Modifier.fillMaxSize()
@@ -568,14 +579,29 @@ fun GameboardScreen(
                 amount = gameState?.freeParkingMoney ?: 0,
                 onClose = { showFreeParkingOverlay = false }
             )
-            selectedTradePlayer?.let { tradePlayer ->
+            val pendingTradeOffer = gameState?.pendingTradeOffer
+            var dismissedTradeId by remember { mutableStateOf<String?>(null) }
+            LaunchedEffect(pendingTradeOffer?.id) {
+                if (pendingTradeOffer?.id != dismissedTradeId) dismissedTradeId = null
+            }
+            val publicTradePlayer = pendingTradeOffer
+                ?.takeUnless { it.id == dismissedTradeId }
+                ?.let { offer ->
+                when (currentPlayerId) {
+                    offer.fromPlayerId -> players.find { it.id == offer.toPlayerId }
+                    offer.toPlayerId -> players.find { it.id == offer.fromPlayerId }
+                    else -> players.find { it.id == offer.fromPlayerId }
+                }
+            }
+            val visibleTradePlayer = selectedTradePlayer ?: publicTradePlayer
+            if (visibleTradePlayer != null) {
                 TradeOverlay(
                     isVisible = true,
                     currentPlayerId = currentPlayerId,
-                    tradePartner = tradePlayer,
+                    tradePartner = visibleTradePlayer,
                     players = players,
                     fields = fields,
-                    pendingTradeOffer = gameState?.pendingTradeOffer,
+                    pendingTradeOffer = pendingTradeOffer,
                     onProposeTrade = { toPlayerId, offerMoney, requestMoney, offerPropertyIds, requestPropertyIds, offerJailCards, requestJailCards ->
                         viewModel.proposeTrade(
                             toPlayerId = toPlayerId,
@@ -589,28 +615,19 @@ fun GameboardScreen(
                     },
                     onAcceptTrade = { tradeId -> viewModel.acceptTrade(tradeId) },
                     onRejectTrade = { tradeId -> viewModel.rejectTrade(tradeId) },
-                    onDismiss = { viewModel.hideTradeOverlay() }
+                    onDismiss = {
+                        val offer = pendingTradeOffer
+                        if (offer != null &&
+                            (offer.fromPlayerId == currentPlayerId || offer.toPlayerId == currentPlayerId)
+                        ) {
+                            viewModel.rejectTrade(offer.id)
+                        } else if (offer != null) {
+                            dismissedTradeId = offer.id
+                        }
+                        viewModel.hideTradeOverlay()
+                    }
                 )
             }
-            gameState?.pendingTradeOffer
-                ?.takeIf { it.toPlayerId == currentPlayerId && selectedTradePlayer == null }
-                ?.let { offer ->
-                    val fromPlayer = players.find { it.id == offer.fromPlayerId }
-                    if (fromPlayer != null) {
-                        TradeOverlay(
-                            isVisible = true,
-                            currentPlayerId = currentPlayerId,
-                            tradePartner = fromPlayer,
-                            players = players,
-                            fields = fields,
-                            pendingTradeOffer = offer,
-                            onProposeTrade = { _, _, _, _, _, _, _ -> },
-                            onAcceptTrade = { tradeId -> viewModel.acceptTrade(tradeId) },
-                            onRejectTrade = { tradeId -> viewModel.rejectTrade(tradeId) },
-                            onDismiss = { viewModel.rejectTrade(offer.id) }
-                        )
-                    }
-                }
             // Payment overlays
             val isTaxPayment = gameState?.pendingPayment?.source == PaymentSource.TAX
             PayRentOverlay(
@@ -852,15 +869,19 @@ fun GameboardContent(
                         }
                         Button(
                             onClick = { onStartTrade(player) },
-                            enabled = gameState?.pendingTradeOffer == null,
+                            enabled = gameState?.pendingTradeOffer == null &&
+                                currentTurnPlayer?.id == currentPlayerId,
                             modifier = Modifier
                                 .padding(top = 4.dp, end = 4.dp)
                                 .height(26.dp),
-                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 0.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1565C0)),
+                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = Color.Black.copy(alpha = 0.35f),
+                                disabledContainerColor = Color.Black.copy(alpha = 0.16f)
+                            ),
                             shape = RoundedCornerShape(6.dp)
                         ) {
-                            Text("Trade", fontSize = 11.sp, color = Color.White, fontWeight = FontWeight.Bold)
+                            Text("🔁", fontSize = 13.sp, color = Color.White, fontWeight = FontWeight.Bold)
                         }
                     }
                 }
@@ -1051,10 +1072,10 @@ fun TradeOverlay(
     if (!isVisible) return
 
     val currentPlayer = players.find { it.id == currentPlayerId } ?: return
-    val activeOffer = pendingTradeOffer?.takeIf { offer ->
-        (offer.fromPlayerId == currentPlayerId && offer.toPlayerId == tradePartner.id) ||
-            (offer.fromPlayerId == tradePartner.id && offer.toPlayerId == currentPlayerId)
-    }
+    val activeOffer = pendingTradeOffer
+    val fromPlayer = activeOffer?.let { offer -> players.find { it.id == offer.fromPlayerId } } ?: currentPlayer
+    val toPlayer = activeOffer?.let { offer -> players.find { it.id == offer.toPlayerId } } ?: tradePartner
+    val isInvolved = currentPlayerId == fromPlayer.id || currentPlayerId == toPlayer.id
 
     Dialog(
         onDismissRequest = onDismiss,
@@ -1087,7 +1108,18 @@ fun TradeOverlay(
                     }
                 }
 
-                if (activeOffer != null) {
+                if (activeOffer != null && isInvolved) {
+                    TradeProposalEditor(
+                        fromPlayer = fromPlayer,
+                        toPlayer = toPlayer,
+                        currentPlayerId = currentPlayerId,
+                        fields = fields,
+                        initialOffer = activeOffer,
+                        onProposeTrade = onProposeTrade,
+                        onAcceptTrade = onAcceptTrade,
+                        onRejectTrade = onRejectTrade
+                    )
+                } else if (activeOffer != null) {
                     TradeOfferReview(
                         offer = activeOffer,
                         players = players,
@@ -1098,9 +1130,11 @@ fun TradeOverlay(
                     )
                 } else {
                     TradeProposalEditor(
-                        currentPlayer = currentPlayer,
-                        tradePartner = tradePartner,
+                        fromPlayer = currentPlayer,
+                        toPlayer = tradePartner,
+                        currentPlayerId = currentPlayerId,
                         fields = fields,
+                        initialOffer = null,
                         onProposeTrade = onProposeTrade
                     )
                 }
@@ -1111,9 +1145,11 @@ fun TradeOverlay(
 
 @Composable
 private fun TradeProposalEditor(
-    currentPlayer: Player,
-    tradePartner: Player,
+    fromPlayer: Player,
+    toPlayer: Player,
+    currentPlayerId: String,
     fields: List<Field>,
+    initialOffer: TradeOffer?,
     onProposeTrade: (
         toPlayerId: String,
         offerMoney: Int,
@@ -1122,85 +1158,190 @@ private fun TradeProposalEditor(
         requestPropertyIds: List<Int>,
         offerJailCards: Int,
         requestJailCards: Int
-    ) -> Unit
+    ) -> Unit,
+    onAcceptTrade: (String) -> Unit = {},
+    onRejectTrade: (String) -> Unit = {}
 ) {
-    var offerMoneyText by remember { mutableStateOf("0") }
-    var requestMoneyText by remember { mutableStateOf("0") }
-    var offerJailCards by remember { mutableStateOf(0) }
-    var requestJailCards by remember { mutableStateOf(0) }
-    var offeredPropertyIds by remember { mutableStateOf(setOf<Int>()) }
-    var requestedPropertyIds by remember { mutableStateOf(setOf<Int>()) }
+    var offerMoneyText by remember { mutableStateOf(initialOffer?.offerMoney?.toString() ?: "0") }
+    var requestMoneyText by remember { mutableStateOf(initialOffer?.requestMoney?.toString() ?: "0") }
+    var offerJailCards by remember { mutableStateOf(initialOffer?.offerJailCards ?: 0) }
+    var requestJailCards by remember { mutableStateOf(initialOffer?.requestJailCards ?: 0) }
+    var offeredPropertyIds by remember { mutableStateOf(initialOffer?.offerPropertyIds?.toSet() ?: setOf()) }
+    var requestedPropertyIds by remember { mutableStateOf(initialOffer?.requestPropertyIds?.toSet() ?: setOf()) }
 
-    val myProperties = remember(currentPlayer.id, fields) {
-        fields.tradeablePropertiesFor(currentPlayer.id)
+    LaunchedEffect(initialOffer) {
+        offerMoneyText = initialOffer?.offerMoney?.toString() ?: "0"
+        requestMoneyText = initialOffer?.requestMoney?.toString() ?: "0"
+        offerJailCards = initialOffer?.offerJailCards ?: 0
+        requestJailCards = initialOffer?.requestJailCards ?: 0
+        offeredPropertyIds = initialOffer?.offerPropertyIds?.toSet() ?: setOf()
+        requestedPropertyIds = initialOffer?.requestPropertyIds?.toSet() ?: setOf()
     }
-    val partnerProperties = remember(tradePartner.id, fields) {
-        fields.tradeablePropertiesFor(tradePartner.id)
+
+    val fromProperties = remember(fromPlayer.id, fields) {
+        fields.tradeablePropertiesFor(fromPlayer.id)
+    }
+    val toProperties = remember(toPlayer.id, fields) {
+        fields.tradeablePropertiesFor(toPlayer.id)
     }
     val offerMoney = offerMoneyText.toIntOrNull()?.coerceAtLeast(0) ?: 0
     val requestMoney = requestMoneyText.toIntOrNull()?.coerceAtLeast(0) ?: 0
+    val currentPlayerAccepted = initialOffer?.acceptedByPlayerIds?.contains(currentPlayerId) == true
+    val canEditFromSide = currentPlayerId == fromPlayer.id
+    val canEditToSide = currentPlayerId == toPlayer.id
+    val hasTradeContents = offerMoney > 0 || requestMoney > 0 ||
+        offeredPropertyIds.isNotEmpty() || requestedPropertyIds.isNotEmpty() ||
+        offerJailCards > 0 || requestJailCards > 0
     val canSubmit =
-        offerMoney <= currentPlayer.money &&
-            requestMoney <= tradePartner.money &&
-            offerJailCards <= currentPlayer.getOutOfJailCards &&
-            requestJailCards <= tradePartner.getOutOfJailCards &&
-            (offerMoney > 0 || requestMoney > 0 ||
-                offeredPropertyIds.isNotEmpty() || requestedPropertyIds.isNotEmpty() ||
-                offerJailCards > 0 || requestJailCards > 0)
+        offerMoney <= fromPlayer.money &&
+            requestMoney <= toPlayer.money &&
+            offerJailCards <= fromPlayer.getOutOfJailCards &&
+            requestJailCards <= toPlayer.getOutOfJailCards &&
+            (initialOffer != null || hasTradeContents)
+
+    fun publishLiveUpdate(
+        nextOfferMoneyText: String = offerMoneyText,
+        nextRequestMoneyText: String = requestMoneyText,
+        nextOfferedPropertyIds: Set<Int> = offeredPropertyIds,
+        nextRequestedPropertyIds: Set<Int> = requestedPropertyIds,
+        nextOfferJailCards: Int = offerJailCards,
+        nextRequestJailCards: Int = requestJailCards
+    ) {
+        if (initialOffer == null) return
+        onProposeTrade(
+            toPlayer.id,
+            nextOfferMoneyText.toIntOrNull()?.coerceAtLeast(0) ?: 0,
+            nextRequestMoneyText.toIntOrNull()?.coerceAtLeast(0) ?: 0,
+            nextOfferedPropertyIds.toList(),
+            nextRequestedPropertyIds.toList(),
+            nextOfferJailCards,
+            nextRequestJailCards
+        )
+    }
+
+    TradeAcceptStatus(
+        fromPlayer = fromPlayer,
+        toPlayer = toPlayer,
+        acceptedByPlayerIds = initialOffer?.acceptedByPlayerIds ?: emptyList()
+    )
 
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(14.dp)
     ) {
         TradeSideEditor(
-            title = "You give",
+            title = "${fromPlayer.name} gives",
             moneyText = offerMoneyText,
-            onMoneyChange = { offerMoneyText = it.filter(Char::isDigit).take(5) },
-            maxMoney = currentPlayer.money,
+            onMoneyChange = {
+                val next = it.filter(Char::isDigit).take(5)
+                offerMoneyText = next
+                publishLiveUpdate(nextOfferMoneyText = next)
+            },
+            maxMoney = fromPlayer.money,
             jailCards = offerJailCards,
-            maxJailCards = currentPlayer.getOutOfJailCards,
-            onJailCardsChange = { offerJailCards = it },
-            properties = myProperties,
+            maxJailCards = fromPlayer.getOutOfJailCards,
+            onJailCardsChange = {
+                offerJailCards = it
+                publishLiveUpdate(nextOfferJailCards = it)
+            },
+            properties = fromProperties,
             selectedPropertyIds = offeredPropertyIds,
             onPropertyToggle = { fieldId ->
-                offeredPropertyIds = offeredPropertyIds.toggle(fieldId)
+                val next = offeredPropertyIds.toggle(fieldId)
+                offeredPropertyIds = next
+                publishLiveUpdate(nextOfferedPropertyIds = next)
             },
+            enabled = canEditFromSide,
             modifier = Modifier.weight(1f)
         )
         TradeSideEditor(
-            title = "You receive",
+            title = "${toPlayer.name} gives",
             moneyText = requestMoneyText,
-            onMoneyChange = { requestMoneyText = it.filter(Char::isDigit).take(5) },
-            maxMoney = tradePartner.money,
+            onMoneyChange = {
+                val next = it.filter(Char::isDigit).take(5)
+                requestMoneyText = next
+                publishLiveUpdate(nextRequestMoneyText = next)
+            },
+            maxMoney = toPlayer.money,
             jailCards = requestJailCards,
-            maxJailCards = tradePartner.getOutOfJailCards,
-            onJailCardsChange = { requestJailCards = it },
-            properties = partnerProperties,
+            maxJailCards = toPlayer.getOutOfJailCards,
+            onJailCardsChange = {
+                requestJailCards = it
+                publishLiveUpdate(nextRequestJailCards = it)
+            },
+            properties = toProperties,
             selectedPropertyIds = requestedPropertyIds,
             onPropertyToggle = { fieldId ->
-                requestedPropertyIds = requestedPropertyIds.toggle(fieldId)
+                val next = requestedPropertyIds.toggle(fieldId)
+                requestedPropertyIds = next
+                publishLiveUpdate(nextRequestedPropertyIds = next)
             },
+            enabled = canEditToSide,
             modifier = Modifier.weight(1f)
         )
     }
 
-    Button(
-        onClick = {
-            onProposeTrade(
-                tradePartner.id,
-                offerMoney,
-                requestMoney,
-                offeredPropertyIds.toList(),
-                requestedPropertyIds.toList(),
-                offerJailCards,
-                requestJailCards
-            )
-        },
-        enabled = canSubmit,
+    Row(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(6.dp)
+        horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Text("Propose Trade")
+        if (initialOffer != null) {
+            TextButton(onClick = { onRejectTrade(initialOffer.id) }) {
+                Text("Cancel")
+            }
+        }
+        if (initialOffer == null) {
+            Button(
+                onClick = {
+                    onProposeTrade(
+                        toPlayer.id,
+                        offerMoney,
+                        requestMoney,
+                        offeredPropertyIds.toList(),
+                        requestedPropertyIds.toList(),
+                        offerJailCards,
+                        requestJailCards
+                    )
+                },
+                enabled = canSubmit,
+                shape = RoundedCornerShape(6.dp)
+            ) {
+                Text("Start Offer")
+            }
+        }
+        if (initialOffer != null) {
+            Button(
+                onClick = { onAcceptTrade(initialOffer.id) },
+                enabled = hasTradeContents && !currentPlayerAccepted,
+                shape = RoundedCornerShape(6.dp)
+            ) {
+                Text(if (currentPlayerAccepted) "Accepted" else "Accept")
+            }
+        }
+    }
+}
+
+@Composable
+private fun TradeAcceptStatus(
+    fromPlayer: Player,
+    toPlayer: Player,
+    acceptedByPlayerIds: List<String>
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        Text(
+            text = "${fromPlayer.name}: ${if (fromPlayer.id in acceptedByPlayerIds) "Accepted" else "Reviewing"}",
+            color = if (fromPlayer.id in acceptedByPlayerIds) Color(0xFF1B5E20) else Color.DarkGray,
+            fontWeight = FontWeight.Medium
+        )
+        Text(
+            text = "${toPlayer.name}: ${if (toPlayer.id in acceptedByPlayerIds) "Accepted" else "Reviewing"}",
+            color = if (toPlayer.id in acceptedByPlayerIds) Color(0xFF1B5E20) else Color.DarkGray,
+            fontWeight = FontWeight.Medium
+        )
     }
 }
 
@@ -1216,6 +1357,7 @@ private fun TradeSideEditor(
     properties: List<Field>,
     selectedPropertyIds: Set<Int>,
     onPropertyToggle: (Int) -> Unit,
+    enabled: Boolean = true,
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -1228,6 +1370,7 @@ private fun TradeSideEditor(
             onValueChange = onMoneyChange,
             label = { Text("Money, max $maxMoney") },
             singleLine = true,
+            enabled = enabled,
             modifier = Modifier.fillMaxWidth()
         )
         Row(
@@ -1237,11 +1380,11 @@ private fun TradeSideEditor(
             Text("Jail cards: $jailCards / $maxJailCards", color = Color(0xFF333333))
             TextButton(
                 onClick = { onJailCardsChange((jailCards - 1).coerceAtLeast(0)) },
-                enabled = jailCards > 0
+                enabled = enabled && jailCards > 0
             ) { Text("-") }
             TextButton(
                 onClick = { onJailCardsChange((jailCards + 1).coerceAtMost(maxJailCards)) },
-                enabled = jailCards < maxJailCards
+                enabled = enabled && jailCards < maxJailCards
             ) { Text("+") }
         }
         LazyColumn(
@@ -1260,7 +1403,8 @@ private fun TradeSideEditor(
                 ) {
                     Checkbox(
                         checked = field.id in selectedPropertyIds,
-                        onCheckedChange = { onPropertyToggle(field.id) }
+                        onCheckedChange = { onPropertyToggle(field.id) },
+                        enabled = enabled
                     )
                     Column {
                         Text(field.name, fontWeight = FontWeight.Medium, color = Color.Black)
@@ -1287,12 +1431,20 @@ private fun TradeOfferReview(
 ) {
     val fromPlayer = players.find { it.id == offer.fromPlayerId }
     val toPlayer = players.find { it.id == offer.toPlayerId }
-    val isReceiver = offer.toPlayerId == currentPlayerId
+    val isInvolved = offer.toPlayerId == currentPlayerId || offer.fromPlayerId == currentPlayerId
+    val currentPlayerAccepted = offer.acceptedByPlayerIds.contains(currentPlayerId)
 
     Text(
         text = "${fromPlayer?.name ?: "A player"} offers a trade to ${toPlayer?.name ?: "another player"}.",
         color = Color.Black
     )
+    if (fromPlayer != null && toPlayer != null) {
+        TradeAcceptStatus(
+            fromPlayer = fromPlayer,
+            toPlayer = toPlayer,
+            acceptedByPlayerIds = offer.acceptedByPlayerIds
+        )
+    }
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(14.dp)
@@ -1318,16 +1470,25 @@ private fun TradeOfferReview(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.End
     ) {
-        TextButton(onClick = { onRejectTrade(offer.id) }) {
-            Text(if (isReceiver) "Reject" else "Cancel")
+        TextButton(
+            onClick = { onRejectTrade(offer.id) },
+            enabled = isInvolved
+        ) {
+            Text("Cancel")
         }
         Spacer(modifier = Modifier.width(8.dp))
         Button(
             onClick = { onAcceptTrade(offer.id) },
-            enabled = isReceiver,
+            enabled = isInvolved && !currentPlayerAccepted,
             shape = RoundedCornerShape(6.dp)
         ) {
-            Text(if (isReceiver) "Accept Trade" else "Waiting for answer")
+            Text(
+                when {
+                    !isInvolved -> "Watching"
+                    currentPlayerAccepted -> "Accepted"
+                    else -> "Accept"
+                }
+            )
         }
     }
 }

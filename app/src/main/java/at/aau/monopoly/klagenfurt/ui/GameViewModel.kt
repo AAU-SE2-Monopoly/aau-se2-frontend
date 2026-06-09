@@ -610,6 +610,10 @@ class GameViewModel(
     fun startGame() = gameService.startGame()
 
     fun activateCheatForNextRoll() {
+        val now = currentTimeProvider()
+        // Prevent queuing a cheat if a roll was just performed
+        if (now - lastDiceRollTimestamp < 1500L) return
+        
         isCheatActive = true
     }
 

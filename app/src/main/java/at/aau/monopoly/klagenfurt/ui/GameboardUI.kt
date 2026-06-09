@@ -110,9 +110,11 @@ class GameboardUI : ComponentActivity() {
 
     override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
         if (keyCode == KeyEvent.KEYCODE_VOLUME_UP) {
-            // Activate cheat in ViewModel
-            viewModel.activateCheatForNextRoll()
-            Log.d("DiceDebug", "Cheat activated via Volume Up!")
+            if (event?.repeatCount == 0) {
+                // Activate cheat in ViewModel
+                viewModel.activateCheatForNextRoll()
+                Log.d("DiceDebug", "Cheat activated via Volume Up!")
+            }
             // IMPORTANT: Return true so volume doesn't change
             return true
         }

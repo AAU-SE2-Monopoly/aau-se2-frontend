@@ -1076,6 +1076,11 @@ fun TradeOverlay(
     val fromPlayer = activeOffer?.let { offer -> players.find { it.id == offer.fromPlayerId } } ?: currentPlayer
     val toPlayer = activeOffer?.let { offer -> players.find { it.id == offer.toPlayerId } } ?: tradePartner
     val isInvolved = currentPlayerId == fromPlayer.id || currentPlayerId == toPlayer.id
+    val currentPlayerAccepted = activeOffer?.acceptedByPlayerIds?.contains(currentPlayerId) == true
+    val canAccept = activeOffer != null &&
+        isInvolved &&
+        !currentPlayerAccepted &&
+        activeOffer.hasTradeContents()
 
     Dialog(
         onDismissRequest = onDismiss,
@@ -1084,7 +1089,7 @@ fun TradeOverlay(
         Surface(
             modifier = Modifier
                 .fillMaxWidth(0.86f)
-                .heightIn(max = 560.dp),
+                .heightIn(max = 660.dp),
             color = Color(0xFFF8F4EA),
             shape = RoundedCornerShape(8.dp)
         ) {
@@ -1103,8 +1108,24 @@ fun TradeOverlay(
                         fontWeight = FontWeight.Bold,
                         color = Color(0xFF1D1D1D)
                     )
-                    TextButton(onClick = onDismiss) {
-                        Text("Close")
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Button(
+                            onClick = { activeOffer?.let { onAcceptTrade(it.id) } },
+                            enabled = canAccept,
+                            shape = RoundedCornerShape(6.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                disabledContainerColor = Color.LightGray,
+                                disabledContentColor = Color.DarkGray
+                            )
+                        ) {
+                            Text(if (currentPlayerAccepted) "Accepted" else "Accept")
+                        }
+                        TextButton(onClick = onDismiss) {
+                            Text("Close")
+                        }
                     }
                 }
 
@@ -1116,7 +1137,6 @@ fun TradeOverlay(
                         fields = fields,
                         initialOffer = activeOffer,
                         onProposeTrade = onProposeTrade,
-                        onAcceptTrade = onAcceptTrade,
                         onRejectTrade = onRejectTrade
                     )
                 } else if (activeOffer != null) {
@@ -1159,7 +1179,6 @@ private fun TradeProposalEditor(
         offerJailCards: Int,
         requestJailCards: Int
     ) -> Unit,
-    onAcceptTrade: (String) -> Unit = {},
     onRejectTrade: (String) -> Unit = {}
 ) {
     var offerMoneyText by remember { mutableStateOf(initialOffer?.offerMoney?.toString() ?: "0") }
@@ -1186,7 +1205,6 @@ private fun TradeProposalEditor(
     }
     val offerMoney = offerMoneyText.toIntOrNull()?.coerceAtLeast(0) ?: 0
     val requestMoney = requestMoneyText.toIntOrNull()?.coerceAtLeast(0) ?: 0
-    val currentPlayerAccepted = initialOffer?.acceptedByPlayerIds?.contains(currentPlayerId) == true
     val canEditFromSide = currentPlayerId == fromPlayer.id
     val canEditToSide = currentPlayerId == toPlayer.id
     val hasTradeContents = offerMoney > 0 || requestMoney > 0 ||
@@ -1310,15 +1328,6 @@ private fun TradeProposalEditor(
                 Text("Start Offer")
             }
         }
-        if (initialOffer != null) {
-            Button(
-                onClick = { onAcceptTrade(initialOffer.id) },
-                enabled = hasTradeContents && !currentPlayerAccepted,
-                shape = RoundedCornerShape(6.dp)
-            ) {
-                Text(if (currentPlayerAccepted) "Accepted" else "Accept")
-            }
-        }
     }
 }
 
@@ -1388,7 +1397,7 @@ private fun TradeSideEditor(
             ) { Text("+") }
         }
         LazyColumn(
-            modifier = Modifier.heightIn(max = 230.dp),
+            modifier = Modifier.heightIn(max = 150.dp),
             verticalArrangement = Arrangement.spacedBy(4.dp)
         ) {
             if (properties.isEmpty()) {
@@ -1519,6 +1528,14 @@ private fun TradeOfferColumn(
 
 private fun Set<Int>.toggle(fieldId: Int): Set<Int> =
     if (fieldId in this) this - fieldId else this + fieldId
+
+private fun TradeOffer.hasTradeContents(): Boolean =
+    offerMoney > 0 ||
+        requestMoney > 0 ||
+        offerPropertyIds.isNotEmpty() ||
+        requestPropertyIds.isNotEmpty() ||
+        offerJailCards > 0 ||
+        requestJailCards > 0
 
 private fun List<Field>.tradeablePropertiesFor(playerId: String): List<Field> =
     filter { field ->

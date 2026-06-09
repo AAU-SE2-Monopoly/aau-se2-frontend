@@ -253,6 +253,30 @@ class FakeGameService : GameService {
         declareBankruptcyCalled = true
     }
 
+    var lastTradeTargetId: String? = null
+    var acceptTradeCalled = false
+    var rejectTradeCalled = false
+
+    override fun proposeTrade(
+        toPlayerId: String,
+        offerMoney: Int,
+        requestMoney: Int,
+        offerPropertyIds: List<Int>,
+        requestPropertyIds: List<Int>,
+        offerJailCards: Int,
+        requestJailCards: Int
+    ) {
+        lastTradeTargetId = toPlayerId
+    }
+
+    override fun acceptTrade(tradeId: String) {
+        acceptTradeCalled = true
+    }
+
+    override fun rejectTrade(tradeId: String) {
+        rejectTradeCalled = true
+    }
+
     override fun debugForwardGame() {}
     override fun debugSetupBankruptcy() {}
     var lastPaidTaxFieldId: Int? = null

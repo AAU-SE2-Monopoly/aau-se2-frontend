@@ -92,6 +92,17 @@ class GameServiceTest {
             lastUnmortgageFieldId = fieldId
         }
         override fun declareBankruptcy() { declareBankruptcyCalled = true }
+        override fun proposeTrade(
+            toPlayerId: String,
+            offerMoney: Int,
+            requestMoney: Int,
+            offerPropertyIds: List<Int>,
+            requestPropertyIds: List<Int>,
+            offerJailCards: Int,
+            requestJailCards: Int
+        ) {}
+        override fun acceptTrade(tradeId: String) {}
+        override fun rejectTrade(tradeId: String) {}
         override fun debugForwardGame() { debugForwardCalled = true }
         override fun debugSetupBankruptcy() { debugSetupCalled = true }
         override fun payTax(fieldId: Int) {

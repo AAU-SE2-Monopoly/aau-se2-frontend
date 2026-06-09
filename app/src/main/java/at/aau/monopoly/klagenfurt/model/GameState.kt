@@ -17,6 +17,18 @@ data class PendingPayment(
     val debtorCanPayAfterAssets: Boolean = false
 )
 
+data class TradeOffer(
+    val id: String = "",
+    val fromPlayerId: String = "",
+    val toPlayerId: String = "",
+    val offerMoney: Int = 0,
+    val requestMoney: Int = 0,
+    val offerPropertyIds: List<Int> = emptyList(),
+    val requestPropertyIds: List<Int> = emptyList(),
+    val offerJailCards: Int = 0,
+    val requestJailCards: Int = 0
+)
+
 @JsonIgnoreProperties(ignoreUnknown = true)
 data class GameState(
     val gameId: String,
@@ -34,7 +46,8 @@ data class GameState(
     val bankruptcyTotalDebt: Int = 0,
     val bankruptcyPropertiesCount: Int = 0,
     val bankruptcyOwnedFieldIds: List<Int> = emptyList(),
-    val bankruptcyPlayerId: String = ""
+    val bankruptcyPlayerId: String = "",
+    val pendingTradeOffer: TradeOffer? = null
 ) {
     /** The player whose turn it currently is. */
     val currentPlayer: Player?

@@ -1513,13 +1513,14 @@ private fun TradeOfferReview(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.End
     ) {
-        TextButton(
-            onClick = { onRejectTrade(offer.id) },
-            enabled = isInvolved
-        ) {
-            Text("Cancel")
+        if (isInvolved) {
+            TextButton(
+                onClick = { onRejectTrade(offer.id) }
+            ) {
+                Text("Cancel")
+            }
+            Spacer(modifier = Modifier.width(8.dp))
         }
-        Spacer(modifier = Modifier.width(8.dp))
         Button(
             onClick = { onAcceptTrade(offer.id) },
             enabled = isInvolved && !currentPlayerAccepted,

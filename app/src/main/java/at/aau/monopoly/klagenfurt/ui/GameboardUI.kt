@@ -1077,9 +1077,8 @@ fun TradeOverlay(
     val toPlayer = activeOffer?.let { offer -> players.find { it.id == offer.toPlayerId } } ?: tradePartner
     val isInvolved = currentPlayerId == fromPlayer.id || currentPlayerId == toPlayer.id
     val currentPlayerAccepted = activeOffer?.acceptedByPlayerIds?.contains(currentPlayerId) == true
-    val canAccept = activeOffer != null &&
+    val canToggleAccept = activeOffer != null &&
         isInvolved &&
-        !currentPlayerAccepted &&
         activeOffer.hasTradeContents()
 
     Dialog(
@@ -1114,9 +1113,11 @@ fun TradeOverlay(
                     ) {
                         Button(
                             onClick = { activeOffer?.let { onAcceptTrade(it.id) } },
-                            enabled = canAccept,
+                            enabled = canToggleAccept,
                             shape = RoundedCornerShape(6.dp),
                             colors = ButtonDefaults.buttonColors(
+                                containerColor = if (currentPlayerAccepted) Color(0xFF2E7D32) else Color(0xFF6750A4),
+                                contentColor = Color.White,
                                 disabledContainerColor = Color.LightGray,
                                 disabledContentColor = Color.DarkGray
                             )

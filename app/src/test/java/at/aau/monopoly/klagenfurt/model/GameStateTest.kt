@@ -80,10 +80,35 @@ class GameStateTest {
     }
 
     @Test
+    fun `pendingTradeOffer is null by default`() {
+        val state = makeState()
+        assertNull(state.pendingTradeOffer)
+    }
+
+    @Test
+    fun `GameState can carry pendingTradeOffer with accepted players`() {
+        val offer = TradeOffer(
+            id = "trade-1",
+            fromPlayerId = "p1",
+            toPlayerId = "p2",
+            offerMoney = 100,
+            requestMoney = 20,
+            offerPropertyIds = listOf(1, 3),
+            requestPropertyIds = listOf(6),
+            offerJailCards = 1,
+            requestJailCards = 0,
+            acceptedByPlayerIds = listOf("p1")
+        )
+        val state = makeState().copy(pendingTradeOffer = offer)
+
+        assertEquals(offer, state.pendingTradeOffer)
+        assertEquals(listOf("p1"), state.pendingTradeOffer?.acceptedByPlayerIds)
+    }
+
+    @Test
     fun `freeParkingMoney defaults to zero`() {
         val state = makeState()
         assertEquals(0, state.freeParkingMoney)
     }
 }
-
 

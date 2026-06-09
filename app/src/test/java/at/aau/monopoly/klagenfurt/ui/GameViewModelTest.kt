@@ -65,6 +65,28 @@ class GameViewModelTest {
     }
 
     @Test
+    fun `showTradeOverlay should hide player overlay and select trade partner`() {
+        val overlayPlayer = Player(id = "p1", name = "Alice")
+        val tradePartner = Player(id = "p2", name = "Bob")
+
+        viewModel.showPlayerOverlay(overlayPlayer)
+        viewModel.showTradeOverlay(tradePartner)
+
+        assertNull(viewModel.selectedPlayerForOverlay.value)
+        assertEquals(tradePartner, viewModel.selectedPlayerForTrade.value)
+    }
+
+    @Test
+    fun `hideTradeOverlay should reset selected trade partner`() {
+        val tradePartner = Player(id = "p2", name = "Bob")
+
+        viewModel.showTradeOverlay(tradePartner)
+        viewModel.hideTradeOverlay()
+
+        assertNull(viewModel.selectedPlayerForTrade.value)
+    }
+
+    @Test
     fun `connect should call gameService connect`() {
         viewModel.connect()
         assertTrue(fakeService.connectCalled)
@@ -110,6 +132,38 @@ class GameViewModelTest {
     fun `setGameId should call gameService setGameId`() {
         viewModel.setGameId("game123")
         assertEquals("game123", fakeService.currentGameId)
+    }
+
+    @Test
+    fun `proposeTrade should delegate complete offer to game service`() {
+        viewModel.proposeTrade(
+            toPlayerId = "p2",
+            offerMoney = 120,
+            requestMoney = 30,
+            offerPropertyIds = listOf(1, 3),
+            requestPropertyIds = listOf(6),
+            offerJailCards = 1,
+            requestJailCards = 0
+        )
+
+        assertEquals("p2", fakeService.lastTradeTargetId)
+        assertEquals(120, fakeService.lastTradeOfferMoney)
+        assertEquals(30, fakeService.lastTradeRequestMoney)
+        assertEquals(listOf(1, 3), fakeService.lastTradeOfferPropertyIds)
+        assertEquals(listOf(6), fakeService.lastTradeRequestPropertyIds)
+        assertEquals(1, fakeService.lastTradeOfferJailCards)
+        assertEquals(0, fakeService.lastTradeRequestJailCards)
+    }
+
+    @Test
+    fun `acceptTrade and rejectTrade should delegate trade id to game service`() {
+        viewModel.acceptTrade("trade-1")
+        viewModel.rejectTrade("trade-2")
+
+        assertTrue(fakeService.acceptTradeCalled)
+        assertEquals("trade-1", fakeService.lastAcceptedTradeId)
+        assertTrue(fakeService.rejectTradeCalled)
+        assertEquals("trade-2", fakeService.lastRejectedTradeId)
     }
 
     // --- FACTORY TEST ---

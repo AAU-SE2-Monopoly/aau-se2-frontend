@@ -12,6 +12,8 @@ import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
@@ -33,7 +35,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentHeight
-import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -41,9 +43,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Checkbox
 import androidx.compose.material3.Icon
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -1375,14 +1375,45 @@ private fun TradeSideEditor(
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         Text(title, fontWeight = FontWeight.Bold, color = Color(0xFF222222))
-        OutlinedTextField(
-            value = moneyText,
-            onValueChange = onMoneyChange,
-            label = { Text("Money, max $maxMoney") },
-            singleLine = true,
-            enabled = enabled,
-            modifier = Modifier.fillMaxWidth()
-        )
+        val moneyAmount = moneyText.toIntOrNull()?.coerceAtLeast(0) ?: 0
+        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Text(
+                text = "Money: ${moneyAmount}€ / ${maxMoney}€",
+                color = if (enabled) Color(0xFF222222) else Color.DarkGray,
+                fontWeight = FontWeight.Medium
+            )
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Button(
+                    onClick = {
+                        onMoneyChange((moneyAmount + 100).coerceAtMost(maxMoney).toString())
+                    },
+                    enabled = enabled && moneyAmount < maxMoney,
+                    shape = RoundedCornerShape(6.dp),
+                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
+                ) {
+                    Text("+100€")
+                }
+                Button(
+                    onClick = {
+                        onMoneyChange((moneyAmount + 10).coerceAtMost(maxMoney).toString())
+                    },
+                    enabled = enabled && moneyAmount < maxMoney,
+                    shape = RoundedCornerShape(6.dp),
+                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
+                ) {
+                    Text("+10€")
+                }
+                TextButton(
+                    onClick = { onMoneyChange("0") },
+                    enabled = enabled && moneyAmount > 0
+                ) {
+                    Text("Reset")
+                }
+            }
+        }
         Row(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.CenterVertically
@@ -1397,31 +1428,33 @@ private fun TradeSideEditor(
                 enabled = enabled && jailCards < maxJailCards
             ) { Text("+") }
         }
-        LazyColumn(
-            modifier = Modifier.heightIn(max = 150.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp)
-        ) {
-            if (properties.isEmpty()) {
-                item {
-                    Text("No tradeable properties", color = Color.DarkGray, fontSize = 13.sp)
-                }
-            }
-            items(properties) { field ->
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Checkbox(
-                        checked = field.id in selectedPropertyIds,
-                        onCheckedChange = { onPropertyToggle(field.id) },
-                        enabled = enabled
-                    )
-                    Column {
-                        Text(field.name, fontWeight = FontWeight.Medium, color = Color.Black)
-                        Text(
-                            text = if ((field as OwnableField).isMortgaged) "Mortgaged" else "Ready",
-                            fontSize = 12.sp,
-                            color = Color.DarkGray
+        if (properties.isEmpty()) {
+            Text("No tradeable properties", color = Color.DarkGray, fontSize = 13.sp)
+        } else {
+            LazyRow(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = 170.dp),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                contentPadding = PaddingValues(horizontal = 2.dp)
+            ) {
+                items(properties) { field ->
+                    val isSelected = field.id in selectedPropertyIds
+                    val borderColor = when {
+                        isSelected -> Color(0xFF2E7D32)
+                        enabled -> Color.Transparent
+                        else -> Color.LightGray
+                    }
+                    Box(
+                        modifier = Modifier
+                            .border(3.dp, borderColor, RoundedCornerShape(8.dp))
+                            .clickable(enabled = enabled) { onPropertyToggle(field.id) }
+                            .padding(3.dp)
+                    ) {
+                        FieldCardUI(
+                            field = field,
+                            cardWidth = 92.dp,
+                            cardHeight = 148.dp
                         )
                     }
                 }

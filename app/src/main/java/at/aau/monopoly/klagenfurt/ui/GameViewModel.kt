@@ -289,6 +289,7 @@ class GameViewModel(
                     _bankruptcyTotalAssets.value = 0
                     _bankruptcyTotalDebt.value = 0
                     _bankruptcyPropertiesOwned.value = emptyList()
+                    _showGameOverOverlay.value = false
                 }
 
                 if (event.event == "RENT_PAID" || event.event == "TAX_PAID") {
@@ -332,6 +333,15 @@ class GameViewModel(
                 if (event.event == "HOUSE_BOUGHT" || event.event == "HOTEL_BOUGHT" ||
                     event.event == "HOUSE_SOLD" || event.event == "HOTEL_SOLD") {
                     Log.i("GameViewModel", "Building action completed - refreshing state")
+                    finishPropertyAction()
+                }
+
+                if (event.event == "GAME_OVER" || event.gameState?.phase == GamePhase.FINISHED) {
+                    _showGameOverOverlay.value = true
+                    _showPayRentOverlay.value = false
+                    _showMortgageOverlay.value = false
+                    _showBankruptcyOverlay.value = false
+                    finishPaymentAction()
                     finishPropertyAction()
                 }
             }
@@ -806,6 +816,15 @@ class GameViewModel(
     private var previousGameState: GameState? = null
     private var animationJob: Job? = null
 
+    private val _showGameOverOverlay = MutableStateFlow(false)
+    val showGameOverOverlay: StateFlow<Boolean> = _showGameOverOverlay.asStateFlow()
+
+    val winner: StateFlow<Player?> = gameState
+        .map { state ->
+            state?.players?.firstOrNull { !it.eliminated && !it.isBankrupt() }
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+
 
     fun drawCard(cardType: String = "CHANCE") =
         gameService.drawCard(cardType)
@@ -862,6 +881,7 @@ class GameViewModel(
             "FREE_PARKING_COLLECTED" -> "Free Parking jackpot collected!"
             "PAYMENT_FAILED" -> "Payment failed"
             "BANKRUPTCY_DECLARED" -> "Player went bankrupt!"
+            "GAME_OVER" -> "Game Over!"
             // NEW: Fallback strings for report events
             "CHEATER_REPORTED" -> "🚨 Cheater successfully reported!"
             "CHEATER_REPORT_FAILED" -> "🚨 False cheater accusation!"

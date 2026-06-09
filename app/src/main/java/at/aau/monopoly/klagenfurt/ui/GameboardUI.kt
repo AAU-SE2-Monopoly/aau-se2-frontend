@@ -20,24 +20,32 @@ import androidx.compose.foundation.layout.BoxWithConstraintsScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentHeight
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.Icon
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -64,18 +72,23 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import at.aau.monopoly.klagenfurt.DebugSettings
 import at.aau.monopoly.klagenfurt.ServiceLocator
 import at.aau.monopoly.klagenfurt.model.Player
+import at.aau.monopoly.klagenfurt.model.TradeOffer
 import at.aau.monopoly.klagenfurt.model.field.Field
 import at.aau.monopoly.klagenfurt.model.field.OwnableField
+import at.aau.monopoly.klagenfurt.model.field.PropertyField
 import at.aau.monopoly.klagenfurt.sensors.ShakeDetector
 import at.aau.monopoly.klagenfurt.ui.board.FieldItem
 import at.aau.monopoly.klagenfurt.ui.board.MovementAnimationState
 import at.aau.monopoly.klagenfurt.ui.chat.ChatOverlay
+import at.aau.monopoly.klagenfurt.ui.util.ownerIdFromField
 import at.aau.monopoly.klagenfurt.ui.zoom.ZoomableWrapper
 import com.example.myapplication.R
 import kotlinx.coroutines.delay
@@ -336,6 +349,7 @@ fun GameboardScreen(
     }
 
     val selectedPlayer by viewModel.selectedPlayerForOverlay.collectAsState()
+    val selectedTradePlayer by viewModel.selectedPlayerForTrade.collectAsState()
     val movementState by viewModel.movementAnimation.collectAsState()
 
     LockScreenOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE)
@@ -373,6 +387,7 @@ fun GameboardScreen(
                 movementAnimationState = movementState,
                 // NEW: Pass reportCheater to the content layer
                 onReportCheater = { reportedPlayerId -> viewModel.reportCheater(reportedPlayerId) },
+                onStartTrade = { player -> viewModel.showTradeOverlay(player) },
                 gameState = gameState,
                 onFreeParkingMoneyClick = { showFreeParkingOverlay = true },
                 modifier = Modifier.fillMaxSize()
@@ -552,6 +567,49 @@ fun GameboardScreen(
                 amount = gameState?.freeParkingMoney ?: 0,
                 onClose = { showFreeParkingOverlay = false }
             )
+            selectedTradePlayer?.let { tradePlayer ->
+                TradeOverlay(
+                    isVisible = true,
+                    currentPlayerId = currentPlayerId,
+                    tradePartner = tradePlayer,
+                    players = players,
+                    fields = fields,
+                    pendingTradeOffer = gameState?.pendingTradeOffer,
+                    onProposeTrade = { toPlayerId, offerMoney, requestMoney, offerPropertyIds, requestPropertyIds, offerJailCards, requestJailCards ->
+                        viewModel.proposeTrade(
+                            toPlayerId = toPlayerId,
+                            offerMoney = offerMoney,
+                            requestMoney = requestMoney,
+                            offerPropertyIds = offerPropertyIds,
+                            requestPropertyIds = requestPropertyIds,
+                            offerJailCards = offerJailCards,
+                            requestJailCards = requestJailCards
+                        )
+                    },
+                    onAcceptTrade = { tradeId -> viewModel.acceptTrade(tradeId) },
+                    onRejectTrade = { tradeId -> viewModel.rejectTrade(tradeId) },
+                    onDismiss = { viewModel.hideTradeOverlay() }
+                )
+            }
+            gameState?.pendingTradeOffer
+                ?.takeIf { it.toPlayerId == currentPlayerId && selectedTradePlayer == null }
+                ?.let { offer ->
+                    val fromPlayer = players.find { it.id == offer.fromPlayerId }
+                    if (fromPlayer != null) {
+                        TradeOverlay(
+                            isVisible = true,
+                            currentPlayerId = currentPlayerId,
+                            tradePartner = fromPlayer,
+                            players = players,
+                            fields = fields,
+                            pendingTradeOffer = offer,
+                            onProposeTrade = { _, _, _, _, _, _, _ -> },
+                            onAcceptTrade = { tradeId -> viewModel.acceptTrade(tradeId) },
+                            onRejectTrade = { tradeId -> viewModel.rejectTrade(tradeId) },
+                            onDismiss = { viewModel.rejectTrade(offer.id) }
+                        )
+                    }
+                }
             // Payment overlays
             val isTaxPayment = gameState?.pendingPayment?.source == PaymentSource.TAX
             PayRentOverlay(
@@ -689,6 +747,7 @@ fun GameboardContent(
     onDismissOverlay: () -> Unit = {},
     movementAnimationState: MovementAnimationState? = null,
     onReportCheater: (String) -> Unit = {},
+    onStartTrade: (Player) -> Unit = {},
     gameState: at.aau.monopoly.klagenfurt.model.GameState? = null,
     onFreeParkingMoneyClick: () -> Unit = {},
     modifier: Modifier = Modifier
@@ -789,6 +848,18 @@ fun GameboardContent(
                             shape = RoundedCornerShape(6.dp)
                         ) {
                             Text("🚨 Report", fontSize = 11.sp, color = Color.White, fontWeight = FontWeight.Bold)
+                        }
+                        Button(
+                            onClick = { onStartTrade(player) },
+                            enabled = gameState?.pendingTradeOffer == null,
+                            modifier = Modifier
+                                .padding(top = 4.dp, end = 4.dp)
+                                .height(26.dp),
+                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 0.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1565C0)),
+                            shape = RoundedCornerShape(6.dp)
+                        ) {
+                            Text("Trade", fontSize = 11.sp, color = Color.White, fontWeight = FontWeight.Bold)
                         }
                     }
                 }
@@ -954,4 +1025,3 @@ fun FreeParkingJackpotOverlay(
         }
     }
 }
-

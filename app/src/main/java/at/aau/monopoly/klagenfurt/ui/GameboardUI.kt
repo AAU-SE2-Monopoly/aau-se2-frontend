@@ -272,6 +272,8 @@ fun GameboardScreen(
     val shakeFlow: Flow<Unit> = shakeEventsOverride ?: shakeDetector!!.shakeEvents
 
     var hasShaken by remember { mutableStateOf(false) }
+    var hasDrawnCard by remember { mutableStateOf(false) }
+    var isDrawingCard by remember { mutableStateOf(false) }
 
     val isEmulator = remember {
         android.os.Build.FINGERPRINT.startsWith("generic")
@@ -295,7 +297,11 @@ fun GameboardScreen(
     }
 
     LaunchedEffect(isRollingPhaseForCurrentPlayer) {
-        if (isRollingPhaseForCurrentPlayer) hasShaken = false
+        if (isRollingPhaseForCurrentPlayer) {
+            hasShaken = false
+            hasDrawnCard = false
+            isDrawingCard = false
+        }
     }
 
     LaunchedEffect(isBuyingPhaseForCurrentPlayer, canEndTurnForCurrentPlayer) {
@@ -311,7 +317,12 @@ fun GameboardScreen(
         }
     }
 
-    // Fix: Race Condition Behebung. Synchroner lokaler State.
+    LaunchedEffect(showActionCardOverlay) {
+        if (showActionCardOverlay) {
+            isDrawingCard = false
+        }
+    }
+
     LaunchedEffect(showOverlay, isRollingPhaseForCurrentPlayer, shakeFlow) {
         if (showOverlay && isRollingPhaseForCurrentPlayer) {
             var localHasShaken = false
@@ -366,7 +377,7 @@ fun GameboardScreen(
             )
 
             val buttonWidth = 180.dp
-
+            val mustDrawCard = (isOnChanceField || isOnCommunityChestField) && !hasDrawnCard && isBuyingPhaseForCurrentPlayer
             Column(
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
@@ -383,7 +394,7 @@ fun GameboardScreen(
                     }
                 }
 
-                if (isRollingPhaseForCurrentPlayer && currentTurnPlayer != null) {
+                if (isRollingPhaseForCurrentPlayer && currentTurnPlayer != null && !mustDrawCard && !isDrawingCard) {
                     if (currentTurnPlayer.inJail) {
 
                         Text(
@@ -430,7 +441,7 @@ fun GameboardScreen(
                     }
                 }
 
-                if (canEndTurnForCurrentPlayer && !showActionCardOverlay) {
+                if (canEndTurnForCurrentPlayer && !showActionCardOverlay && !mustDrawCard && !isDrawingCard) {
                     GlassButton(
                         onClick = { viewModel.endTurn() },
                         modifier = Modifier.width(buttonWidth).testTag("end_turn_button")
@@ -462,10 +473,13 @@ fun GameboardScreen(
                 if (isOnChanceField && isBuyingPhaseForCurrentPlayer) {
                     DrawCardButton(
                         cardType = "CHANCE",
-                        alreadyDrawn = false,
-                        enabled = !showActionCardOverlay,
+                        alreadyDrawn = hasDrawnCard,
+                        enabled = !showActionCardOverlay && !hasDrawnCard,
                         label = "🎰 Draw Chance",
-                        onDraw = { viewModel.drawCard("CHANCE") },
+                        onDraw = { viewModel.drawCard("CHANCE")
+                                    hasDrawnCard = true
+                                    isDrawingCard = true
+                                 },
                         modifier = Modifier.width(buttonWidth)
                     )
                 }
@@ -473,10 +487,13 @@ fun GameboardScreen(
                 if (isOnCommunityChestField && isBuyingPhaseForCurrentPlayer) {
                     DrawCardButton(
                         cardType = "COMMUNITY_CHEST",
-                        alreadyDrawn = false,
-                        enabled = !showActionCardOverlay,
+                        alreadyDrawn = hasDrawnCard,
+                        enabled = !showActionCardOverlay && !hasDrawnCard,
                         label = "⭐ Draw Community",
-                        onDraw = { viewModel.drawCard("COMMUNITY_CHEST") },
+                        onDraw = { viewModel.drawCard("COMMUNITY_CHEST")
+                                    hasDrawnCard = true
+                                    isDrawingCard = true
+                                 },
                         modifier = Modifier.width(buttonWidth)
                     )
                 }

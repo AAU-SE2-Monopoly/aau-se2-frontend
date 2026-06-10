@@ -1,15 +1,20 @@
-package at.aau.monopoly.klagenfurt
+package at.aau.monopoly.klagenfurt.ui
 
-
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
-import at.aau.monopoly.klagenfurt.ui.GameOverOverlay
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
 
+@RunWith(RobolectricTestRunner::class)
+@Config(manifest = Config.NONE)
 class GameOverOverlayTest {
 
     @get:Rule
@@ -25,9 +30,9 @@ class GameOverOverlayTest {
             )
         }
 
-        composeTestRule.onNodeWithText("🏆 Game Over").assertDoesNotExist()
-        composeTestRule.onNodeWithText("Winner: Alice").assertDoesNotExist()
-        composeTestRule.onNodeWithText("Back to Lobby").assertDoesNotExist()
+        composeTestRule.onAllNodesWithText("🏆 Game Over").assertCountEquals(0)
+        composeTestRule.onAllNodesWithText("Winner: Alice").assertCountEquals(0)
+        composeTestRule.onAllNodesWithText("Back to Lobby").assertCountEquals(0)
     }
 
     @Test

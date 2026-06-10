@@ -13,6 +13,8 @@ import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
@@ -21,16 +23,21 @@ import androidx.compose.foundation.layout.BoxWithConstraintsScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentHeight
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -38,7 +45,9 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -65,18 +74,23 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import at.aau.monopoly.klagenfurt.DebugSettings
 import at.aau.monopoly.klagenfurt.ServiceLocator
 import at.aau.monopoly.klagenfurt.model.Player
+import at.aau.monopoly.klagenfurt.model.TradeOffer
 import at.aau.monopoly.klagenfurt.model.field.Field
 import at.aau.monopoly.klagenfurt.model.field.OwnableField
+import at.aau.monopoly.klagenfurt.model.field.PropertyField
 import at.aau.monopoly.klagenfurt.sensors.ShakeDetector
 import at.aau.monopoly.klagenfurt.ui.board.FieldItem
 import at.aau.monopoly.klagenfurt.ui.board.MovementAnimationState
 import at.aau.monopoly.klagenfurt.ui.chat.ChatOverlay
+import at.aau.monopoly.klagenfurt.ui.util.ownerIdFromField
 import at.aau.monopoly.klagenfurt.ui.zoom.ZoomableWrapper
 import com.example.myapplication.R
 import kotlinx.coroutines.delay
@@ -337,6 +351,7 @@ fun GameboardScreen(
     }
 
     val selectedPlayer by viewModel.selectedPlayerForOverlay.collectAsState()
+    val selectedTradePlayer by viewModel.selectedPlayerForTrade.collectAsState()
     val movementState by viewModel.movementAnimation.collectAsState()
 
     LockScreenOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE)
@@ -371,6 +386,18 @@ fun GameboardScreen(
                 onDismissOverlay = { viewModel.hidePlayerOverlay() },
                 movementAnimationState = movementState,
                 onReportCheater = { reportedPlayerId -> viewModel.reportCheater(reportedPlayerId) },
+                onStartTrade = { player ->
+                    viewModel.showTradeOverlay(player)
+                    viewModel.proposeTrade(
+                        toPlayerId = player.id,
+                        offerMoney = 0,
+                        requestMoney = 0,
+                        offerPropertyIds = emptyList(),
+                        requestPropertyIds = emptyList(),
+                        offerJailCards = 0,
+                        requestJailCards = 0
+                    )
+                },
                 gameState = gameState,
                 onFreeParkingMoneyClick = { showFreeParkingOverlay = true },
                 modifier = Modifier.fillMaxSize()
@@ -551,6 +578,56 @@ fun GameboardScreen(
                 onClose = { showFreeParkingOverlay = false }
             )
 
+            val pendingTradeOffer = gameState?.pendingTradeOffer
+            var dismissedTradeId by remember { mutableStateOf<String?>(null) }
+            LaunchedEffect(pendingTradeOffer?.id) {
+                if (pendingTradeOffer?.id != dismissedTradeId) dismissedTradeId = null
+            }
+            val publicTradePlayer = pendingTradeOffer
+                ?.takeUnless { it.id == dismissedTradeId }
+                ?.let { offer ->
+                when (currentPlayerId) {
+                    offer.fromPlayerId -> players.find { it.id == offer.toPlayerId }
+                    offer.toPlayerId -> players.find { it.id == offer.fromPlayerId }
+                    else -> players.find { it.id == offer.fromPlayerId }
+                }
+            }
+            val visibleTradePlayer = selectedTradePlayer ?: publicTradePlayer
+            if (visibleTradePlayer != null) {
+                TradeOverlay(
+                    isVisible = true,
+                    currentPlayerId = currentPlayerId,
+                    tradePartner = visibleTradePlayer,
+                    players = players,
+                    fields = fields,
+                    pendingTradeOffer = pendingTradeOffer,
+                    onProposeTrade = { toPlayerId, offerMoney, requestMoney, offerPropertyIds, requestPropertyIds, offerJailCards, requestJailCards ->
+                        viewModel.proposeTrade(
+                            toPlayerId = toPlayerId,
+                            offerMoney = offerMoney,
+                            requestMoney = requestMoney,
+                            offerPropertyIds = offerPropertyIds,
+                            requestPropertyIds = requestPropertyIds,
+                            offerJailCards = offerJailCards,
+                            requestJailCards = requestJailCards
+                        )
+                    },
+                    onAcceptTrade = { tradeId -> viewModel.acceptTrade(tradeId) },
+                    onRejectTrade = { tradeId -> viewModel.rejectTrade(tradeId) },
+                    onDismiss = {
+                        val offer = pendingTradeOffer
+                        if (offer != null &&
+                            (offer.fromPlayerId == currentPlayerId || offer.toPlayerId == currentPlayerId)
+                        ) {
+                            viewModel.rejectTrade(offer.id)
+                        } else if (offer != null) {
+                            dismissedTradeId = offer.id
+                        }
+                        viewModel.hideTradeOverlay()
+                    }
+                )
+            }
+            // Payment overlays
             val isTaxPayment = gameState?.pendingPayment?.source == PaymentSource.TAX
             PayRentOverlay(
                 isVisible = showPayRentOverlay && currentTurnPlayer?.id == currentPlayerId,
@@ -681,6 +758,7 @@ fun GameboardContent(
     onDismissOverlay: () -> Unit = {},
     movementAnimationState: MovementAnimationState? = null,
     onReportCheater: (String) -> Unit = {},
+    onStartTrade: (Player) -> Unit = {},
     gameState: at.aau.monopoly.klagenfurt.model.GameState? = null,
     onFreeParkingMoneyClick: () -> Unit = {},
     modifier: Modifier = Modifier
@@ -781,6 +859,22 @@ fun GameboardContent(
                             shape = RoundedCornerShape(6.dp)
                         ) {
                             Text("🚨 Report", fontSize = 11.sp, color = Color.White, fontWeight = FontWeight.Bold)
+                        }
+                        Button(
+                            onClick = { onStartTrade(player) },
+                            enabled = gameState?.pendingTradeOffer == null &&
+                                currentTurnPlayer?.id == currentPlayerId,
+                            modifier = Modifier
+                                .padding(top = 4.dp, end = 4.dp)
+                                .height(26.dp),
+                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = Color.Black.copy(alpha = 0.35f),
+                                disabledContainerColor = Color.Black.copy(alpha = 0.16f)
+                            ),
+                            shape = RoundedCornerShape(6.dp)
+                        ) {
+                            Text("🔁", fontSize = 13.sp, color = Color.White, fontWeight = FontWeight.Bold)
                         }
                     }
                 }
@@ -931,3 +1025,534 @@ fun FreeParkingJackpotOverlay(
         }
     }
 }
+
+@Composable
+fun TradeOverlay(
+    isVisible: Boolean,
+    currentPlayerId: String,
+    tradePartner: Player,
+    players: List<Player>,
+    fields: List<Field>,
+    pendingTradeOffer: TradeOffer?,
+    onProposeTrade: (
+        toPlayerId: String,
+        offerMoney: Int,
+        requestMoney: Int,
+        offerPropertyIds: List<Int>,
+        requestPropertyIds: List<Int>,
+        offerJailCards: Int,
+        requestJailCards: Int
+    ) -> Unit,
+    onAcceptTrade: (String) -> Unit,
+    onRejectTrade: (String) -> Unit,
+    onDismiss: () -> Unit
+) {
+    if (!isVisible) return
+
+    val currentPlayer = players.find { it.id == currentPlayerId } ?: return
+    val activeOffer = pendingTradeOffer
+    val fromPlayer = activeOffer?.let { offer -> players.find { it.id == offer.fromPlayerId } } ?: currentPlayer
+    val toPlayer = activeOffer?.let { offer -> players.find { it.id == offer.toPlayerId } } ?: tradePartner
+    val isInvolved = currentPlayerId == fromPlayer.id || currentPlayerId == toPlayer.id
+    val currentPlayerAccepted = activeOffer?.acceptedByPlayerIds?.contains(currentPlayerId) == true
+    val canToggleAccept = activeOffer != null &&
+        isInvolved &&
+        activeOffer.hasTradeContents()
+
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth(0.86f)
+                .heightIn(max = 660.dp),
+            color = Color(0xFFF8F4EA),
+            shape = RoundedCornerShape(8.dp)
+        ) {
+            Column(
+                modifier = Modifier.padding(18.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Trade with ${tradePartner.name}",
+                        fontSize = 22.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF1D1D1D)
+                    )
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Button(
+                            onClick = { activeOffer?.let { onAcceptTrade(it.id) } },
+                            enabled = canToggleAccept,
+                            shape = RoundedCornerShape(6.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = if (currentPlayerAccepted) Color(0xFF2E7D32) else Color(0xFF6750A4),
+                                contentColor = Color.White,
+                                disabledContainerColor = Color.LightGray,
+                                disabledContentColor = Color.DarkGray
+                            )
+                        ) {
+                            Text(if (currentPlayerAccepted) "Accepted" else "Accept")
+                        }
+                        TextButton(onClick = onDismiss) {
+                            Text("Close")
+                        }
+                    }
+                }
+
+                if (activeOffer != null && isInvolved) {
+                    TradeProposalEditor(
+                        fromPlayer = fromPlayer,
+                        toPlayer = toPlayer,
+                        currentPlayerId = currentPlayerId,
+                        fields = fields,
+                        initialOffer = activeOffer,
+                        onProposeTrade = onProposeTrade,
+                        onRejectTrade = onRejectTrade
+                    )
+                } else if (activeOffer != null) {
+                    TradeOfferReview(
+                        offer = activeOffer,
+                        players = players,
+                        fields = fields,
+                        currentPlayerId = currentPlayerId,
+                        onAcceptTrade = onAcceptTrade,
+                        onRejectTrade = onRejectTrade
+                    )
+                } else {
+                    TradeProposalEditor(
+                        fromPlayer = currentPlayer,
+                        toPlayer = tradePartner,
+                        currentPlayerId = currentPlayerId,
+                        fields = fields,
+                        initialOffer = null,
+                        onProposeTrade = onProposeTrade
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun TradeProposalEditor(
+    fromPlayer: Player,
+    toPlayer: Player,
+    currentPlayerId: String,
+    fields: List<Field>,
+    initialOffer: TradeOffer?,
+    onProposeTrade: (
+        toPlayerId: String,
+        offerMoney: Int,
+        requestMoney: Int,
+        offerPropertyIds: List<Int>,
+        requestPropertyIds: List<Int>,
+        offerJailCards: Int,
+        requestJailCards: Int
+    ) -> Unit,
+    onRejectTrade: (String) -> Unit = {}
+) {
+    var offerMoneyText by remember { mutableStateOf(initialOffer?.offerMoney?.toString() ?: "0") }
+    var requestMoneyText by remember { mutableStateOf(initialOffer?.requestMoney?.toString() ?: "0") }
+    var offerJailCards by remember { mutableStateOf(initialOffer?.offerJailCards ?: 0) }
+    var requestJailCards by remember { mutableStateOf(initialOffer?.requestJailCards ?: 0) }
+    var offeredPropertyIds by remember { mutableStateOf(initialOffer?.offerPropertyIds?.toSet() ?: setOf()) }
+    var requestedPropertyIds by remember { mutableStateOf(initialOffer?.requestPropertyIds?.toSet() ?: setOf()) }
+
+    LaunchedEffect(initialOffer) {
+        offerMoneyText = initialOffer?.offerMoney?.toString() ?: "0"
+        requestMoneyText = initialOffer?.requestMoney?.toString() ?: "0"
+        offerJailCards = initialOffer?.offerJailCards ?: 0
+        requestJailCards = initialOffer?.requestJailCards ?: 0
+        offeredPropertyIds = initialOffer?.offerPropertyIds?.toSet() ?: setOf()
+        requestedPropertyIds = initialOffer?.requestPropertyIds?.toSet() ?: setOf()
+    }
+
+    val fromProperties = remember(fromPlayer.id, fields) {
+        fields.tradeablePropertiesFor(fromPlayer.id)
+    }
+    val toProperties = remember(toPlayer.id, fields) {
+        fields.tradeablePropertiesFor(toPlayer.id)
+    }
+    val offerMoney = offerMoneyText.toIntOrNull()?.coerceAtLeast(0) ?: 0
+    val requestMoney = requestMoneyText.toIntOrNull()?.coerceAtLeast(0) ?: 0
+    val canEditFromSide = currentPlayerId == fromPlayer.id
+    val canEditToSide = currentPlayerId == toPlayer.id
+    val hasTradeContents = offerMoney > 0 || requestMoney > 0 ||
+        offeredPropertyIds.isNotEmpty() || requestedPropertyIds.isNotEmpty() ||
+        offerJailCards > 0 || requestJailCards > 0
+    val canSubmit =
+        offerMoney <= fromPlayer.money &&
+            requestMoney <= toPlayer.money &&
+            offerJailCards <= fromPlayer.getOutOfJailCards &&
+            requestJailCards <= toPlayer.getOutOfJailCards &&
+            (initialOffer != null || hasTradeContents)
+
+    fun publishLiveUpdate(
+        nextOfferMoneyText: String = offerMoneyText,
+        nextRequestMoneyText: String = requestMoneyText,
+        nextOfferedPropertyIds: Set<Int> = offeredPropertyIds,
+        nextRequestedPropertyIds: Set<Int> = requestedPropertyIds,
+        nextOfferJailCards: Int = offerJailCards,
+        nextRequestJailCards: Int = requestJailCards
+    ) {
+        if (initialOffer == null) return
+        onProposeTrade(
+            toPlayer.id,
+            nextOfferMoneyText.toIntOrNull()?.coerceAtLeast(0) ?: 0,
+            nextRequestMoneyText.toIntOrNull()?.coerceAtLeast(0) ?: 0,
+            nextOfferedPropertyIds.toList(),
+            nextRequestedPropertyIds.toList(),
+            nextOfferJailCards,
+            nextRequestJailCards
+        )
+    }
+
+    TradeAcceptStatus(
+        fromPlayer = fromPlayer,
+        toPlayer = toPlayer,
+        acceptedByPlayerIds = initialOffer?.acceptedByPlayerIds ?: emptyList()
+    )
+
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(14.dp)
+    ) {
+        TradeSideEditor(
+            title = "${fromPlayer.name} gives",
+            moneyText = offerMoneyText,
+            onMoneyChange = {
+                val next = it.filter(Char::isDigit).take(5)
+                offerMoneyText = next
+                publishLiveUpdate(nextOfferMoneyText = next)
+            },
+            maxMoney = fromPlayer.money,
+            jailCards = offerJailCards,
+            maxJailCards = fromPlayer.getOutOfJailCards,
+            onJailCardsChange = {
+                offerJailCards = it
+                publishLiveUpdate(nextOfferJailCards = it)
+            },
+            properties = fromProperties,
+            selectedPropertyIds = offeredPropertyIds,
+            onPropertyToggle = { fieldId ->
+                val next = offeredPropertyIds.toggle(fieldId)
+                offeredPropertyIds = next
+                publishLiveUpdate(nextOfferedPropertyIds = next)
+            },
+            enabled = canEditFromSide,
+            modifier = Modifier.weight(1f)
+        )
+        TradeSideEditor(
+            title = "${toPlayer.name} gives",
+            moneyText = requestMoneyText,
+            onMoneyChange = {
+                val next = it.filter(Char::isDigit).take(5)
+                requestMoneyText = next
+                publishLiveUpdate(nextRequestMoneyText = next)
+            },
+            maxMoney = toPlayer.money,
+            jailCards = requestJailCards,
+            maxJailCards = toPlayer.getOutOfJailCards,
+            onJailCardsChange = {
+                requestJailCards = it
+                publishLiveUpdate(nextRequestJailCards = it)
+            },
+            properties = toProperties,
+            selectedPropertyIds = requestedPropertyIds,
+            onPropertyToggle = { fieldId ->
+                val next = requestedPropertyIds.toggle(fieldId)
+                requestedPropertyIds = next
+                publishLiveUpdate(nextRequestedPropertyIds = next)
+            },
+            enabled = canEditToSide,
+            modifier = Modifier.weight(1f)
+        )
+    }
+
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        if (initialOffer != null) {
+            TextButton(onClick = { onRejectTrade(initialOffer.id) }) {
+                Text("Cancel")
+            }
+        }
+        if (initialOffer == null) {
+            Button(
+                onClick = {
+                    onProposeTrade(
+                        toPlayer.id,
+                        offerMoney,
+                        requestMoney,
+                        offeredPropertyIds.toList(),
+                        requestedPropertyIds.toList(),
+                        offerJailCards,
+                        requestJailCards
+                    )
+                },
+                enabled = canSubmit,
+                shape = RoundedCornerShape(6.dp)
+            ) {
+                Text("Start Offer")
+            }
+        }
+    }
+}
+
+@Composable
+private fun TradeAcceptStatus(
+    fromPlayer: Player,
+    toPlayer: Player,
+    acceptedByPlayerIds: List<String>
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        Text(
+            text = "${fromPlayer.name}: ${if (fromPlayer.id in acceptedByPlayerIds) "Accepted" else "Reviewing"}",
+            color = if (fromPlayer.id in acceptedByPlayerIds) Color(0xFF1B5E20) else Color.DarkGray,
+            fontWeight = FontWeight.Medium
+        )
+        Text(
+            text = "${toPlayer.name}: ${if (toPlayer.id in acceptedByPlayerIds) "Accepted" else "Reviewing"}",
+            color = if (toPlayer.id in acceptedByPlayerIds) Color(0xFF1B5E20) else Color.DarkGray,
+            fontWeight = FontWeight.Medium
+        )
+    }
+}
+
+@Composable
+private fun TradeSideEditor(
+    title: String,
+    moneyText: String,
+    onMoneyChange: (String) -> Unit,
+    maxMoney: Int,
+    jailCards: Int,
+    maxJailCards: Int,
+    onJailCardsChange: (Int) -> Unit,
+    properties: List<Field>,
+    selectedPropertyIds: Set<Int>,
+    onPropertyToggle: (Int) -> Unit,
+    enabled: Boolean = true,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier,
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        Text(title, fontWeight = FontWeight.Bold, color = Color(0xFF222222))
+        val moneyAmount = moneyText.toIntOrNull()?.coerceAtLeast(0) ?: 0
+        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Text(
+                text = "Money: ${moneyAmount}€ / ${maxMoney}€",
+                color = if (enabled) Color(0xFF222222) else Color.DarkGray,
+                fontWeight = FontWeight.Medium
+            )
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Button(
+                    onClick = {
+                        onMoneyChange((moneyAmount + 100).coerceAtMost(maxMoney).toString())
+                    },
+                    enabled = enabled && moneyAmount < maxMoney,
+                    shape = RoundedCornerShape(6.dp),
+                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
+                ) {
+                    Text("+100€")
+                }
+                Button(
+                    onClick = {
+                        onMoneyChange((moneyAmount + 10).coerceAtMost(maxMoney).toString())
+                    },
+                    enabled = enabled && moneyAmount < maxMoney,
+                    shape = RoundedCornerShape(6.dp),
+                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
+                ) {
+                    Text("+10€")
+                }
+                TextButton(
+                    onClick = { onMoneyChange("0") },
+                    enabled = enabled && moneyAmount > 0
+                ) {
+                    Text("Reset")
+                }
+            }
+        }
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text("Jail cards: $jailCards / $maxJailCards", color = Color(0xFF333333))
+            TextButton(
+                onClick = { onJailCardsChange((jailCards - 1).coerceAtLeast(0)) },
+                enabled = enabled && jailCards > 0
+            ) { Text("-") }
+            TextButton(
+                onClick = { onJailCardsChange((jailCards + 1).coerceAtMost(maxJailCards)) },
+                enabled = enabled && jailCards < maxJailCards
+            ) { Text("+") }
+        }
+        if (properties.isEmpty()) {
+            Text("No tradeable properties", color = Color.DarkGray, fontSize = 13.sp)
+        } else {
+            LazyRow(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = 170.dp),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                contentPadding = PaddingValues(horizontal = 2.dp)
+            ) {
+                items(properties) { field ->
+                    val isSelected = field.id in selectedPropertyIds
+                    val borderColor = when {
+                        isSelected -> Color(0xFF2E7D32)
+                        enabled -> Color.Transparent
+                        else -> Color.LightGray
+                    }
+                    Box(
+                        modifier = Modifier
+                            .border(3.dp, borderColor, RoundedCornerShape(8.dp))
+                            .clickable(enabled = enabled) { onPropertyToggle(field.id) }
+                            .padding(3.dp)
+                    ) {
+                        FieldCardUI(
+                            field = field,
+                            cardWidth = 92.dp,
+                            cardHeight = 148.dp
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun TradeOfferReview(
+    offer: TradeOffer,
+    players: List<Player>,
+    fields: List<Field>,
+    currentPlayerId: String,
+    onAcceptTrade: (String) -> Unit,
+    onRejectTrade: (String) -> Unit
+) {
+    val fromPlayer = players.find { it.id == offer.fromPlayerId }
+    val toPlayer = players.find { it.id == offer.toPlayerId }
+    val isInvolved = offer.toPlayerId == currentPlayerId || offer.fromPlayerId == currentPlayerId
+    val currentPlayerAccepted = offer.acceptedByPlayerIds.contains(currentPlayerId)
+
+    Text(
+        text = "${fromPlayer?.name ?: "A player"} offers a trade to ${toPlayer?.name ?: "another player"}.",
+        color = Color.Black
+    )
+    if (fromPlayer != null && toPlayer != null) {
+        TradeAcceptStatus(
+            fromPlayer = fromPlayer,
+            toPlayer = toPlayer,
+            acceptedByPlayerIds = offer.acceptedByPlayerIds
+        )
+    }
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(14.dp)
+    ) {
+        TradeOfferColumn(
+            title = "${fromPlayer?.name ?: "Player"} gives",
+            money = offer.offerMoney,
+            jailCards = offer.offerJailCards,
+            propertyIds = offer.offerPropertyIds,
+            fields = fields,
+            modifier = Modifier.weight(1f)
+        )
+        TradeOfferColumn(
+            title = "${toPlayer?.name ?: "Player"} gives",
+            money = offer.requestMoney,
+            jailCards = offer.requestJailCards,
+            propertyIds = offer.requestPropertyIds,
+            fields = fields,
+            modifier = Modifier.weight(1f)
+        )
+    }
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.End
+    ) {
+        if (isInvolved) {
+            TextButton(
+                onClick = { onRejectTrade(offer.id) }
+            ) {
+                Text("Cancel")
+            }
+            Spacer(modifier = Modifier.width(8.dp))
+        }
+        Button(
+            onClick = { onAcceptTrade(offer.id) },
+            enabled = isInvolved && !currentPlayerAccepted,
+            shape = RoundedCornerShape(6.dp)
+        ) {
+            Text(
+                when {
+                    !isInvolved -> "Watching"
+                    currentPlayerAccepted -> "Accepted"
+                    else -> "Accept"
+                }
+            )
+        }
+    }
+}
+
+@Composable
+private fun TradeOfferColumn(
+    title: String,
+    money: Int,
+    jailCards: Int,
+    propertyIds: List<Int>,
+    fields: List<Field>,
+    modifier: Modifier = Modifier
+) {
+    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Text(title, fontWeight = FontWeight.Bold, color = Color.Black)
+        Text("Money: $money", color = Color(0xFF333333))
+        Text("Jail cards: $jailCards", color = Color(0xFF333333))
+        val propertyNames = propertyIds.mapNotNull { id -> fields.find { it.id == id }?.name }
+        if (propertyNames.isEmpty()) {
+            Text("No properties", color = Color.DarkGray)
+        } else {
+            propertyNames.forEach { name ->
+                Text("- $name", color = Color(0xFF333333), fontSize = 13.sp)
+            }
+        }
+    }
+}
+
+private fun Set<Int>.toggle(fieldId: Int): Set<Int> =
+    if (fieldId in this) this - fieldId else this + fieldId
+
+private fun TradeOffer.hasTradeContents(): Boolean =
+    offerMoney > 0 ||
+        requestMoney > 0 ||
+        offerPropertyIds.isNotEmpty() ||
+        requestPropertyIds.isNotEmpty() ||
+        offerJailCards > 0 ||
+        requestJailCards > 0
+
+private fun List<Field>.tradeablePropertiesFor(playerId: String): List<Field> =
+    filter { field ->
+        field is OwnableField &&
+            field.ownerIdFromField() == playerId &&
+            (field !is PropertyField || (field.houses == 0 && !field.hasHotel))
+    }

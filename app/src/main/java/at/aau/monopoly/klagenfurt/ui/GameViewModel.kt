@@ -842,6 +842,8 @@ class GameViewModel(
     }
 
     private fun humanReadableEvent(eventType: String, gameId: String): String {
+        eventFallbackLabels[eventType]?.let { return it }
+
         return when (eventType) {
             "GAME_CREATED" -> "Game created: $gameId"
             "PLAYER_JOINED" -> "A new player joined"
@@ -862,15 +864,6 @@ class GameViewModel(
             "FREE_PARKING_COLLECTED" -> "Free Parking jackpot collected!"
             "PAYMENT_FAILED" -> "Payment failed"
             "BANKRUPTCY_DECLARED" -> "Player went bankrupt!"
-            "PROPERTY_BOUGHT" -> "Property bought"
-            "PROPERTY_MORTGAGED" -> "Property mortgaged"
-            "PROPERTY_UNMORTGAGED" -> "Property unmortgaged"
-            "HOUSE_BOUGHT" -> "House bought"
-            "HOTEL_BOUGHT" -> "Hotel bought"
-            "HOUSE_SOLD" -> "House sold"
-            "HOTEL_SOLD" -> "Hotel sold"
-            "GAME_CLOSED" -> "Game closed by host"
-            "TURN_TIMEOUT" -> "Turn timed out"
             // NEW: Fallback strings for report events
             "CHEATER_REPORTED" -> "🚨 Cheater successfully reported!"
             "CHEATER_REPORT_FAILED" -> "🚨 False cheater accusation!"
@@ -891,6 +884,17 @@ class GameViewModel(
         private const val MAX_LOG_ENTRIES = 80
         private const val ERROR_DISPLAY_MS = 5_000L
         private const val ACTION_TIMEOUT_MS = 5_000L
+        private val eventFallbackLabels = mapOf(
+            "PROPERTY_BOUGHT" to "Property bought",
+            "PROPERTY_MORTGAGED" to "Property mortgaged",
+            "PROPERTY_UNMORTGAGED" to "Property unmortgaged",
+            "HOUSE_BOUGHT" to "House bought",
+            "HOTEL_BOUGHT" to "Hotel bought",
+            "HOUSE_SOLD" to "House sold",
+            "HOTEL_SOLD" to "Hotel sold",
+            "GAME_CLOSED" to "Game closed by host",
+            "TURN_TIMEOUT" to "Turn timed out",
+        )
     }
 
     fun buyProperty(fieldId: Int) {

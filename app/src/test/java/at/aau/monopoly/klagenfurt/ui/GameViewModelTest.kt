@@ -1950,6 +1950,34 @@ class GameViewModelTest {
     }
 
     @Test
+    fun `humanReadableEvent fallback produces correct text for events without message field`() = runTest {
+        val job = launch { viewModel.eventLog.collect {} }
+
+        val testCases = listOf(
+            "TAX_DUE" to "Tax is due!",
+            "TAX_PAID" to "Tax paid",
+            "FREE_PARKING_COLLECTED" to "Free Parking jackpot collected!",
+            "PROPERTY_BOUGHT" to "Property bought",
+            "PROPERTY_MORTGAGED" to "Property mortgaged",
+            "PROPERTY_UNMORTGAGED" to "Property unmortgaged",
+            "HOUSE_BOUGHT" to "House bought",
+            "HOTEL_BOUGHT" to "Hotel bought",
+            "HOUSE_SOLD" to "House sold",
+            "HOTEL_SOLD" to "Hotel sold",
+            "GAME_CLOSED" to "Game closed by host",
+            "TURN_TIMEOUT" to "Turn timed out",
+        )
+
+        for ((eventType, expectedText) in testCases) {
+            fakeService.emitTestEvent("""{"event":"$eventType","gameId":"g1"}""")
+            advanceUntilIdle()
+            assertEquals(expectedText, viewModel.eventLog.value.last().text)
+        }
+
+        job.cancel()
+    }
+
+    @Test
     fun `payTax calls gameService payTax with current field id`() = runTest {
         val service = FakeGameService()
         val viewModel = GameViewModel(service)

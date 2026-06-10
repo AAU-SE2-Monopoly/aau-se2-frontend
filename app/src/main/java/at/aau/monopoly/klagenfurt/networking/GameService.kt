@@ -55,6 +55,17 @@ interface GameService {
     fun mortgageProperty(fieldId: Int)
     fun unmortgageProperty(fieldId: Int)
     fun declareBankruptcy()
+    fun proposeTrade(
+        toPlayerId: String,
+        offerMoney: Int,
+        requestMoney: Int,
+        offerPropertyIds: List<Int>,
+        requestPropertyIds: List<Int>,
+        offerJailCards: Int,
+        requestJailCards: Int
+    )
+    fun acceptTrade(tradeId: String)
+    fun rejectTrade(tradeId: String)
 
     // Feature: Report cheating
     fun reportCheater(reportedPlayerId: String)

@@ -1860,4 +1860,76 @@ class GameStompClientTest {
         }
     }
 
+    @Test
+    fun proposeTrade_sends_complete_trade_payload() = runTest(testDispatcher) {
+        coEvery { stompClient.connect(any<String>()) } returns stompSession
+        coEvery { stompSession.subscribeText(any<String>()) } returns flowOf()
+        coEvery { stompSession.sendText(any<String>(), any<String>()) } returns mockk()
+
+        gameStompClient.connect()
+        advanceUntilIdle()
+        gameStompClient.setGameId("game-1")
+
+        gameStompClient.proposeTrade(
+            toPlayerId = "player-2",
+            offerMoney = 100,
+            requestMoney = 50,
+            offerPropertyIds = listOf(1, 2, 3),
+            requestPropertyIds = listOf(4),
+            offerJailCards = 1,
+            requestJailCards = 0
+        )
+        advanceUntilIdle()
+
+        coVerify {
+            stompSession.sendText(
+                "/app/game/action",
+                match {
+                    it.contains("\"action\":\"PROPOSE_TRADE\"") &&
+                        it.contains("\"toPlayerId\":\"player-2\"") &&
+                        it.contains("\"offerMoney\":\"100\"") &&
+                        it.contains("\"requestMoney\":\"50\"") &&
+                        it.contains("\"offerPropertyIds\":\"1,2,3\"") &&
+                        it.contains("\"requestPropertyIds\":\"4\"") &&
+                        it.contains("\"offerJailCards\":\"1\"") &&
+                        it.contains("\"requestJailCards\":\"0\"")
+                }
+            )
+        }
+    }
+
+    @Test
+    fun acceptTrade_and_rejectTrade_send_trade_id_payloads() = runTest(testDispatcher) {
+        coEvery { stompClient.connect(any<String>()) } returns stompSession
+        coEvery { stompSession.subscribeText(any<String>()) } returns flowOf()
+        coEvery { stompSession.sendText(any<String>(), any<String>()) } returns mockk()
+
+        gameStompClient.connect()
+        advanceUntilIdle()
+        gameStompClient.setGameId("game-1")
+
+        gameStompClient.acceptTrade("trade-accept")
+        gameStompClient.rejectTrade("trade-reject")
+        advanceUntilIdle()
+
+        coVerify {
+            stompSession.sendText(
+                "/app/game/action",
+                match {
+                    it.contains("\"action\":\"ACCEPT_TRADE\"") &&
+                        it.contains("\"tradeId\":\"trade-accept\"")
+                }
+            )
+        }
+        coVerify {
+            stompSession.sendText(
+                "/app/game/action",
+                match {
+                    it.contains("\"action\":\"REJECT_TRADE\"") &&
+                        it.contains("\"tradeId\":\"trade-reject\"")
+                }
+            )
+        }
+    }
+
 }

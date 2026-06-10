@@ -35,6 +35,18 @@ class GameServiceTest {
         var declareBankruptcyCalled = false
         var debugForwardCalled = false
         var debugSetupCalled = false
+        var proposeTradeCalled = false
+        var lastTradeTargetId: String? = null
+        var lastTradeOfferMoney: Int? = null
+        var lastTradeRequestMoney: Int? = null
+        var lastTradeOfferPropertyIds: List<Int>? = null
+        var lastTradeRequestPropertyIds: List<Int>? = null
+        var lastTradeOfferJailCards: Int? = null
+        var lastTradeRequestJailCards: Int? = null
+        var acceptTradeCalled = false
+        var lastAcceptedTradeId: String? = null
+        var rejectTradeCalled = false
+        var lastRejectedTradeId: String? = null
 
         override fun connect() {}
         override fun disconnect() {}
@@ -92,6 +104,32 @@ class GameServiceTest {
             lastUnmortgageFieldId = fieldId
         }
         override fun declareBankruptcy() { declareBankruptcyCalled = true }
+        override fun proposeTrade(
+            toPlayerId: String,
+            offerMoney: Int,
+            requestMoney: Int,
+            offerPropertyIds: List<Int>,
+            requestPropertyIds: List<Int>,
+            offerJailCards: Int,
+            requestJailCards: Int
+        ) {
+            proposeTradeCalled = true
+            lastTradeTargetId = toPlayerId
+            lastTradeOfferMoney = offerMoney
+            lastTradeRequestMoney = requestMoney
+            lastTradeOfferPropertyIds = offerPropertyIds
+            lastTradeRequestPropertyIds = requestPropertyIds
+            lastTradeOfferJailCards = offerJailCards
+            lastTradeRequestJailCards = requestJailCards
+        }
+        override fun acceptTrade(tradeId: String) {
+            acceptTradeCalled = true
+            lastAcceptedTradeId = tradeId
+        }
+        override fun rejectTrade(tradeId: String) {
+            rejectTradeCalled = true
+            lastRejectedTradeId = tradeId
+        }
         override fun debugForwardGame() { debugForwardCalled = true }
         override fun debugSetupBankruptcy() { debugSetupCalled = true }
         override fun payTax(fieldId: Int) {
@@ -165,6 +203,42 @@ class GameServiceTest {
         val service = TestGameService()
         service.debugSetupBankruptcy()
         junit.framework.Assert.assertTrue(service.debugSetupCalled)
+    }
+
+    @Test
+    fun `proposeTrade passes the full live trade offer to implementation`() {
+        val service = TestGameService()
+        service.proposeTrade(
+            toPlayerId = "p2",
+            offerMoney = 100,
+            requestMoney = 20,
+            offerPropertyIds = listOf(1, 3),
+            requestPropertyIds = listOf(6),
+            offerJailCards = 1,
+            requestJailCards = 0
+        )
+
+        junit.framework.Assert.assertTrue(service.proposeTradeCalled)
+        junit.framework.Assert.assertEquals("p2", service.lastTradeTargetId)
+        junit.framework.Assert.assertEquals(100, service.lastTradeOfferMoney)
+        junit.framework.Assert.assertEquals(20, service.lastTradeRequestMoney)
+        junit.framework.Assert.assertEquals(listOf(1, 3), service.lastTradeOfferPropertyIds)
+        junit.framework.Assert.assertEquals(listOf(6), service.lastTradeRequestPropertyIds)
+        junit.framework.Assert.assertEquals(1, service.lastTradeOfferJailCards)
+        junit.framework.Assert.assertEquals(0, service.lastTradeRequestJailCards)
+    }
+
+    @Test
+    fun `acceptTrade and rejectTrade pass trade id to implementation`() {
+        val service = TestGameService()
+
+        service.acceptTrade("trade-1")
+        service.rejectTrade("trade-2")
+
+        junit.framework.Assert.assertTrue(service.acceptTradeCalled)
+        junit.framework.Assert.assertEquals("trade-1", service.lastAcceptedTradeId)
+        junit.framework.Assert.assertTrue(service.rejectTradeCalled)
+        junit.framework.Assert.assertEquals("trade-2", service.lastRejectedTradeId)
     }
 
     @Test

@@ -723,6 +723,55 @@ class GameStompClient(
         Log.d("GameStomp", "Declaring bankruptcy")
     }
 
+    override fun proposeTrade(
+        toPlayerId: String,
+        offerMoney: Int,
+        requestMoney: Int,
+        offerPropertyIds: List<Int>,
+        requestPropertyIds: List<Int>,
+        offerJailCards: Int,
+        requestJailCards: Int
+    ) {
+        val action = GameAction(
+            gameId = _currentGameId,
+            playerId = currentPlayerId,
+            action = "PROPOSE_TRADE",
+            payload = mapOf(
+                "toPlayerId" to toPlayerId,
+                "offerMoney" to offerMoney.toString(),
+                "requestMoney" to requestMoney.toString(),
+                "offerPropertyIds" to offerPropertyIds.joinToString(","),
+                "requestPropertyIds" to requestPropertyIds.joinToString(","),
+                "offerJailCards" to offerJailCards.toString(),
+                "requestJailCards" to requestJailCards.toString()
+            )
+        )
+        sendRaw("/app/game/action", JacksonProvider.objectMapper.writeValueAsString(action))
+        Log.d("GameStomp", "Proposing trade to $toPlayerId")
+    }
+
+    override fun acceptTrade(tradeId: String) {
+        val action = GameAction(
+            gameId = _currentGameId,
+            playerId = currentPlayerId,
+            action = "ACCEPT_TRADE",
+            payload = mapOf("tradeId" to tradeId)
+        )
+        sendRaw("/app/game/action", JacksonProvider.objectMapper.writeValueAsString(action))
+        Log.d("GameStomp", "Accepting trade $tradeId")
+    }
+
+    override fun rejectTrade(tradeId: String) {
+        val action = GameAction(
+            gameId = _currentGameId,
+            playerId = currentPlayerId,
+            action = "REJECT_TRADE",
+            payload = mapOf("tradeId" to tradeId)
+        )
+        sendRaw("/app/game/action", JacksonProvider.objectMapper.writeValueAsString(action))
+        Log.d("GameStomp", "Rejecting trade $tradeId")
+    }
+
     override fun reportCheater(reportedPlayerId: String) {
         Log.d("GameStomp", "Reporting cheater: $reportedPlayerId")
         val action = GameAction(

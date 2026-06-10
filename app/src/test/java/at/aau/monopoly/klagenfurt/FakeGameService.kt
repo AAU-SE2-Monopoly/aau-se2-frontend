@@ -3,6 +3,8 @@ package at.aau.monopoly.klagenfurt
 
 import at.aau.monopoly.klagenfurt.messaging.GameEvent
 import at.aau.monopoly.klagenfurt.model.GameState
+import at.aau.monopoly.klagenfurt.model.Player
+import at.aau.monopoly.klagenfurt.model.field.GoField
 import at.aau.monopoly.klagenfurt.networking.GameService
 import at.aau.monopoly.klagenfurt.networking.JacksonProvider
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -253,6 +255,46 @@ class FakeGameService : GameService {
         declareBankruptcyCalled = true
     }
 
+    var lastTradeTargetId: String? = null
+    var lastTradeOfferMoney: Int? = null
+    var lastTradeRequestMoney: Int? = null
+    var lastTradeOfferPropertyIds: List<Int>? = null
+    var lastTradeRequestPropertyIds: List<Int>? = null
+    var lastTradeOfferJailCards: Int? = null
+    var lastTradeRequestJailCards: Int? = null
+    var acceptTradeCalled = false
+    var lastAcceptedTradeId: String? = null
+    var rejectTradeCalled = false
+    var lastRejectedTradeId: String? = null
+
+    override fun proposeTrade(
+        toPlayerId: String,
+        offerMoney: Int,
+        requestMoney: Int,
+        offerPropertyIds: List<Int>,
+        requestPropertyIds: List<Int>,
+        offerJailCards: Int,
+        requestJailCards: Int
+    ) {
+        lastTradeTargetId = toPlayerId
+        lastTradeOfferMoney = offerMoney
+        lastTradeRequestMoney = requestMoney
+        lastTradeOfferPropertyIds = offerPropertyIds
+        lastTradeRequestPropertyIds = requestPropertyIds
+        lastTradeOfferJailCards = offerJailCards
+        lastTradeRequestJailCards = requestJailCards
+    }
+
+    override fun acceptTrade(tradeId: String) {
+        acceptTradeCalled = true
+        lastAcceptedTradeId = tradeId
+    }
+
+    override fun rejectTrade(tradeId: String) {
+        rejectTradeCalled = true
+        lastRejectedTradeId = tradeId
+    }
+
     override fun debugForwardGame() {}
     override fun debugSetupBankruptcy() {}
     var lastPaidTaxFieldId: Int? = null
@@ -284,5 +326,13 @@ class FakeGameService : GameService {
 
         _events.tryEmit(json)
     }
+
+    fun createGameState(gameId: String, position: Int = 0): GameState =
+        GameState(
+            gameId = gameId,
+            fields = listOf(GoField(id = 0, name = "Go")),
+            players = mutableListOf(Player(id = currentPlayerId, name = currentPlayerName, position = position)),
+            currentPlayerIndex = 0
+        )
 
 }

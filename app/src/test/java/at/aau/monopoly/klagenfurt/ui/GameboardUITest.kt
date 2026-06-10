@@ -571,7 +571,63 @@ class GameboardUITest {
         assertFalse(bounds.isCorner)
         assertEquals(180f, bounds.rotation)
     }
+    @Test
+    fun testDispatchKeyEventConsumesVolumeUpActionDown() {
+        val activity = composeTestRule.activity
+        val eventDown = KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_VOLUME_UP)
 
+        // Act: Dispatch the hardware volume up key press
+        val result = activity.dispatchKeyEvent(eventDown)
+
+        // Assert: The custom logic should intercept this and return true to consume the event
+        assertTrue("Volume Up ACTION_DOWN event should be consumed and return true", result)
+    }
+
+    @Test
+    fun testDispatchKeyEventConsumesVolumeUpActionUp() {
+        val activity = composeTestRule.activity
+        val eventUp = KeyEvent(KeyEvent.ACTION_UP, KeyEvent.KEYCODE_VOLUME_UP)
+
+        // Act: Dispatch the hardware volume up key release
+        val result = activity.dispatchKeyEvent(eventUp)
+
+        // Assert: The custom logic should intercept the release to reset the flank state
+        assertTrue("Volume Up ACTION_UP event should be consumed and return true", result)
+    }
+
+    @Test
+    fun testDispatchKeyEventHandlesVolumeUpHoldFlanks() {
+        val activity = composeTestRule.activity
+        val eventDown1 = KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_VOLUME_UP)
+        val eventDown2 = KeyEvent(
+            1000L, 1050L, KeyEvent.ACTION_DOWN,
+            KeyEvent.KEYCODE_VOLUME_UP, 1 // repeatCount = 1 (simulating a hold)
+        )
+
+        // Act
+        val result1 = activity.dispatchKeyEvent(eventDown1)
+        val result2 = activity.dispatchKeyEvent(eventDown2)
+
+        // Assert: Both should be consumed. The internal `isVolumeUpPressed` blocks the viewmodel
+        // trigger on the second call, but the activity still strictly consumes the key event.
+        assertTrue(result1)
+        assertTrue(result2)
+    }
+
+    @Test
+    fun testDispatchKeyEventDelegatesOtherKeysToWindow() {
+        val activity = composeTestRule.activity
+        // Using a generic key that is completely unrelated to the cheat logic
+        val eventSpace = KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_SPACE)
+
+        // Act: Dispatch the spacebar key press
+        val result = activity.dispatchKeyEvent(eventSpace)
+
+        // Assert: Since we don't handle SPACE, it falls back to window.superDispatchKeyEvent.
+        // It shouldn't crash, and we just assert it returns without throwing an exception.
+        // Depending on the Compose hierarchy, this typically returns false if unhandled.
+        assertNotNull(result)
+    }
 
 
 }

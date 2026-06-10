@@ -161,6 +161,9 @@ class GameViewModel(
     private val _selectedPlayerForOverlay = MutableStateFlow<Player?>(null)
     val selectedPlayerForOverlay: StateFlow<Player?> = _selectedPlayerForOverlay.asStateFlow()
 
+    private val _selectedPlayerForTrade = MutableStateFlow<Player?>(null)
+    val selectedPlayerForTrade: StateFlow<Player?> = _selectedPlayerForTrade.asStateFlow()
+
     private val _pendingDoubleAutoEnd = MutableStateFlow(false)
     val pendingDoubleAutoEnd: StateFlow<Boolean> = _pendingDoubleAutoEnd.asStateFlow()
 
@@ -327,6 +330,10 @@ class GameViewModel(
                 if (event.event == "PROPERTY_UNMORTGAGED") {
                     Log.i("GameViewModel", "Property unmortgaged - refreshing state")
                     finishPropertyAction()
+                }
+
+                if (event.event == "TRADE_COMPLETED" || event.event == "TRADE_REJECTED") {
+                    _selectedPlayerForTrade.value = null
                 }
 
                 if (event.event == "HOUSE_BOUGHT" || event.event == "HOTEL_BOUGHT" ||
@@ -832,6 +839,39 @@ class GameViewModel(
     fun hidePlayerOverlay() {
         _selectedPlayerForOverlay.value = null
     }
+
+    fun showTradeOverlay(player: Player) {
+        _selectedPlayerForOverlay.value = null
+        _selectedPlayerForTrade.value = player
+    }
+
+    fun hideTradeOverlay() {
+        _selectedPlayerForTrade.value = null
+    }
+
+    fun proposeTrade(
+        toPlayerId: String,
+        offerMoney: Int,
+        requestMoney: Int,
+        offerPropertyIds: List<Int>,
+        requestPropertyIds: List<Int>,
+        offerJailCards: Int,
+        requestJailCards: Int
+    ) {
+        gameService.proposeTrade(
+            toPlayerId = toPlayerId,
+            offerMoney = offerMoney,
+            requestMoney = requestMoney,
+            offerPropertyIds = offerPropertyIds,
+            requestPropertyIds = requestPropertyIds,
+            offerJailCards = offerJailCards,
+            requestJailCards = requestJailCards
+        )
+    }
+
+    fun acceptTrade(tradeId: String) = gameService.acceptTrade(tradeId)
+
+    fun rejectTrade(tradeId: String) = gameService.rejectTrade(tradeId)
 
     fun syncGameboardEntryState() {
         val currentGameId = gameService.currentGameId

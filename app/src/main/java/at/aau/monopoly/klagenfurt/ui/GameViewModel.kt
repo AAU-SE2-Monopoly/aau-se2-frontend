@@ -351,6 +351,7 @@ class GameViewModel(
 
                 if (event.event == "GAME_OVER" || event.gameState?.phase == GamePhase.FINISHED) {
                     _showGameOverOverlay.value = true
+                    _hostEndedGame.value = false
                     _showPayRentOverlay.value = false
                     _showMortgageOverlay.value = false
                     _showBankruptcyOverlay.value = false
@@ -360,6 +361,7 @@ class GameViewModel(
 
                 if (event.event == "GAME_CLOSED") {
                     _hostEndedGame.value = true
+                    _showGameOverOverlay.value = false
                     _showPayRentOverlay.value = false
                     _showMortgageOverlay.value = false
                     _showBankruptcyOverlay.value = false

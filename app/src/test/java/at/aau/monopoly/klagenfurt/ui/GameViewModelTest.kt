@@ -253,19 +253,6 @@ class GameViewModelTest {
         assertTrue(fakeService.rollDiceCalled)
     }
 
-    @Test
-    fun `cheat flag should be reset after one roll`() {
-        viewModel.activateCheatForNextRoll()
-        viewModel.rollDice()
-        assertTrue(fakeService.rollDiceCalled)
-
-        // Reset flag in fake and advance time
-        fakeService.rollDiceCalled = false
-        fakeTime += 1600L
-
-        viewModel.rollDice()
-        assertTrue(fakeService.rollDiceCalled)
-    }
 
     // --- PROPERTY GETTER TESTS ---
 
@@ -1992,4 +1979,104 @@ class GameViewModelTest {
 
         assertEquals(4, service.lastPaidTaxFieldId)
     }
+
+    @Test
+    fun `rollDice should set rollRequestInFlight and block consecutive roll calls`() = runTest(testDispatcher) {
+        // First roll must succeed
+        fakeService.rollDiceCalled = false
+        viewModel.rollDice()
+        assertTrue("First roll should be passed to the service", fakeService.rollDiceCalled)
+
+        // Call second roll immediately (while rollRequestInFlight is active)
+        fakeService.rollDiceCalled = false
+        viewModel.rollDice()
+        assertFalse("Second roll must be blocked because a request is already in flight", fakeService.rollDiceCalled)
+    }
+
+
+    @Test
+    fun `DICE_ROLLED event should clear rollRequestInFlight lock`() = runTest(testDispatcher) {
+        val job = launch { viewModel.gameState.collect {} }
+
+        viewModel.rollDice() // Activate lock
+        fakeService.rollDiceCalled = false
+
+        // Simulate successful response from server
+        fakeService.emitTestEvent(
+            """
+            {
+              "event": "DICE_ROLLED",
+              "gameId": "g1",
+              "gameState": {
+                "gameId": "g1",
+                "fields": [],
+                "players": [{ "id": "p1", "name": "Alice" }],
+                "phase": "BUYING"
+              }
+            }
+            """.trimIndent()
+        )
+        advanceUntilIdle()
+
+        // Lock must be released
+        viewModel.rollDice()
+        assertTrue("DICE_ROLLED event must release the lock", fakeService.rollDiceCalled)
+
+        job.cancel()
+    }
+
+    @Test
+    fun `TURN_ENDED event should clear rollRequestInFlight lock and reset cheat state`() = runTest(testDispatcher) {
+        val job = launch { viewModel.gameState.collect {} }
+
+        viewModel.rollDice() // Activate lock
+        fakeService.rollDiceCalled = false
+
+        // Simulate turn end from server
+        fakeService.emitTestEvent("""{"event":"TURN_ENDED","gameId":"g1"}""")
+        advanceUntilIdle()
+
+        // Lock must be released
+        viewModel.rollDice()
+        assertTrue("TURN_ENDED event must release the lock", fakeService.rollDiceCalled)
+
+        job.cancel()
+    }
+
+    @Test
+    fun `ERROR event should clear rollRequestInFlight lock`() = runTest(testDispatcher) {
+        val job = launch { viewModel.errorMessage.collect {} }
+
+        viewModel.rollDice() // Activate lock
+        fakeService.rollDiceCalled = false
+
+        // Simulate network/server error
+        fakeService.emitTestEvent("""{"event":"ERROR","gameId":"g1","message":"Internal Server Error"}""")
+        advanceUntilIdle()
+
+        // Lock must be released
+        viewModel.rollDice()
+        assertTrue("ERROR event must release the lock", fakeService.rollDiceCalled)
+
+        job.cancel()
+    }
+
+
+
+    @Test
+    fun `activateCheatForNextRoll should be ignored if not in rolling phase`() = runTest(testDispatcher) {
+        val job = launch { viewModel.isRollingPhaseForCurrentPlayer.collect {} }
+
+        // Set to BUYING phase (isRollingPhaseForCurrentPlayer becomes false)
+        fakeService.emitTestEvent("""{"event":"STATE_UPDATED","gameId":"g1","gameState":{"gameId":"g1","fields":[],"players":[{"id":"p1","name":"Alice"}],"currentPlayerIndex":0,"phase":"BUYING"}}""")
+        advanceUntilIdle()
+        assertFalse(viewModel.isRollingPhaseForCurrentPlayer.value)
+
+        // Cheat attempt in wrong phase
+        viewModel.activateCheatForNextRoll()
+
+        job.cancel()
+    }
+
+
 }

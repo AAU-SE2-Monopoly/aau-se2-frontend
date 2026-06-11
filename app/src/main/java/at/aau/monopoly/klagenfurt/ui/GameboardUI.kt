@@ -1,5 +1,6 @@
 package at.aau.monopoly.klagenfurt.ui
 
+import android.annotation.SuppressLint
 import android.app.Activity
 import android.content.pm.ActivityInfo
 import android.os.Bundle
@@ -92,6 +93,7 @@ import at.aau.monopoly.klagenfurt.ui.chat.ChatOverlay
 import at.aau.monopoly.klagenfurt.ui.util.ownerIdFromField
 import at.aau.monopoly.klagenfurt.ui.zoom.ZoomableWrapper
 import com.example.myapplication.R
+
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.filter
@@ -101,10 +103,8 @@ import at.aau.monopoly.klagenfurt.model.field.ChanceField
 import at.aau.monopoly.klagenfurt.model.field.CommunityChestField
 import kotlin.math.hypot
 import at.aau.monopoly.klagenfurt.model.enums.GamePhase
-import com.example.myapplication.BuildConfig
+
 import at.aau.monopoly.klagenfurt.model.PaymentSource
-
-
 
 class GameboardUI : ComponentActivity() {
     private val viewModel: GameViewModel by viewModels {
@@ -121,16 +121,27 @@ class GameboardUI : ComponentActivity() {
             GameboardScreen(viewModel = viewModel)
         }
     }
+    private var isVolumeUpPressed = false
 
-    override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
-        if (keyCode == KeyEvent.KEYCODE_VOLUME_UP) {
-            // Activate cheat in ViewModel
-            viewModel.activateCheatForNextRoll()
-            Log.d("DiceDebug", "Cheat activated via Volume Up!")
-            // IMPORTANT: Return true so volume doesn't change
+    @SuppressLint("RestrictedApi")
+    override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+        if (event.keyCode == KeyEvent.KEYCODE_VOLUME_UP) {
+            when (event.action) {
+                KeyEvent.ACTION_DOWN -> {
+                    if (!isVolumeUpPressed) {
+                        isVolumeUpPressed = true
+                        Log.d("DiceDebug", "Cheat enabled (dispatchKeyEvent).")
+                        viewModel.activateCheatForNextRoll()
+                    }
+                }
+                KeyEvent.ACTION_UP -> {
+                    isVolumeUpPressed = false
+                }
+            }
             return true
         }
-        return super.onKeyDown(keyCode, event)
+
+        return super.dispatchKeyEvent(event)
     }
 }
 
@@ -157,7 +168,6 @@ fun GameboardScreen(
 ) {
     val context = LocalContext.current
 
-    // NEW: Listen to drama events (cheater reports) and show Toast
     LaunchedEffect(Unit) {
         viewModel.dramaEvent.collect { msg ->
             Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
@@ -177,7 +187,6 @@ fun GameboardScreen(
         fields.getOrNull(player.position)
     }
     val isBuyableField = currentField is OwnableField
-
     val isUnownedField = (currentField as? OwnableField)?.ownerId == null
 
     val isOnChanceField = currentField is ChanceField
@@ -203,13 +212,10 @@ fun GameboardScreen(
     val myPlayer = gameState?.players?.find { it.id == currentPlayerId }
     val myPlayerIsActive = myPlayer != null && !myPlayer.eliminated && gameStarted
 
-
-    // Action Card states
     val currentActionCard by viewModel.currentActionCard.collectAsState()
     val isExecutingAction by viewModel.isExecutingAction.collectAsState()
     val showActionCardOverlay by viewModel.showActionCardOverlay.collectAsState()
 
-    // Payment overlay states
     val showPayRentOverlay by viewModel.showPayRentOverlay.collectAsState()
     val showMortgageOverlay by viewModel.showMortgageOverlay.collectAsState()
     val showBankruptcyOverlay by viewModel.showBankruptcyOverlay.collectAsState()
@@ -244,29 +250,17 @@ fun GameboardScreen(
         }
     }
 
-    // ═══════════════════════════════════════════════
-    // Circular reveal animation for game content
-    // ═══════════════════════════════════════════════
     val revealProgress = remember { Animatable(0f) }
-
-    // Start the reveal animation immediately on first composition
     LaunchedEffect(Unit) {
-        // Small delay to ensure layout is ready
         delay(300)
         revealProgress.animateTo(1f, animationSpec = tween(durationMillis = 800))
     }
 
-    // ═══════════════════════════════════════════════
-    // Back button slide-in from top
-    // ═══════════════════════════════════════════════
     val backButtonOffsetY = remember { Animatable(-200f) }
     LaunchedEffect(Unit) {
         backButtonOffsetY.animateTo(0f, animationSpec = tween(durationMillis = 400))
     }
 
-    // ═══════════════════════════════════════════════
-    // ShakeDetector lifecycle – only used when no override provided (production path)
-    // ═══════════════════════════════════════════════
     val shakeDetector = remember(shakeEventsOverride) {
         if (shakeEventsOverride == null) ShakeDetector(context) else null
     }
@@ -296,10 +290,10 @@ fun GameboardScreen(
 
     val shakeFlow: Flow<Unit> = shakeEventsOverride ?: shakeDetector!!.shakeEvents
 
-    // Tracks whether the user has shaken to trigger the actual roll.
     var hasShaken by remember { mutableStateOf(false) }
+    var hasDrawnCard by remember { mutableStateOf(false) }
+    var isDrawingCard by remember { mutableStateOf(false) }
 
-    // Detect emulator to auto-trigger shake (emulators lack accelerometer)
     val isEmulator = remember {
         android.os.Build.FINGERPRINT.startsWith("generic")
                 || android.os.Build.FINGERPRINT.startsWith("unknown")
@@ -310,30 +304,31 @@ fun GameboardScreen(
                 || android.os.Build.PRODUCT.contains("emulator")
     }
 
-    // Reset on overlay open and on phase changes so each turn starts fresh.
     LaunchedEffect(showOverlay) {
         if (showOverlay) hasShaken = false
     }
 
-    // Auto-click shake on emulator when overlay is visible and it's rolling phase
     LaunchedEffect(showOverlay, isRollingPhaseForCurrentPlayer, hasShaken) {
         if (isEmulator && showOverlay && isRollingPhaseForCurrentPlayer && !hasShaken) {
             hasShaken = true
             viewModel.rollDice()
         }
     }
+
     LaunchedEffect(isRollingPhaseForCurrentPlayer) {
-        if (isRollingPhaseForCurrentPlayer) hasShaken = false
+        if (isRollingPhaseForCurrentPlayer) {
+            hasShaken = false
+            hasDrawnCard = false
+            isDrawingCard = false
+        }
     }
 
-    // Auto-close dice overlay when player ends turn or buys property (phase leaves BUYING)
     LaunchedEffect(isBuyingPhaseForCurrentPlayer, canEndTurnForCurrentPlayer) {
         if (!isBuyingPhaseForCurrentPlayer && !isRollingPhaseForCurrentPlayer && showOverlay) {
             showOverlay = false
         }
     }
 
-    // Auto-end turn after dice overlay closes when a double was rolled
     val pendingDoubleAutoEnd by viewModel.pendingDoubleAutoEnd.collectAsState()
     LaunchedEffect(showOverlay, pendingDoubleAutoEnd) {
         if (!showOverlay && pendingDoubleAutoEnd) {
@@ -341,15 +336,23 @@ fun GameboardScreen(
         }
     }
 
-    // Only consume shakes while the overlay is open AND it is the current player's rolling phase.
-    // Guard against double-rolls via hasShaken.
-    LaunchedEffect(shakeFlow, viewModel) {
-        shakeFlow
-            .filter { showOverlay && isRollingPhaseForCurrentPlayer && !hasShaken }
-            .collect {
-                hasShaken = true
-                viewModel.rollDice()
+    LaunchedEffect(showActionCardOverlay) {
+        if (showActionCardOverlay) {
+            isDrawingCard = false
+        }
+    }
+
+    LaunchedEffect(showOverlay, isRollingPhaseForCurrentPlayer, shakeFlow) {
+        if (showOverlay && isRollingPhaseForCurrentPlayer) {
+            var localHasShaken = false
+            shakeFlow.collect {
+                if (!localHasShaken && !hasShaken) {
+                    localHasShaken = true
+                    hasShaken = true
+                    viewModel.rollDice()
+                }
             }
+        }
     }
 
     val selectedPlayer by viewModel.selectedPlayerForOverlay.collectAsState()
@@ -359,10 +362,8 @@ fun GameboardScreen(
     LockScreenOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE)
 
     Box(modifier = modifier.fillMaxSize()) {
-        // Background is always visible
         FullscreenImage(R.drawable.background, "Klagenfurt-Map Background")
 
-        // Game content with circular reveal
         Box(
             modifier = Modifier
                 .fillMaxSize()
@@ -389,7 +390,6 @@ fun GameboardScreen(
                 selectedPlayerForOverlay = selectedPlayer,
                 onDismissOverlay = { viewModel.hidePlayerOverlay() },
                 movementAnimationState = movementState,
-                // NEW: Pass reportCheater to the content layer
                 onReportCheater = { reportedPlayerId -> viewModel.reportCheater(reportedPlayerId) },
                 onStartTrade = { player ->
                     viewModel.showTradeOverlay(player)
@@ -409,6 +409,13 @@ fun GameboardScreen(
             )
 
             val buttonWidth = 180.dp
+            val mustDrawCard = (isOnChanceField || isOnCommunityChestField) && !hasDrawnCard && isBuyingPhaseForCurrentPlayer
+
+            val onDrawCard: (String) -> Unit = { type ->
+                viewModel.drawCard(type)
+                hasDrawnCard = true
+                isDrawingCard = true
+            }
 
             Column(
                 modifier = Modifier
@@ -426,8 +433,7 @@ fun GameboardScreen(
                     }
                 }
 
-                if (isRollingPhaseForCurrentPlayer && currentTurnPlayer != null) {
-                    // Jail Logic
+                if (isRollingPhaseForCurrentPlayer && currentTurnPlayer != null && !mustDrawCard && !isDrawingCard) {
                     if (currentTurnPlayer.inJail) {
 
                         Text(
@@ -449,7 +455,6 @@ fun GameboardScreen(
                             Text("💰 Pay 50 M")
                         }
 
-
                         if (currentTurnPlayer.getOutOfJailCards > 0) {
                             GlassButton(
                                 onClick = { viewModel.useJailCard() },
@@ -458,7 +463,6 @@ fun GameboardScreen(
                                 Text("🃏 Use Card (${currentTurnPlayer.getOutOfJailCards})")
                             }
                         }
-
 
                         GlassButton(
                             onClick = { showOverlay = true },
@@ -476,7 +480,7 @@ fun GameboardScreen(
                     }
                 }
 
-                if (canEndTurnForCurrentPlayer && !showActionCardOverlay) {
+                if (canEndTurnForCurrentPlayer && !showActionCardOverlay && !mustDrawCard && !isDrawingCard) {
                     GlassButton(
                         onClick = { viewModel.endTurn() },
                         modifier = Modifier.width(buttonWidth).testTag("end_turn_button")
@@ -508,10 +512,10 @@ fun GameboardScreen(
                 if (isOnChanceField && isBuyingPhaseForCurrentPlayer) {
                     DrawCardButton(
                         cardType = "CHANCE",
-                        alreadyDrawn = false,
-                        enabled = !showActionCardOverlay,
+                        alreadyDrawn = hasDrawnCard,
+                        enabled = !showActionCardOverlay && !hasDrawnCard,
                         label = "🎰 Draw Chance",
-                        onDraw = { viewModel.drawCard("CHANCE") },
+                        onDraw = { onDrawCard("CHANCE") },
                         modifier = Modifier.width(buttonWidth)
                     )
                 }
@@ -519,18 +523,16 @@ fun GameboardScreen(
                 if (isOnCommunityChestField && isBuyingPhaseForCurrentPlayer) {
                     DrawCardButton(
                         cardType = "COMMUNITY_CHEST",
-                        alreadyDrawn = false,
-                        enabled = !showActionCardOverlay,
+                        alreadyDrawn = hasDrawnCard,
+                        enabled = !showActionCardOverlay && !hasDrawnCard,
                         label = "⭐ Draw Community",
-                        onDraw = { viewModel.drawCard("COMMUNITY_CHEST") },
+                        onDraw = { onDrawCard("COMMUNITY_CHEST") },
                         modifier = Modifier.width(buttonWidth)
                     )
                 }
-
             }
 
-            /** DEBUG remove this block of code to remove */
-            if (BuildConfig.DEBUG && DebugSettings.isEnabled && currentTurnPlayer?.id == currentPlayerId) {
+            if (DebugSettings.isEnabled && currentTurnPlayer?.id == currentPlayerId) {
                 Column(
                     modifier = Modifier
                         .align(Alignment.TopEnd)
@@ -555,7 +557,6 @@ fun GameboardScreen(
             }
 
             GameboardOverlayLayer(eventLog = bufferedEventLog)
-
 
             ActionCardOverlay(
                 isVisible = showActionCardOverlay,
@@ -582,6 +583,7 @@ fun GameboardScreen(
                 amount = gameState?.freeParkingMoney ?: 0,
                 onClose = { showFreeParkingOverlay = false }
             )
+
             val pendingTradeOffer = gameState?.pendingTradeOffer
             var dismissedTradeId by remember { mutableStateOf<String?>(null) }
             LaunchedEffect(pendingTradeOffer?.id) {
@@ -590,12 +592,12 @@ fun GameboardScreen(
             val publicTradePlayer = pendingTradeOffer
                 ?.takeUnless { it.id == dismissedTradeId }
                 ?.let { offer ->
-                when (currentPlayerId) {
-                    offer.fromPlayerId -> players.find { it.id == offer.toPlayerId }
-                    offer.toPlayerId -> players.find { it.id == offer.fromPlayerId }
-                    else -> players.find { it.id == offer.fromPlayerId }
+                    when (currentPlayerId) {
+                        offer.fromPlayerId -> players.find { it.id == offer.toPlayerId }
+                        offer.toPlayerId -> players.find { it.id == offer.fromPlayerId }
+                        else -> players.find { it.id == offer.fromPlayerId }
+                    }
                 }
-            }
             val visibleTradePlayer = selectedTradePlayer ?: publicTradePlayer
             if (visibleTradePlayer != null) {
                 TradeOverlay(
@@ -672,7 +674,6 @@ fun GameboardScreen(
                 onDismiss = { viewModel.dismissMortgageOverlay() }
             )
 
-            // Bankruptcy confirmation (shown to current player only, before backend call)
             BankruptcyResolutionOverlay(
                 isVisible = showBankruptcyConfirmation && currentTurnPlayer?.id == currentPlayerId,
                 playerName = currentTurnPlayer?.name ?: "",
@@ -684,7 +685,6 @@ fun GameboardScreen(
                 onDismiss = { viewModel.cancelDeclareBankruptcy() }
             )
 
-            // Bankruptcy result (shown to all players after backend processes)
             BankruptcyResolutionOverlay(
                 isVisible = showBankruptcyOverlay,
                 playerName = bankruptcyPlayerName,
@@ -707,7 +707,6 @@ fun GameboardScreen(
 
 
 
-        // Back button animated from top
         val activity = context as? Activity
         val backOffsetYDp = backButtonOffsetY.value.dp
         GlassButton(
@@ -735,9 +734,6 @@ fun GameboardScreen(
     }
 }
 
-/**
- * Shape that clips to a circle expanding from center based on [progress] (0..1).
- */
 internal class CircularRevealShape(private val progress: Float) : androidx.compose.ui.graphics.Shape {
     override fun createOutline(
         size: Size,
@@ -883,7 +879,7 @@ fun GameboardContent(
                         Button(
                             onClick = { onStartTrade(player) },
                             enabled = gameState?.pendingTradeOffer == null &&
-                                currentTurnPlayer?.id == currentPlayerId,
+                                    currentTurnPlayer?.id == currentPlayerId,
                             modifier = Modifier
                                 .padding(top = 4.dp, end = 4.dp)
                                 .height(26.dp),
@@ -929,9 +925,6 @@ fun GameboardContent(
     }
 }
 
-/**
- * Semi-transparent rounded button used throughout the gameboard UI.
- */
 @Composable
 private fun GlassButton(
     onClick: () -> Unit,
@@ -952,9 +945,6 @@ private fun GlassButton(
     )
 }
 
-/**
- * Draw-card button used for Chance and Community Chest fields.
- */
 @Composable
 private fun DrawCardButton(
     cardType: String,
@@ -973,9 +963,6 @@ private fun DrawCardButton(
     }
 }
 
-/**
- * Scrollable side panel used for player info on left/right edges of the gameboard.
- */
 @Composable
 private fun BoxWithConstraintsScope.PlayerPanel(
     alignment: Alignment,
@@ -996,21 +983,15 @@ private fun BoxWithConstraintsScope.PlayerPanel(
     )
 }
 
-/**
- * Full-size image layer used for board background layers.
- */
-    /**
-     * Full-size image layer used for board background layers.
-     */
-    @Composable
-    private fun FullscreenImage(@androidx.annotation.DrawableRes resId: Int, description: String) {
-        Image(
-            painter = painterResource(id = resId),
-            contentDescription = description,
-            modifier = Modifier.fillMaxSize(),
-            contentScale = ContentScale.FillBounds
-        )
-    }
+@Composable
+private fun FullscreenImage(@androidx.annotation.DrawableRes resId: Int, description: String) {
+    Image(
+        painter = painterResource(id = resId),
+        contentDescription = description,
+        modifier = Modifier.fillMaxSize(),
+        contentScale = ContentScale.FillBounds
+    )
+}
 
 @Composable
 fun FreeParkingJackpotOverlay(
@@ -1091,8 +1072,8 @@ fun TradeOverlay(
     val isInvolved = currentPlayerId == fromPlayer.id || currentPlayerId == toPlayer.id
     val currentPlayerAccepted = activeOffer?.acceptedByPlayerIds?.contains(currentPlayerId) == true
     val canToggleAccept = activeOffer != null &&
-        isInvolved &&
-        activeOffer.hasTradeContents()
+            isInvolved &&
+            activeOffer.hasTradeContents()
 
     Dialog(
         onDismissRequest = onDismiss,
@@ -1222,14 +1203,14 @@ private fun TradeProposalEditor(
     val canEditFromSide = currentPlayerId == fromPlayer.id
     val canEditToSide = currentPlayerId == toPlayer.id
     val hasTradeContents = offerMoney > 0 || requestMoney > 0 ||
-        offeredPropertyIds.isNotEmpty() || requestedPropertyIds.isNotEmpty() ||
-        offerJailCards > 0 || requestJailCards > 0
+            offeredPropertyIds.isNotEmpty() || requestedPropertyIds.isNotEmpty() ||
+            offerJailCards > 0 || requestJailCards > 0
     val canSubmit =
         offerMoney <= fromPlayer.money &&
-            requestMoney <= toPlayer.money &&
-            offerJailCards <= fromPlayer.getOutOfJailCards &&
-            requestJailCards <= toPlayer.getOutOfJailCards &&
-            (initialOffer != null || hasTradeContents)
+                requestMoney <= toPlayer.money &&
+                offerJailCards <= fromPlayer.getOutOfJailCards &&
+                requestJailCards <= toPlayer.getOutOfJailCards &&
+                (initialOffer != null || hasTradeContents)
 
     fun publishLiveUpdate(
         nextOfferMoneyText: String = offerMoneyText,
@@ -1579,15 +1560,15 @@ private fun Set<Int>.toggle(fieldId: Int): Set<Int> =
 
 private fun TradeOffer.hasTradeContents(): Boolean =
     offerMoney > 0 ||
-        requestMoney > 0 ||
-        offerPropertyIds.isNotEmpty() ||
-        requestPropertyIds.isNotEmpty() ||
-        offerJailCards > 0 ||
-        requestJailCards > 0
+            requestMoney > 0 ||
+            offerPropertyIds.isNotEmpty() ||
+            requestPropertyIds.isNotEmpty() ||
+            offerJailCards > 0 ||
+            requestJailCards > 0
 
 private fun List<Field>.tradeablePropertiesFor(playerId: String): List<Field> =
     filter { field ->
         field is OwnableField &&
-            field.ownerIdFromField() == playerId &&
-            (field !is PropertyField || (field.houses == 0 && !field.hasHotel))
+                field.ownerIdFromField() == playerId &&
+                (field !is PropertyField || (field.houses == 0 && !field.hasHotel))
     }

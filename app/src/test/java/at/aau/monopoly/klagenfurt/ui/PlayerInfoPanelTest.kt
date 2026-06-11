@@ -37,7 +37,7 @@ class PlayerInfoPanelTest {
         composeTestRule.setContent {
             PlayerInfoPanel(player = player, fields = emptyList())
         }
-        composeTestRule.onNodeWithText("$1200", substring = true).assertExists()
+        composeTestRule.onNodeWithText("€1200", substring = true).assertExists()
     }
 
     @Test

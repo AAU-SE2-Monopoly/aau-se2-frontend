@@ -326,7 +326,7 @@ class GameboardContentTest {
         }
 
         composeTestRule.onNodeWithText("💵 Free Parking Jackpot").assertExists()
-        composeTestRule.onNodeWithText("$500").assertExists()
+        composeTestRule.onNodeWithText("€500").assertExists()
         composeTestRule.onNodeWithText("This amount is collected by the next player who lands on Free Parking.").assertExists()
 
         composeTestRule.onNodeWithText("Close").performClick()

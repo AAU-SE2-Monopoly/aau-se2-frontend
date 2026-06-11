@@ -38,13 +38,13 @@ class FieldCardUITest {
         // Rent label exists (first rent row)
         composeTestRule.onNodeWithText("Rent").assertExists()
         // Multiple rent values exist in the card
-        composeTestRule.onAllNodesWithText("$2", substring = true).assertCountEquals(2) // "$2" and "$250"
+        composeTestRule.onAllNodesWithText("€2", substring = true).assertCountEquals(2) // "€2" and "€250"
     }
 
     @Test
     fun `PropertyField card shows house and hotel costs`() {
         composeTestRule.setContent { FieldCardUI(field = sampleProperty) }
-        composeTestRule.onAllNodesWithText("$50")[0].assertExists()
+        composeTestRule.onAllNodesWithText("€50")[0].assertExists()
     }
 
     @Test
@@ -80,7 +80,7 @@ class FieldCardUITest {
     fun `RailroadField card shows price`() {
         val railroad = RailroadField(id = 5, name = "Hauptbahnhof", price = 200)
         composeTestRule.setContent { FieldCardUI(field = railroad) }
-        composeTestRule.onAllNodesWithText("$200")[0].assertExists()
+        composeTestRule.onAllNodesWithText("€200")[0].assertExists()
     }
 
     @Test
@@ -118,7 +118,7 @@ class FieldCardUITest {
         val tax = TaxField(id = 4, name = "Reichensteuer", amount = 200)
         composeTestRule.setContent { FieldCardUI(field = tax) }
         composeTestRule.onNodeWithText("Reichensteuer").assertExists()
-        composeTestRule.onNodeWithText("Pay $200").assertExists()
+        composeTestRule.onNodeWithText("Pay €200").assertExists()
         composeTestRule.onNodeWithText("TAX").assertExists()
     }
 

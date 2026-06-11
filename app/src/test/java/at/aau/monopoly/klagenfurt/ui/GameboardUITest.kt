@@ -31,6 +31,10 @@ import org.junit.Assert.*
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
+import androidx.compose.ui.test.assertIsEnabled
+import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.LayoutDirection
 
 @RunWith(AndroidJUnit4::class)
 class GameboardUITest {
@@ -623,11 +627,10 @@ class GameboardUITest {
         // Act: Dispatch the spacebar key press
         val result = activity.dispatchKeyEvent(eventSpace)
 
-        // Assert: Since we don't handle SPACE, it falls back to window.superDispatchKeyEvent.
-        // It shouldn't crash, and we just assert it returns without throwing an exception.
-        // Depending on the Compose hierarchy, this typically returns false if unhandled.
+
         assertNotNull(result)
     }
+
 
 
 }

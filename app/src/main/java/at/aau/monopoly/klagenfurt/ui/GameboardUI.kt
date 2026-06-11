@@ -684,41 +684,10 @@ fun GameboardScreen(
                 }
             )
 
-            if (hostEndedGame) {
-                AlertDialog(
-                    onDismissRequest = {},
-                    shape = RoundedCornerShape(24.dp),
-                    containerColor = Color(0xFF1C233D),
-                    titleContentColor = Color(0xFFA2AAF0),
-                    textContentColor = Color.White,
-                    title = {
-                        Text(
-                            text = "Game Terminated",
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 20.sp
-                        )
-                    },
-                    text = {
-                        Text(
-                            text = "The host has ended the game.",
-                            fontSize = 16.sp,
-                            lineHeight = 22.sp
-                        )
-                    },
-                    confirmButton = {
-                        TextButton(
-                            onClick = { (context as? Activity)?.finish() }
-                        ) {
-                            Text(
-                                text = "Back to Lobby",
-                                color = Color(0xFFA2AAF0),
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 15.sp
-                            )
-                        }
-                    }
-                )
-            }
+            GameTerminatedOverlay(
+                isVisible = hostEndedGame,
+                onBackToLobby = { (context as? Activity)?.finish() }
+            )
         }
 
 
@@ -1597,3 +1566,45 @@ private fun List<Field>.tradeablePropertiesFor(playerId: String): List<Field> =
                 field.ownerIdFromField() == playerId &&
                 (field !is PropertyField || (field.houses == 0 && !field.hasHotel))
     }
+
+@Composable
+fun GameTerminatedOverlay(
+    isVisible: Boolean,
+    onBackToLobby: () -> Unit
+) {
+    if (!isVisible) return
+
+    AlertDialog(
+        onDismissRequest = {},
+        shape = RoundedCornerShape(24.dp),
+        containerColor = Color(0xFF1C233D),
+        titleContentColor = Color(0xFFA2AAF0),
+        textContentColor = Color.White,
+        title = {
+            Text(
+                text = "Game Terminated",
+                fontWeight = FontWeight.Bold,
+                fontSize = 20.sp
+            )
+        },
+        text = {
+            Text(
+                text = "The host has ended the game.",
+                fontSize = 16.sp,
+                lineHeight = 22.sp
+            )
+        },
+        confirmButton = {
+            TextButton(
+                onClick = onBackToLobby
+            ) {
+                Text(
+                    text = "Back to Lobby",
+                    color = Color(0xFFA2AAF0),
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 15.sp
+                )
+            }
+        }
+    )
+}

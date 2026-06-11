@@ -27,6 +27,7 @@ import androidx.compose.ui.unit.dp
 import at.aau.monopoly.klagenfurt.model.GameState
 import at.aau.monopoly.klagenfurt.model.field.Field
 import at.aau.monopoly.klagenfurt.model.field.FreeParkingField
+import at.aau.monopoly.klagenfurt.ui.board.FieldItem
 import org.junit.Assert.assertTrue
 
 @RunWith(AndroidJUnit4::class)
@@ -197,7 +198,7 @@ class GameboardContentTest {
         )
 
         composeTestRule.setContent {
-            at.aau.monopoly.klagenfurt.ui.board.FieldItem(
+            FieldItem(
                 index = 1,
                 field = property,
                 sw = 3840f,
@@ -205,7 +206,9 @@ class GameboardContentTest {
             )
         }
 
-        composeTestRule.onNodeWithText("🏠🏠").assertExists()
+        composeTestRule
+            .onAllNodesWithText("🏠")
+            .assertCountEquals(2)
     }
     @Test
     fun `FieldItem renders hotel indicator on property`() {

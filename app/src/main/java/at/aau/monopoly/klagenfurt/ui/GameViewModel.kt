@@ -166,12 +166,17 @@ class GameViewModel(
     private val _pendingDoubleAutoEnd = MutableStateFlow(false)
     val pendingDoubleAutoEnd: StateFlow<Boolean> = _pendingDoubleAutoEnd.asStateFlow()
 
+    private val _showGameOverOverlay = MutableStateFlow(false)
+    val showGameOverOverlay: StateFlow<Boolean> = _showGameOverOverlay.asStateFlow()
+
+    private val _hostEndedGame = MutableStateFlow(false)
+    val hostEndedGame: StateFlow<Boolean> = _hostEndedGame.asStateFlow()
+
     private var lastCurrentPlayerIdForCardDraw: String? = null
 
     private val _buildingActionPending = MutableStateFlow(false)
     val buildingActionPending: StateFlow<Boolean> = _buildingActionPending.asStateFlow()
 
-    // Fix: Lock Variable zur Verhinderung von Mehrfach-Würfen
     private var rollRequestInFlight = false
     private var rollActionToken: Long = 0
 
@@ -194,7 +199,7 @@ class GameViewModel(
                 event.gameState?.let { previousGameState = it }
 
                 if (event.event == "DICE_ROLLED") {
-                    rollRequestInFlight = false // Fix: Lock aufheben
+                    rollRequestInFlight = false
 
                     val newState = event.gameState ?: return@onEach
 
@@ -259,7 +264,7 @@ class GameViewModel(
                 }
 
                 if (event.event == "TURN_ENDED") {
-                    rollRequestInFlight = false // Fix: Lock Fallback
+                    rollRequestInFlight = false
                     _buildingActionPending.value = false
                     _pendingDoubleAutoEnd.value = false
                     lastCurrentPlayerIdForCardDraw = null
@@ -276,7 +281,7 @@ class GameViewModel(
                 }
 
                 if (event.event == "ERROR") {
-                    rollRequestInFlight = false // Fix: Lock Fallback
+                    rollRequestInFlight = false
                     showTransientError(event.message ?: "An unknown error occurred")
                     finishPaymentAction()
                     finishPropertyAction()
@@ -294,6 +299,7 @@ class GameViewModel(
                     _bankruptcyTotalDebt.value = 0
                     _bankruptcyPropertiesOwned.value = emptyList()
                     _showGameOverOverlay.value = false
+                    _hostEndedGame.value = false
                 }
 
                 if (event.event == "RENT_PAID" || event.event == "TAX_PAID") {
@@ -345,6 +351,15 @@ class GameViewModel(
 
                 if (event.event == "GAME_OVER" || event.gameState?.phase == GamePhase.FINISHED) {
                     _showGameOverOverlay.value = true
+                    _showPayRentOverlay.value = false
+                    _showMortgageOverlay.value = false
+                    _showBankruptcyOverlay.value = false
+                    finishPaymentAction()
+                    finishPropertyAction()
+                }
+
+                if (event.event == "GAME_CLOSED") {
+                    _hostEndedGame.value = true
                     _showPayRentOverlay.value = false
                     _showMortgageOverlay.value = false
                     _showBankruptcyOverlay.value = false
@@ -617,7 +632,6 @@ class GameViewModel(
     fun startGame() = gameService.startGame()
 
     fun activateCheatForNextRoll() {
-
         if (rollRequestInFlight || !isRollingPhaseForCurrentPlayer.value) {
             Log.d("DiceDebug", "Cheat ignored: Player already Rolling Dice.")
             return
@@ -634,9 +648,7 @@ class GameViewModel(
         val token = ++rollActionToken
 
         viewModelScope.launch {
-            delay(5000L) // 5 Sekunden Timeout
-
-
+            delay(5000L)
             if (rollActionToken == token) {
                 rollRequestInFlight = false
             }
@@ -824,9 +836,6 @@ class GameViewModel(
     private var previousGameState: GameState? = null
     private var animationJob: Job? = null
 
-    private val _showGameOverOverlay = MutableStateFlow(false)
-    val showGameOverOverlay: StateFlow<Boolean> = _showGameOverOverlay.asStateFlow()
-
     val winner: StateFlow<Player?> = gameState
         .map { state ->
             state?.players?.firstOrNull { !it.eliminated && !it.isBankrupt() }
@@ -925,7 +934,6 @@ class GameViewModel(
             "PAYMENT_FAILED" -> "Payment failed"
             "BANKRUPTCY_DECLARED" -> "Player went bankrupt!"
             "GAME_OVER" -> "Game Over!"
-            // NEW: Fallback strings for report events
             "CHEATER_REPORTED" -> "🚨 Cheater successfully reported!"
             "CHEATER_REPORT_FAILED" -> "🚨 False cheater accusation!"
             else -> eventType.replace("_", " ")

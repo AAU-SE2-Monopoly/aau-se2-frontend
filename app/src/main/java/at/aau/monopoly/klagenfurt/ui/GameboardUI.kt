@@ -42,6 +42,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
@@ -239,10 +240,9 @@ fun GameboardScreen(
     var showFreeParkingOverlay by remember { mutableStateOf(false) }
 
     val showGameOverOverlay by viewModel.showGameOverOverlay.collectAsState()
+    val hostEndedGame by viewModel.hostEndedGame.collectAsState()
     val winner by viewModel.winner.collectAsState()
 
-    // Filter DICE_ROLLED entries from the log while the overlay is visible,
-    // so the dice result appears in chat only after the animation finishes.
     val bufferedEventLog by remember {
         derivedStateOf {
             if (showOverlay) eventLog.filter { it.eventType != "DICE_ROLLED" }
@@ -330,7 +330,6 @@ fun GameboardScreen(
         }
     }
 
-    // Fix: Race Condition Behebung. Synchroner lokaler State.
     LaunchedEffect(showOverlay, isRollingPhaseForCurrentPlayer, shakeFlow) {
         if (showOverlay && isRollingPhaseForCurrentPlayer) {
             var localHasShaken = false
@@ -365,7 +364,6 @@ fun GameboardScreen(
                 }
         ) {
             GameboardContent(
-
                 fields = fields,
                 players = players,
                 currentPlayerId = currentPlayerId,
@@ -396,7 +394,6 @@ fun GameboardScreen(
                 gameState = gameState,
                 onFreeParkingMoneyClick = { showFreeParkingOverlay = true },
                 modifier = Modifier.fillMaxSize()
-
             )
 
             val buttonWidth = 180.dp
@@ -576,12 +573,12 @@ fun GameboardScreen(
             val publicTradePlayer = pendingTradeOffer
                 ?.takeUnless { it.id == dismissedTradeId }
                 ?.let { offer ->
-                when (currentPlayerId) {
-                    offer.fromPlayerId -> players.find { it.id == offer.toPlayerId }
-                    offer.toPlayerId -> players.find { it.id == offer.fromPlayerId }
-                    else -> players.find { it.id == offer.fromPlayerId }
+                    when (currentPlayerId) {
+                        offer.fromPlayerId -> players.find { it.id == offer.toPlayerId }
+                        offer.toPlayerId -> players.find { it.id == offer.fromPlayerId }
+                        else -> players.find { it.id == offer.fromPlayerId }
+                    }
                 }
-            }
             val visibleTradePlayer = selectedTradePlayer ?: publicTradePlayer
             if (visibleTradePlayer != null) {
                 TradeOverlay(
@@ -617,7 +614,6 @@ fun GameboardScreen(
                     }
                 )
             }
-            // Payment overlays
             val isTaxPayment = gameState?.pendingPayment?.source == PaymentSource.TAX
             PayRentOverlay(
                 isVisible = showPayRentOverlay && currentTurnPlayer?.id == currentPlayerId,
@@ -687,11 +683,46 @@ fun GameboardScreen(
                     (context as? Activity)?.finish()
                 }
             )
+
+            if (hostEndedGame) {
+                AlertDialog(
+                    onDismissRequest = {},
+                    shape = RoundedCornerShape(24.dp),
+                    containerColor = Color(0xFF1C233D),
+                    titleContentColor = Color(0xFFA2AAF0),
+                    textContentColor = Color.White,
+                    title = {
+                        Text(
+                            text = "Game Terminated",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 20.sp
+                        )
+                    },
+                    text = {
+                        Text(
+                            text = "The host has ended the game.",
+                            fontSize = 16.sp,
+                            lineHeight = 22.sp
+                        )
+                    },
+                    confirmButton = {
+                        TextButton(
+                            onClick = { (context as? Activity)?.finish() }
+                        ) {
+                            Text(
+                                text = "Back to Lobby",
+                                color = Color(0xFFA2AAF0),
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 15.sp
+                            )
+                        }
+                    }
+                )
+            }
         }
 
 
 
-        // Back button animated from top
         val activity = context as? Activity
         val backOffsetYDp = backButtonOffsetY.value.dp
         GlassButton(
@@ -1066,8 +1097,8 @@ fun TradeOverlay(
     val isInvolved = currentPlayerId == fromPlayer.id || currentPlayerId == toPlayer.id
     val currentPlayerAccepted = activeOffer?.acceptedByPlayerIds?.contains(currentPlayerId) == true
     val canToggleAccept = activeOffer != null &&
-        isInvolved &&
-        activeOffer.hasTradeContents()
+            isInvolved &&
+            activeOffer.hasTradeContents()
 
     Dialog(
         onDismissRequest = onDismiss,
@@ -1197,14 +1228,14 @@ private fun TradeProposalEditor(
     val canEditFromSide = currentPlayerId == fromPlayer.id
     val canEditToSide = currentPlayerId == toPlayer.id
     val hasTradeContents = offerMoney > 0 || requestMoney > 0 ||
-        offeredPropertyIds.isNotEmpty() || requestedPropertyIds.isNotEmpty() ||
-        offerJailCards > 0 || requestJailCards > 0
+            offeredPropertyIds.isNotEmpty() || requestedPropertyIds.isNotEmpty() ||
+            offerJailCards > 0 || requestJailCards > 0
     val canSubmit =
         offerMoney <= fromPlayer.money &&
-            requestMoney <= toPlayer.money &&
-            offerJailCards <= fromPlayer.getOutOfJailCards &&
-            requestJailCards <= toPlayer.getOutOfJailCards &&
-            (initialOffer != null || hasTradeContents)
+                requestMoney <= toPlayer.money &&
+                offerJailCards <= fromPlayer.getOutOfJailCards &&
+                requestJailCards <= toPlayer.getOutOfJailCards &&
+                (initialOffer != null || hasTradeContents)
 
     fun publishLiveUpdate(
         nextOfferMoneyText: String = offerMoneyText,
@@ -1554,15 +1585,15 @@ private fun Set<Int>.toggle(fieldId: Int): Set<Int> =
 
 private fun TradeOffer.hasTradeContents(): Boolean =
     offerMoney > 0 ||
-        requestMoney > 0 ||
-        offerPropertyIds.isNotEmpty() ||
-        requestPropertyIds.isNotEmpty() ||
-        offerJailCards > 0 ||
-        requestJailCards > 0
+            requestMoney > 0 ||
+            offerPropertyIds.isNotEmpty() ||
+            requestPropertyIds.isNotEmpty() ||
+            offerJailCards > 0 ||
+            requestJailCards > 0
 
 private fun List<Field>.tradeablePropertiesFor(playerId: String): List<Field> =
     filter { field ->
         field is OwnableField &&
-            field.ownerIdFromField() == playerId &&
-            (field !is PropertyField || (field.houses == 0 && !field.hasHotel))
+                field.ownerIdFromField() == playerId &&
+                (field !is PropertyField || (field.houses == 0 && !field.hasHotel))
     }

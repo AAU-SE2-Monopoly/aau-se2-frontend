@@ -597,7 +597,7 @@ class GameViewModel(
     val currentPlayerId: String get() = gameService.currentPlayerId
 
     private var isCheatActive = false
-    private var lastDiceRollTimestamp = 0L
+
 
     fun connect() = gameService.connect()
 
@@ -631,8 +631,11 @@ class GameViewModel(
         if (rollRequestInFlight) return
         rollRequestInFlight = true
 
-        val now = currentTimeProvider()
-        lastDiceRollTimestamp = now
+        viewModelScope.launch {
+            delay(5000L)
+            rollRequestInFlight = false
+        }
+
         gameService.rollDice(isCheating = isCheatActive)
         isCheatActive = false
     }

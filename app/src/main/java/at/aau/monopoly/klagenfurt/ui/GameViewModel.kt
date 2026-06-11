@@ -173,6 +173,7 @@ class GameViewModel(
 
     // Fix: Lock Variable zur Verhinderung von Mehrfach-Würfen
     private var rollRequestInFlight = false
+    private var rollActionToken: Long = 0
 
     init {
         gameEventFlow
@@ -627,13 +628,18 @@ class GameViewModel(
     }
 
     fun rollDice() {
-
         if (rollRequestInFlight) return
         rollRequestInFlight = true
 
+        val token = ++rollActionToken
+
         viewModelScope.launch {
-            delay(5000L)
-            rollRequestInFlight = false
+            delay(5000L) // 5 Sekunden Timeout
+
+
+            if (rollActionToken == token) {
+                rollRequestInFlight = false
+            }
         }
 
         gameService.rollDice(isCheating = isCheatActive)

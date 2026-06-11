@@ -70,14 +70,14 @@ private fun PropertyTitleDeed(field: PropertyField, modifier: Modifier = Modifie
         val rentLabels = listOf("Rent", "1 House", "2 Houses", "3 Houses", "4 Houses", "Hotel")
         field.rent.forEachIndexed { i, rent ->
             if (i < rentLabels.size) {
-                RentRow(rentLabels[i], "$$rent", s)
+                RentRow(rentLabels[i], "€$rent", s)
             }
         }
 
         ThinDivider(s)
 
-        RentRow("House", "$${field.houseCost}", s)
-        RentRow("Hotel", "$${field.hotelCost}", s)
+        RentRow("House", "€${field.houseCost}", s)
+        RentRow("Hotel", "€${field.hotelCost}", s)
 
         if (field.houses > 0 || field.hasHotel) {
             val status = if (field.hasHotel) "🏨" else "🏠×${field.houses}"
@@ -108,11 +108,11 @@ private fun RailroadCard(field: RailroadField, modifier: Modifier = Modifier) {
         Text(field.name, fontWeight = FontWeight.ExtraBold, fontSize = s.sp(11f), textAlign = TextAlign.Center,
             maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(horizontal = s.dp(4f)))
         ThinDivider(s)
-        RentRow("Price", "$${field.price}", s)
-        RentRow("1 RR", "$25", s)
-        RentRow("2 RR", "$50", s)
-        RentRow("3 RR", "$100", s)
-        RentRow("4 RR", "$200", s)
+        RentRow("Price", "€${field.price}", s)
+        RentRow("1 RR", "€25", s)
+        RentRow("2 RR", "€50", s)
+        RentRow("3 RR", "€100", s)
+        RentRow("4 RR", "€200", s)
         if (field.isMortgaged) {
             Text("MORTGAGED", fontSize = s.sp(8f), color = Color.Red, fontWeight = FontWeight.Bold)
         }
@@ -137,7 +137,7 @@ private fun UtilityCard(field: UtilityField, modifier: Modifier = Modifier) {
         Text(field.name, fontWeight = FontWeight.ExtraBold, fontSize = s.sp(11f), textAlign = TextAlign.Center,
             maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(horizontal = s.dp(4f)))
         ThinDivider(s)
-        RentRow("Price", "$${field.price}", s)
+        RentRow("Price", "€${field.price}", s)
         Text("1 owned: 4× dice", fontSize = s.sp(7f), modifier = Modifier.padding(horizontal = s.dp(4f)))
         Text("2 owned: 10× dice", fontSize = s.sp(7f), modifier = Modifier.padding(horizontal = s.dp(4f)))
         if (field.isMortgaged) {
@@ -164,7 +164,7 @@ private fun TaxCard(field: TaxField, modifier: Modifier = Modifier) {
         Text(field.name, fontWeight = FontWeight.ExtraBold, fontSize = s.sp(11f), textAlign = TextAlign.Center,
             modifier = Modifier.padding(horizontal = s.dp(4f)))
         ThinDivider(s)
-        Text("Pay $${field.amount}", fontWeight = FontWeight.Bold, fontSize = s.sp(12f), color = Color(0xFFC62828))
+        Text("Pay €${field.amount}", fontWeight = FontWeight.Bold, fontSize = s.sp(12f), color = Color(0xFFC62828))
         Spacer(modifier = Modifier.weight(1f))
     }
 }

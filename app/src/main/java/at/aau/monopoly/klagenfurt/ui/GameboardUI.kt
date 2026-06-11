@@ -1036,7 +1036,7 @@ fun FreeParkingJackpotOverlay(
             )
 
             Text(
-                text = "$$amount",
+                text = "€$amount",
                 fontWeight = FontWeight.ExtraBold,
                 fontSize = 32.sp,
                 color = Color(0xFF2E7D32)

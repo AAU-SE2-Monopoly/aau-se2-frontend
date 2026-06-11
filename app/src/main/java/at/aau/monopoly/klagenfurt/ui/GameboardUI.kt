@@ -93,6 +93,7 @@ import at.aau.monopoly.klagenfurt.ui.chat.ChatOverlay
 import at.aau.monopoly.klagenfurt.ui.util.ownerIdFromField
 import at.aau.monopoly.klagenfurt.ui.zoom.ZoomableWrapper
 import com.example.myapplication.R
+
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.filter
@@ -122,7 +123,7 @@ class GameboardUI : ComponentActivity() {
     }
     private var isVolumeUpPressed = false
 
-
+    @SuppressLint("RestrictedApi")
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
         if (event.keyCode == KeyEvent.KEYCODE_VOLUME_UP) {
             when (event.action) {
@@ -140,8 +141,7 @@ class GameboardUI : ComponentActivity() {
             return true
         }
 
-
-        return window.superDispatchKeyEvent(event)
+        return super.dispatchKeyEvent(event)
     }
 }
 
@@ -410,6 +410,13 @@ fun GameboardScreen(
 
             val buttonWidth = 180.dp
             val mustDrawCard = (isOnChanceField || isOnCommunityChestField) && !hasDrawnCard && isBuyingPhaseForCurrentPlayer
+
+            val onDrawCard: (String) -> Unit = { type ->
+                viewModel.drawCard(type)
+                hasDrawnCard = true
+                isDrawingCard = true
+            }
+
             Column(
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
@@ -508,10 +515,7 @@ fun GameboardScreen(
                         alreadyDrawn = hasDrawnCard,
                         enabled = !showActionCardOverlay && !hasDrawnCard,
                         label = "🎰 Draw Chance",
-                        onDraw = { viewModel.drawCard("CHANCE")
-                                    hasDrawnCard = true
-                                    isDrawingCard = true
-                                 },
+                        onDraw = { onDrawCard("CHANCE") },
                         modifier = Modifier.width(buttonWidth)
                     )
                 }
@@ -522,10 +526,7 @@ fun GameboardScreen(
                         alreadyDrawn = hasDrawnCard,
                         enabled = !showActionCardOverlay && !hasDrawnCard,
                         label = "⭐ Draw Community",
-                        onDraw = { viewModel.drawCard("COMMUNITY_CHEST")
-                                    hasDrawnCard = true
-                                    isDrawingCard = true
-                                 },
+                        onDraw = { onDrawCard("COMMUNITY_CHEST") },
                         modifier = Modifier.width(buttonWidth)
                     )
                 }
@@ -591,12 +592,12 @@ fun GameboardScreen(
             val publicTradePlayer = pendingTradeOffer
                 ?.takeUnless { it.id == dismissedTradeId }
                 ?.let { offer ->
-                when (currentPlayerId) {
-                    offer.fromPlayerId -> players.find { it.id == offer.toPlayerId }
-                    offer.toPlayerId -> players.find { it.id == offer.fromPlayerId }
-                    else -> players.find { it.id == offer.fromPlayerId }
+                    when (currentPlayerId) {
+                        offer.fromPlayerId -> players.find { it.id == offer.toPlayerId }
+                        offer.toPlayerId -> players.find { it.id == offer.fromPlayerId }
+                        else -> players.find { it.id == offer.fromPlayerId }
+                    }
                 }
-            }
             val visibleTradePlayer = selectedTradePlayer ?: publicTradePlayer
             if (visibleTradePlayer != null) {
                 TradeOverlay(
@@ -878,7 +879,7 @@ fun GameboardContent(
                         Button(
                             onClick = { onStartTrade(player) },
                             enabled = gameState?.pendingTradeOffer == null &&
-                                currentTurnPlayer?.id == currentPlayerId,
+                                    currentTurnPlayer?.id == currentPlayerId,
                             modifier = Modifier
                                 .padding(top = 4.dp, end = 4.dp)
                                 .height(26.dp),
@@ -1071,8 +1072,8 @@ fun TradeOverlay(
     val isInvolved = currentPlayerId == fromPlayer.id || currentPlayerId == toPlayer.id
     val currentPlayerAccepted = activeOffer?.acceptedByPlayerIds?.contains(currentPlayerId) == true
     val canToggleAccept = activeOffer != null &&
-        isInvolved &&
-        activeOffer.hasTradeContents()
+            isInvolved &&
+            activeOffer.hasTradeContents()
 
     Dialog(
         onDismissRequest = onDismiss,
@@ -1202,14 +1203,14 @@ private fun TradeProposalEditor(
     val canEditFromSide = currentPlayerId == fromPlayer.id
     val canEditToSide = currentPlayerId == toPlayer.id
     val hasTradeContents = offerMoney > 0 || requestMoney > 0 ||
-        offeredPropertyIds.isNotEmpty() || requestedPropertyIds.isNotEmpty() ||
-        offerJailCards > 0 || requestJailCards > 0
+            offeredPropertyIds.isNotEmpty() || requestedPropertyIds.isNotEmpty() ||
+            offerJailCards > 0 || requestJailCards > 0
     val canSubmit =
         offerMoney <= fromPlayer.money &&
-            requestMoney <= toPlayer.money &&
-            offerJailCards <= fromPlayer.getOutOfJailCards &&
-            requestJailCards <= toPlayer.getOutOfJailCards &&
-            (initialOffer != null || hasTradeContents)
+                requestMoney <= toPlayer.money &&
+                offerJailCards <= fromPlayer.getOutOfJailCards &&
+                requestJailCards <= toPlayer.getOutOfJailCards &&
+                (initialOffer != null || hasTradeContents)
 
     fun publishLiveUpdate(
         nextOfferMoneyText: String = offerMoneyText,
@@ -1559,15 +1560,15 @@ private fun Set<Int>.toggle(fieldId: Int): Set<Int> =
 
 private fun TradeOffer.hasTradeContents(): Boolean =
     offerMoney > 0 ||
-        requestMoney > 0 ||
-        offerPropertyIds.isNotEmpty() ||
-        requestPropertyIds.isNotEmpty() ||
-        offerJailCards > 0 ||
-        requestJailCards > 0
+            requestMoney > 0 ||
+            offerPropertyIds.isNotEmpty() ||
+            requestPropertyIds.isNotEmpty() ||
+            offerJailCards > 0 ||
+            requestJailCards > 0
 
 private fun List<Field>.tradeablePropertiesFor(playerId: String): List<Field> =
     filter { field ->
         field is OwnableField &&
-            field.ownerIdFromField() == playerId &&
-            (field !is PropertyField || (field.houses == 0 && !field.hasHotel))
+                field.ownerIdFromField() == playerId &&
+                (field !is PropertyField || (field.houses == 0 && !field.hasHotel))
     }

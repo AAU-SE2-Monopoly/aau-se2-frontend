@@ -376,6 +376,7 @@ fun GameboardScreen(
                 }
         ) {
             GameboardContent(
+
                 fields = fields,
                 players = players,
                 currentPlayerId = currentPlayerId,
@@ -406,6 +407,7 @@ fun GameboardScreen(
                 gameState = gameState,
                 onFreeParkingMoneyClick = { showFreeParkingOverlay = true },
                 modifier = Modifier.fillMaxSize()
+
             )
 
             val buttonWidth = 180.dp
@@ -865,17 +867,26 @@ fun GameboardContent(
                             onCardClick = { onPlayerCardClick(player) }
                         )
 
+                        val canReport = (myPlayer?.money ?: 0) > 500
+
                         Button(
                             onClick = { onReportCheater(player.id) },
+                            enabled = canReport,
                             modifier = Modifier
                                 .padding(top = 4.dp, end = 4.dp)
                                 .height(26.dp),
                             contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFAA0000)),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = Color(0xFFAA0000),
+                                contentColor = Color.White,
+                                disabledContainerColor = Color.Black.copy(alpha = 0.16f),
+                                disabledContentColor = Color.White.copy(alpha = 0.5f)
+                            ),
                             shape = RoundedCornerShape(6.dp)
                         ) {
-                            Text("🚨 Report", fontSize = 11.sp, color = Color.White, fontWeight = FontWeight.Bold)
+                            Text("🚨 Report", fontSize = 11.sp, fontWeight = FontWeight.Bold)
                         }
+
                         Button(
                             onClick = { onStartTrade(player) },
                             enabled = gameState?.pendingTradeOffer == null &&

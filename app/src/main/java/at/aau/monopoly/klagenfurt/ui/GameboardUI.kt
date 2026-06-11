@@ -238,6 +238,11 @@ fun GameboardScreen(
     var showOverlay by remember { mutableStateOf(false) }
     var showFreeParkingOverlay by remember { mutableStateOf(false) }
 
+    val showGameOverOverlay by viewModel.showGameOverOverlay.collectAsState()
+    val winner by viewModel.winner.collectAsState()
+
+    // Filter DICE_ROLLED entries from the log while the overlay is visible,
+    // so the dice result appears in chat only after the animation finishes.
     val bufferedEventLog by remember {
         derivedStateOf {
             if (showOverlay) eventLog.filter { it.eventType != "DICE_ROLLED" }
@@ -689,7 +694,17 @@ fun GameboardScreen(
                 onConfirm = { viewModel.acceptBankruptcyResolution() },
                 onDismiss = { viewModel.dismissBankruptcyOverlay() }
             )
+
+            GameOverOverlay(
+                isVisible = showGameOverOverlay,
+                winnerName = winner?.name,
+                onBackToLobby = {
+                    (context as? Activity)?.finish()
+                }
+            )
         }
+
+
 
         val activity = context as? Activity
         val backOffsetYDp = backButtonOffsetY.value.dp

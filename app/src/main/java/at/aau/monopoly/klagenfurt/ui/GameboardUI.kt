@@ -42,6 +42,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
@@ -239,10 +240,9 @@ fun GameboardScreen(
     var showFreeParkingOverlay by remember { mutableStateOf(false) }
 
     val showGameOverOverlay by viewModel.showGameOverOverlay.collectAsState()
+    val hostEndedGame by viewModel.hostEndedGame.collectAsState()
     val winner by viewModel.winner.collectAsState()
 
-    // Filter DICE_ROLLED entries from the log while the overlay is visible,
-    // so the dice result appears in chat only after the animation finishes.
     val bufferedEventLog by remember {
         derivedStateOf {
             if (showOverlay) eventLog.filter { it.eventType != "DICE_ROLLED" }
@@ -376,7 +376,6 @@ fun GameboardScreen(
                 }
         ) {
             GameboardContent(
-
                 fields = fields,
                 players = players,
                 currentPlayerId = currentPlayerId,
@@ -407,7 +406,6 @@ fun GameboardScreen(
                 gameState = gameState,
                 onFreeParkingMoneyClick = { showFreeParkingOverlay = true },
                 modifier = Modifier.fillMaxSize()
-
             )
 
             val buttonWidth = 180.dp
@@ -635,7 +633,6 @@ fun GameboardScreen(
                     }
                 )
             }
-            // Payment overlays
             val isTaxPayment = gameState?.pendingPayment?.source == PaymentSource.TAX
             PayRentOverlay(
                 isVisible = showPayRentOverlay && currentTurnPlayer?.id == currentPlayerId,
@@ -704,6 +701,11 @@ fun GameboardScreen(
                 onBackToLobby = {
                     (context as? Activity)?.finish()
                 }
+            )
+
+            GameTerminatedOverlay(
+                isVisible = hostEndedGame,
+                onBackToLobby = { (context as? Activity)?.finish() }
             )
         }
 
@@ -1583,3 +1585,45 @@ private fun List<Field>.tradeablePropertiesFor(playerId: String): List<Field> =
                 field.ownerIdFromField() == playerId &&
                 (field !is PropertyField || (field.houses == 0 && !field.hasHotel))
     }
+
+@Composable
+fun GameTerminatedOverlay(
+    isVisible: Boolean,
+    onBackToLobby: () -> Unit
+) {
+    if (!isVisible) return
+
+    AlertDialog(
+        onDismissRequest = {},
+        shape = RoundedCornerShape(24.dp),
+        containerColor = Color(0xFF1C233D),
+        titleContentColor = Color(0xFFA2AAF0),
+        textContentColor = Color.White,
+        title = {
+            Text(
+                text = "Game Terminated",
+                fontWeight = FontWeight.Bold,
+                fontSize = 20.sp
+            )
+        },
+        text = {
+            Text(
+                text = "The host has ended the game.",
+                fontSize = 16.sp,
+                lineHeight = 22.sp
+            )
+        },
+        confirmButton = {
+            TextButton(
+                onClick = onBackToLobby
+            ) {
+                Text(
+                    text = "Back to Lobby",
+                    color = Color(0xFFA2AAF0),
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 15.sp
+                )
+            }
+        }
+    )
+}

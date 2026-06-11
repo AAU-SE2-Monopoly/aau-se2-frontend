@@ -292,6 +292,7 @@ class GameViewModel(
                     _bankruptcyTotalAssets.value = 0
                     _bankruptcyTotalDebt.value = 0
                     _bankruptcyPropertiesOwned.value = emptyList()
+                    _showGameOverOverlay.value = false
                 }
 
                 if (event.event == "RENT_PAID" || event.event == "TAX_PAID") {
@@ -338,6 +339,15 @@ class GameViewModel(
                 if (event.event == "HOUSE_BOUGHT" || event.event == "HOTEL_BOUGHT" ||
                     event.event == "HOUSE_SOLD" || event.event == "HOTEL_SOLD") {
                     Log.i("GameViewModel", "Building action completed - refreshing state")
+                    finishPropertyAction()
+                }
+
+                if (event.event == "GAME_OVER" || event.gameState?.phase == GamePhase.FINISHED) {
+                    _showGameOverOverlay.value = true
+                    _showPayRentOverlay.value = false
+                    _showMortgageOverlay.value = false
+                    _showBankruptcyOverlay.value = false
+                    finishPaymentAction()
                     finishPropertyAction()
                 }
             }
@@ -805,6 +815,15 @@ class GameViewModel(
     private var previousGameState: GameState? = null
     private var animationJob: Job? = null
 
+    private val _showGameOverOverlay = MutableStateFlow(false)
+    val showGameOverOverlay: StateFlow<Boolean> = _showGameOverOverlay.asStateFlow()
+
+    val winner: StateFlow<Player?> = gameState
+        .map { state ->
+            state?.players?.firstOrNull { !it.eliminated && !it.isBankrupt() }
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+
 
     fun drawCard(cardType: String = "CHANCE") =
         gameService.drawCard(cardType)
@@ -874,6 +893,8 @@ class GameViewModel(
     }
 
     private fun humanReadableEvent(eventType: String, gameId: String): String {
+        eventFallbackLabels[eventType]?.let { return it }
+
         return when (eventType) {
             "GAME_CREATED" -> "Game created: $gameId"
             "PLAYER_JOINED" -> "A new player joined"
@@ -894,6 +915,8 @@ class GameViewModel(
             "FREE_PARKING_COLLECTED" -> "Free Parking jackpot collected!"
             "PAYMENT_FAILED" -> "Payment failed"
             "BANKRUPTCY_DECLARED" -> "Player went bankrupt!"
+            "GAME_OVER" -> "Game Over!"
+            // NEW: Fallback strings for report events
             "CHEATER_REPORTED" -> "🚨 Cheater successfully reported!"
             "CHEATER_REPORT_FAILED" -> "🚨 False cheater accusation!"
             else -> eventType.replace("_", " ")
@@ -913,6 +936,17 @@ class GameViewModel(
         private const val MAX_LOG_ENTRIES = 80
         private const val ERROR_DISPLAY_MS = 5_000L
         private const val ACTION_TIMEOUT_MS = 5_000L
+        private val eventFallbackLabels = mapOf(
+            "PROPERTY_BOUGHT" to "Property bought",
+            "PROPERTY_MORTGAGED" to "Property mortgaged",
+            "PROPERTY_UNMORTGAGED" to "Property unmortgaged",
+            "HOUSE_BOUGHT" to "House bought",
+            "HOTEL_BOUGHT" to "Hotel bought",
+            "HOUSE_SOLD" to "House sold",
+            "HOTEL_SOLD" to "Hotel sold",
+            "GAME_CLOSED" to "Game closed by host",
+            "TURN_TIMEOUT" to "Turn timed out",
+        )
     }
 
     fun buyProperty(fieldId: Int) {

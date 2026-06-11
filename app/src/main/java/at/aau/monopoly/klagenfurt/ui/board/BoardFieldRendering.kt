@@ -1080,6 +1080,14 @@ private fun BoxScope.BuildingIndicator(
         else -> Modifier
     }
 
+    val buildingRotation = when (side) {
+        0 -> 0f
+        1 -> 90f
+        2 -> 180f
+        3 -> 270f
+        else -> 0f
+    }
+
     Box(
         modifier = Modifier
             .align(barAlignment)
@@ -1092,7 +1100,8 @@ private fun BoxScope.BuildingIndicator(
                 text = "🏨",
                 fontSize = 4.sp,
                 maxLines = 1,
-                color = Color.Black
+                color = Color.Black,
+                modifier = Modifier.rotate(buildingRotation)
             )
         } else {
             when (side) {
@@ -1106,7 +1115,8 @@ private fun BoxScope.BuildingIndicator(
                                 text = "🏠",
                                 fontSize = 3.5.sp,
                                 maxLines = 1,
-                                color = Color.Black
+                                color = Color.Black,
+                                modifier = Modifier.rotate(buildingRotation)
                             )
                         }
                     }
@@ -1122,7 +1132,8 @@ private fun BoxScope.BuildingIndicator(
                                 text = "🏠",
                                 fontSize = 3.5.sp,
                                 maxLines = 1,
-                                color = Color.Black
+                                color = Color.Black,
+                                modifier = Modifier.rotate(buildingRotation)
                             )
                         }
                     }

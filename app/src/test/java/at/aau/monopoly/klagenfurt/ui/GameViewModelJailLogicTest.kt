@@ -113,7 +113,7 @@ class GameViewModelJailLogicTest {
 
         val logs = viewModel.eventLog.value
 
-        assertTrue("Log should contain 'Bail paid: 50M'", logs.any { it.text == "Bail paid: 50M" })
+        assertTrue("Log should contain 'Bail paid: 50€'", logs.any { it.text == "Bail paid: 50€" })
         assertTrue("Log should contain 'Used 'Get out of jail free' card'", logs.any { it.text == "Used 'Get out of jail free' card" })
         assertTrue("Log should contain 'Player went to jail!'", logs.any { it.text == "Player went to jail!" })
 

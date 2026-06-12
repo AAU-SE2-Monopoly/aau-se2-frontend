@@ -919,7 +919,7 @@ class BoardFieldRenderingCoverageTest {
 
         composeTestRule.onNodeWithTag("free_parking_money_stack", useUnmergedTree = true).assertExists()
         composeTestRule.onNodeWithTag("free_parking_money_amount", useUnmergedTree = true).assertExists()
-        composeTestRule.onNodeWithText("$350", useUnmergedTree = true).assertExists()
+        composeTestRule.onNodeWithText("€350", useUnmergedTree = true).assertExists()
     }
 
     @Test

@@ -452,7 +452,7 @@ fun GameboardScreen(
                             enabled = currentTurnPlayer.money >= 50,
                             modifier = Modifier.width(buttonWidth).testTag("pay_jail_fine_button")
                         ) {
-                            Text("💰 Pay 50 M")
+                            Text("💰 Pay 50€")
                         }
 
                         if (currentTurnPlayer.getOutOfJailCards > 0) {
@@ -1038,7 +1038,7 @@ fun FreeParkingJackpotOverlay(
             )
 
             Text(
-                text = "$$amount",
+                text = "€$amount",
                 fontWeight = FontWeight.ExtraBold,
                 fontSize = 32.sp,
                 color = Color(0xFF2E7D32)

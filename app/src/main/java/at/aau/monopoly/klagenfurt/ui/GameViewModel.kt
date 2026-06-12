@@ -923,7 +923,7 @@ class GameViewModel(
             "TURN_ENDED" -> "Turn ended"
             "STATE_UPDATED" -> "Game state updated"
             "STATE_SNAPSHOT" -> "State snapshot synced"
-            "JAIL_FINE_PAID" -> "Bail paid: 50M"
+            "JAIL_FINE_PAID" -> "Bail paid: 50€"
             "JAIL_CARD_USED" -> "Used 'Get out of jail free' card"
             "PLAYER_JAILED" -> "Player went to jail!"
             "ACTION_DRAWN" -> "Action card drawn!"

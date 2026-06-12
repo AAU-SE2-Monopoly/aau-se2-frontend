@@ -1208,7 +1208,7 @@ private fun BoxScope.FreeParkingMoneyDisplay(
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    text = "$${banknote.denomination}",
+                    text = "€${banknote.denomination}",
                     fontSize = 4.5.sp,
                     fontWeight = FontWeight.Bold,
                     color = if (banknote.denomination == 1 || banknote.denomination == 100) {
@@ -1232,7 +1232,7 @@ private fun BoxScope.FreeParkingMoneyDisplay(
             contentAlignment = Alignment.Center
         ) {
             Text(
-                text = "$$amount",
+                text = "€$amount",
                 fontSize = 4.sp,
                 fontWeight = FontWeight.ExtraBold,
                 color = Color.White,

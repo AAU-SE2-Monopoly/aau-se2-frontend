@@ -147,7 +147,7 @@ class ActionCardOverlayTest {
 
         composeTestRule.waitForIdle()
         composeTestRule.onNodeWithText("Collect Money").assertIsDisplayed()
-        composeTestRule.onNodeWithText("+\$200").assertIsDisplayed()
+        composeTestRule.onNodeWithText("+€200").assertIsDisplayed()
     }
 
     @Test
@@ -170,7 +170,7 @@ class ActionCardOverlayTest {
 
         composeTestRule.waitForIdle()
         composeTestRule.onNodeWithText("Pay Money").assertIsDisplayed()
-        composeTestRule.onNodeWithText("-\$150").assertIsDisplayed()
+        composeTestRule.onNodeWithText("-€150").assertIsDisplayed()
     }
 
     @Test
@@ -193,7 +193,7 @@ class ActionCardOverlayTest {
 
         composeTestRule.waitForIdle()
         composeTestRule.onNodeWithText("Collect From Each Player").assertIsDisplayed()
-        composeTestRule.onNodeWithText("+\$50 each").assertIsDisplayed()
+        composeTestRule.onNodeWithText("+€50 each").assertIsDisplayed()
     }
 
     @Test
@@ -216,7 +216,7 @@ class ActionCardOverlayTest {
 
         composeTestRule.waitForIdle()
         composeTestRule.onNodeWithText("Pay Each Player").assertIsDisplayed()
-        composeTestRule.onNodeWithText("-\$40 each").assertIsDisplayed()
+        composeTestRule.onNodeWithText("-€40 each").assertIsDisplayed()
     }
 
     @Test

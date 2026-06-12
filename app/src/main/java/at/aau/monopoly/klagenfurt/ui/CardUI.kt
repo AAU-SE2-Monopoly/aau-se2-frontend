@@ -114,19 +114,19 @@ private fun CardActionDetails(card: Card, accentColor: Color, s: CardScale) {
         when (card.action) {
             CardAction.COLLECT_MONEY -> {
                 Text("Collect", fontSize = s.sp(7f), color = Color.Gray)
-                Text("+$$${card.amount}", fontWeight = FontWeight.ExtraBold, fontSize = s.sp(13f), color = Color(0xFF2E7D32))
+                Text("+€${card.amount}", fontWeight = FontWeight.ExtraBold, fontSize = s.sp(13f), color = Color(0xFF2E7D32))
             }
             CardAction.PAY_MONEY -> {
                 Text("Pay", fontSize = s.sp(7f), color = Color.Gray)
-                Text("-$$${card.amount}", fontWeight = FontWeight.ExtraBold, fontSize = s.sp(13f), color = Color(0xFFC62828))
+                Text("-€${card.amount}", fontWeight = FontWeight.ExtraBold, fontSize = s.sp(13f), color = Color(0xFFC62828))
             }
             CardAction.COLLECT_FROM_EACH -> {
                 Text("From each", fontSize = s.sp(7f), color = Color.Gray)
-                Text("+$$${card.amount}", fontWeight = FontWeight.ExtraBold, fontSize = s.sp(13f), color = Color(0xFF2E7D32))
+                Text("+€${card.amount}", fontWeight = FontWeight.ExtraBold, fontSize = s.sp(13f), color = Color(0xFF2E7D32))
             }
             CardAction.PAY_EACH_PLAYER -> {
                 Text("Pay each", fontSize = s.sp(7f), color = Color.Gray)
-                Text("-$$${card.amount}", fontWeight = FontWeight.ExtraBold, fontSize = s.sp(13f), color = Color(0xFFC62828))
+                Text("-€${card.amount}", fontWeight = FontWeight.ExtraBold, fontSize = s.sp(13f), color = Color(0xFFC62828))
             }
             CardAction.MOVE_TO -> {
                 Text("Advance to", fontSize = s.sp(7f), color = Color.Gray)

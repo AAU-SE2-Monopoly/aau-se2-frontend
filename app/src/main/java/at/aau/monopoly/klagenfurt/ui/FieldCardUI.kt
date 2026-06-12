@@ -95,36 +95,19 @@ private fun PropertyTitleDeed(field: PropertyField, modifier: Modifier = Modifie
 
 @Composable
 private fun RailroadCard(field: RailroadField, modifier: Modifier = Modifier) {
-    val accent = Color(0xFF424242)
-
-    CardShell(borderColor = accent, modifier = modifier) { s ->
-        CardHeader("RAILROAD", accent, s)
-
-        Spacer(modifier = Modifier.height(s.dp(2f)))
-
-        Text("", fontSize = s.sp(18f))
-
-        Text(
-            text = field.name,
-            fontWeight = FontWeight.ExtraBold,
-            fontSize = s.sp(11f),
-            textAlign = TextAlign.Center,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.padding(horizontal = s.dp(4f))
-        )
-
-        ThinDivider(s)
-
-        RentRow("Price", "€${field.price}", s)
+    ServiceCard(
+        header = "RAILROAD",
+        icon = "",
+        name = field.name,
+        price = field.price,
+        accent = Color(0xFF424242),
+        isMortgaged = field.isMortgaged,
+        modifier = modifier
+    ) { s ->
         RentRow("1 RR", "€25", s)
         RentRow("2 RR", "€50", s)
         RentRow("3 RR", "€100", s)
         RentRow("4 RR", "€200", s)
-
-        MortgageLabel(field.isMortgaged, s)
-
-        Spacer(modifier = Modifier.weight(1f))
     }
 }
 
@@ -132,34 +115,17 @@ private fun RailroadCard(field: RailroadField, modifier: Modifier = Modifier) {
 
 @Composable
 private fun UtilityCard(field: UtilityField, modifier: Modifier = Modifier) {
-    val accent = Color(0xFF1B5E20)
-
-    CardShell(borderColor = accent, modifier = modifier) { s ->
-        CardHeader("UTILITY", accent, s)
-
-        Spacer(modifier = Modifier.height(s.dp(2f)))
-
-        Text("⚡", fontSize = s.sp(18f))
-
-        Text(
-            text = field.name,
-            fontWeight = FontWeight.ExtraBold,
-            fontSize = s.sp(11f),
-            textAlign = TextAlign.Center,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.padding(horizontal = s.dp(4f))
-        )
-
-        ThinDivider(s)
-
-        RentRow("Price", "€${field.price}", s)
+    ServiceCard(
+        header = "UTILITY",
+        icon = "⚡",
+        name = field.name,
+        price = field.price,
+        accent = Color(0xFF1B5E20),
+        isMortgaged = field.isMortgaged,
+        modifier = modifier
+    ) { s ->
         Text("1 owned: 4× dice", fontSize = s.sp(7f), modifier = Modifier.padding(horizontal = s.dp(4f)))
         Text("2 owned: 10× dice", fontSize = s.sp(7f), modifier = Modifier.padding(horizontal = s.dp(4f)))
-
-        MortgageLabel(field.isMortgaged, s)
-
-        Spacer(modifier = Modifier.weight(1f))
     }
 }
 
@@ -288,6 +254,46 @@ internal fun ColumnScope.ThinDivider(
         thickness = 0.5.dp,
         color = color
     )
+}
+
+@Composable
+private fun ServiceCard(
+    header: String,
+    icon: String,
+    name: String,
+    price: Int,
+    accent: Color,
+    isMortgaged: Boolean,
+    modifier: Modifier = Modifier,
+    contentRows: @Composable ColumnScope.(CardScale) -> Unit
+) {
+    CardShell(borderColor = accent, modifier = modifier) { s ->
+        CardHeader(header, accent, s)
+
+        Spacer(modifier = Modifier.height(s.dp(2f)))
+
+        Text(icon, fontSize = s.sp(18f))
+
+        Text(
+            text = name,
+            fontWeight = FontWeight.ExtraBold,
+            fontSize = s.sp(11f),
+            textAlign = TextAlign.Center,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.padding(horizontal = s.dp(4f))
+        )
+
+        ThinDivider(s)
+
+        RentRow("Price", "€$price", s)
+
+        contentRows(s)
+
+        MortgageLabel(isMortgaged, s)
+
+        Spacer(modifier = Modifier.weight(1f))
+    }
 }
 
 @Composable

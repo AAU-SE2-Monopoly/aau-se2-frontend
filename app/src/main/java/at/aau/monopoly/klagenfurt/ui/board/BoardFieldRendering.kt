@@ -1062,33 +1062,84 @@ private fun BoxScope.BuildingIndicator(
     property: PropertyField,
     side: Int
 ) {
-    val buildingText = when {
-        property.hasHotel -> "🏨"
-        property.houses > 0 -> "🏠".repeat(property.houses)
-        else -> ""
+    if (!property.hasHotel && property.houses <= 0) return
+
+    val barAlignment = when (side) {
+        0 -> Alignment.TopCenter
+        1 -> Alignment.CenterEnd
+        2 -> Alignment.BottomCenter
+        3 -> Alignment.CenterStart
+        else -> Alignment.TopCenter
     }
 
-    if (buildingText.isEmpty()) return
-
-    val alignment = Alignment.Center
-
-    val offsetModifier = when (side) {
-        0 -> Modifier.offset(y = (-10).dp) // bottom row: slightly above center
-        1 -> Modifier.offset(x = 10.dp)    // left side: slightly right
-        2 -> Modifier.offset(y = 10.dp)    // top row: slightly below center
-        3 -> Modifier.offset(x = (-10).dp) // right side: slightly left
+    val barPadding = when (side) {
+        0 -> Modifier.padding(top = 1.dp)
+        1 -> Modifier.padding(end = 1.dp)
+        2 -> Modifier.padding(bottom = 1.dp)
+        3 -> Modifier.padding(start = 1.dp)
         else -> Modifier
+    }
+
+    val buildingRotation = when (side) {
+        0 -> 0f
+        1 -> 90f
+        2 -> 180f
+        3 -> 270f
+        else -> 0f
     }
 
     Box(
         modifier = Modifier
-            .align(alignment)
-            .then(offsetModifier)
+            .align(barAlignment)
+            .then(barPadding)
+            .testTag("BuildingIndicator"),
+        contentAlignment = Alignment.Center
     ) {
-        Text(
-            text = buildingText,
-            fontSize = 3.5.sp
-        )
+        if (property.hasHotel) {
+            Text(
+                text = "🏨",
+                fontSize = 4.sp,
+                maxLines = 1,
+                color = Color.Black,
+                modifier = Modifier.rotate(buildingRotation)
+            )
+        } else {
+            when (side) {
+                0, 2 -> {
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy((-1).dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        repeat(property.houses) {
+                            Text(
+                                text = "🏠",
+                                fontSize = 3.5.sp,
+                                maxLines = 1,
+                                color = Color.Black,
+                                modifier = Modifier.rotate(buildingRotation)
+                            )
+                        }
+                    }
+                }
+
+                1, 3 -> {
+                    Column(
+                        verticalArrangement = Arrangement.spacedBy((-2).dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        repeat(property.houses) {
+                            Text(
+                                text = "🏠",
+                                fontSize = 3.5.sp,
+                                maxLines = 1,
+                                color = Color.Black,
+                                modifier = Modifier.rotate(buildingRotation)
+                            )
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -1157,7 +1208,7 @@ private fun BoxScope.FreeParkingMoneyDisplay(
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    text = "$${banknote.denomination}",
+                    text = "€${banknote.denomination}",
                     fontSize = 4.5.sp,
                     fontWeight = FontWeight.Bold,
                     color = if (banknote.denomination == 1 || banknote.denomination == 100) {
@@ -1181,7 +1232,7 @@ private fun BoxScope.FreeParkingMoneyDisplay(
             contentAlignment = Alignment.Center
         ) {
             Text(
-                text = "$$amount",
+                text = "€$amount",
                 fontSize = 4.sp,
                 fontWeight = FontWeight.ExtraBold,
                 color = Color.White,

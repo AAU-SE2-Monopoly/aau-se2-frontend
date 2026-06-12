@@ -102,7 +102,7 @@ fun PlayerInfoPanel(
             Spacer(modifier = Modifier.width(4.dp))
             Text("", fontSize = 9.sp)
             Text(
-                text = "$${player.money}",
+                text = "€${player.money}",
                 color = Color(0xFF81C784),
                 fontWeight = FontWeight.ExtraBold,
                 fontSize = 11.sp

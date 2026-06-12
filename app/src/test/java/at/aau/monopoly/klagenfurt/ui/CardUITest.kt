@@ -44,7 +44,7 @@ class CardUITest {
         val card = ChanceCard(id = 1, description = "Test", action = CardAction.COLLECT_MONEY, amount = 200)
         composeTestRule.setContent { CardUI(card = card) }
         composeTestRule.onNodeWithText("Collect").assertExists()
-        composeTestRule.onNodeWithText("+\$\$200", substring = true).assertExists()
+        composeTestRule.onNodeWithText("+€200", substring = true).assertExists()
     }
 
     @Test
@@ -52,7 +52,7 @@ class CardUITest {
         val card = ChanceCard(id = 1, description = "Test", action = CardAction.PAY_MONEY, amount = 50)
         composeTestRule.setContent { CardUI(card = card) }
         composeTestRule.onNodeWithText("Pay").assertExists()
-        composeTestRule.onNodeWithText("-\$\$50", substring = true).assertExists()
+        composeTestRule.onNodeWithText("-€50", substring = true).assertExists()
     }
 
     @Test
@@ -60,7 +60,7 @@ class CardUITest {
         val card = ChanceCard(id = 1, description = "Test", action = CardAction.COLLECT_FROM_EACH, amount = 10)
         composeTestRule.setContent { CardUI(card = card) }
         composeTestRule.onNodeWithText("From each").assertExists()
-        composeTestRule.onNodeWithText("+\$\$10", substring = true).assertExists()
+        composeTestRule.onNodeWithText("+€10", substring = true).assertExists()
     }
 
     @Test
@@ -68,7 +68,7 @@ class CardUITest {
         val card = CommunityChestCard(id = 1, description = "Test", action = CardAction.PAY_EACH_PLAYER, amount = 50)
         composeTestRule.setContent { CardUI(card = card) }
         composeTestRule.onNodeWithText("Pay each").assertExists()
-        composeTestRule.onNodeWithText("-\$\$50", substring = true).assertExists()
+        composeTestRule.onNodeWithText("-€50", substring = true).assertExists()
     }
 
     @Test

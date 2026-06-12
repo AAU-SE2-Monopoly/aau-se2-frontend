@@ -94,7 +94,7 @@ class SettingsActivityTest {
         composeTestRule.onNodeWithText("Show Cheating Tutorial").performClick()
 
         composeTestRule.onNodeWithText("Cheat Code").assertIsDisplayed()
-        composeTestRule.onNodeWithText("Press the Volume Up button during your turn to automatically roll a double 6! But beware: if opponents catch and report you, you'll pay a 500M fine!").assertIsDisplayed()
+        composeTestRule.onNodeWithText("Press the Volume Up button during your turn to automatically roll a double 6! But beware: if opponents catch and report you, you'll pay a 500€ fine!").assertIsDisplayed()
         composeTestRule.onNodeWithText("Got it").assertIsDisplayed()
     }
 

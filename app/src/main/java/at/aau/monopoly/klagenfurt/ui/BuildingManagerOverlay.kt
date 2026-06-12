@@ -150,7 +150,7 @@ private fun PropertyHeader(
     }
 
     Text(
-        text = "House: ${property.houseCost}M · Hotel: ${property.hotelCost}M"
+        text = "House: ${property.houseCost}€ · Hotel: ${property.hotelCost}€"
     )
 }
 

@@ -184,7 +184,7 @@ private fun ActionDetailBox(card: Card) {
                         fontWeight = FontWeight.Medium
                     )
                     Text(
-                        text = "+$${card.amount}",
+                        text = "+€${card.amount}",
                         fontSize = 32.sp,
                         fontWeight = FontWeight.ExtraBold,
                         color = Color(0xFF2E7D32)
@@ -199,7 +199,7 @@ private fun ActionDetailBox(card: Card) {
                         fontWeight = FontWeight.Medium
                     )
                     Text(
-                        text = "-$${card.amount}",
+                        text = "-€${card.amount}",
                         fontSize = 32.sp,
                         fontWeight = FontWeight.ExtraBold,
                         color = Color(0xFFC62828)
@@ -214,7 +214,7 @@ private fun ActionDetailBox(card: Card) {
                         fontWeight = FontWeight.Medium
                     )
                     Text(
-                        text = "+$${card.amount} each",
+                        text = "+€${card.amount} each",
                         fontSize = 28.sp,
                         fontWeight = FontWeight.ExtraBold,
                         color = Color(0xFF2E7D32)
@@ -229,7 +229,7 @@ private fun ActionDetailBox(card: Card) {
                         fontWeight = FontWeight.Medium
                     )
                     Text(
-                        text = "-$${card.amount} each",
+                        text = "-€${card.amount} each",
                         fontSize = 28.sp,
                         fontWeight = FontWeight.ExtraBold,
                         color = Color(0xFFC62828)

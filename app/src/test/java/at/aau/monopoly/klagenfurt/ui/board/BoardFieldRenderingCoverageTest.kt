@@ -919,7 +919,7 @@ class BoardFieldRenderingCoverageTest {
 
         composeTestRule.onNodeWithTag("free_parking_money_stack", useUnmergedTree = true).assertExists()
         composeTestRule.onNodeWithTag("free_parking_money_amount", useUnmergedTree = true).assertExists()
-        composeTestRule.onNodeWithText("$350", useUnmergedTree = true).assertExists()
+        composeTestRule.onNodeWithText("€350", useUnmergedTree = true).assertExists()
     }
 
     @Test
@@ -960,5 +960,80 @@ class BoardFieldRenderingCoverageTest {
         composeTestRule.onNodeWithTag("free_parking_money_stack", useUnmergedTree = true).performClick()
 
         assertTrue(clicked)
+    }
+
+    @Test
+    fun `BuildingIndicator renders on colour bar for all board sides`() {
+        composeTestRule.setContent {
+            Column {
+                FieldItem(
+                    index = 1,
+                    field = PropertyField(
+                        id = 1,
+                        name = "Side 0",
+                        color = PropertyColor.BROWN,
+                        price = 60,
+                        rent = listOf(2, 4, 8, 16, 32, 64),
+                        houseCost = 50,
+                        hotelCost = 50,
+                        houses = 2
+                    ),
+                    sw = 3840f,
+                    sh = 2160f
+                )
+
+                FieldItem(
+                    index = 11,
+                    field = PropertyField(
+                        id = 11,
+                        name = "Side 1",
+                        color = PropertyColor.PINK,
+                        price = 140,
+                        rent = listOf(10, 50, 150, 450, 625, 750),
+                        houseCost = 100,
+                        hotelCost = 100,
+                        houses = 3
+                    ),
+                    sw = 3840f,
+                    sh = 2160f
+                )
+
+                FieldItem(
+                    index = 21,
+                    field = PropertyField(
+                        id = 21,
+                        name = "Side 2",
+                        color = PropertyColor.RED,
+                        price = 220,
+                        rent = listOf(18, 90, 250, 700, 875, 1050),
+                        houseCost = 150,
+                        hotelCost = 150,
+                        houses = 4
+                    ),
+                    sw = 3840f,
+                    sh = 2160f
+                )
+
+                FieldItem(
+                    index = 31,
+                    field = PropertyField(
+                        id = 31,
+                        name = "Side 3",
+                        color = PropertyColor.GREEN,
+                        price = 300,
+                        rent = listOf(26, 130, 390, 900, 1100, 1275),
+                        houseCost = 200,
+                        hotelCost = 200,
+                        hasHotel = true
+                    ),
+                    sw = 3840f,
+                    sh = 2160f
+                )
+            }
+        }
+
+        composeTestRule
+            .onAllNodesWithTag("BuildingIndicator", useUnmergedTree = true)
+            .assertCountEquals(4)
     }
 }

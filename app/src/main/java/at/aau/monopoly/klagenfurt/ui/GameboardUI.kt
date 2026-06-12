@@ -323,8 +323,8 @@ fun GameboardScreen(
         }
     }
 
-    LaunchedEffect(isBuyingPhaseForCurrentPlayer, canEndTurnForCurrentPlayer) {
-        if (!isBuyingPhaseForCurrentPlayer && !isRollingPhaseForCurrentPlayer && showOverlay) {
+    LaunchedEffect(isBuyingPhaseForCurrentPlayer, isRollingPhaseForCurrentPlayer, canEndTurnForCurrentPlayer) {
+        if (!isBuyingPhaseForCurrentPlayer && !isRollingPhaseForCurrentPlayer && !canEndTurnForCurrentPlayer && showOverlay) {
             showOverlay = false
         }
     }
@@ -827,7 +827,9 @@ fun GameboardContent(
                                 playersOnField = playersByField[field.id] ?: emptyList(),
                                 animatingPlayerId = movementAnimationState?.playerId,
                                 animatingStep = movementAnimationState?.let {
-                                    if (it.currentStepIndex in it.path.indices) it.path[it.currentStepIndex] else null
+                                    if (it.currentStepIndex < 0) it.startPosition
+                                    else if (it.currentStepIndex in it.path.indices) it.path[it.currentStepIndex]
+                                    else null
                                 },
                                 animationComplete = movementAnimationState?.isComplete ?: true,
                                 freeParkingMoney = gameState?.freeParkingMoney ?: 0,

@@ -922,7 +922,8 @@ fun GameboardContent(
                 alignment = Alignment.CenterEnd,
                 panelWidth = panelWidth,
                 panelMargin = panelMargin,
-                verticalArrangement = Arrangement.Center
+                verticalArrangement = Arrangement.Center,
+                modifier = Modifier.offset(y = (-50).dp)
             ) {
                 PlayerInfoPanel(
                     player = myPlayer,
@@ -986,7 +987,9 @@ private fun DrawCardButton(
 @Composable
 private fun BoxWithConstraintsScope.PlayerPanel(
     alignment: Alignment,
+
     panelWidth: androidx.compose.ui.unit.Dp,
+    modifier: Modifier = Modifier,
     panelMargin: androidx.compose.ui.unit.Dp,
     verticalArrangement: Arrangement.Vertical,
     content: @Composable ColumnScope.() -> Unit
@@ -994,6 +997,7 @@ private fun BoxWithConstraintsScope.PlayerPanel(
     Column(
         modifier = Modifier
             .align(alignment)
+            .then(modifier)
             .width(panelWidth)
             .padding(panelMargin)
             .wrapContentHeight()

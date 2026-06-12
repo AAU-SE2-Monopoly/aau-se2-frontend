@@ -163,9 +163,6 @@ class GameViewModel(
     private val _selectedPlayerForTrade = MutableStateFlow<Player?>(null)
     val selectedPlayerForTrade: StateFlow<Player?> = _selectedPlayerForTrade.asStateFlow()
 
-    private val _pendingDoubleAutoEnd = MutableStateFlow(false)
-    val pendingDoubleAutoEnd: StateFlow<Boolean> = _pendingDoubleAutoEnd.asStateFlow()
-
     private val _showGameOverOverlay = MutableStateFlow(false)
     val showGameOverOverlay: StateFlow<Boolean> = _showGameOverOverlay.asStateFlow()
 
@@ -266,17 +263,12 @@ class GameViewModel(
                 if (event.event == "TURN_ENDED") {
                     rollRequestInFlight = false
                     _buildingActionPending.value = false
-                    _pendingDoubleAutoEnd.value = false
                     lastCurrentPlayerIdForCardDraw = null
                 }
 
                 if (event.event == "DICE_ROLLED") {
                     val state = event.gameState
                     val diceRoll = state?.lastDiceRoll
-                    if (diceRoll != null && diceRoll.isDouble &&
-                        state.currentPlayer?.id == gameService.currentPlayerId
-                    ) {
-                        _pendingDoubleAutoEnd.value = true
                     }
                 }
 
@@ -662,12 +654,7 @@ class GameViewModel(
 
     fun endTurn() = gameService.endTurn()
 
-    fun consumeDoubleAutoEnd() {
-        if (!_pendingDoubleAutoEnd.value) return
-        if (_pendingDoubleAutoEnd.compareAndSet(expect = true, update = false)) {
-            gameService.endTurn()
-        }
-    }
+
 
     fun payJailFine() = gameService.payJailFine()
     fun useJailCard() = gameService.useJailCard()
@@ -783,7 +770,10 @@ class GameViewModel(
     fun setGameId(gameId: String) = gameService.setGameId(gameId)
 
     fun reportCheater(reportedPlayerId: String) {
-        gameService.reportCheater(reportedPlayerId)
+        val me = gameState.value?.players?.find { it.id == currentPlayerId }
+        if (me != null && me.money >= 500) {
+            gameService.reportCheater(reportedPlayerId)
+        }
     }
 
     private fun updatePendingPaymentState(state: GameState?) {

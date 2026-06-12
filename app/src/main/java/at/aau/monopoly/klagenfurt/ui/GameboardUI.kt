@@ -329,12 +329,6 @@ fun GameboardScreen(
         }
     }
 
-    val pendingDoubleAutoEnd by viewModel.pendingDoubleAutoEnd.collectAsState()
-    LaunchedEffect(showOverlay, pendingDoubleAutoEnd) {
-        if (!showOverlay && pendingDoubleAutoEnd) {
-            viewModel.consumeDoubleAutoEnd()
-        }
-    }
 
     LaunchedEffect(showActionCardOverlay) {
         if (showActionCardOverlay) {
@@ -889,11 +883,12 @@ fun GameboardContent(
                             modifier = Modifier
                                 .padding(top = 4.dp, end = 4.dp)
                                 .height(26.dp),
+                            enabled = (myPlayer?.money ?: 0) >= 500,
                             contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
                             colors = ButtonDefaults.buttonColors(
                                 containerColor = Color(0xFFAA0000),
                                 contentColor = Color.White,
-                                disabledContainerColor = Color.Black.copy(alpha = 0.16f),
+                                disabledContainerColor = Color.Gray,
                                 disabledContentColor = Color.White.copy(alpha = 0.5f)
                             ),
                             shape = RoundedCornerShape(6.dp)

@@ -270,7 +270,7 @@ class GameViewModel(
                     val state = event.gameState
                     val diceRoll = state?.lastDiceRoll
                     }
-                }
+
 
                 if (event.event == "ERROR") {
                     rollRequestInFlight = false

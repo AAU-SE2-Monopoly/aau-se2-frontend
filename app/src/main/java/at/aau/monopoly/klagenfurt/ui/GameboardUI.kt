@@ -879,7 +879,7 @@ fun GameboardContent(
 
                         Button(
                             onClick = { onReportCheater(player.id) },
-                            enabled = canReport,
+
                             modifier = Modifier
                                 .padding(top = 4.dp, end = 4.dp)
                                 .height(26.dp),

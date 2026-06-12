@@ -883,7 +883,7 @@ fun GameboardContent(
                             modifier = Modifier
                                 .padding(top = 4.dp, end = 4.dp)
                                 .height(26.dp),
-                            enabled = (myPlayer?.money ?: 0) >= 500,
+                            enabled = canReport,
                             contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
                             colors = ButtonDefaults.buttonColors(
                                 containerColor = Color(0xFFAA0000),

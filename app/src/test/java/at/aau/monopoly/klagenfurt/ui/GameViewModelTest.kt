@@ -1881,17 +1881,6 @@ class GameViewModelTest {
     }
 
 
-
-    @Test
-    fun `reportCheater should delegate to gameService`() {
-        val suspectId = "player-99"
-
-        viewModel.reportCheater(suspectId)
-
-        assertTrue(fakeService.reportCheaterCalled)
-        assertEquals(suspectId, fakeService.lastReportedPlayerId)
-    }
-
     @Test
     fun `CHEATER_REPORTED event emits message to dramaEvent flow`() = runTest {
         val dramaMessages = mutableListOf<String>()

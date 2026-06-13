@@ -1900,8 +1900,9 @@ class GameStompClientTest {
 
     @Test
     fun acceptTrade_and_rejectTrade_send_trade_id_payloads() = runTest(testDispatcher) {
+        val subscriptionFlow = MutableSharedFlow<String>()
         coEvery { stompClient.connect(any<String>()) } returns stompSession
-        coEvery { stompSession.subscribeText(any<String>()) } returns flowOf()
+        coEvery { stompSession.subscribeText(any<String>()) } returns subscriptionFlow
         coEvery { stompSession.sendText(any<String>(), any<String>()) } returns mockk()
 
         gameStompClient.connect()

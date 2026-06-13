@@ -1650,6 +1650,82 @@ class GameViewModelTest {
     }
 
     @Test
+    fun `mortgageProperty works while rent payment is pending`() = runTest {
+        val job = launch { viewModel.actionGates.collect {} }
+
+        fakeService.emitTestEvent("""
+        {
+          "event": "RENT_DUE",
+          "gameId": "g1",
+          "gameState": {
+            "gameId": "g1",
+            "fields": [],
+            "players": [{"id":"p1","name":"Alice","money":50}],
+            "currentPlayerIndex": 0,
+            "phase": "PAYING_RENT",
+            "pendingPayment": {
+              "amount": 200,
+              "source": "RENT",
+              "sourceFieldId": 5,
+              "creditorPlayerId": "p2",
+              "debtorCanPayAfterAssets": true
+            }
+          }
+        }
+        """.trimIndent())
+        advanceUntilIdle()
+
+        assertNotNull(viewModel.visiblePaymentState.value)
+        assertTrue(viewModel.actionGates.value.canManageProperties)
+
+        viewModel.mortgageProperty(1)
+
+        assertTrue(fakeService.mortgagePropertyCalled)
+        assertEquals(1, fakeService.lastMortgageFieldId)
+
+        job.cancel()
+    }
+
+    @Test
+    fun `property spending actions are blocked while payment is pending`() = runTest {
+        val job = launch { viewModel.actionGates.collect {} }
+
+        fakeService.emitTestEvent("""
+        {
+          "event": "RENT_DUE",
+          "gameId": "g1",
+          "gameState": {
+            "gameId": "g1",
+            "fields": [],
+            "players": [{"id":"p1","name":"Alice","money":300}],
+            "currentPlayerIndex": 0,
+            "phase": "PAYING_RENT",
+            "pendingPayment": {
+              "amount": 200,
+              "source": "RENT",
+              "sourceFieldId": 5,
+              "creditorPlayerId": "p2",
+              "debtorCanPayAfterAssets": true
+            }
+          }
+        }
+        """.trimIndent())
+        advanceUntilIdle()
+
+        assertTrue(viewModel.actionGates.value.canManageProperties)
+
+        viewModel.unmortgageProperty(1)
+        viewModel.buyHouse(1)
+        viewModel.buyHotel(1)
+
+        assertFalse(fakeService.unmortgagePropertyCalled)
+        assertFalse(fakeService.buyHouseCalled)
+        assertFalse(fakeService.buyHotelCalled)
+
+        job.cancel()
+    }
+
+    @Test
     fun `mortgageProperty blocked when propertyActionInFlight is true`() {
         fakeService.mortgagePropertyCalled = false
         viewModel.mortgageProperty(1)

@@ -226,7 +226,7 @@ class GameViewModelPresentationBarrierTest {
     }
 
     @Test
-    fun `double roll offers roll again and blocks end turn after presentation`() = runTest(dispatcher) {
+    fun `double roll waits for rolling phase before allowing roll again`() = runTest(dispatcher) {
         emit(snapshot(state(position = 38, phase = GamePhase.ROLLING)))
         runCurrent()
 
@@ -237,6 +237,17 @@ class GameViewModelPresentationBarrierTest {
         assertFalse(viewModel.actionGates.value.canEndTurn)
 
         advanceTimeBy(4_000L)
+        runCurrent()
+
+        assertFalse(viewModel.actionGates.value.canRollDice)
+        assertTrue(viewModel.actionGates.value.canEndTurn)
+        assertNull(viewModel.activeDicePresentation.value)
+
+        viewModel.rollDice()
+        assertEquals(0, fakeService.rollDiceCalls)
+        assertNull(viewModel.activeDicePresentation.value)
+
+        emit(snapshot(state(position = 0, phase = GamePhase.ROLLING, diceRoll = DiceRoll(1, 1))))
         runCurrent()
 
         assertTrue(viewModel.actionGates.value.canRollDice)
@@ -261,6 +272,21 @@ class GameViewModelPresentationBarrierTest {
         runCurrent()
 
         assertTrue(viewModel.actionGates.value.canReportCheater)
+    }
+
+    @Test
+    fun `duplicate card draws are ignored while request is in flight`() = runTest(dispatcher) {
+        emit(snapshot(state(position = 1, phase = GamePhase.BUYING)))
+        runCurrent()
+
+        assertTrue(viewModel.actionGates.value.canDrawChance)
+
+        viewModel.drawCard("CHANCE")
+        viewModel.drawCard("CHANCE")
+        runCurrent()
+
+        assertEquals(1, fakeService.drawCardCalls)
+        assertFalse(viewModel.actionGates.value.canDrawChance)
     }
 
     @Test

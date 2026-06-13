@@ -169,4 +169,27 @@ class CardDeserializerTest {
         assertNull(card.targetFieldId)
         assertEquals(0, card.moveSpaces)
     }
+
+    @Test
+    fun `deserialize pay per building amounts`() {
+        val json = """
+            {
+              "type": "CHANCE",
+              "id": 10,
+              "description": "Make general repairs",
+              "action": "PAY_PER_BUILDING",
+              "amount": 0,
+              "perBuildingAmount": 25,
+              "perHotelAmount": 100
+            }
+        """.trimIndent()
+
+        val card = objectMapper.readValue(json, Card::class.java)
+
+        assertTrue(card is ChanceCard)
+        assertEquals(CardAction.PAY_PER_BUILDING, card.action)
+        assertEquals(0, card.amount)
+        assertEquals(25, card.perBuildingAmount)
+        assertEquals(100, card.perHotelAmount)
+    }
 }

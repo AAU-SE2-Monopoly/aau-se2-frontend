@@ -55,10 +55,10 @@ fun DiceRollOverlay(
     onClose: () -> Unit
 ) {
     // Allow user to manually dismiss the overlay; resets when overlay reappears
-    var userDismissed by remember { mutableStateOf(false) }
+    var userDismissed by remember(isVisible, sequenceId) { mutableStateOf(false) }
 
     // Reset userDismissed when overlay reappears
-    LaunchedEffect(isVisible) {
+    LaunchedEffect(isVisible, sequenceId) {
         if (isVisible) userDismissed = false
     }
 
@@ -72,13 +72,13 @@ fun DiceRollOverlay(
     // displayRolling is controlled solely by the LaunchedEffects below,
     // NOT by remember(isRolling). This prevents the animation from being
     // aborted prematurely when isRolling flips to false on server response.
-    var displayRolling by remember(isVisible) { mutableStateOf(false) }
-    var displayResult by remember(isVisible) { mutableStateOf<Pair<Int, Int>?>(null) }
-    var rollStartMs by remember(isVisible) { mutableStateOf(0L) }
+    var displayRolling by remember(isVisible, sequenceId) { mutableStateOf(false) }
+    var displayResult by remember(isVisible, sequenceId) { mutableStateOf<Pair<Int, Int>?>(null) }
+    var rollStartMs by remember(isVisible, sequenceId) { mutableStateOf(0L) }
     val minOverlayMs = 1200L
 
     // Start the rolling animation the moment the user shakes the device.
-    LaunchedEffect(hasShaken) {
+    LaunchedEffect(hasShaken, sequenceId) {
         if (hasShaken && rollStartMs == 0L) {
             rollStartMs = SystemClock.elapsedRealtime()
             displayRolling = true
@@ -88,7 +88,7 @@ fun DiceRollOverlay(
 
     // Wait for the server response (diceResult populated, isRolling false),
     // then enforce the minimum overlay duration before revealing the result.
-    LaunchedEffect(diceResult, isRolling, hasShaken) {
+    LaunchedEffect(diceResult, isRolling, hasShaken, sequenceId) {
         if (hasShaken && !isRolling && diceResult != null) {
             val safeStart = rollStartMs.let {
                 if (it > 0L) it
@@ -107,7 +107,7 @@ fun DiceRollOverlay(
     }
 
     // Auto-dismiss 2 seconds after the result is displayed
-    LaunchedEffect(displayResult) {
+    LaunchedEffect(displayResult, sequenceId) {
         if (displayResult != null) {
             onResultDisplayed(sequenceId)
             delay(2000L)

@@ -237,6 +237,8 @@ private fun ActionDetailBox(card: Card) {
                 }
 
                 CardAction.PAY_PER_BUILDING -> {
+                    val houseAmount = card.perBuildingAmount.takeIf { it > 0 } ?: card.amount
+                    val hotelAmount = card.perHotelAmount.takeIf { it > 0 } ?: card.amount
                     Text(
                         text = "Pay Per Building",
                         fontSize = 14.sp,
@@ -244,8 +246,14 @@ private fun ActionDetailBox(card: Card) {
                         fontWeight = FontWeight.Medium
                     )
                     Text(
-                        text = "-€${card.amount} each",
-                        fontSize = 28.sp,
+                        text = "-€$houseAmount house",
+                        fontSize = 24.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = Color(0xFFC62828)
+                    )
+                    Text(
+                        text = "-€$hotelAmount hotel",
+                        fontSize = 24.sp,
                         fontWeight = FontWeight.ExtraBold,
                         color = Color(0xFFC62828)
                     )

@@ -141,6 +141,7 @@ class GameViewModel(
     private data class ActionGateLocks(
         val paymentInFlight: Boolean,
         val propertyInFlight: Boolean,
+        val cardDrawInFlight: Boolean,
         val bankruptcyConfirm: Boolean,
         val buildingPending: Boolean,
         val reportCheaterInFlight: Boolean
@@ -210,11 +211,14 @@ class GameViewModel(
     private val _propertyActionInFlight = MutableStateFlow(false)
     val propertyActionInFlight: StateFlow<Boolean> = _propertyActionInFlight.asStateFlow()
 
+    private val _cardDrawInFlight = MutableStateFlow(false)
+
     private val _reportCheaterInFlight = MutableStateFlow(false)
     val reportCheaterInFlight: StateFlow<Boolean> = _reportCheaterInFlight.asStateFlow()
 
     private var paymentActionToken: Long = 0
     private var propertyActionToken: Long = 0
+    private var cardDrawActionToken: Long = 0
     private var reportCheaterActionToken: Long = 0
 
     private fun startPaymentAction() {
@@ -246,6 +250,21 @@ class GameViewModel(
 
     private fun finishPropertyAction() {
         _propertyActionInFlight.value = false
+    }
+
+    private fun startCardDrawAction() {
+        val token = ++cardDrawActionToken
+        _cardDrawInFlight.value = true
+        viewModelScope.launch {
+            delay(ACTION_TIMEOUT_MS)
+            if (cardDrawActionToken == token) {
+                _cardDrawInFlight.value = false
+            }
+        }
+    }
+
+    private fun finishCardDrawAction() {
+        _cardDrawInFlight.value = false
     }
 
     private fun startReportCheaterAction() {
@@ -479,21 +498,23 @@ class GameViewModel(
     private val actionGateLocks: StateFlow<ActionGateLocks> = combine(
         _paymentActionInFlight,
         _propertyActionInFlight,
+        _cardDrawInFlight,
         _showBankruptcyConfirmation,
         _buildingActionPending,
         _reportCheaterInFlight
-    ) { paymentInFlight, propertyInFlight, bankruptcyConfirm, buildingPending, reportCheaterInFlight ->
+    ) { values ->
         ActionGateLocks(
-            paymentInFlight = paymentInFlight,
-            propertyInFlight = propertyInFlight,
-            bankruptcyConfirm = bankruptcyConfirm,
-            buildingPending = buildingPending,
-            reportCheaterInFlight = reportCheaterInFlight
+            paymentInFlight = values[0],
+            propertyInFlight = values[1],
+            cardDrawInFlight = values[2],
+            bankruptcyConfirm = values[3],
+            buildingPending = values[4],
+            reportCheaterInFlight = values[5]
         )
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.Eagerly,
-        initialValue = ActionGateLocks(false, false, false, false, false)
+        initialValue = ActionGateLocks(false, false, false, false, false, false)
     )
 
     val actionGates: StateFlow<ActionGates> = combine(
@@ -649,6 +670,11 @@ private fun guardAction(actionName: String, canRun: Boolean): Boolean {
 
     fun rollDice() {
         if (!guardAction("rollDice", actionGates.value.canRollDice)) return
+        val currentPhase = gameState.value?.phase
+        if (currentPhase != null && currentPhase != GamePhase.ROLLING) {
+            Log.d("GameViewModel", "rollDice ignored outside ROLLING phase")
+            return
+        }
         if (rollRequestInFlight) return
         rollRequestInFlight = true
         val sequenceId = nextPresentationSequenceId()
@@ -735,7 +761,7 @@ private fun guardAction(actionName: String, canRun: Boolean): Boolean {
     }
 
     fun unmortgageProperty(fieldId: Int) {
-        if (!guardAction("unmortgageProperty", actionGates.value.canManageProperties)) return
+        if (!guardPropertySpendAction("unmortgageProperty")) return
         if (_propertyActionInFlight.value) return
         startPropertyAction()
         gameService.unmortgageProperty(fieldId)
@@ -817,13 +843,25 @@ private fun guardAction(actionName: String, canRun: Boolean): Boolean {
 
     fun requestState() = gameService.requestState()
 
-    fun setGameId(gameId: String) = gameService.setGameId(gameId)
+    fun setGameId(gameId: String) {
+        gameService.setGameId(gameId)
+        gameService.subscribeToGame(gameId)
+    }
 
     fun reportCheater(reportedPlayerId: String) {
         if (!guardAction("reportCheater", actionGates.value.canReportCheater)) return
         if (_reportCheaterInFlight.value) return
         startReportCheaterAction()
         gameService.reportCheater(reportedPlayerId)
+    }
+
+    private fun guardPropertySpendAction(actionName: String): Boolean {
+        if (!guardAction(actionName, actionGates.value.canManageProperties)) return false
+        if (_visiblePaymentState.value != null || gameState.value?.pendingPayment != null) {
+            Log.d("GameViewModel", "$actionName ignored while payment is pending")
+            return false
+        }
+        return true
     }
 
     private fun updatePendingPaymentState(state: GameState?, reveal: Boolean = false) {
@@ -908,6 +946,8 @@ private fun guardAction(actionName: String, canRun: Boolean): Boolean {
             else -> gates.canDrawCard
         }
         if (!guardAction("drawCard", canDraw)) return
+        if (_cardDrawInFlight.value) return
+        startCardDrawAction()
         gameService.drawCard(cardType)
     }
 
@@ -1012,15 +1052,7 @@ private fun guardAction(actionName: String, canRun: Boolean): Boolean {
                 isCurrentPlayer &&
                 rollInputReady &&
                 !rollRequestInFlight
-        val doubleRollPending = state.lastDiceRoll?.isDouble == true &&
-                isCurrentPlayer &&
-                (state.phase == GamePhase.BUYING || state.phase == GamePhase.TURN_END)
-        val canRollAgainAfterDouble = doubleRollPending &&
-                presentationReady &&
-                !hasVisibleBlockingOverlay &&
-                state.pendingPayment == null &&
-                !rollRequestInFlight
-        val canRollDice = canRoll || canRollAgainAfterDouble
+        val canRollDice = canRoll
         val canUseJailAction = canRoll &&
                 currentPlayer?.inJail == true &&
                 !locks.paymentInFlight
@@ -1028,8 +1060,7 @@ private fun guardAction(actionName: String, canRun: Boolean): Boolean {
                 isCurrentPlayer &&
                 presentationReady &&
                 !hasVisibleBlockingOverlay &&
-                state.pendingPayment == null &&
-                !doubleRollPending
+                state.pendingPayment == null
         val canBuyProperty = state.phase == GamePhase.BUYING &&
                 isCurrentPlayer &&
                 presentationReady &&
@@ -1041,13 +1072,15 @@ private fun guardAction(actionName: String, canRun: Boolean): Boolean {
                 presentationReady &&
                 !hasVisibleBlockingOverlay &&
                 isOnChance &&
-                !state.hasDrawnCardThisTurn
+                !state.hasDrawnCardThisTurn &&
+                !locks.cardDrawInFlight
         val canDrawCommunityChest = state.phase == GamePhase.BUYING &&
                 isCurrentPlayer &&
                 presentationReady &&
                 !hasVisibleBlockingOverlay &&
                 isOnCommunityChest &&
-                !state.hasDrawnCardThisTurn
+                !state.hasDrawnCardThisTurn &&
+                !locks.cardDrawInFlight
         val canExecuteCard = isCurrentPlayer &&
                 presentationReady &&
                 base.visibleActionCard != null &&
@@ -1062,10 +1095,11 @@ private fun guardAction(actionName: String, canRun: Boolean): Boolean {
                 payment?.source == PaymentSource.TAX &&
                 !locks.paymentInFlight &&
                 (localPlayer?.money ?: 0) >= payment.amount
+        val paymentForCurrentPlayer = payment != null && isCurrentPlayer
         val canManageProperties = localPlayerActive &&
                 !locks.propertyInFlight &&
                 !locks.buildingPending &&
-                payment == null
+                (payment == null || paymentForCurrentPlayer)
         val canDeclareBankruptcy = isCurrentPlayer &&
                 presentationReady &&
                 payment != null &&
@@ -1161,6 +1195,7 @@ private fun guardAction(actionName: String, canRun: Boolean): Boolean {
             }
 
             event.event == "ACTION_DRAWN" -> {
+                finishCardDrawAction()
                 val card = event.gameState?.currentActionCard
                 if (card != null) {
                     _currentActionCard.value = card
@@ -1234,6 +1269,7 @@ private fun guardAction(actionName: String, canRun: Boolean): Boolean {
             event.event == "TURN_ENDED" -> {
                 rollRequestInFlight = false
                 _buildingActionPending.value = false
+                finishCardDrawAction()
                 lastCurrentPlayerIdForCardDraw = null
                 clearVisiblePayment()
                 _visibleActionCard.value = null
@@ -1349,11 +1385,13 @@ private fun guardAction(actionName: String, canRun: Boolean): Boolean {
 
     private fun handleNonFatalError(event: GameEvent) {
         rollRequestInFlight = false
+        _isExecutingAction.value = false
         showTransientError(event.message ?: "An unknown error occurred")
         finishPaymentAction()
         finishPropertyAction()
+        finishCardDrawAction()
         finishReportCheaterAction()
-        if (_presentationPhase.value == TurnPresentationPhase.ROLLING_DICE) {
+        if (isPresentationBlocking()) {
             presentationJob?.cancel()
             animationJob?.cancel()
             _activeDicePresentation.value = null
@@ -1424,6 +1462,7 @@ private fun guardAction(actionName: String, canRun: Boolean): Boolean {
             delay(LANDING_REVEAL_PRESENTATION_MS)
 
             if (presentationSequenceId == sequenceId) {
+                _activeDicePresentation.value = null
                 _presentationPhase.value = phaseFromRawState(previousGameState ?: newState)
             }
         }
@@ -1552,6 +1591,7 @@ private fun guardAction(actionName: String, canRun: Boolean): Boolean {
         rollRequestInFlight = false
         finishPaymentAction()
         finishPropertyAction()
+        finishCardDrawAction()
         finishReportCheaterAction()
 
         when {
@@ -1878,7 +1918,7 @@ private fun guardAction(actionName: String, canRun: Boolean): Boolean {
     }
 
     fun buyHouse(fieldId: Int) {
-        if (!guardAction("buyHouse", actionGates.value.canManageProperties)) return
+        if (!guardPropertySpendAction("buyHouse")) return
         if (_propertyActionInFlight.value || _buildingActionPending.value) return
         startPropertyAction()
         _buildingActionPending.value = true
@@ -1886,7 +1926,7 @@ private fun guardAction(actionName: String, canRun: Boolean): Boolean {
     }
 
     fun buyHotel(fieldId: Int) {
-        if (!guardAction("buyHotel", actionGates.value.canManageProperties)) return
+        if (!guardPropertySpendAction("buyHotel")) return
         if (_propertyActionInFlight.value || _buildingActionPending.value) return
         startPropertyAction()
         _buildingActionPending.value = true

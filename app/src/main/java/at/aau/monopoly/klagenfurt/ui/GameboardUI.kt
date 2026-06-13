@@ -312,6 +312,13 @@ fun GameboardScreen(
         if (showOverlay && activeDicePresentation == null) hasShaken = false
     }
 
+    LaunchedEffect(activeDicePresentation?.sequenceId) {
+        if (activeDicePresentation == null) {
+            showOverlay = false
+            hasShaken = false
+        }
+    }
+
     LaunchedEffect(showOverlay, actionGates.canRollDice, hasShaken) {
         if (isEmulator && showOverlay && actionGates.canRollDice && !hasShaken) {
             hasShaken = true
@@ -334,8 +341,8 @@ fun GameboardScreen(
 
 
 
-    LaunchedEffect(showActionCardOverlay) {
-        if (showActionCardOverlay) {
+    LaunchedEffect(showActionCardOverlay, actionGates.canDrawCard) {
+        if (showActionCardOverlay || actionGates.canDrawCard) {
             isDrawingCard = false
         }
     }
@@ -413,15 +420,16 @@ fun GameboardScreen(
             val buttonWidth = 180.dp
             val shouldShowRollAgain =
                 gameState?.lastDiceRoll?.isDouble == true &&
-                        gameState?.phase != GamePhase.ROLLING
+                        gameState?.phase == GamePhase.ROLLING
             val mustDrawCard =
                 (isOnChanceField || isOnCommunityChestField) &&
                         !hasDrawnCardThisTurn &&
                         actionGates.canDrawCard
 
-            val onDrawCard: (String) -> Unit = { type ->
-                viewModel.drawCard(type)
+            val onDrawCard: (String) -> Unit = onDrawCard@ { type ->
+                if (isDrawingCard) return@onDrawCard
                 isDrawingCard = true
+                viewModel.drawCard(type)
             }
 
             Column(
@@ -523,7 +531,7 @@ fun GameboardScreen(
                     DrawCardButton(
                         cardType = "CHANCE",
                         alreadyDrawn = hasDrawnCardThisTurn,
-                        enabled = actionGates.canDrawChance && !showActionCardOverlay,
+                        enabled = actionGates.canDrawChance && !showActionCardOverlay && !isDrawingCard,
                         label = "🎰 Draw Chance",
                         onDraw = { onDrawCard("CHANCE") },
                         modifier = Modifier.width(buttonWidth)
@@ -534,7 +542,7 @@ fun GameboardScreen(
                     DrawCardButton(
                         cardType = "COMMUNITY_CHEST",
                         alreadyDrawn = hasDrawnCardThisTurn,
-                        enabled = actionGates.canDrawCommunityChest && !showActionCardOverlay,
+                        enabled = actionGates.canDrawCommunityChest && !showActionCardOverlay && !isDrawingCard,
                         label = "⭐ Draw Community",
                         onDraw = { onDrawCard("COMMUNITY_CHEST") },
                         modifier = Modifier.width(buttonWidth)

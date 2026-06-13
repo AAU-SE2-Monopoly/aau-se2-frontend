@@ -129,8 +129,15 @@ private fun CardActionDetails(card: Card, accentColor: Color, s: CardScale) {
                 Text("-€${card.amount}", fontWeight = FontWeight.ExtraBold, fontSize = s.sp(13f), color = Color(0xFFC62828))
             }
             CardAction.PAY_PER_BUILDING -> {
+                val houseAmount = card.perBuildingAmount.takeIf { it > 0 } ?: card.amount
+                val hotelAmount = card.perHotelAmount.takeIf { it > 0 } ?: card.amount
                 Text("Per building", fontSize = s.sp(7f), color = Color.Gray)
-                Text("-€${card.amount}", fontWeight = FontWeight.ExtraBold, fontSize = s.sp(13f), color = Color(0xFFC62828))
+                Text(
+                    "-€$houseAmount / -€$hotelAmount",
+                    fontWeight = FontWeight.ExtraBold,
+                    fontSize = s.sp(11f),
+                    color = Color(0xFFC62828)
+                )
             }
             CardAction.MOVE_TO -> {
                 Text("Advance to", fontSize = s.sp(7f), color = Color.Gray)

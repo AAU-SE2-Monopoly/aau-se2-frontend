@@ -148,9 +148,11 @@ class FakeGameService : GameService {
 
     var drawCardCalled = false
     var lastDrawCardType: String? = null
+    var drawCardCalls = 0
 
     override fun drawCard(cardType: String) {
         drawCardCalled = true
+        drawCardCalls++
         lastDrawCardType = cardType
     }
 

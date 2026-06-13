@@ -197,13 +197,12 @@ class GameStompClient(
                             if (gameSubscriptionInFlight.get()) {
                                 Log.d("GameStomp", "Skipping resubscribe to $gameIdSnapshot: subscription in progress")
                             } else {
-                                gameSubscriptionMutex.withLock {
-                                    gameChannel.cancel()
-                                    gameChannel.subscribe(gameIdSnapshot)
-                                    withTimeoutOrNull(8_000L) {
-                                        gameChannel.isReady.first { it }
-                                    }
-                                    sendRawInternal("/app/game/state", buildAction(gameId = gameIdSnapshot))
+                                val subscribed = subscribeToGameInternal(
+                                    gameId = gameIdSnapshot,
+                                    requestStateAfterSubscribe = true
+                                )
+                                if (!subscribed) {
+                                    throw IllegalStateException("Game subscription was not ready after reconnect")
                                 }
                             }
                         } else {
@@ -475,7 +474,8 @@ class GameStompClient(
     override fun requestState() = sendRaw("/app/game/state", buildAction())
 
     override fun setGameId(gameId: String) {
-        subscribeToGame(gameId)
+        _currentGameId = gameId
+        SessionPreferences.gameId = gameId
     }
 
     private fun buildAction(

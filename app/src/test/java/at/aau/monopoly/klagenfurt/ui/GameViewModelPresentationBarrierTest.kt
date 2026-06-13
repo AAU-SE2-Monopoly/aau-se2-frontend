@@ -240,17 +240,29 @@ class GameViewModelPresentationBarrierTest {
         runCurrent()
 
         assertFalse(viewModel.actionGates.value.canRollDice)
-        assertTrue(viewModel.actionGates.value.canEndTurn)
+        assertTrue(viewModel.actionGates.value.canRollAgainAfterDouble)
+        assertFalse(viewModel.actionGates.value.canEndTurn)
         assertNull(viewModel.activeDicePresentation.value)
 
         viewModel.rollDice()
         assertEquals(0, fakeService.rollDiceCalls)
         assertNull(viewModel.activeDicePresentation.value)
 
-        emit(snapshot(state(position = 0, phase = GamePhase.ROLLING, diceRoll = DiceRoll(1, 1))))
+        viewModel.rollAgainAfterDouble()
+        viewModel.rollAgainAfterDouble()
         runCurrent()
 
-        assertTrue(viewModel.actionGates.value.canRollDice)
+        assertEquals(1, fakeService.endTurnCalls)
+        assertFalse(viewModel.actionGates.value.canRollAgainAfterDouble)
+
+        emit(event("TURN_ENDED", state(position = 0, phase = GamePhase.ROLLING, diceRoll = DiceRoll(1, 1))))
+        runCurrent()
+
+        assertEquals(1, fakeService.rollDiceCalls)
+        assertEquals(GameViewModel.TurnPresentationPhase.ROLLING_DICE, viewModel.presentationPhase.value)
+        assertNotNull(viewModel.activeDicePresentation.value)
+        assertFalse(viewModel.actionGates.value.canRollDice)
+        assertFalse(viewModel.actionGates.value.canRollAgainAfterDouble)
         assertFalse(viewModel.actionGates.value.canEndTurn)
     }
 

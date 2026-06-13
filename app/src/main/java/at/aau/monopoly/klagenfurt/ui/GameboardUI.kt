@@ -419,7 +419,8 @@ fun GameboardScreen(
 
             val buttonWidth = 180.dp
             val shouldShowRollAgain =
-                gameState?.lastDiceRoll?.isDouble == true &&
+                actionGates.canRollAgainAfterDouble ||
+                        gameState?.lastDiceRoll?.isDouble == true &&
                         gameState?.phase == GamePhase.ROLLING
             val mustDrawCard =
                 (isOnChanceField || isOnCommunityChestField) &&
@@ -448,7 +449,12 @@ fun GameboardScreen(
                     }
                 }
 
-                if (actionGates.canRollDice && currentTurnPlayer != null && !mustDrawCard && !isDrawingCard) {
+                if (
+                    (actionGates.canRollDice || actionGates.canRollAgainAfterDouble) &&
+                    currentTurnPlayer != null &&
+                    !mustDrawCard &&
+                    !isDrawingCard
+                ) {
                     if (currentTurnPlayer.inJail) {
 
                         Text(
@@ -489,8 +495,14 @@ fun GameboardScreen(
                         }
                     } else {
                         GlassButton(
-                            onClick = { showOverlay = true },
-                            enabled = actionGates.canRollDice,
+                            onClick = {
+                                if (actionGates.canRollAgainAfterDouble) {
+                                    viewModel.rollAgainAfterDouble()
+                                } else {
+                                    showOverlay = true
+                                }
+                            },
+                            enabled = actionGates.canRollDice || actionGates.canRollAgainAfterDouble,
                             modifier = Modifier.width(buttonWidth).testTag("roll_dice_button")
                         ) {
                             Text(if (shouldShowRollAgain) "Roll Again" else "🎲 Roll Dice")

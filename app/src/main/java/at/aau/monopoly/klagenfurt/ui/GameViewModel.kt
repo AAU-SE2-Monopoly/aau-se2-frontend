@@ -126,6 +126,7 @@ class GameViewModel(
         val canDeclareBankruptcy: Boolean = false,
         val canConfirmDeclareBankruptcy: Boolean = false,
         val canTrade: Boolean = false,
+        val canRollAgainAfterDouble: Boolean = false,
         val canReportCheater: Boolean = false
     )
 
@@ -144,6 +145,7 @@ class GameViewModel(
         val cardDrawInFlight: Boolean,
         val bankruptcyConfirm: Boolean,
         val buildingPending: Boolean,
+        val doubleRollAdvanceInFlight: Boolean,
         val reportCheaterInFlight: Boolean
     )
 
@@ -213,12 +215,15 @@ class GameViewModel(
 
     private val _cardDrawInFlight = MutableStateFlow(false)
 
+    private val _doubleRollAdvanceInFlight = MutableStateFlow(false)
+
     private val _reportCheaterInFlight = MutableStateFlow(false)
     val reportCheaterInFlight: StateFlow<Boolean> = _reportCheaterInFlight.asStateFlow()
 
     private var paymentActionToken: Long = 0
     private var propertyActionToken: Long = 0
     private var cardDrawActionToken: Long = 0
+    private var doubleRollAdvanceToken: Long = 0
     private var reportCheaterActionToken: Long = 0
 
     private fun startPaymentAction() {
@@ -265,6 +270,21 @@ class GameViewModel(
 
     private fun finishCardDrawAction() {
         _cardDrawInFlight.value = false
+    }
+
+    private fun startDoubleRollAdvance() {
+        val token = ++doubleRollAdvanceToken
+        _doubleRollAdvanceInFlight.value = true
+        viewModelScope.launch {
+            delay(ACTION_TIMEOUT_MS)
+            if (doubleRollAdvanceToken == token) {
+                _doubleRollAdvanceInFlight.value = false
+            }
+        }
+    }
+
+    private fun finishDoubleRollAdvance() {
+        _doubleRollAdvanceInFlight.value = false
     }
 
     private fun startReportCheaterAction() {
@@ -501,6 +521,7 @@ class GameViewModel(
         _cardDrawInFlight,
         _showBankruptcyConfirmation,
         _buildingActionPending,
+        _doubleRollAdvanceInFlight,
         _reportCheaterInFlight
     ) { values ->
         ActionGateLocks(
@@ -509,12 +530,13 @@ class GameViewModel(
             cardDrawInFlight = values[2],
             bankruptcyConfirm = values[3],
             buildingPending = values[4],
-            reportCheaterInFlight = values[5]
+            doubleRollAdvanceInFlight = values[5],
+            reportCheaterInFlight = values[6]
         )
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.Eagerly,
-        initialValue = ActionGateLocks(false, false, false, false, false, false)
+        initialValue = ActionGateLocks(false, false, false, false, false, false, false)
     )
 
     val actionGates: StateFlow<ActionGates> = combine(
@@ -631,6 +653,7 @@ class GameViewModel(
     val currentPlayerId: String get() = gameService.currentPlayerId
 
     private var isCheatActive = false
+    private var rollAfterDoubleAdvancePending = false
 
 
     fun connect() = gameService.connect()
@@ -675,6 +698,10 @@ private fun guardAction(actionName: String, canRun: Boolean): Boolean {
             Log.d("GameViewModel", "rollDice ignored outside ROLLING phase")
             return
         }
+        startRollRequest()
+    }
+
+    private fun startRollRequest() {
         if (rollRequestInFlight) return
         rollRequestInFlight = true
         val sequenceId = nextPresentationSequenceId()
@@ -712,6 +739,14 @@ private fun guardAction(actionName: String, canRun: Boolean): Boolean {
 
     fun endTurn() {
         if (!guardAction("endTurn", actionGates.value.canEndTurn)) return
+        gameService.endTurn()
+    }
+
+    fun rollAgainAfterDouble() {
+        if (!guardAction("rollAgainAfterDouble", actionGates.value.canRollAgainAfterDouble)) return
+        if (_doubleRollAdvanceInFlight.value) return
+        rollAfterDoubleAdvancePending = true
+        startDoubleRollAdvance()
         gameService.endTurn()
     }
 
@@ -1052,6 +1087,14 @@ private fun guardAction(actionName: String, canRun: Boolean): Boolean {
                 isCurrentPlayer &&
                 rollInputReady &&
                 !rollRequestInFlight
+        val doubleRollPending = state.lastDiceRoll?.isDouble == true &&
+                isCurrentPlayer &&
+                (state.phase == GamePhase.BUYING || state.phase == GamePhase.TURN_END)
+        val canRollAgainAfterDouble = doubleRollPending &&
+                presentationReady &&
+                !hasVisibleBlockingOverlay &&
+                state.pendingPayment == null &&
+                !locks.doubleRollAdvanceInFlight
         val canRollDice = canRoll
         val canUseJailAction = canRoll &&
                 currentPlayer?.inJail == true &&
@@ -1060,7 +1103,8 @@ private fun guardAction(actionName: String, canRun: Boolean): Boolean {
                 isCurrentPlayer &&
                 presentationReady &&
                 !hasVisibleBlockingOverlay &&
-                state.pendingPayment == null
+                state.pendingPayment == null &&
+                !doubleRollPending
         val canBuyProperty = state.phase == GamePhase.BUYING &&
                 isCurrentPlayer &&
                 presentationReady &&
@@ -1130,6 +1174,7 @@ private fun guardAction(actionName: String, canRun: Boolean): Boolean {
             canDeclareBankruptcy = canDeclareBankruptcy,
             canConfirmDeclareBankruptcy = locks.bankruptcyConfirm && !locks.paymentInFlight,
             canTrade = canTrade,
+            canRollAgainAfterDouble = canRollAgainAfterDouble,
             canReportCheater = canReport
         )
     }
@@ -1270,12 +1315,14 @@ private fun guardAction(actionName: String, canRun: Boolean): Boolean {
                 rollRequestInFlight = false
                 _buildingActionPending.value = false
                 finishCardDrawAction()
+                finishDoubleRollAdvance()
                 lastCurrentPlayerIdForCardDraw = null
                 clearVisiblePayment()
                 _visibleActionCard.value = null
                 _currentActionCard.value = null
                 hardSyncPresentation(event.gameState, event, cancelJob = false)
                 appendPresentedLog(event)
+                startQueuedDoubleRollIfReady(event.gameState)
             }
 
             event.event in PROPERTY_BUILD_TRADE_EVENTS -> {
@@ -1385,11 +1432,13 @@ private fun guardAction(actionName: String, canRun: Boolean): Boolean {
 
     private fun handleNonFatalError(event: GameEvent) {
         rollRequestInFlight = false
+        rollAfterDoubleAdvancePending = false
         _isExecutingAction.value = false
         showTransientError(event.message ?: "An unknown error occurred")
         finishPaymentAction()
         finishPropertyAction()
         finishCardDrawAction()
+        finishDoubleRollAdvance()
         finishReportCheaterAction()
         if (isPresentationBlocking()) {
             presentationJob?.cancel()
@@ -1592,6 +1641,7 @@ private fun guardAction(actionName: String, canRun: Boolean): Boolean {
         finishPaymentAction()
         finishPropertyAction()
         finishCardDrawAction()
+        finishDoubleRollAdvance()
         finishReportCheaterAction()
 
         when {
@@ -1630,6 +1680,19 @@ private fun guardAction(actionName: String, canRun: Boolean): Boolean {
             _showBankruptcyOverlay.value = false
         }
         _presentationPhase.value = phaseFromRawState(state)
+    }
+
+    private fun startQueuedDoubleRollIfReady(state: GameState?) {
+        if (!rollAfterDoubleAdvancePending) return
+
+        val canStartQueuedRoll =
+            state?.phase == GamePhase.ROLLING &&
+                    state.currentPlayer?.id == gameService.currentPlayerId
+
+        rollAfterDoubleAdvancePending = false
+        if (canStartQueuedRoll) {
+            startRollRequest()
+        }
     }
 
     private fun revealLandingForState(state: GameState?, revealPayment: Boolean = true) {

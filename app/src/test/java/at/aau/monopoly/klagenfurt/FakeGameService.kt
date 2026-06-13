@@ -121,6 +121,8 @@ class FakeGameService : GameService {
         startGameCalled = true
     }
 
+    var endTurnCalls = 0
+
     override fun rollDice(isCheating: Boolean) {
         rollDiceCalled = true
         rollDiceCalls++
@@ -128,6 +130,7 @@ class FakeGameService : GameService {
 
     override fun endTurn() {
         endTurnCalled = true
+        endTurnCalls++
     }
 
     override fun requestState() {

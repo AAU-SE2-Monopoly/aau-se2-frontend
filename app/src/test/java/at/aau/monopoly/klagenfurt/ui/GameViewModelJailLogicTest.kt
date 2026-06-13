@@ -65,12 +65,18 @@ class GameViewModelJailLogicTest {
 
     @Test
     fun `payJailFine delegates directly to gameService`() = runTest {
+        eventsFlow.emit(legalJailStateJson(getOutOfJailCards = 0))
+        advanceUntilIdle()
+
         viewModel.payJailFine()
         verify(exactly = 1) { gameService.payJailFine() }
     }
 
     @Test
     fun `useJailCard delegates directly to gameService`() = runTest {
+        eventsFlow.emit(legalJailStateJson(getOutOfJailCards = 1))
+        advanceUntilIdle()
+
         viewModel.useJailCard()
         verify(exactly = 1) { gameService.useJailCard() }
     }
@@ -165,4 +171,30 @@ class GameViewModelJailLogicTest {
 
         job.cancel()
     }
+
+    private fun legalJailStateJson(getOutOfJailCards: Int): String =
+        """
+            {
+                "event": "STATE_SNAPSHOT",
+                "gameId": "test-game-id",
+                "gameState": {
+                    "gameId": "test-game-id",
+                    "fields": [],
+                    "players": [
+                        {
+                            "id": "player-1",
+                            "name": "Joachim",
+                            "position": 10,
+                            "money": 1000,
+                            "inJail": true,
+                            "jailTurns": 0,
+                            "getOutOfJailCards": $getOutOfJailCards,
+                            "ownedPropertyIds": []
+                        }
+                    ],
+                    "currentPlayerIndex": 0,
+                    "phase": "ROLLING"
+                }
+            }
+        """.trimIndent()
 }

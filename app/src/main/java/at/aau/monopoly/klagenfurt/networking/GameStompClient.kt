@@ -200,6 +200,10 @@ class GameStompClient(
                                 gameSubscriptionMutex.withLock {
                                     gameChannel.cancel()
                                     gameChannel.subscribe(gameIdSnapshot)
+                                    withTimeoutOrNull(8_000L) {
+                                        gameChannel.isReady.first { it }
+                                    }
+                                    sendRawInternal("/app/game/state", buildAction(gameId = gameIdSnapshot))
                                 }
                             }
                         } else {

@@ -236,6 +236,21 @@ private fun ActionDetailBox(card: Card) {
                     )
                 }
 
+                CardAction.PAY_PER_BUILDING -> {
+                    Text(
+                        text = "Pay Per Building",
+                        fontSize = 14.sp,
+                        color = Color.White.copy(alpha = 0.7f),
+                        fontWeight = FontWeight.Medium
+                    )
+                    Text(
+                        text = "-€${card.amount} each",
+                        fontSize = 28.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = Color(0xFFC62828)
+                    )
+                }
+
                 CardAction.MOVE_TO -> {
                     Text(
                         text = "Advance to Field",

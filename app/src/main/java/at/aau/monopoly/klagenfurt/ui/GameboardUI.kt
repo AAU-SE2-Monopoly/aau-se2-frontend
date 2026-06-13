@@ -181,10 +181,13 @@ fun GameboardScreen(
 
     val fields by viewModel.fields.collectAsState(initial = emptyList())
     val gameState by viewModel.gameState.collectAsState()
-    val players = gameState?.players ?: emptyList()
+    val rawPlayers = gameState?.players ?: emptyList()
+    val presentedBoardPlayers by viewModel.presentedBoardPlayers.collectAsState()
+    val boardPlayers = presentedBoardPlayers.takeIf { it.isNotEmpty() } ?: rawPlayers
     val currentPlayerId = viewModel.currentPlayerId
     val currentTurnPlayer = gameState?.currentPlayer
-    val currentField = currentTurnPlayer?.let { player ->
+    val visibleCurrentField by viewModel.visibleCurrentField.collectAsState()
+    val currentField = visibleCurrentField ?: currentTurnPlayer?.let { player ->
         fields.getOrNull(player.position)
     }
     val isBuyableField = currentField is OwnableField
@@ -192,17 +195,17 @@ fun GameboardScreen(
 
     val isOnChanceField = currentField is ChanceField
     val isOnCommunityChestField = currentField is CommunityChestField
-    val eventLog by viewModel.eventLog.collectAsState()
+    val eventLog by viewModel.presentedEventLog.collectAsState()
+    val actionGates by viewModel.actionGates.collectAsState()
+    val activeDicePresentation by viewModel.activeDicePresentation.collectAsState()
+    val visiblePaymentState by viewModel.visiblePaymentState.collectAsState()
+    val visibleBankruptcyState by viewModel.visibleBankruptcyState.collectAsState()
 
     val isRollingPhaseForCurrentPlayer by viewModel.isRollingPhaseForCurrentPlayer.collectAsState()
     val isBuyingPhaseForCurrentPlayer by viewModel.isBuyingPhaseForCurrentPlayer.collectAsState()
-    val lastDiceRoll by viewModel.lastDiceRoll.collectAsState()
     val canStartGame by viewModel.canStartGame.collectAsState()
     val canEndTurnForCurrentPlayer by viewModel.canEndTurnForCurrentPlayer.collectAsState()
-    val canBuyCurrentField =
-        isBuyingPhaseForCurrentPlayer &&
-                isBuyableField &&
-                isUnownedField
+    val canBuyCurrentField = actionGates.canBuyProperty
 
     val gameStarted = gameState?.phase != null &&
             gameState!!.phase != GamePhase.WAITING &&
@@ -213,7 +216,7 @@ fun GameboardScreen(
     val myPlayer = gameState?.players?.find { it.id == currentPlayerId }
     val myPlayerIsActive = myPlayer != null && !myPlayer.eliminated && gameStarted
 
-    val currentActionCard by viewModel.currentActionCard.collectAsState()
+    val currentActionCard by viewModel.visibleActionCard.collectAsState()
     val isExecutingAction by viewModel.isExecutingAction.collectAsState()
     val showActionCardOverlay by viewModel.showActionCardOverlay.collectAsState()
 
@@ -237,18 +240,12 @@ fun GameboardScreen(
     val hasPendingPayment by viewModel.hasPendingPayment.collectAsState()
 
     var showOverlay by remember { mutableStateOf(false) }
+    var dismissedDiceSequenceId by remember { mutableStateOf<Long?>(null) }
     var showFreeParkingOverlay by remember { mutableStateOf(false) }
 
     val showGameOverOverlay by viewModel.showGameOverOverlay.collectAsState()
     val hostEndedGame by viewModel.hostEndedGame.collectAsState()
     val winner by viewModel.winner.collectAsState()
-
-    val bufferedEventLog by remember {
-        derivedStateOf {
-            if (showOverlay) eventLog.filter { it.eventType != "DICE_ROLLED" }
-            else eventLog
-        }
-    }
 
     val revealProgress = remember { Animatable(0f) }
     LaunchedEffect(Unit) {
@@ -291,8 +288,15 @@ fun GameboardScreen(
     val shakeFlow: Flow<Unit> = shakeEventsOverride ?: shakeDetector!!.shakeEvents
 
     var hasShaken by remember { mutableStateOf(false) }
-    var hasDrawnCard by remember { mutableStateOf(false) }
+    val hasDrawnCardThisTurn = gameState?.hasDrawnCardThisTurn == true
     var isDrawingCard by remember { mutableStateOf(false) }
+    val diceOverlayVisible =
+        showOverlay ||
+                (activeDicePresentation != null &&
+                        dismissedDiceSequenceId != activeDicePresentation?.sequenceId)
+    val diceOverlayHasShaken = hasShaken || activeDicePresentation != null
+    val diceOverlayIsRolling = activeDicePresentation?.isRolling ?: (showOverlay && hasShaken)
+    val diceOverlayResult = activeDicePresentation?.diceRoll?.let { Pair(it.die1, it.die2) }
 
     val isEmulator = remember {
         android.os.Build.FINGERPRINT.startsWith("generic")
@@ -304,37 +308,31 @@ fun GameboardScreen(
                 || android.os.Build.PRODUCT.contains("emulator")
     }
 
-    LaunchedEffect(showOverlay) {
-        if (showOverlay) hasShaken = false
+    LaunchedEffect(showOverlay, activeDicePresentation?.sequenceId) {
+        if (showOverlay && activeDicePresentation == null) hasShaken = false
     }
 
-    LaunchedEffect(showOverlay, isRollingPhaseForCurrentPlayer, hasShaken) {
-        if (isEmulator && showOverlay && isRollingPhaseForCurrentPlayer && !hasShaken) {
+    LaunchedEffect(showOverlay, actionGates.canRollDice, hasShaken) {
+        if (isEmulator && showOverlay && actionGates.canRollDice && !hasShaken) {
             hasShaken = true
             viewModel.rollDice()
         }
     }
 
-    LaunchedEffect(isRollingPhaseForCurrentPlayer) {
-        if (isRollingPhaseForCurrentPlayer) {
+    LaunchedEffect(actionGates.canRollDice) {
+        if (actionGates.canRollDice) {
             hasShaken = false
-            hasDrawnCard = false
             isDrawingCard = false
         }
     }
 
-    LaunchedEffect(isBuyingPhaseForCurrentPlayer, isRollingPhaseForCurrentPlayer, canEndTurnForCurrentPlayer) {
-        if (!isBuyingPhaseForCurrentPlayer && !isRollingPhaseForCurrentPlayer && !canEndTurnForCurrentPlayer && showOverlay) {
+    LaunchedEffect(actionGates.canRollDice, activeDicePresentation?.sequenceId, canEndTurnForCurrentPlayer) {
+        if (!actionGates.canRollDice && activeDicePresentation == null && !canEndTurnForCurrentPlayer && showOverlay) {
             showOverlay = false
         }
     }
 
-    val pendingDoubleAutoEnd by viewModel.pendingDoubleAutoEnd.collectAsState()
-    LaunchedEffect(showOverlay, pendingDoubleAutoEnd) {
-        if (!showOverlay && pendingDoubleAutoEnd) {
-            viewModel.consumeDoubleAutoEnd()
-        }
-    }
+
 
     LaunchedEffect(showActionCardOverlay) {
         if (showActionCardOverlay) {
@@ -342,8 +340,8 @@ fun GameboardScreen(
         }
     }
 
-    LaunchedEffect(showOverlay, isRollingPhaseForCurrentPlayer, shakeFlow) {
-        if (showOverlay && isRollingPhaseForCurrentPlayer) {
+    LaunchedEffect(showOverlay, actionGates.canRollDice, shakeFlow) {
+        if (showOverlay && actionGates.canRollDice) {
             var localHasShaken = false
             shakeFlow.collect {
                 if (!localHasShaken && !hasShaken) {
@@ -377,9 +375,11 @@ fun GameboardScreen(
         ) {
             GameboardContent(
                 fields = fields,
-                players = players,
+                players = rawPlayers,
+                boardPlayers = boardPlayers,
                 currentPlayerId = currentPlayerId,
                 currentTurnPlayer = currentTurnPlayer,
+                currentFieldOverride = currentField,
                 onPlayerCardClick = { player ->
                     if (player.id == currentPlayerId && myPlayerIsActive) {
                         viewModel.showMortgageManagementOverlay()
@@ -391,6 +391,7 @@ fun GameboardScreen(
                 onDismissOverlay = { viewModel.hidePlayerOverlay() },
                 movementAnimationState = movementState,
                 onReportCheater = { reportedPlayerId -> viewModel.reportCheater(reportedPlayerId) },
+                canReportCheater = actionGates.canReportCheater,
                 onStartTrade = { player ->
                     viewModel.showTradeOverlay(player)
                     viewModel.proposeTrade(
@@ -403,17 +404,23 @@ fun GameboardScreen(
                         requestJailCards = 0
                     )
                 },
+                canStartTrade = actionGates.canTrade,
                 gameState = gameState,
                 onFreeParkingMoneyClick = { showFreeParkingOverlay = true },
                 modifier = Modifier.fillMaxSize()
             )
 
             val buttonWidth = 180.dp
-            val mustDrawCard = (isOnChanceField || isOnCommunityChestField) && !hasDrawnCard && isBuyingPhaseForCurrentPlayer
+            val shouldShowRollAgain =
+                gameState?.lastDiceRoll?.isDouble == true &&
+                        gameState?.phase != GamePhase.ROLLING
+            val mustDrawCard =
+                (isOnChanceField || isOnCommunityChestField) &&
+                        !hasDrawnCardThisTurn &&
+                        actionGates.canDrawCard
 
             val onDrawCard: (String) -> Unit = { type ->
                 viewModel.drawCard(type)
-                hasDrawnCard = true
                 isDrawingCard = true
             }
 
@@ -433,7 +440,7 @@ fun GameboardScreen(
                     }
                 }
 
-                if (isRollingPhaseForCurrentPlayer && currentTurnPlayer != null && !mustDrawCard && !isDrawingCard) {
+                if (actionGates.canRollDice && currentTurnPlayer != null && !mustDrawCard && !isDrawingCard) {
                     if (currentTurnPlayer.inJail) {
 
                         Text(
@@ -449,7 +456,7 @@ fun GameboardScreen(
 
                         GlassButton(
                             onClick = { viewModel.payJailFine() },
-                            enabled = currentTurnPlayer.money >= 50,
+                            enabled = actionGates.canUseJailAction && currentTurnPlayer.money >= 50,
                             modifier = Modifier.width(buttonWidth).testTag("pay_jail_fine_button")
                         ) {
                             Text("💰 Pay 50€")
@@ -458,6 +465,7 @@ fun GameboardScreen(
                         if (currentTurnPlayer.getOutOfJailCards > 0) {
                             GlassButton(
                                 onClick = { viewModel.useJailCard() },
+                                enabled = actionGates.canUseJailAction,
                                 modifier = Modifier.width(buttonWidth).testTag("use_jail_card_button")
                             ) {
                                 Text("🃏 Use Card (${currentTurnPlayer.getOutOfJailCards})")
@@ -466,6 +474,7 @@ fun GameboardScreen(
 
                         GlassButton(
                             onClick = { showOverlay = true },
+                            enabled = actionGates.canRollDice,
                             modifier = Modifier.width(buttonWidth).testTag("roll_dice_button")
                         ) {
                             Text("🎲 Attempt Double")
@@ -473,14 +482,15 @@ fun GameboardScreen(
                     } else {
                         GlassButton(
                             onClick = { showOverlay = true },
+                            enabled = actionGates.canRollDice,
                             modifier = Modifier.width(buttonWidth).testTag("roll_dice_button")
                         ) {
-                            Text("🎲 Roll Dice")
+                            Text(if (shouldShowRollAgain) "Roll Again" else "🎲 Roll Dice")
                         }
                     }
                 }
 
-                if (canEndTurnForCurrentPlayer && !showActionCardOverlay && !mustDrawCard && !isDrawingCard) {
+                if (actionGates.canEndTurn && !showActionCardOverlay && !mustDrawCard && !isDrawingCard) {
                     GlassButton(
                         onClick = { viewModel.endTurn() },
                         modifier = Modifier.width(buttonWidth).testTag("end_turn_button")
@@ -489,7 +499,7 @@ fun GameboardScreen(
                     }
                 }
 
-                if (hasPendingPayment && !showPayRentOverlay && currentTurnPlayer?.id == currentPlayerId) {
+                if (visiblePaymentState != null && !showPayRentOverlay && currentTurnPlayer?.id == currentPlayerId) {
                     GlassButton(
                         onClick = { viewModel.showPayRentOverlay(currentRentAmount, currentRentOwnerId, currentRentFieldId) },
                         modifier = Modifier.width(buttonWidth).testTag("pay_rent_reopen_button")
@@ -501,7 +511,7 @@ fun GameboardScreen(
                 if (canBuyCurrentField) {
                     GlassButton(
                         onClick = {
-                            viewModel.buyProperty(currentTurnPlayer.position)
+                            currentField?.let { field -> viewModel.buyProperty(field.id) }
                         },
                         modifier = Modifier.width(buttonWidth).testTag("buy_property_button")
                     ) {
@@ -512,8 +522,8 @@ fun GameboardScreen(
                 if (isOnChanceField && isBuyingPhaseForCurrentPlayer) {
                     DrawCardButton(
                         cardType = "CHANCE",
-                        alreadyDrawn = hasDrawnCard,
-                        enabled = !showActionCardOverlay && !hasDrawnCard,
+                        alreadyDrawn = hasDrawnCardThisTurn,
+                        enabled = actionGates.canDrawChance && !showActionCardOverlay,
                         label = "🎰 Draw Chance",
                         onDraw = { onDrawCard("CHANCE") },
                         modifier = Modifier.width(buttonWidth)
@@ -523,8 +533,8 @@ fun GameboardScreen(
                 if (isOnCommunityChestField && isBuyingPhaseForCurrentPlayer) {
                     DrawCardButton(
                         cardType = "COMMUNITY_CHEST",
-                        alreadyDrawn = hasDrawnCard,
-                        enabled = !showActionCardOverlay && !hasDrawnCard,
+                        alreadyDrawn = hasDrawnCardThisTurn,
+                        enabled = actionGates.canDrawCommunityChest && !showActionCardOverlay,
                         label = "⭐ Draw Community",
                         onDraw = { onDrawCard("COMMUNITY_CHEST") },
                         modifier = Modifier.width(buttonWidth)
@@ -556,7 +566,7 @@ fun GameboardScreen(
                 }
             }
 
-            GameboardOverlayLayer(eventLog = bufferedEventLog)
+            GameboardOverlayLayer(eventLog = eventLog)
 
             ActionCardOverlay(
                 isVisible = showActionCardOverlay,
@@ -566,15 +576,21 @@ fun GameboardScreen(
             )
 
             DiceRollOverlay(
-                isVisible = showOverlay,
-                diceResult = lastDiceRoll?.let { Pair(it.die1, it.die2) },
-                isRolling = isRollingPhaseForCurrentPlayer,
-                hasShaken = hasShaken,
+                isVisible = diceOverlayVisible,
+                diceResult = diceOverlayResult,
+                isRolling = diceOverlayIsRolling,
+                hasShaken = diceOverlayHasShaken,
+                sequenceId = activeDicePresentation?.sequenceId ?: 0L,
                 onShakeButton = {
-                    if (!hasShaken && isRollingPhaseForCurrentPlayer) {
+                    if (!hasShaken && actionGates.canRollDice) {
                         hasShaken = true
                         viewModel.rollDice()
                     }
+                },
+                onResultDisplayed = { sequenceId -> viewModel.onDiceResultDisplayed(sequenceId) },
+                onDismissed = { sequenceId ->
+                    dismissedDiceSequenceId = sequenceId
+                    viewModel.onDiceDismissed(sequenceId)
                 },
                 onClose = { showOverlay = false }
             )
@@ -593,9 +609,9 @@ fun GameboardScreen(
                 ?.takeUnless { it.id == dismissedTradeId }
                 ?.let { offer ->
                     when (currentPlayerId) {
-                        offer.fromPlayerId -> players.find { it.id == offer.toPlayerId }
-                        offer.toPlayerId -> players.find { it.id == offer.fromPlayerId }
-                        else -> players.find { it.id == offer.fromPlayerId }
+                        offer.fromPlayerId -> rawPlayers.find { it.id == offer.toPlayerId }
+                        offer.toPlayerId -> rawPlayers.find { it.id == offer.fromPlayerId }
+                        else -> rawPlayers.find { it.id == offer.fromPlayerId }
                     }
                 }
             val visibleTradePlayer = selectedTradePlayer ?: publicTradePlayer
@@ -604,7 +620,7 @@ fun GameboardScreen(
                     isVisible = true,
                     currentPlayerId = currentPlayerId,
                     tradePartner = visibleTradePlayer,
-                    players = players,
+                    players = rawPlayers,
                     fields = fields,
                     pendingTradeOffer = pendingTradeOffer,
                     onProposeTrade = { toPlayerId, offerMoney, requestMoney, offerPropertyIds, requestPropertyIds, offerJailCards, requestJailCards ->
@@ -633,12 +649,12 @@ fun GameboardScreen(
                     }
                 )
             }
-            val isTaxPayment = gameState?.pendingPayment?.source == PaymentSource.TAX
+            val isTaxPayment = visiblePaymentState?.source == PaymentSource.TAX
             PayRentOverlay(
                 isVisible = showPayRentOverlay && currentTurnPlayer?.id == currentPlayerId,
                 rentAmount = currentRentAmount,
                 ownerName = currentRentOwnerId?.let { ownerId ->
-                    players.find { it.id == ownerId }?.name
+                    rawPlayers.find { it.id == ownerId }?.name
                 },
                 fieldName = currentRentFieldId?.let { id ->
                     fields.find { it.id == id }?.name
@@ -663,7 +679,7 @@ fun GameboardScreen(
                 properties = manageableProperties,
                 currentMoney = myPlayer?.money ?: 0,
                 actionInFlight = propertyActionInFlight,
-                isPayingRent = isPayingRent == true,
+                isPayingRent = visiblePaymentState != null && isPayingRent == true,
                 onBuyHouse = { fieldId -> viewModel.buyHouse(fieldId) },
                 onBuyHotel = { fieldId -> viewModel.buyHotel(fieldId) },
                 onMortgage = { fieldId -> viewModel.mortgageProperty(fieldId) },
@@ -771,14 +787,18 @@ fun BoxScope.GameboardOverlayLayer(eventLog: List<GameViewModel.LogEntry>) {
 fun GameboardContent(
     fields: List<Field>,
     players: List<Player> = emptyList(),
+    boardPlayers: List<Player> = players,
     currentPlayerId: String = "",
     currentTurnPlayer: Player? = null,
+    currentFieldOverride: Field? = null,
     onPlayerCardClick: (Player) -> Unit = {},
     selectedPlayerForOverlay: Player? = null,
     onDismissOverlay: () -> Unit = {},
     movementAnimationState: MovementAnimationState? = null,
     onReportCheater: (String) -> Unit = {},
+    canReportCheater: Boolean = false,
     onStartTrade: (Player) -> Unit = {},
+    canStartTrade: Boolean = false,
     gameState: at.aau.monopoly.klagenfurt.model.GameState? = null,
     onFreeParkingMoneyClick: () -> Unit = {},
     modifier: Modifier = Modifier
@@ -786,12 +806,12 @@ fun GameboardContent(
     val myPlayer = players.find { it.id == currentPlayerId }
     val otherPlayers = players.filter { it.id != currentPlayerId }
 
-    val currentField = currentTurnPlayer?.let { p ->
+    val currentField = currentFieldOverride ?: currentTurnPlayer?.let { p ->
         fields.getOrNull(p.position)
     }
 
-    val playersByField: Map<Int, List<Player>> = remember(players) {
-        players.groupBy { it.position }
+    val playersByField: Map<Int, List<Player>> = remember(boardPlayers) {
+        boardPlayers.groupBy { it.position }
     }
 
     BoxWithConstraints(modifier = modifier.fillMaxSize()) {
@@ -871,7 +891,7 @@ fun GameboardContent(
                             onCardClick = { onPlayerCardClick(player) }
                         )
 
-                        val canReport = (myPlayer?.money ?: 0) > 500
+                        val canReport = canReportCheater && (myPlayer?.money ?: 0) > 500
 
                         Button(
                             onClick = { onReportCheater(player.id) },
@@ -894,7 +914,8 @@ fun GameboardContent(
                         Button(
                             onClick = { onStartTrade(player) },
                             enabled = gameState?.pendingTradeOffer == null &&
-                                    currentTurnPlayer?.id == currentPlayerId,
+                                    currentTurnPlayer?.id == currentPlayerId &&
+                                    canStartTrade,
                             modifier = Modifier
                                 .padding(top = 4.dp, end = 4.dp)
                                 .height(26.dp),

@@ -240,7 +240,7 @@ class DiceRollIntegrationTest {
     }
 
     @Test
-    fun chatLog_hidesDiceRolled_whileOverlayVisible_showsAfterOverlayCloses() {
+    fun chatLog_showsDiceRolled_afterLandingReveal() {
         setContentWithViewModel()
         emitGameStarted(fakeService.currentPlayerId, "Host")
 
@@ -256,16 +256,14 @@ class DiceRollIntegrationTest {
         emitDiceResult(fakeService.currentPlayerId, die1 = 5, die2 = 2)
         waitForOverlayMinDuration()
 
-        // While overlay still open, chat should NOT show "rolled"
-        // (it should still show "started" because DICE_ROLLED entries are filtered)
-        composeTestRule.onNodeWithText("started", substring = true, ignoreCase = true).assertIsDisplayed()
-        composeTestRule.onNodeWithText("rolled", substring = true, ignoreCase = true).assertDoesNotExist()
+        // The presentation coordinator reveals the dice log at landing reveal.
+        composeTestRule.onNodeWithText("rolled", substring = true, ignoreCase = true).assertIsDisplayed()
 
         // Close the overlay
         composeTestRule.onNodeWithTag("dice_close_x").performClick()
         composeTestRule.waitForIdle()
 
-        // Now chat bar should show the dice rolled message
+        // Manual overlay dismissal should not remove the already revealed log message.
         composeTestRule.onNodeWithText("rolled", substring = true, ignoreCase = true).assertIsDisplayed()
     }
 

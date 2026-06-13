@@ -58,6 +58,7 @@ class FakeGameService : GameService {
     var createGameCalls = 0
     var startGameCalled = false
     var rollDiceCalled = false
+    var rollDiceCalls = 0
     var endTurnCalled = false
     var requestStateCalled = false
     var subscribeToLobbyCalled = false
@@ -122,6 +123,7 @@ class FakeGameService : GameService {
 
     override fun rollDice(isCheating: Boolean) {
         rollDiceCalled = true
+        rollDiceCalls++
     }
 
     override fun endTurn() {
@@ -308,10 +310,12 @@ class FakeGameService : GameService {
 
 
     var reportCheaterCalled = false
+    var reportCheaterCalls = 0
     var lastReportedPlayerId = ""
 
     override fun reportCheater(reportedPlayerId: String) {
         reportCheaterCalled = true
+        reportCheaterCalls++
         lastReportedPlayerId = reportedPlayerId
     }
 

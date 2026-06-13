@@ -7,8 +7,11 @@ import androidx.lifecycle.viewModelScope
 import at.aau.monopoly.klagenfurt.messaging.GameEvent
 import at.aau.monopoly.klagenfurt.model.DiceRoll
 import at.aau.monopoly.klagenfurt.model.GameState
+import at.aau.monopoly.klagenfurt.model.PendingPayment
 import at.aau.monopoly.klagenfurt.model.Player
+import at.aau.monopoly.klagenfurt.model.PaymentSource
 import at.aau.monopoly.klagenfurt.model.card.Card
+import at.aau.monopoly.klagenfurt.model.enums.CardAction
 import at.aau.monopoly.klagenfurt.model.enums.GamePhase
 import at.aau.monopoly.klagenfurt.model.field.ChanceField
 import at.aau.monopoly.klagenfurt.model.field.CommunityChestField
@@ -20,6 +23,8 @@ import at.aau.monopoly.klagenfurt.model.field.UtilityField
 import at.aau.monopoly.klagenfurt.networking.GameService
 import at.aau.monopoly.klagenfurt.networking.JacksonProvider
 import at.aau.monopoly.klagenfurt.ui.board.MovementAnimationState
+import at.aau.monopoly.klagenfurt.ui.board.computeBackwardMovementPath
+import at.aau.monopoly.klagenfurt.ui.board.computeDirectMovementPath
 import at.aau.monopoly.klagenfurt.ui.board.computeMovementPath
 import at.aau.monopoly.klagenfurt.ui.util.ownerIdFromField
 import at.aau.monopoly.klagenfurt.ui.util.toManageableProperty
@@ -58,6 +63,94 @@ class GameViewModel(
     internal data class LogAccumulator(
         val gameId: String,
         val entries: List<LogEntry>
+    )
+
+    enum class TurnPresentationPhase {
+        IDLE,
+        WAITING_FOR_ROLL_INPUT,
+        ROLLING_DICE,
+        SHOWING_DICE_RESULT,
+        MOVING_TOKEN,
+        REVEALING_LANDING_EFFECT,
+        READY_FOR_ACTION
+    }
+
+    sealed class PresentationTask {
+        data class ShowDice(val sequenceId: Long, val roll: DiceRoll) : PresentationTask()
+        data class MoveToken(
+            val sequenceId: Long,
+            val playerId: String,
+            val path: List<Int>
+        ) : PresentationTask()
+
+        data class RevealLanding(val sequenceId: Long, val event: GameEvent?) : PresentationTask()
+        data class RevealLog(val sequenceId: Long, val entries: List<LogEntry>) : PresentationTask()
+        data class SyncSnapshot(val sequenceId: Long) : PresentationTask()
+    }
+
+    data class ActiveDicePresentation(
+        val sequenceId: Long,
+        val diceRoll: DiceRoll? = null,
+        val isRolling: Boolean = false
+    )
+
+    data class VisiblePaymentState(
+        val pendingPayment: PendingPayment,
+        val amount: Int = pendingPayment.amount,
+        val source: PaymentSource = pendingPayment.source,
+        val sourceFieldId: Int? = pendingPayment.sourceFieldId,
+        val creditorPlayerId: String? = pendingPayment.creditorPlayerId
+    )
+
+    data class VisibleBankruptcyState(
+        val playerId: String,
+        val playerName: String,
+        val totalAssets: Int,
+        val totalDebt: Int,
+        val propertiesOwned: List<ManageableProperty>
+    )
+
+    data class ActionGates(
+        val canRollDice: Boolean = false,
+        val canActivateCheat: Boolean = false,
+        val canEndTurn: Boolean = false,
+        val canBuyProperty: Boolean = false,
+        val canDrawCard: Boolean = false,
+        val canDrawChance: Boolean = false,
+        val canDrawCommunityChest: Boolean = false,
+        val canExecuteCard: Boolean = false,
+        val canPayRent: Boolean = false,
+        val canPayTax: Boolean = false,
+        val canUseJailAction: Boolean = false,
+        val canManageProperties: Boolean = false,
+        val canDeclareBankruptcy: Boolean = false,
+        val canConfirmDeclareBankruptcy: Boolean = false,
+        val canTrade: Boolean = false,
+        val canReportCheater: Boolean = false
+    )
+
+    private data class ActionGateBase(
+        val state: GameState?,
+        val phase: TurnPresentationPhase,
+        val visiblePayment: VisiblePaymentState?,
+        val visibleActionCard: Card?,
+        val visibleBankruptcy: VisibleBankruptcyState?,
+        val visibleCurrentField: Field?
+    )
+
+    private data class ActionGateLocks(
+        val paymentInFlight: Boolean,
+        val propertyInFlight: Boolean,
+        val bankruptcyConfirm: Boolean,
+        val buildingPending: Boolean,
+        val reportCheaterInFlight: Boolean
+    )
+
+    private data class PresentationPath(
+        val playerId: String,
+        val startPosition: Int,
+        val path: List<Int>,
+        val hardSyncOnly: Boolean = false
     )
 
     private val objectMapper = JacksonProvider.objectMapper
@@ -117,8 +210,12 @@ class GameViewModel(
     private val _propertyActionInFlight = MutableStateFlow(false)
     val propertyActionInFlight: StateFlow<Boolean> = _propertyActionInFlight.asStateFlow()
 
+    private val _reportCheaterInFlight = MutableStateFlow(false)
+    val reportCheaterInFlight: StateFlow<Boolean> = _reportCheaterInFlight.asStateFlow()
+
     private var paymentActionToken: Long = 0
     private var propertyActionToken: Long = 0
+    private var reportCheaterActionToken: Long = 0
 
     private fun startPaymentAction() {
         val token = ++paymentActionToken
@@ -151,8 +248,23 @@ class GameViewModel(
         _propertyActionInFlight.value = false
     }
 
+    private fun startReportCheaterAction() {
+        val token = ++reportCheaterActionToken
+        _reportCheaterInFlight.value = true
+        viewModelScope.launch {
+            delay(ACTION_TIMEOUT_MS)
+            if (reportCheaterActionToken == token) {
+                _reportCheaterInFlight.value = false
+            }
+        }
+    }
+
+    private fun finishReportCheaterAction() {
+        _reportCheaterInFlight.value = false
+    }
+
     private val _currentActionCard = MutableStateFlow<Card?>(null)
-    val currentActionCard: StateFlow<Card?> = _currentActionCard.asStateFlow()
+    val currentActionCard: StateFlow<Card?> get() = _visibleActionCard.asStateFlow()
 
     private val _isExecutingAction = MutableStateFlow(false)
     val isExecutingAction: StateFlow<Boolean> = _isExecutingAction.asStateFlow()
@@ -163,8 +275,31 @@ class GameViewModel(
     private val _selectedPlayerForTrade = MutableStateFlow<Player?>(null)
     val selectedPlayerForTrade: StateFlow<Player?> = _selectedPlayerForTrade.asStateFlow()
 
-    private val _pendingDoubleAutoEnd = MutableStateFlow(false)
-    val pendingDoubleAutoEnd: StateFlow<Boolean> = _pendingDoubleAutoEnd.asStateFlow()
+
+
+    private val _presentationPhase = MutableStateFlow(TurnPresentationPhase.IDLE)
+    val presentationPhase: StateFlow<TurnPresentationPhase> = _presentationPhase.asStateFlow()
+
+    private val _presentedBoardPlayers = MutableStateFlow<List<Player>>(emptyList())
+    val presentedBoardPlayers: StateFlow<List<Player>> = _presentedBoardPlayers.asStateFlow()
+
+    private val _presentedEventLog = MutableStateFlow<List<LogEntry>>(emptyList())
+    val presentedEventLog: StateFlow<List<LogEntry>> = _presentedEventLog.asStateFlow()
+
+    private val _visibleCurrentField = MutableStateFlow<Field?>(null)
+    val visibleCurrentField: StateFlow<Field?> = _visibleCurrentField.asStateFlow()
+
+    private val _visibleActionCard = MutableStateFlow<Card?>(null)
+    val visibleActionCard: StateFlow<Card?> = _visibleActionCard.asStateFlow()
+
+    private val _visiblePaymentState = MutableStateFlow<VisiblePaymentState?>(null)
+    val visiblePaymentState: StateFlow<VisiblePaymentState?> = _visiblePaymentState.asStateFlow()
+
+    private val _visibleBankruptcyState = MutableStateFlow<VisibleBankruptcyState?>(null)
+    val visibleBankruptcyState: StateFlow<VisibleBankruptcyState?> = _visibleBankruptcyState.asStateFlow()
+
+    private val _activeDicePresentation = MutableStateFlow<ActiveDicePresentation?>(null)
+    val activeDicePresentation: StateFlow<ActiveDicePresentation?> = _activeDicePresentation.asStateFlow()
 
     private val _showGameOverOverlay = MutableStateFlow(false)
     val showGameOverOverlay: StateFlow<Boolean> = _showGameOverOverlay.asStateFlow()
@@ -179,198 +314,6 @@ class GameViewModel(
 
     private var rollRequestInFlight = false
     private var rollActionToken: Long = 0
-
-    init {
-        gameEventFlow
-            .onEach { event ->
-                if (
-                    event.event == "GAME_CREATED" &&
-                    event.gameId.isNotBlank() &&
-                    gameService.currentGameId.isBlank()
-                ) {
-                    gameService.setGameId(event.gameId)
-                }
-
-                if (event.event == "CHEATER_REPORTED" || event.event == "CHEATER_REPORT_FAILED") {
-                    event.message?.let { msg -> _dramaEvent.emit(msg) }
-                }
-
-                val oldState = previousGameState
-                event.gameState?.let { previousGameState = it }
-
-                if (event.event == "DICE_ROLLED") {
-                    rollRequestInFlight = false
-
-                    val newState = event.gameState ?: return@onEach
-
-                    if (oldState != null) {
-                        val currentPlayerId = newState.currentPlayer?.id ?: return@onEach
-                        val prevPlayer =
-                            oldState.players.find { it.id == currentPlayerId } ?: return@onEach
-                        val newPlayer =
-                            newState.players.find { it.id == currentPlayerId } ?: return@onEach
-
-                        if (prevPlayer.position != newPlayer.position) {
-                            val diceTotal = newState.lastDiceRoll?.total
-                                ?: ((newPlayer.position - prevPlayer.position + newState.fields.size) % newState.fields.size)
-                            val path = computeMovementPath(
-                                prevPlayer.position,
-                                diceTotal,
-                                newState.fields.size
-                            )
-
-                            animationJob?.cancel()
-                            animationJob = viewModelScope.launch {
-                                _movementAnimation.value = MovementAnimationState(
-                                    playerId = currentPlayerId,
-                                    startPosition = prevPlayer.position,
-                                    path = path,
-                                    currentStepIndex = -1,
-                                    isComplete = false
-                                )
-                                path.forEachIndexed { stepIdx, _ ->
-                                    delay(250)
-                                    _movementAnimation.value = _movementAnimation.value?.copy(
-                                        currentStepIndex = stepIdx
-                                    )
-                                }
-                                _movementAnimation.value = _movementAnimation.value?.copy(
-                                    currentStepIndex = path.size,
-                                    isComplete = true
-                                )
-                            }
-                        }
-                    }
-                }
-
-                if (event.event == "ACTION_DRAWN" && event.gameState?.currentActionCard != null) {
-                    _currentActionCard.value = event.gameState.currentActionCard
-                    lastCurrentPlayerIdForCardDraw = event.gameState.currentPlayer?.id
-                }
-
-                if (event.event == "ACTION_EXECUTED") {
-                    _currentActionCard.value = null
-                    _isExecutingAction.value = false
-                }
-
-                if (
-                    event.event == "HOUSE_BOUGHT" ||
-                    event.event == "HOTEL_BOUGHT" ||
-                    event.event == "HOUSE_SOLD" ||
-                    event.event == "HOTEL_SOLD" ||
-                    event.event == "ERROR"
-                ) {
-                    _buildingActionPending.value = false
-                }
-
-                if (event.event == "TURN_ENDED") {
-                    rollRequestInFlight = false
-                    _buildingActionPending.value = false
-                    _pendingDoubleAutoEnd.value = false
-                    lastCurrentPlayerIdForCardDraw = null
-                }
-
-                if (event.event == "DICE_ROLLED") {
-                    val state = event.gameState
-                    val diceRoll = state?.lastDiceRoll
-                    if (diceRoll != null && diceRoll.isDouble &&
-                        state.currentPlayer?.id == gameService.currentPlayerId
-                    ) {
-                        _pendingDoubleAutoEnd.value = true
-                    }
-                }
-
-                if (event.event == "ERROR") {
-                    rollRequestInFlight = false
-                    showTransientError(event.message ?: "An unknown error occurred")
-                    finishPaymentAction()
-                    finishPropertyAction()
-                }
-
-                if (event.event == "GAME_STARTED") {
-                    _showPayRentOverlay.value = false
-                    _showMortgageOverlay.value = false
-                    _showBankruptcyOverlay.value = false
-                    _currentRentAmount.value = 0
-                    _currentRentOwnerId.value = null
-                    _currentRentFieldId.value = null
-                    _bankruptcyPlayerName.value = ""
-                    _bankruptcyTotalAssets.value = 0
-                    _bankruptcyTotalDebt.value = 0
-                    _bankruptcyPropertiesOwned.value = emptyList()
-                    _showGameOverOverlay.value = false
-                    _hostEndedGame.value = false
-                }
-
-                if (event.event == "RENT_PAID" || event.event == "TAX_PAID") {
-                    finishPaymentAction()
-                    _showPayRentOverlay.value = false
-                }
-
-                if (event.event == "PAYMENT_FAILED") {
-                    showTransientError(event.message ?: "Payment failed")
-                    finishPaymentAction()
-                }
-
-                if (event.event == "BANKRUPTCY_DECLARED") {
-                    val gs = event.gameState
-                    _bankruptcyPlayerId.value = gs?.bankruptcyPlayerId ?: ""
-                    _bankruptcyPlayerName.value = gs?.players?.find { it.id == gs.bankruptcyPlayerId }?.name ?: ""
-                    _bankruptcyTotalAssets.value = gs?.bankruptcyTotalAssets ?: 0
-                    _bankruptcyTotalDebt.value = gs?.bankruptcyTotalDebt ?: 0
-                    _bankruptcyPropertiesOwned.value = gs?.let { state ->
-                        val allFields = state.fields
-                        allFields
-                            .filter { it.id in state.bankruptcyOwnedFieldIds }
-                            .filter { it is PropertyField || it is RailroadField || it is UtilityField }
-                            .map { field -> field.toManageableProperty(allFields) }
-                    } ?: emptyList()
-                    _showBankruptcyOverlay.value = true
-                    finishPaymentAction()
-                }
-
-                if (event.event == "PROPERTY_MORTGAGED") {
-                    Log.i("GameViewModel", "Property mortgaged - refreshing state")
-                    finishPropertyAction()
-                }
-
-                if (event.event == "PROPERTY_UNMORTGAGED") {
-                    Log.i("GameViewModel", "Property unmortgaged - refreshing state")
-                    finishPropertyAction()
-                }
-
-                if (event.event == "TRADE_COMPLETED" || event.event == "TRADE_REJECTED") {
-                    _selectedPlayerForTrade.value = null
-                }
-
-                if (event.event == "HOUSE_BOUGHT" || event.event == "HOTEL_BOUGHT" ||
-                    event.event == "HOUSE_SOLD" || event.event == "HOTEL_SOLD") {
-                    Log.i("GameViewModel", "Building action completed - refreshing state")
-                    finishPropertyAction()
-                }
-
-                if (event.event == "GAME_OVER" || event.gameState?.phase == GamePhase.FINISHED) {
-                    _showGameOverOverlay.value = true
-                    _hostEndedGame.value = false
-                    _showPayRentOverlay.value = false
-                    _showMortgageOverlay.value = false
-                    _showBankruptcyOverlay.value = false
-                    finishPaymentAction()
-                    finishPropertyAction()
-                }
-
-                if (event.event == "GAME_CLOSED") {
-                    _hostEndedGame.value = true
-                    _showGameOverOverlay.value = false
-                    _showPayRentOverlay.value = false
-                    _showMortgageOverlay.value = false
-                    _showBankruptcyOverlay.value = false
-                    finishPaymentAction()
-                    finishPropertyAction()
-                }
-            }
-            .launchIn(viewModelScope)
-    }
 
     val gameState: StateFlow<GameState?> = gameEventFlow
         .runningFold<GameEvent, GameState?>(null) { lastState, event ->
@@ -501,16 +444,74 @@ class GameViewModel(
     private val _showBankruptcyConfirmation = MutableStateFlow(false)
     val showBankruptcyConfirmation: StateFlow<Boolean> = _showBankruptcyConfirmation.asStateFlow()
 
+    private val actionGateVisuals: StateFlow<ActionGateBase> = combine(
+        _presentationPhase,
+        _visiblePaymentState,
+        _visibleActionCard,
+        _visibleBankruptcyState,
+        _visibleCurrentField
+    ) { phase, payment, actionCard, bankruptcy, visibleField ->
+        ActionGateBase(
+            state = null,
+            phase = phase,
+            visiblePayment = payment,
+            visibleActionCard = actionCard,
+            visibleBankruptcy = bankruptcy,
+            visibleCurrentField = visibleField
+        )
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.Eagerly,
+        initialValue = ActionGateBase(null, TurnPresentationPhase.IDLE, null, null, null, null)
+    )
+
+    private val actionGateBase: StateFlow<ActionGateBase> = combine(
+        gameState,
+        actionGateVisuals
+    ) { state, visuals ->
+        visuals.copy(state = state)
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.Eagerly,
+        initialValue = ActionGateBase(null, TurnPresentationPhase.IDLE, null, null, null, null)
+    )
+
+    private val actionGateLocks: StateFlow<ActionGateLocks> = combine(
+        _paymentActionInFlight,
+        _propertyActionInFlight,
+        _showBankruptcyConfirmation,
+        _buildingActionPending,
+        _reportCheaterInFlight
+    ) { paymentInFlight, propertyInFlight, bankruptcyConfirm, buildingPending, reportCheaterInFlight ->
+        ActionGateLocks(
+            paymentInFlight = paymentInFlight,
+            propertyInFlight = propertyInFlight,
+            bankruptcyConfirm = bankruptcyConfirm,
+            buildingPending = buildingPending,
+            reportCheaterInFlight = reportCheaterInFlight
+        )
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.Eagerly,
+        initialValue = ActionGateLocks(false, false, false, false, false)
+    )
+
+    val actionGates: StateFlow<ActionGates> = combine(
+        actionGateBase,
+        actionGateLocks
+    ) { base, locks ->
+        buildActionGates(
+            base = base,
+            locks = locks
+        )
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.Eagerly,
+        initialValue = ActionGates()
+    )
+
     val canEndTurnForCurrentPlayer: StateFlow<Boolean> =
-        combine(gameState, _showPayRentOverlay, _showBankruptcyOverlay, _showBankruptcyConfirmation, _hasPendingPayment) { state, payOverlay, bankruptcyOverlay, bankruptcyConfirm, hasPending ->
-            (state?.phase == GamePhase.BUYING ||
-                    state?.phase == GamePhase.TURN_END) &&
-                    state?.currentPlayer?.id == gameService.currentPlayerId &&
-                    !payOverlay &&
-                    !bankruptcyOverlay &&
-                    !bankruptcyConfirm &&
-                    !hasPending
-        }
+        actionGates.map { it.canEndTurn }
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
     val diceResultForCurrentPlayer: StateFlow<DiceRoll?> = gameState
@@ -536,7 +537,7 @@ class GameViewModel(
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
-    val showActionCardOverlay: StateFlow<Boolean> = currentActionCard
+    val showActionCardOverlay: StateFlow<Boolean> = visibleActionCard
         .map { card ->
             val isCurrentPlayer =
                 gameState.value?.currentPlayer?.id == gameService.currentPlayerId
@@ -567,14 +568,8 @@ class GameViewModel(
             .launchIn(viewModelScope)
     }
 
-    val canPayRent: StateFlow<Boolean> = combine(
-        gameState, _currentRentAmount
-    ) { state, rentAmount ->
-        val amount = rentAmount
-        val player = state?.players?.find { it.id == gameService.currentPlayerId }
-        if (player == null || amount <= 0) false
-        else player.money >= amount
-    }
+    val canPayRent: StateFlow<Boolean> = actionGates
+        .map { it.canPayRent || it.canPayTax }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
     val canRaiseFunds: StateFlow<Boolean> = gameState
@@ -633,8 +628,17 @@ class GameViewModel(
 
     fun startGame() = gameService.startGame()
 
+private fun guardAction(actionName: String, canRun: Boolean): Boolean {
+        if (gameState.value == null) return true
+        if (!canRun) {
+            Log.d("GameViewModel", "$actionName ignored by action gate")
+            return false
+        }
+        return true
+    }
+
     fun activateCheatForNextRoll() {
-        if (rollRequestInFlight || !isRollingPhaseForCurrentPlayer.value) {
+        if (!guardAction("activateCheatForNextRoll", actionGates.value.canActivateCheat)) {
             Log.d("DiceDebug", "Cheat ignored: Player already Rolling Dice.")
             return
         }
@@ -644,8 +648,16 @@ class GameViewModel(
     }
 
     fun rollDice() {
+        if (!guardAction("rollDice", actionGates.value.canRollDice)) return
         if (rollRequestInFlight) return
         rollRequestInFlight = true
+        val sequenceId = nextPresentationSequenceId()
+        _presentationPhase.value = TurnPresentationPhase.ROLLING_DICE
+        _activeDicePresentation.value = ActiveDicePresentation(
+            sequenceId = sequenceId,
+            diceRoll = null,
+            isRolling = true
+        )
 
         val token = ++rollActionToken
 
@@ -660,20 +672,38 @@ class GameViewModel(
         isCheatActive = false
     }
 
-    fun endTurn() = gameService.endTurn()
-
-    fun consumeDoubleAutoEnd() {
-        if (!_pendingDoubleAutoEnd.value) return
-        if (_pendingDoubleAutoEnd.compareAndSet(expect = true, update = false)) {
-            gameService.endTurn()
+    fun onDiceResultDisplayed(sequenceId: Long) {
+        if (sequenceId != presentationSequenceId) {
+            Log.d("GameViewModel", "Ignoring stale dice result callback for sequence=$sequenceId")
         }
     }
 
-    fun payJailFine() = gameService.payJailFine()
-    fun useJailCard() = gameService.useJailCard()
+    fun onDiceDismissed(sequenceId: Long) {
+        if (sequenceId != presentationSequenceId) {
+            Log.d("GameViewModel", "Ignoring stale dice dismiss callback for sequence=$sequenceId")
+        }
+    }
+
+    fun endTurn() {
+        if (!guardAction("endTurn", actionGates.value.canEndTurn)) return
+        gameService.endTurn()
+    }
+
+
+
+    fun payJailFine() {
+        if (!guardAction("payJailFine", actionGates.value.canUseJailAction)) return
+        gameService.payJailFine()
+    }
+
+    fun useJailCard() {
+        if (!guardAction("useJailCard", actionGates.value.canUseJailAction)) return
+        gameService.useJailCard()
+    }
 
     fun payRent() {
         Log.d("GameViewModel", "payRent() called, inFlight=${_paymentActionInFlight.value}, fieldId=${currentRentFieldId.value}, money=${(gameState.value?.players?.find { it.id == gameService.currentPlayerId }?.money)}")
+        if (!guardAction("payRent", actionGates.value.canPayRent)) return
         if (_paymentActionInFlight.value) return
         val fieldId = currentRentFieldId.value
         val diceTotal = _lastDiceTotalForRent.value
@@ -687,6 +717,7 @@ class GameViewModel(
             "payTax() called, inFlight=${_paymentActionInFlight.value}, fieldId=${currentRentFieldId.value}"
         )
 
+        if (!guardAction("payTax", actionGates.value.canPayTax)) return
         if (_paymentActionInFlight.value) return
 
         val fieldId = currentRentFieldId.value ?: return
@@ -697,18 +728,21 @@ class GameViewModel(
     }
 
     fun mortgageProperty(fieldId: Int) {
+        if (!guardAction("mortgageProperty", actionGates.value.canManageProperties)) return
         if (_propertyActionInFlight.value) return
         startPropertyAction()
         gameService.mortgageProperty(fieldId)
     }
 
     fun unmortgageProperty(fieldId: Int) {
+        if (!guardAction("unmortgageProperty", actionGates.value.canManageProperties)) return
         if (_propertyActionInFlight.value) return
         startPropertyAction()
         gameService.unmortgageProperty(fieldId)
     }
 
     fun sellHouse(fieldId: Int) {
+        if (!guardAction("sellHouse", actionGates.value.canManageProperties)) return
         if (_propertyActionInFlight.value || _buildingActionPending.value) return
         startPropertyAction()
         _buildingActionPending.value = true
@@ -716,12 +750,14 @@ class GameViewModel(
     }
 
     fun declareBankruptcy() {
+        if (!guardAction("declareBankruptcy", actionGates.value.canDeclareBankruptcy)) return
         if (_paymentActionInFlight.value || _showBankruptcyConfirmation.value) return
         _showPayRentOverlay.value = false
         _showBankruptcyConfirmation.value = true
     }
 
     fun confirmDeclareBankruptcy() {
+        if (!guardAction("confirmDeclareBankruptcy", actionGates.value.canConfirmDeclareBankruptcy)) return
         if (_paymentActionInFlight.value) return
         _showBankruptcyConfirmation.value = false
         startPaymentAction()
@@ -746,6 +782,7 @@ class GameViewModel(
         ownerId: String?,
         fieldId: Int?
     ) {
+        if (!guardAction("showPayRentOverlay", _visiblePaymentState.value != null)) return
         _currentRentAmount.value = amount
         _currentRentOwnerId.value = ownerId
         _currentRentFieldId.value = fieldId
@@ -783,14 +820,18 @@ class GameViewModel(
     fun setGameId(gameId: String) = gameService.setGameId(gameId)
 
     fun reportCheater(reportedPlayerId: String) {
+        if (!guardAction("reportCheater", actionGates.value.canReportCheater)) return
+        if (_reportCheaterInFlight.value) return
+        startReportCheaterAction()
         gameService.reportCheater(reportedPlayerId)
     }
 
-    private fun updatePendingPaymentState(state: GameState?) {
+    private fun updatePendingPaymentState(state: GameState?, reveal: Boolean = false) {
         if (state == null) {
             Log.d("GameViewModel", "updatePendingPaymentState: state=null, clearing fieldId")
             _hasPendingPayment.value = false
             _showPayRentOverlay.value = false
+            _visiblePaymentState.value = null
             _currentRentAmount.value = 0
             _currentRentOwnerId.value = null
             _currentRentFieldId.value = null
@@ -808,6 +849,7 @@ class GameViewModel(
             Log.d("GameViewModel", "updatePendingPaymentState: pending null/empty, clearing fieldId. pendingKey=$pendingKey")
             _hasPendingPayment.value = false
             _showPayRentOverlay.value = false
+            _visiblePaymentState.value = null
             _currentRentAmount.value = 0
             _currentRentOwnerId.value = null
             _currentRentFieldId.value = null
@@ -825,8 +867,12 @@ class GameViewModel(
 
         _lastDiceTotalForRent.value = state.lastDiceRoll?.total ?: 0
 
-        if (pendingKey != lastPendingPaymentKey) {
-            Log.d("GameViewModel", "updatePendingPaymentState: new pendingKey=$pendingKey, showing overlay")
+        if (reveal) {
+            _visiblePaymentState.value = VisiblePaymentState(pending)
+        }
+
+        if (reveal && pendingKey != lastPendingPaymentKey) {
+            Log.d("GameViewModel", "updatePendingPaymentState: new pendingKey=$pendingKey, revealing overlay")
             _showPayRentOverlay.value = true
             lastPendingPaymentKey = pendingKey
         }
@@ -837,6 +883,15 @@ class GameViewModel(
 
     private var previousGameState: GameState? = null
     private var animationJob: Job? = null
+    private var presentationJob: Job? = null
+    private var presentationSequenceId: Long = 0L
+    private val bufferedPresentedLogs = mutableListOf<LogEntry>()
+
+    init {
+        gameEventFlow
+            .onEach { event -> handleIncomingGameEvent(event) }
+            .launchIn(viewModelScope)
+    }
 
     val winner: StateFlow<Player?> = gameState
         .map { state ->
@@ -845,10 +900,19 @@ class GameViewModel(
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
 
 
-    fun drawCard(cardType: String = "CHANCE") =
+    fun drawCard(cardType: String = "CHANCE") {
+        val gates = actionGates.value
+        val canDraw = when (cardType) {
+            "CHANCE" -> gates.canDrawChance
+            "COMMUNITY_CHEST" -> gates.canDrawCommunityChest
+            else -> gates.canDrawCard
+        }
+        if (!guardAction("drawCard", canDraw)) return
         gameService.drawCard(cardType)
+    }
 
     fun executeAction() {
+        if (!guardAction("executeAction", actionGates.value.canExecuteCard)) return
         _isExecutingAction.value = true
         Log.d("ActionCard", "Executing action for player: $currentPlayerId")
         gameService.executeAction(currentPlayerId)
@@ -857,10 +921,11 @@ class GameViewModel(
     fun setCurrentActionCard(card: Card?) {
         Log.d("ActionCard", "Setting current action card: ${card?.description}")
         _currentActionCard.value = card
+        _visibleActionCard.value = card
     }
 
     fun dismissActionCard() {
-        _currentActionCard.value = null
+        _visibleActionCard.value = null
     }
 
     fun showPlayerOverlay(player: Player) {
@@ -889,6 +954,7 @@ class GameViewModel(
         offerJailCards: Int,
         requestJailCards: Int
     ) {
+        if (!guardAction("proposeTrade", actionGates.value.canTrade)) return
         gameService.proposeTrade(
             toPlayerId = toPlayerId,
             offerMoney = offerMoney,
@@ -900,9 +966,15 @@ class GameViewModel(
         )
     }
 
-    fun acceptTrade(tradeId: String) = gameService.acceptTrade(tradeId)
+    fun acceptTrade(tradeId: String) {
+        if (!guardAction("acceptTrade", actionGates.value.canTrade || gameState.value?.pendingTradeOffer != null)) return
+        gameService.acceptTrade(tradeId)
+    }
 
-    fun rejectTrade(tradeId: String) = gameService.rejectTrade(tradeId)
+    fun rejectTrade(tradeId: String) {
+        if (!guardAction("rejectTrade", actionGates.value.canTrade || gameState.value?.pendingTradeOffer != null)) return
+        gameService.rejectTrade(tradeId)
+    }
 
     fun syncGameboardEntryState() {
         val currentGameId = gameService.currentGameId
@@ -911,6 +983,796 @@ class GameViewModel(
 
         gameService.requestState()
     }
+
+    private fun buildActionGates(
+        base: ActionGateBase,
+        locks: ActionGateLocks
+    ): ActionGates {
+        val state = base.state ?: return ActionGates()
+        val currentPlayer = state.currentPlayer
+        val localPlayer = state.players.find { it.id == gameService.currentPlayerId }
+        val isCurrentPlayer = currentPlayer?.id == gameService.currentPlayerId
+        val gameStarted = state.phase != GamePhase.WAITING && state.phase != GamePhase.FINISHED
+        val localPlayerActive = localPlayer != null && !localPlayer.eliminated && gameStarted
+        val presentationReady = base.phase == TurnPresentationPhase.READY_FOR_ACTION ||
+                base.phase == TurnPresentationPhase.IDLE
+        val rollInputReady = base.phase == TurnPresentationPhase.WAITING_FOR_ROLL_INPUT
+        val payment = base.visiblePayment
+        val hasVisibleBlockingOverlay =
+            payment != null ||
+                    base.visibleActionCard != null ||
+                    base.visibleBankruptcy != null ||
+                    locks.bankruptcyConfirm
+        val currentField = base.visibleCurrentField
+        val isBuyableField = currentField is OwnableField
+        val isUnownedField = (currentField as? OwnableField)?.ownerId == null
+        val isOnChance = currentField is ChanceField
+        val isOnCommunityChest = currentField is CommunityChestField
+        val canRoll = state.phase == GamePhase.ROLLING &&
+                isCurrentPlayer &&
+                rollInputReady &&
+                !rollRequestInFlight
+        val doubleRollPending = state.lastDiceRoll?.isDouble == true &&
+                isCurrentPlayer &&
+                (state.phase == GamePhase.BUYING || state.phase == GamePhase.TURN_END)
+        val canRollAgainAfterDouble = doubleRollPending &&
+                presentationReady &&
+                !hasVisibleBlockingOverlay &&
+                state.pendingPayment == null &&
+                !rollRequestInFlight
+        val canRollDice = canRoll || canRollAgainAfterDouble
+        val canUseJailAction = canRoll &&
+                currentPlayer?.inJail == true &&
+                !locks.paymentInFlight
+        val canEndTurn = (state.phase == GamePhase.BUYING || state.phase == GamePhase.TURN_END) &&
+                isCurrentPlayer &&
+                presentationReady &&
+                !hasVisibleBlockingOverlay &&
+                state.pendingPayment == null &&
+                !doubleRollPending
+        val canBuyProperty = state.phase == GamePhase.BUYING &&
+                isCurrentPlayer &&
+                presentationReady &&
+                !hasVisibleBlockingOverlay &&
+                isBuyableField &&
+                isUnownedField
+        val canDrawChance = state.phase == GamePhase.BUYING &&
+                isCurrentPlayer &&
+                presentationReady &&
+                !hasVisibleBlockingOverlay &&
+                isOnChance &&
+                !state.hasDrawnCardThisTurn
+        val canDrawCommunityChest = state.phase == GamePhase.BUYING &&
+                isCurrentPlayer &&
+                presentationReady &&
+                !hasVisibleBlockingOverlay &&
+                isOnCommunityChest &&
+                !state.hasDrawnCardThisTurn
+        val canExecuteCard = isCurrentPlayer &&
+                presentationReady &&
+                base.visibleActionCard != null &&
+                !_isExecutingAction.value
+        val canPayRent = isCurrentPlayer &&
+                presentationReady &&
+                payment?.source == PaymentSource.RENT &&
+                !locks.paymentInFlight &&
+                (localPlayer?.money ?: 0) >= payment.amount
+        val canPayTax = isCurrentPlayer &&
+                presentationReady &&
+                payment?.source == PaymentSource.TAX &&
+                !locks.paymentInFlight &&
+                (localPlayer?.money ?: 0) >= payment.amount
+        val canManageProperties = localPlayerActive &&
+                !locks.propertyInFlight &&
+                !locks.buildingPending &&
+                payment == null
+        val canDeclareBankruptcy = isCurrentPlayer &&
+                presentationReady &&
+                payment != null &&
+                !locks.paymentInFlight &&
+                !locks.bankruptcyConfirm
+        val canTrade = isCurrentPlayer &&
+                presentationReady &&
+                !hasVisibleBlockingOverlay &&
+                state.pendingTradeOffer == null
+        val canReport = localPlayerActive &&
+                presentationReady &&
+                !locks.reportCheaterInFlight &&
+                (localPlayer?.money ?: 0) > 500
+
+        return ActionGates(
+            canRollDice = canRollDice,
+            canActivateCheat = canRoll,
+            canEndTurn = canEndTurn,
+            canBuyProperty = canBuyProperty,
+            canDrawCard = canDrawChance || canDrawCommunityChest,
+            canDrawChance = canDrawChance,
+            canDrawCommunityChest = canDrawCommunityChest,
+            canExecuteCard = canExecuteCard,
+            canPayRent = canPayRent,
+            canPayTax = canPayTax,
+            canUseJailAction = canUseJailAction,
+            canManageProperties = canManageProperties,
+            canDeclareBankruptcy = canDeclareBankruptcy,
+            canConfirmDeclareBankruptcy = locks.bankruptcyConfirm && !locks.paymentInFlight,
+            canTrade = canTrade,
+            canReportCheater = canReport
+        )
+    }
+
+    private fun handleIncomingGameEvent(event: GameEvent) {
+        if (
+            event.event == "GAME_CREATED" &&
+            event.gameId.isNotBlank() &&
+            gameService.currentGameId.isBlank()
+        ) {
+            gameService.setGameId(event.gameId)
+        }
+
+        if (shouldIgnoreEvent(event)) return
+
+        if (event.event == "CHEATER_REPORTED" || event.event == "CHEATER_REPORT_FAILED") {
+            finishReportCheaterAction()
+            event.message?.let { msg ->
+                viewModelScope.launch { _dramaEvent.emit(msg) }
+            }
+        }
+
+        val oldState = previousGameState
+        event.gameState?.let { state ->
+            previousGameState = state
+            if (_presentedBoardPlayers.value.isEmpty()) {
+                _presentedBoardPlayers.value = copyPlayersForPresentation(state.players)
+            }
+        }
+
+        handleImmediateRequestState(event)
+
+        when {
+            isHardSyncEvent(event) -> {
+                hardSyncPresentation(event.gameState, event)
+                appendPresentedLog(event)
+            }
+
+            event.event == "ERROR" -> {
+                handleNonFatalError(event)
+            }
+
+            event.event == "DICE_ROLLED" -> {
+                rollRequestInFlight = false
+                startTurnPresentation(event, oldState, event.gameState, includeDice = true)
+            }
+
+            event.event == "ACTION_EXECUTED" -> {
+                _isExecutingAction.value = false
+                val card = _currentActionCard.value ?: oldState?.currentActionCard
+                _currentActionCard.value = null
+                _visibleActionCard.value = null
+                startTurnPresentation(event, oldState, event.gameState, includeDice = false, actionCard = card)
+            }
+
+            event.event == "PLAYER_JAILED" -> {
+                if (isPresentationBlocking()) {
+                    bufferPresentedLog(event)
+                } else {
+                    event.gameState?.let { hardSyncPresentation(it, event) }
+                    appendPresentedLog(event)
+                }
+            }
+
+            event.event == "ACTION_DRAWN" -> {
+                val card = event.gameState?.currentActionCard
+                if (card != null) {
+                    _currentActionCard.value = card
+                    lastCurrentPlayerIdForCardDraw = event.gameState.currentPlayer?.id
+                    if (isPresentationBlocking()) {
+                        bufferPresentedLog(event)
+                    } else {
+                        revealActionCard(card)
+                        appendPresentedLog(event)
+                    }
+                } else {
+                    appendOrBufferPresentedLog(event)
+                }
+            }
+
+            event.event in JAIL_ACTION_EVENTS -> {
+                handleJailActionEvent(event)
+            }
+
+            event.event in LANDING_REVEAL_EVENTS -> {
+                if (event.event == "BANKRUPTCY_DECLARED") {
+                    finishPaymentAction()
+                    if (!isPresentationBlocking()) {
+                        event.gameState?.let { state ->
+                            clearVisiblePayment()
+                            val gs = state
+                            _bankruptcyPlayerId.value = gs.bankruptcyPlayerId
+                            _bankruptcyPlayerName.value = gs.players.find { it.id == gs.bankruptcyPlayerId }?.name ?: ""
+                            _bankruptcyTotalAssets.value = gs.bankruptcyTotalAssets
+                            _bankruptcyTotalDebt.value = gs.bankruptcyTotalDebt
+                            _bankruptcyPropertiesOwned.value = gs.let { s ->
+                                val allFields = s.fields
+                                allFields
+                                    .filter { it.id in s.bankruptcyOwnedFieldIds }
+                                    .filter { it is PropertyField || it is RailroadField || it is UtilityField }
+                                    .map { field -> field.toManageableProperty(allFields) }
+                            } ?: emptyList()
+                            _visibleBankruptcyState.value = VisibleBankruptcyState(
+                                playerId = gs.bankruptcyPlayerId,
+                                playerName = _bankruptcyPlayerName.value,
+                                totalAssets = gs.bankruptcyTotalAssets,
+                                totalDebt = gs.bankruptcyTotalDebt,
+                                propertiesOwned = _bankruptcyPropertiesOwned.value
+                            )
+                            _showBankruptcyOverlay.value = true
+                        }
+                        appendPresentedLog(event)
+                    } else {
+                        bufferPresentedLog(event)
+                    }
+                } else if (isPresentationBlocking()) {
+                    bufferPresentedLog(event)
+                } else {
+                    revealLandingForState(event.gameState ?: previousGameState)
+                    appendPresentedLog(event)
+                }
+            }
+
+            event.event == "RENT_PAID" || event.event == "TAX_PAID" -> {
+                finishPaymentAction()
+                clearVisiblePayment()
+                appendPresentedLog(event)
+            }
+
+            event.event == "PAYMENT_FAILED" -> {
+                showTransientError(event.message ?: "Payment failed")
+                finishPaymentAction()
+                appendPresentedLog(event)
+            }
+
+            event.event == "TURN_ENDED" -> {
+                rollRequestInFlight = false
+                _buildingActionPending.value = false
+                lastCurrentPlayerIdForCardDraw = null
+                clearVisiblePayment()
+                _visibleActionCard.value = null
+                _currentActionCard.value = null
+                hardSyncPresentation(event.gameState, event, cancelJob = false)
+                appendPresentedLog(event)
+            }
+
+            event.event in PROPERTY_BUILD_TRADE_EVENTS -> {
+                if (event.event == "TRADE_COMPLETED" || event.event == "TRADE_REJECTED") {
+                    _selectedPlayerForTrade.value = null
+                }
+                if (event.event in BUILDING_EVENTS) {
+                    Log.i("GameViewModel", "Building action completed - refreshing state")
+                    finishPropertyAction()
+                } else if (event.event == "PROPERTY_MORTGAGED" || event.event == "PROPERTY_UNMORTGAGED") {
+                    Log.i("GameViewModel", "Property mortgage action completed - refreshing state")
+                    finishPropertyAction()
+                }
+
+                if (isPresentationBlocking() && event.gameState?.currentPlayer?.id == previousGameState?.currentPlayer?.id) {
+                    bufferPresentedLog(event)
+                } else {
+                    revealLandingForState(event.gameState ?: previousGameState, revealPayment = false)
+                    appendPresentedLog(event)
+                }
+            }
+
+            else -> {
+                if (event.event == "GAME_STARTED") {
+                    clearPresentationBuffers()
+                    _showGameOverOverlay.value = false
+                    _hostEndedGame.value = false
+                }
+                event.gameState?.let { state ->
+                    if (!isPresentationBlocking()) {
+                        renderRawState(state)
+                    }
+                }
+                appendOrBufferPresentedLog(event)
+            }
+        }
+    }
+
+    private fun handleJailActionEvent(event: GameEvent) {
+        if (isPresentationBlocking()) {
+            bufferPresentedLog(event)
+            return
+        }
+
+        event.gameState?.let { state ->
+            renderNonBoardStatePreservingTokens(state)
+        }
+        appendPresentedLog(event)
+    }
+
+    private fun renderNonBoardStatePreservingTokens(state: GameState) {
+        val currentPresentedPlayers = _presentedBoardPlayers.value
+        val presentedPositions = currentPresentedPlayers.associate { it.id to it.position }
+        _presentedBoardPlayers.value =
+            if (currentPresentedPlayers.isEmpty()) {
+                copyPlayersForPresentation(state.players)
+            } else {
+                state.players.map { player ->
+                    player.copy(position = presentedPositions[player.id] ?: player.position)
+                }
+            }
+
+        val currentPlayerId = state.currentPlayer?.id
+        val visiblePosition = currentPlayerId
+            ?.let { id -> _presentedBoardPlayers.value.find { it.id == id }?.position }
+            ?: state.currentPlayer?.position
+        _visibleCurrentField.value = visiblePosition?.let { position -> state.fields.getOrNull(position) }
+
+        if (state.currentActionCard == null) {
+            _currentActionCard.value = null
+            _visibleActionCard.value = null
+        } else {
+            _currentActionCard.value = state.currentActionCard
+        }
+
+        updatePendingPaymentState(state, reveal = false)
+        _presentationPhase.value = phaseFromRawState(state)
+    }
+
+    private fun handleImmediateRequestState(event: GameEvent) {
+        if (
+            event.event == "HOUSE_BOUGHT" ||
+            event.event == "HOTEL_BOUGHT" ||
+            event.event == "HOUSE_SOLD" ||
+            event.event == "HOTEL_SOLD" ||
+            event.event == "ERROR"
+        ) {
+            _buildingActionPending.value = false
+        }
+    }
+
+    private fun shouldIgnoreEvent(event: GameEvent): Boolean {
+        val eventGameId = event.gameId
+        val currentGameId = gameService.currentGameId
+        return event.event != "GAME_CREATED" &&
+                eventGameId.isNotBlank() &&
+                currentGameId.isNotBlank() &&
+                eventGameId != currentGameId
+    }
+
+    private fun isHardSyncEvent(event: GameEvent): Boolean =
+        event.event == "STATE_SNAPSHOT" ||
+                event.event == "GAME_OVER" ||
+                event.event == "GAME_CLOSED" ||
+                event.event == "TURN_TIMEOUT" ||
+                event.gameState?.phase == GamePhase.FINISHED
+
+    private fun handleNonFatalError(event: GameEvent) {
+        rollRequestInFlight = false
+        showTransientError(event.message ?: "An unknown error occurred")
+        finishPaymentAction()
+        finishPropertyAction()
+        finishReportCheaterAction()
+        if (_presentationPhase.value == TurnPresentationPhase.ROLLING_DICE) {
+            presentationJob?.cancel()
+            animationJob?.cancel()
+            _activeDicePresentation.value = null
+            _movementAnimation.value = null
+            renderRawState(previousGameState)
+        }
+        flushBufferedPresentedLogs()
+        appendPresentedLog(event)
+    }
+
+    private fun startTurnPresentation(
+        event: GameEvent,
+        oldState: GameState?,
+        newState: GameState?,
+        includeDice: Boolean,
+        actionCard: Card? = null
+    ) {
+        if (newState == null) {
+            appendPresentedLog(event)
+            return
+        }
+
+        val sequenceId = if (includeDice && _activeDicePresentation.value != null) {
+            _activeDicePresentation.value!!.sequenceId
+        } else {
+            nextPresentationSequenceId()
+        }
+
+        val movementPath = inferPresentationPath(event, oldState, newState, actionCard)
+        if (movementPath.hardSyncOnly) {
+            hardSyncPresentation(newState, event)
+            appendPresentedLog(event)
+            return
+        }
+
+        presentationJob?.cancel()
+        animationJob?.cancel()
+        presentationJob = viewModelScope.launch {
+            if (includeDice) {
+                val roll = newState.lastDiceRoll
+                if (roll != null) {
+                    _presentationPhase.value = TurnPresentationPhase.SHOWING_DICE_RESULT
+                    _activeDicePresentation.value = ActiveDicePresentation(
+                        sequenceId = sequenceId,
+                        diceRoll = roll,
+                        isRolling = false
+                    )
+                    freezePresentedPlayerAtStart(newState, movementPath)
+                    delay(DICE_RESULT_PRESENTATION_MS)
+                }
+            }
+
+            if (movementPath.path.isNotEmpty()) {
+                _presentationPhase.value = TurnPresentationPhase.MOVING_TOKEN
+                runMovementPresentation(newState, movementPath)
+            } else {
+                _movementAnimation.value = null
+            }
+
+            if (presentationSequenceId != sequenceId) return@launch
+
+            _presentedBoardPlayers.value = copyPlayersForPresentation(newState.players)
+            _visibleCurrentField.value = currentFieldForState(newState)
+            _presentationPhase.value = TurnPresentationPhase.REVEALING_LANDING_EFFECT
+            revealLandingForState(previousGameState ?: newState)
+            appendPresentedLog(event)
+            flushBufferedPresentedLogs()
+            delay(LANDING_REVEAL_PRESENTATION_MS)
+
+            if (presentationSequenceId == sequenceId) {
+                _presentationPhase.value = phaseFromRawState(previousGameState ?: newState)
+            }
+        }
+    }
+
+    private suspend fun runMovementPresentation(state: GameState, movementPath: PresentationPath) {
+        val path = movementPath.path
+        _movementAnimation.value = MovementAnimationState(
+            playerId = movementPath.playerId,
+            startPosition = movementPath.startPosition,
+            path = path,
+            currentStepIndex = -1,
+            isComplete = false
+        )
+
+        path.forEachIndexed { stepIndex, position ->
+            delay(MOVEMENT_STEP_MS)
+            _presentedBoardPlayers.value = overridePresentedPlayer(
+                state = state,
+                playerId = movementPath.playerId,
+                position = position
+            )
+            _movementAnimation.value = _movementAnimation.value?.copy(
+                currentStepIndex = stepIndex
+            )
+        }
+
+        _movementAnimation.value = _movementAnimation.value?.copy(
+            currentStepIndex = path.size,
+            isComplete = true
+        )
+    }
+
+    private fun inferPresentationPath(
+        event: GameEvent,
+        oldState: GameState?,
+        newState: GameState,
+        actionCard: Card?
+    ): PresentationPath {
+        val boardSize = newState.fields.size.takeIf { it > 0 } ?: 40
+        val playerId = newState.currentPlayer?.id
+            ?: oldState?.currentPlayer?.id
+            ?: return PresentationPath("", 0, emptyList())
+        val oldPlayer = oldState?.players?.find { it.id == playerId }
+        val newPlayer = newState.players.find { it.id == playerId }
+        if (oldPlayer == null || newPlayer == null) {
+            return PresentationPath(playerId, newPlayer?.position ?: 0, emptyList(), hardSyncOnly = true)
+        }
+
+        val becameJailed = !oldPlayer.inJail && newPlayer.inJail
+        val jailPosition = 10
+        val goToJailPosition = 30
+
+        if (becameJailed || newPlayer.position == jailPosition && newPlayer.inJail) {
+            val diceTotal = newState.lastDiceRoll?.total ?: 0
+            val diceLanding = (oldPlayer.position + diceTotal).floorMod(boardSize)
+            val path = when {
+                event.event == "DICE_ROLLED" && diceTotal > 0 && diceLanding == goToJailPosition ->
+                    computeMovementPath(oldPlayer.position, diceTotal, boardSize) + jailPosition
+                else -> listOf(jailPosition)
+            }
+            return PresentationPath(playerId, oldPlayer.position, path)
+        }
+
+        if (oldPlayer.position == newPlayer.position) {
+            return PresentationPath(playerId, oldPlayer.position, emptyList())
+        }
+
+        if (event.event == "ACTION_EXECUTED") {
+            val actionPath = when (actionCard?.action) {
+                CardAction.MOVE_FORWARD -> {
+                    val spaces = actionCard.moveSpaces
+                    when {
+                        spaces > 0 -> computeMovementPath(oldPlayer.position, spaces, boardSize)
+                        spaces < 0 -> computeBackwardMovementPath(oldPlayer.position, -spaces, boardSize)
+                        else -> emptyList()
+                    }
+                }
+                CardAction.MOVE_TO -> actionCard.targetFieldId?.let { target ->
+                    computeDirectMovementPath(oldPlayer.position, target, boardSize)
+                } ?: emptyList()
+                CardAction.GO_TO_JAIL -> listOf(jailPosition)
+                else -> computeDirectMovementPath(oldPlayer.position, newPlayer.position, boardSize)
+            }
+
+            val endsCorrectly = actionPath.lastOrNull() == newPlayer.position
+            return if (actionPath.isEmpty() || endsCorrectly) {
+                PresentationPath(playerId, oldPlayer.position, actionPath)
+            } else {
+                PresentationPath(playerId, oldPlayer.position, emptyList(), hardSyncOnly = true)
+            }
+        }
+
+        if (event.event == "DICE_ROLLED") {
+            val total = newState.lastDiceRoll?.total
+                ?: (newPlayer.position - oldPlayer.position).floorMod(boardSize)
+            val path = computeMovementPath(oldPlayer.position, total, boardSize)
+            return if (path.lastOrNull() == newPlayer.position) {
+                PresentationPath(playerId, oldPlayer.position, path)
+            } else {
+                PresentationPath(playerId, oldPlayer.position, emptyList(), hardSyncOnly = true)
+            }
+        }
+
+        return PresentationPath(
+            playerId = playerId,
+            startPosition = oldPlayer.position,
+            path = computeDirectMovementPath(oldPlayer.position, newPlayer.position, boardSize)
+        )
+    }
+
+    private fun hardSyncPresentation(
+        state: GameState?,
+        event: GameEvent? = null,
+        cancelJob: Boolean = true
+    ) {
+        if (cancelJob) {
+            presentationJob?.cancel()
+            animationJob?.cancel()
+        }
+        nextPresentationSequenceId()
+        _movementAnimation.value = null
+        clearPresentationBuffers()
+        renderRawState(state)
+        _presentationPhase.value = phaseFromRawState(state)
+        rollRequestInFlight = false
+        finishPaymentAction()
+        finishPropertyAction()
+        finishReportCheaterAction()
+
+        when {
+            event?.event == "GAME_OVER" || state?.phase == GamePhase.FINISHED -> {
+                _showGameOverOverlay.value = true
+                _hostEndedGame.value = false
+            }
+            event?.event == "GAME_CLOSED" -> {
+                _hostEndedGame.value = true
+                _showGameOverOverlay.value = false
+            }
+        }
+    }
+
+    private fun renderRawState(state: GameState?) {
+        if (state == null) {
+            _presentedBoardPlayers.value = emptyList()
+            _visibleCurrentField.value = null
+            _visibleActionCard.value = null
+            _currentActionCard.value = null
+            clearVisiblePayment()
+            _visibleBankruptcyState.value = null
+            _presentationPhase.value = TurnPresentationPhase.IDLE
+            return
+        }
+
+        _presentedBoardPlayers.value = copyPlayersForPresentation(state.players)
+        _visibleCurrentField.value = currentFieldForState(state)
+        _currentActionCard.value = state.currentActionCard
+        _visibleActionCard.value = state.currentActionCard
+        updatePendingPaymentState(state, reveal = state.pendingPayment != null)
+        if (state.phase == GamePhase.BANKRUPTCY || state.bankruptcyPlayerId.isNotBlank()) {
+            revealBankruptcyState(state)
+        } else {
+            _visibleBankruptcyState.value = null
+            _showBankruptcyOverlay.value = false
+        }
+        _presentationPhase.value = phaseFromRawState(state)
+    }
+
+    private fun revealLandingForState(state: GameState?, revealPayment: Boolean = true) {
+        if (state == null) return
+        _visibleCurrentField.value = currentFieldForState(state)
+
+        state.currentActionCard?.let { card ->
+            _currentActionCard.value = card
+            revealActionCard(card)
+        }
+
+        if (revealPayment) {
+            updatePendingPaymentState(state, reveal = state.pendingPayment != null)
+        }
+
+        if (state.phase == GamePhase.BANKRUPTCY || state.bankruptcyPlayerId.isNotBlank()) {
+            revealBankruptcyState(state)
+        }
+    }
+
+    private fun revealActionCard(card: Card) {
+        _visibleActionCard.value = card
+    }
+
+    private fun revealBankruptcyState(state: GameState) {
+        val playerId = state.bankruptcyPlayerId
+        val properties = state.fields
+            .filter { it.id in state.bankruptcyOwnedFieldIds }
+            .filter { it is PropertyField || it is RailroadField || it is UtilityField }
+            .map { field -> field.toManageableProperty(state.fields) }
+        val visible = VisibleBankruptcyState(
+            playerId = playerId,
+            playerName = state.players.find { it.id == playerId }?.name ?: "",
+            totalAssets = state.bankruptcyTotalAssets,
+            totalDebt = state.bankruptcyTotalDebt,
+            propertiesOwned = properties
+        )
+        _visibleBankruptcyState.value = visible
+        _bankruptcyPlayerId.value = visible.playerId
+        _bankruptcyPlayerName.value = visible.playerName
+        _bankruptcyTotalAssets.value = visible.totalAssets
+        _bankruptcyTotalDebt.value = visible.totalDebt
+        _bankruptcyPropertiesOwned.value = visible.propertiesOwned
+        _showBankruptcyOverlay.value = true
+    }
+
+    private fun clearVisiblePayment() {
+        _showPayRentOverlay.value = false
+        _visiblePaymentState.value = null
+    }
+
+    private fun clearPresentationBuffers() {
+        bufferedPresentedLogs.clear()
+        _activeDicePresentation.value = null
+        _visibleActionCard.value = null
+        _currentActionCard.value = null
+        clearVisiblePayment()
+        _showMortgageOverlay.value = false
+        _showBankruptcyOverlay.value = false
+        _showBankruptcyConfirmation.value = false
+        _visibleBankruptcyState.value = null
+        _currentRentAmount.value = 0
+        _currentRentOwnerId.value = null
+        _currentRentFieldId.value = null
+        _lastDiceTotalForRent.value = 0
+        lastPendingPaymentKey = null
+    }
+
+    private fun freezePresentedPlayerAtStart(state: GameState, movementPath: PresentationPath) {
+        if (movementPath.playerId.isBlank()) {
+            _presentedBoardPlayers.value = copyPlayersForPresentation(state.players)
+            return
+        }
+        _presentedBoardPlayers.value = overridePresentedPlayer(
+            state = state,
+            playerId = movementPath.playerId,
+            position = movementPath.startPosition
+        )
+    }
+
+    private fun overridePresentedPlayer(
+        state: GameState,
+        playerId: String,
+        position: Int
+    ): List<Player> =
+        state.players.map { player ->
+            if (player.id == playerId) {
+                player.copy(position = position)
+            } else {
+                player.copy()
+            }
+        }
+
+    private fun copyPlayersForPresentation(players: List<Player>): List<Player> =
+        players.map { it.copy() }
+
+    private fun currentFieldForState(state: GameState?): Field? {
+        val player = state?.currentPlayer ?: return null
+        return state.fields.getOrNull(player.position)
+    }
+
+    private fun phaseFromRawState(state: GameState?): TurnPresentationPhase {
+        if (state == null) return TurnPresentationPhase.IDLE
+        return when (state.phase) {
+            GamePhase.WAITING,
+            GamePhase.FINISHED -> TurnPresentationPhase.IDLE
+            GamePhase.ROLLING -> {
+                if (state.currentPlayer?.id == gameService.currentPlayerId) {
+                    TurnPresentationPhase.WAITING_FOR_ROLL_INPUT
+                } else {
+                    TurnPresentationPhase.READY_FOR_ACTION
+                }
+            }
+            else -> TurnPresentationPhase.READY_FOR_ACTION
+        }
+    }
+
+    private fun appendOrBufferPresentedLog(event: GameEvent) {
+        if (isPresentationBlocking() && event.event in PRESENTATION_BUFFERED_LOG_EVENTS) {
+            bufferPresentedLog(event)
+        } else {
+            appendPresentedLog(event)
+        }
+    }
+
+    private fun bufferPresentedLog(event: GameEvent) {
+        createLogEntry(event)?.let { bufferedPresentedLogs.add(it) }
+    }
+
+    private fun flushBufferedPresentedLogs() {
+        if (bufferedPresentedLogs.isEmpty()) return
+        _presentedEventLog.value = (_presentedEventLog.value + bufferedPresentedLogs)
+            .takeLast(MAX_LOG_ENTRIES)
+        bufferedPresentedLogs.clear()
+    }
+
+    private fun appendPresentedLog(event: GameEvent) {
+        createLogEntry(event)?.let { entry ->
+            val isGameSwitch =
+                event.gameId.isNotBlank() &&
+                        _presentedEventLog.value.isNotEmpty() &&
+                        event.event == "GAME_CREATED"
+            val baseEntries = if (isGameSwitch) emptyList() else _presentedEventLog.value
+            _presentedEventLog.value = (baseEntries + entry).takeLast(MAX_LOG_ENTRIES)
+        }
+    }
+
+    private fun createLogEntry(event: GameEvent): LogEntry? {
+        if (event.event == "ERROR") {
+            Log.w("GameViewModel", "Server ERROR [game=${event.gameId}]: ${event.message}")
+            return null
+        }
+
+        val isTechnical =
+            event.event == "STATE_SNAPSHOT" ||
+                    event.event == "STATE_UPDATED"
+
+        val text = event.message?.takeIf { it.isNotBlank() }
+            ?: humanReadableEvent(event.event, event.gameId)
+
+        if (text.isBlank()) return null
+
+        return LogEntry(
+            text = text,
+            eventType = event.event.ifBlank { "UNKNOWN" },
+            isTechnical = isTechnical,
+            timestampMs = currentTimeProvider()
+        )
+    }
+
+    private fun isPresentationBlocking(): Boolean =
+        _presentationPhase.value == TurnPresentationPhase.ROLLING_DICE ||
+                _presentationPhase.value == TurnPresentationPhase.SHOWING_DICE_RESULT ||
+                _presentationPhase.value == TurnPresentationPhase.MOVING_TOKEN ||
+                _presentationPhase.value == TurnPresentationPhase.REVEALING_LANDING_EFFECT
+
+    private fun nextPresentationSequenceId(): Long {
+        presentationSequenceId += 1
+        return presentationSequenceId
+    }
+
+    private fun Int.floorMod(modulus: Int): Int =
+        ((this % modulus) + modulus) % modulus
 
     private fun humanReadableEvent(eventType: String, gameId: String): String {
         eventFallbackLabels[eventType]?.let { return it }
@@ -955,6 +1817,48 @@ class GameViewModel(
         private const val MAX_LOG_ENTRIES = 80
         private const val ERROR_DISPLAY_MS = 5_000L
         private const val ACTION_TIMEOUT_MS = 5_000L
+        private const val DICE_RESULT_PRESENTATION_MS = 2_000L
+        private const val MOVEMENT_STEP_MS = 250L
+        private const val LANDING_REVEAL_PRESENTATION_MS = 500L
+        private val LANDING_REVEAL_EVENTS = setOf(
+            "RENT_DUE",
+            "TAX_DUE",
+            "FREE_PARKING_COLLECTED",
+            "BANKRUPTCY_DECLARED"
+        )
+        private val JAIL_ACTION_EVENTS = setOf(
+            "JAIL_FINE_PAID",
+            "JAIL_CARD_USED"
+        )
+        private val PRESENTATION_BUFFERED_LOG_EVENTS = setOf(
+            "DICE_ROLLED",
+            "ACTION_DRAWN",
+            "ACTION_EXECUTED",
+            "RENT_DUE",
+            "TAX_DUE",
+            "FREE_PARKING_COLLECTED",
+            "BANKRUPTCY_DECLARED",
+            "PLAYER_JAILED",
+            "JAIL_FINE_PAID",
+            "JAIL_CARD_USED"
+        )
+        private val BUILDING_EVENTS = setOf(
+            "HOUSE_BOUGHT",
+            "HOTEL_BOUGHT",
+            "HOUSE_SOLD",
+            "HOTEL_SOLD"
+        )
+        private val PROPERTY_BUILD_TRADE_EVENTS = setOf(
+            "PROPERTY_BOUGHT",
+            "PROPERTY_MORTGAGED",
+            "PROPERTY_UNMORTGAGED",
+            "HOUSE_BOUGHT",
+            "HOTEL_BOUGHT",
+            "HOUSE_SOLD",
+            "HOTEL_SOLD",
+            "TRADE_COMPLETED",
+            "TRADE_REJECTED"
+        )
         private val eventFallbackLabels = mapOf(
             "PROPERTY_BOUGHT" to "Property bought",
             "PROPERTY_MORTGAGED" to "Property mortgaged",
@@ -969,10 +1873,12 @@ class GameViewModel(
     }
 
     fun buyProperty(fieldId: Int) {
+        if (!guardAction("buyProperty", actionGates.value.canBuyProperty)) return
         gameService.buyProperty(fieldId)
     }
 
     fun buyHouse(fieldId: Int) {
+        if (!guardAction("buyHouse", actionGates.value.canManageProperties)) return
         if (_propertyActionInFlight.value || _buildingActionPending.value) return
         startPropertyAction()
         _buildingActionPending.value = true
@@ -980,6 +1886,7 @@ class GameViewModel(
     }
 
     fun buyHotel(fieldId: Int) {
+        if (!guardAction("buyHotel", actionGates.value.canManageProperties)) return
         if (_propertyActionInFlight.value || _buildingActionPending.value) return
         startPropertyAction()
         _buildingActionPending.value = true
@@ -987,6 +1894,7 @@ class GameViewModel(
     }
 
     fun sellHotel(fieldId: Int) {
+        if (!guardAction("sellHotel", actionGates.value.canManageProperties)) return
         if (_propertyActionInFlight.value || _buildingActionPending.value) return
         startPropertyAction()
         _buildingActionPending.value = true

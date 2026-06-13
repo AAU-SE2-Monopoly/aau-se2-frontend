@@ -8,7 +8,7 @@ class EnumTest {
     @Test
     fun `CardAction has all expected values`() {
         val values = CardAction.entries
-        assertEquals(8, values.size)
+        assertEquals(9, values.size)
         assertNotNull(CardAction.valueOf("COLLECT_MONEY"))
         assertNotNull(CardAction.valueOf("PAY_MONEY"))
         assertNotNull(CardAction.valueOf("MOVE_TO"))
@@ -17,6 +17,7 @@ class EnumTest {
         assertNotNull(CardAction.valueOf("GET_OUT_OF_JAIL"))
         assertNotNull(CardAction.valueOf("PAY_EACH_PLAYER"))
         assertNotNull(CardAction.valueOf("COLLECT_FROM_EACH"))
+        assertNotNull(CardAction.valueOf("PAY_PER_BUILDING"))
     }
 
     @Test

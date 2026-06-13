@@ -85,7 +85,8 @@ class GameboardIsolatedUITest {
                 fields = emptyList(),
                 players = listOf(myPlayer, otherPlayer),
                 currentPlayerId = "player1",
-                currentTurnPlayer = myPlayer
+                currentTurnPlayer = myPlayer,
+                canReportCheater = true
             )
         }
 

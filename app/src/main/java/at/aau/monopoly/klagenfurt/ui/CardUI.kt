@@ -128,6 +128,10 @@ private fun CardActionDetails(card: Card, accentColor: Color, s: CardScale) {
                 Text("Pay each", fontSize = s.sp(7f), color = Color.Gray)
                 Text("-€${card.amount}", fontWeight = FontWeight.ExtraBold, fontSize = s.sp(13f), color = Color(0xFFC62828))
             }
+            CardAction.PAY_PER_BUILDING -> {
+                Text("Per building", fontSize = s.sp(7f), color = Color.Gray)
+                Text("-€${card.amount}", fontWeight = FontWeight.ExtraBold, fontSize = s.sp(13f), color = Color(0xFFC62828))
+            }
             CardAction.MOVE_TO -> {
                 Text("Advance to", fontSize = s.sp(7f), color = Color.Gray)
                 Text("Field #${card.targetFieldId ?: "?"}", fontWeight = FontWeight.Bold, fontSize = s.sp(10f), color = accentColor)

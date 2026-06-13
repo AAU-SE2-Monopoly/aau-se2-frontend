@@ -1413,6 +1413,8 @@ class GameViewModelTest {
         advanceUntilIdle()
 
         fakeService.declareBankruptcyCalled = false
+        viewModel.declareBankruptcy()
+        advanceUntilIdle()
         viewModel.confirmDeclareBankruptcy()
         assertTrue(fakeService.declareBankruptcyCalled)
         assertFalse(viewModel.showBankruptcyConfirmation.value)
@@ -2018,9 +2020,26 @@ class GameViewModelTest {
         )
         advanceUntilIdle()
 
-        // Lock must be released
-        viewModel.rollDice()
-        assertTrue("DICE_ROLLED event must release the lock", fakeService.rollDiceCalled)
+      // Emit a ROLLING-phase event to release the lock
+      fakeService.emitTestEvent(
+          """
+          {
+            "event": "STATE_UPDATED",
+            "gameId": "g1",
+            "gameState": {
+              "gameId": "g1",
+              "fields": [],
+              "players": [{ "id": "p1", "name": "Alice" }],
+              "phase": "ROLLING"
+            }
+          }
+          """.trimIndent()
+      )
+      advanceUntilIdle()
+
+      // Lock must be released
+      viewModel.rollDice()
+      assertTrue("DICE_ROLLED event must release the lock", fakeService.rollDiceCalled)
 
         job.cancel()
     }

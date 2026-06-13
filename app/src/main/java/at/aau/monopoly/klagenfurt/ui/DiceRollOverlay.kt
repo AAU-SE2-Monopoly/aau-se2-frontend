@@ -48,7 +48,10 @@ fun DiceRollOverlay(
     diceResult: Pair<Int, Int>? = null,
     isRolling: Boolean = false,
     hasShaken: Boolean = false,
+    sequenceId: Long = 0L,
     onShakeButton: (() -> Unit)? = null,
+    onResultDisplayed: (Long) -> Unit = {},
+    onDismissed: (Long) -> Unit = {},
     onClose: () -> Unit
 ) {
     // Allow user to manually dismiss the overlay; resets when overlay reappears
@@ -106,8 +109,10 @@ fun DiceRollOverlay(
     // Auto-dismiss 2 seconds after the result is displayed
     LaunchedEffect(displayResult) {
         if (displayResult != null) {
+            onResultDisplayed(sequenceId)
             delay(2000L)
             userDismissed = true
+            onDismissed(sequenceId)
             onClose()
         }
     }
@@ -136,6 +141,7 @@ fun DiceRollOverlay(
                         .padding(top = 8.dp, end = 8.dp)
                         .clickable {
                             userDismissed = true
+                            onDismissed(sequenceId)
                             onClose()
                         }
                         .testTag("dice_close_x")

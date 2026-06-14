@@ -266,11 +266,6 @@ class GameViewModel(
                     lastCurrentPlayerIdForCardDraw = null
                 }
 
-                if (event.event == "DICE_ROLLED") {
-                    val state = event.gameState
-                    val diceRoll = state?.lastDiceRoll
-                }
-
                 if (event.event == "ERROR") {
                     rollRequestInFlight = false
                     showTransientError(event.message ?: "An unknown error occurred")

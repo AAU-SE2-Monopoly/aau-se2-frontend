@@ -107,6 +107,10 @@ import at.aau.monopoly.klagenfurt.model.enums.GamePhase
 
 import at.aau.monopoly.klagenfurt.model.PaymentSource
 
+private val GlassPanelColor = Color.Black.copy(alpha = 0.42f)
+private val GlassBorderColor = Color.White.copy(alpha = 0.28f)
+private val GlassDisabledColor = Color.Black.copy(alpha = 0.16f)
+
 class GameboardUI : ComponentActivity() {
     private val viewModel: GameViewModel by viewModels {
         GameViewModel.Factory(ServiceLocator.provideGameService())
@@ -397,15 +401,17 @@ fun GameboardScreen(
                 canReportCheater = actionGates.canReportCheater,
                 onStartTrade = { player ->
                     viewModel.showTradeOverlay(player)
-                    viewModel.proposeTrade(
-                        toPlayerId = player.id,
-                        offerMoney = 0,
-                        requestMoney = 0,
-                        offerPropertyIds = emptyList(),
-                        requestPropertyIds = emptyList(),
-                        offerJailCards = 0,
-                        requestJailCards = 0
-                    )
+                    if (gameState?.pendingTradeOffer == null) {
+                        viewModel.proposeTrade(
+                            toPlayerId = player.id,
+                            offerMoney = 0,
+                            requestMoney = 0,
+                            offerPropertyIds = emptyList(),
+                            requestPropertyIds = emptyList(),
+                            offerJailCards = 0,
+                            requestJailCards = 0
+                        )
+                    }
                 },
                 canStartTrade = actionGates.canTrade,
                 gameState = gameState,
@@ -637,7 +643,11 @@ fun GameboardScreen(
                         else -> rawPlayers.find { it.id == offer.fromPlayerId }
                     }
                 }
-            val visibleTradePlayer = selectedTradePlayer ?: publicTradePlayer
+                ?.takeUnless { it.isBankrupt() }
+            val selectedLiveTradePlayer = selectedTradePlayer
+                ?.let { selected -> rawPlayers.find { it.id == selected.id } ?: selected }
+                ?.takeUnless { it.isBankrupt() }
+            val visibleTradePlayer = selectedLiveTradePlayer ?: publicTradePlayer
             if (visibleTradePlayer != null) {
                 TradeOverlay(
                     isVisible = true,
@@ -905,6 +915,28 @@ fun GameboardContent(
                 verticalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterVertically)
             ) {
                 otherPlayers.forEach { player ->
+                    val pendingTradeOffer = gameState?.pendingTradeOffer
+                    val isCurrentLocalTurn = currentTurnPlayer?.id == currentPlayerId
+                    val myPlayerCanAct = myPlayer != null && !myPlayer.isBankrupt()
+                    val playerCanBeTargeted = !player.isBankrupt()
+                    val canReport = canReportCheater &&
+                            myPlayerCanAct &&
+                            playerCanBeTargeted &&
+                            myPlayer.money > 500
+                    val isPendingTradeParticipant =
+                        pendingTradeOffer?.fromPlayerId == player.id ||
+                                pendingTradeOffer?.toPlayerId == player.id
+                    val canStartNewTrade = pendingTradeOffer == null &&
+                            isCurrentLocalTurn &&
+                            canStartTrade &&
+                            myPlayerCanAct &&
+                            playerCanBeTargeted
+                    val canReopenTrade = pendingTradeOffer != null &&
+                            isPendingTradeParticipant &&
+                            myPlayerCanAct &&
+                            playerCanBeTargeted
+                    val tradeLabel = if (canReopenTrade) "🔁 Reopen Trade" else "🔁 Trade"
+
                     Column(horizontalAlignment = Alignment.End) {
                         PlayerInfoPanel(
                             player = player,
@@ -914,42 +946,25 @@ fun GameboardContent(
                             onCardClick = { onPlayerCardClick(player) }
                         )
 
-                        val canReport = canReportCheater && (myPlayer?.money ?: 0) > 500
-
-                        Button(
-                            onClick = { onReportCheater(player.id) },
-                            enabled = canReport,
+                        Row(
                             modifier = Modifier
-                                .padding(top = 4.dp, end = 4.dp)
-                                .height(26.dp),
-                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = Color(0xFFAA0000),
-                                contentColor = Color.White,
-                                disabledContainerColor = Color.Black.copy(alpha = 0.16f),
-                                disabledContentColor = Color.White.copy(alpha = 0.5f)
-                            ),
-                            shape = RoundedCornerShape(6.dp)
+                                .padding(top = 4.dp, end = 4.dp),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text("🚨 Report", fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                        }
+                            GlassActionButton(
+                                text = "🚨 Report",
+                                onClick = { onReportCheater(player.id) },
+                                enabled = canReport
+                            )
 
-                        Button(
-                            onClick = { onStartTrade(player) },
-                            enabled = gameState?.pendingTradeOffer == null &&
-                                    currentTurnPlayer?.id == currentPlayerId &&
-                                    canStartTrade,
-                            modifier = Modifier
-                                .padding(top = 4.dp, end = 4.dp)
-                                .height(26.dp),
-                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = Color.Black.copy(alpha = 0.35f),
-                                disabledContainerColor = Color.Black.copy(alpha = 0.16f)
-                            ),
-                            shape = RoundedCornerShape(6.dp)
-                        ) {
-                            Text("🔁", fontSize = 13.sp, color = Color.White, fontWeight = FontWeight.Bold)
+                            if (canStartNewTrade || canReopenTrade) {
+                                GlassActionButton(
+                                    text = tradeLabel,
+                                    onClick = { onStartTrade(player) },
+                                    enabled = true
+                                )
+                            }
                         }
                     }
                 }
@@ -996,12 +1011,40 @@ private fun GlassButton(
         modifier = modifier,
         enabled = enabled,
         colors = ButtonDefaults.buttonColors(
-            containerColor = Color.Black.copy(alpha = 0.35f),
-            contentColor = Color.White
+            containerColor = GlassPanelColor,
+            contentColor = Color.White,
+            disabledContainerColor = GlassDisabledColor,
+            disabledContentColor = Color.White.copy(alpha = 0.45f)
         ),
         shape = RoundedCornerShape(12.dp),
         content = content
     )
+}
+
+@Composable
+private fun GlassActionButton(
+    text: String,
+    onClick: () -> Unit,
+    enabled: Boolean,
+    modifier: Modifier = Modifier
+) {
+    Button(
+        onClick = onClick,
+        modifier = modifier
+            .height(26.dp)
+            .border(1.dp, GlassBorderColor, RoundedCornerShape(8.dp)),
+        enabled = enabled,
+        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
+        colors = ButtonDefaults.buttonColors(
+            containerColor = GlassPanelColor,
+            contentColor = Color.White,
+            disabledContainerColor = GlassDisabledColor,
+            disabledContentColor = Color.White.copy(alpha = 0.45f)
+        ),
+        shape = RoundedCornerShape(8.dp)
+    ) {
+        Text(text, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+    }
 }
 
 @Composable
@@ -1141,12 +1184,16 @@ fun TradeOverlay(
         Surface(
             modifier = Modifier
                 .fillMaxWidth(0.86f)
-                .heightIn(max = 660.dp),
-            color = Color(0xFFF8F4EA),
-            shape = RoundedCornerShape(8.dp)
+                .heightIn(max = 660.dp)
+                .offset(y = 56.dp)
+                .border(1.dp, GlassBorderColor, RoundedCornerShape(10.dp)),
+            color = Color.Black.copy(alpha = 0.62f),
+            shape = RoundedCornerShape(10.dp)
         ) {
             Column(
-                modifier = Modifier.padding(18.dp),
+                modifier = Modifier
+                    .padding(18.dp)
+                    .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 Row(
@@ -1154,12 +1201,20 @@ fun TradeOverlay(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(
-                        text = "Trade with ${tradePartner.name}",
-                        fontSize = 22.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color(0xFF1D1D1D)
-                    )
+                    Column {
+                        Text(
+                            text = "Trade with ${tradePartner.name}",
+                            fontSize = 22.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White
+                        )
+                        Text(
+                            text = "${fromPlayer.name} is trading with ${toPlayer.name}",
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = Color.White.copy(alpha = 0.78f)
+                        )
+                    }
                     Row(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                         verticalAlignment = Alignment.CenterVertically
@@ -1169,16 +1224,16 @@ fun TradeOverlay(
                             enabled = canToggleAccept,
                             shape = RoundedCornerShape(6.dp),
                             colors = ButtonDefaults.buttonColors(
-                                containerColor = if (currentPlayerAccepted) Color(0xFF2E7D32) else Color(0xFF6750A4),
+                                containerColor = if (currentPlayerAccepted) Color(0xFF2E7D32) else GlassPanelColor,
                                 contentColor = Color.White,
-                                disabledContainerColor = Color.LightGray,
-                                disabledContentColor = Color.DarkGray
+                                disabledContainerColor = GlassDisabledColor,
+                                disabledContentColor = Color.White.copy(alpha = 0.45f)
                             )
                         ) {
                             Text(if (currentPlayerAccepted) "Accepted" else "Accept")
                         }
                         TextButton(onClick = onDismiss) {
-                            Text("Close")
+                            Text("Close", color = Color.White)
                         }
                     }
                 }
@@ -1360,7 +1415,7 @@ private fun TradeProposalEditor(
     ) {
         if (initialOffer != null) {
             TextButton(onClick = { onRejectTrade(initialOffer.id) }) {
-                Text("Cancel")
+                Text("Cancel", color = Color.White)
             }
         }
         if (initialOffer == null) {
@@ -1377,7 +1432,13 @@ private fun TradeProposalEditor(
                     )
                 },
                 enabled = canSubmit,
-                shape = RoundedCornerShape(6.dp)
+                shape = RoundedCornerShape(6.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = GlassPanelColor,
+                    contentColor = Color.White,
+                    disabledContainerColor = GlassDisabledColor,
+                    disabledContentColor = Color.White.copy(alpha = 0.45f)
+                )
             ) {
                 Text("Start Offer")
             }
@@ -1397,12 +1458,12 @@ private fun TradeAcceptStatus(
     ) {
         Text(
             text = "${fromPlayer.name}: ${if (fromPlayer.id in acceptedByPlayerIds) "Accepted" else "Reviewing"}",
-            color = if (fromPlayer.id in acceptedByPlayerIds) Color(0xFF1B5E20) else Color.DarkGray,
+            color = if (fromPlayer.id in acceptedByPlayerIds) Color(0xFF81C784) else Color.White.copy(alpha = 0.72f),
             fontWeight = FontWeight.Medium
         )
         Text(
             text = "${toPlayer.name}: ${if (toPlayer.id in acceptedByPlayerIds) "Accepted" else "Reviewing"}",
-            color = if (toPlayer.id in acceptedByPlayerIds) Color(0xFF1B5E20) else Color.DarkGray,
+            color = if (toPlayer.id in acceptedByPlayerIds) Color(0xFF81C784) else Color.White.copy(alpha = 0.72f),
             fontWeight = FontWeight.Medium
         )
     }
@@ -1427,12 +1488,12 @@ private fun TradeSideEditor(
         modifier = modifier,
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        Text(title, fontWeight = FontWeight.Bold, color = Color(0xFF222222))
+        Text(title, fontWeight = FontWeight.Bold, color = Color.White)
         val moneyAmount = moneyText.toIntOrNull()?.coerceAtLeast(0) ?: 0
         Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text(
                 text = "Money: ${moneyAmount}€ / ${maxMoney}€",
-                color = if (enabled) Color(0xFF222222) else Color.DarkGray,
+                color = if (enabled) Color.White else Color.White.copy(alpha = 0.55f),
                 fontWeight = FontWeight.Medium
             )
             Row(
@@ -1445,7 +1506,8 @@ private fun TradeSideEditor(
                     },
                     enabled = enabled && moneyAmount < maxMoney,
                     shape = RoundedCornerShape(6.dp),
-                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
+                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = GlassPanelColor)
                 ) {
                     Text("+100€")
                 }
@@ -1455,7 +1517,8 @@ private fun TradeSideEditor(
                     },
                     enabled = enabled && moneyAmount < maxMoney,
                     shape = RoundedCornerShape(6.dp),
-                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
+                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = GlassPanelColor)
                 ) {
                     Text("+10€")
                 }
@@ -1463,7 +1526,7 @@ private fun TradeSideEditor(
                     onClick = { onMoneyChange("0") },
                     enabled = enabled && moneyAmount > 0
                 ) {
-                    Text("Reset")
+                    Text("Reset", color = Color.White)
                 }
             }
         }
@@ -1471,18 +1534,18 @@ private fun TradeSideEditor(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text("Jail cards: $jailCards / $maxJailCards", color = Color(0xFF333333))
+            Text("Jail cards: $jailCards / $maxJailCards", color = Color.White.copy(alpha = 0.86f))
             TextButton(
                 onClick = { onJailCardsChange((jailCards - 1).coerceAtLeast(0)) },
                 enabled = enabled && jailCards > 0
-            ) { Text("-") }
+            ) { Text("-", color = Color.White) }
             TextButton(
                 onClick = { onJailCardsChange((jailCards + 1).coerceAtMost(maxJailCards)) },
                 enabled = enabled && jailCards < maxJailCards
-            ) { Text("+") }
+            ) { Text("+", color = Color.White) }
         }
         if (properties.isEmpty()) {
-            Text("No tradeable properties", color = Color.DarkGray, fontSize = 13.sp)
+            Text("No tradeable properties", color = Color.White.copy(alpha = 0.62f), fontSize = 13.sp)
         } else {
             LazyRow(
                 modifier = Modifier
@@ -1532,7 +1595,7 @@ private fun TradeOfferReview(
 
     Text(
         text = "${fromPlayer?.name ?: "A player"} offers a trade to ${toPlayer?.name ?: "another player"}.",
-        color = Color.Black
+        color = Color.White
     )
     if (fromPlayer != null && toPlayer != null) {
         TradeAcceptStatus(
@@ -1570,14 +1633,15 @@ private fun TradeOfferReview(
             TextButton(
                 onClick = { onRejectTrade(offer.id) }
             ) {
-                Text("Cancel")
+                Text("Cancel", color = Color.White)
             }
             Spacer(modifier = Modifier.width(8.dp))
         }
         Button(
             onClick = { onAcceptTrade(offer.id) },
             enabled = isInvolved && !currentPlayerAccepted,
-            shape = RoundedCornerShape(6.dp)
+            shape = RoundedCornerShape(6.dp),
+            colors = ButtonDefaults.buttonColors(containerColor = GlassPanelColor)
         ) {
             Text(
                 when {
@@ -1600,15 +1664,15 @@ private fun TradeOfferColumn(
     modifier: Modifier = Modifier
 ) {
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        Text(title, fontWeight = FontWeight.Bold, color = Color.Black)
-        Text("Money: $money", color = Color(0xFF333333))
-        Text("Jail cards: $jailCards", color = Color(0xFF333333))
+        Text(title, fontWeight = FontWeight.Bold, color = Color.White)
+        Text("Money: $money", color = Color.White.copy(alpha = 0.86f))
+        Text("Jail cards: $jailCards", color = Color.White.copy(alpha = 0.86f))
         val propertyNames = propertyIds.mapNotNull { id -> fields.find { it.id == id }?.name }
         if (propertyNames.isEmpty()) {
-            Text("No properties", color = Color.DarkGray)
+            Text("No properties", color = Color.White.copy(alpha = 0.62f))
         } else {
             propertyNames.forEach { name ->
-                Text("- $name", color = Color(0xFF333333), fontSize = 13.sp)
+                Text("- $name", color = Color.White.copy(alpha = 0.86f), fontSize = 13.sp)
             }
         }
     }

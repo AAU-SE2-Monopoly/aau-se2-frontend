@@ -78,6 +78,40 @@ class GameViewModelTest {
     }
 
     @Test
+    fun `showTradeOverlay should ignore bankrupt trade partner`() {
+        val tradePartner = Player(id = "p2", name = "Bob", money = 0, eliminated = true)
+
+        viewModel.showTradeOverlay(tradePartner)
+
+        assertNull(viewModel.selectedPlayerForTrade.value)
+    }
+
+    @Test
+    fun `showTradeOverlay should ignore bankrupt current player`() = runTest {
+        fakeService.currentPlayerId = "p1"
+        fakeService.emitTestEvent("""
+        {
+          "event": "STATE_UPDATED",
+          "gameId": "game-1",
+          "gameState": {
+            "gameId": "game-1",
+            "fields": [],
+            "players": [
+              {"id":"p1","name":"Alice","money":0,"eliminated":true},
+              {"id":"p2","name":"Bob","money":300}
+            ],
+            "currentPlayerIndex": 0
+          }
+        }
+        """.trimIndent())
+        advanceUntilIdle()
+
+        viewModel.showTradeOverlay(Player(id = "p2", name = "Bob", money = 300))
+
+        assertNull(viewModel.selectedPlayerForTrade.value)
+    }
+
+    @Test
     fun `hideTradeOverlay should reset selected trade partner`() {
         val tradePartner = Player(id = "p2", name = "Bob")
 
@@ -192,6 +226,111 @@ class GameViewModelTest {
         assertEquals(listOf(6), fakeService.lastTradeRequestPropertyIds)
         assertEquals(1, fakeService.lastTradeOfferJailCards)
         assertEquals(0, fakeService.lastTradeRequestJailCards)
+    }
+
+    @Test
+    fun `proposeTrade should not delegate when current player is bankrupt`() = runTest(testDispatcher) {
+        fakeService.currentPlayerId = "p1"
+        fakeService.emitTestEvent("""
+        {
+          "event": "STATE_UPDATED",
+          "gameId": "game-1",
+          "gameState": {
+            "gameId": "game-1",
+            "fields": [],
+            "players": [
+              {"id":"p1","name":"Alice","money":0,"eliminated":true},
+              {"id":"p2","name":"Bob","money":300}
+            ],
+            "currentPlayerIndex": 0,
+            "phase": "BUYING",
+            "pendingTradeOffer": {"id":"trade-1","fromPlayerId":"p1","toPlayerId":"p2"}
+          }
+        }
+        """.trimIndent())
+        advanceUntilIdle()
+
+        viewModel.proposeTrade(
+            toPlayerId = "p2",
+            offerMoney = 10,
+            requestMoney = 0,
+            offerPropertyIds = emptyList(),
+            requestPropertyIds = emptyList(),
+            offerJailCards = 0,
+            requestJailCards = 0
+        )
+
+        assertNull(fakeService.lastTradeTargetId)
+    }
+
+    @Test
+    fun `proposeTrade should not delegate when trade partner is bankrupt`() = runTest(testDispatcher) {
+        fakeService.currentPlayerId = "p1"
+        fakeService.emitTestEvent("""
+        {
+          "event": "STATE_UPDATED",
+          "gameId": "game-1",
+          "gameState": {
+            "gameId": "game-1",
+            "fields": [],
+            "players": [
+              {"id":"p1","name":"Alice","money":500},
+              {"id":"p2","name":"Bob","money":0,"eliminated":true}
+            ],
+            "currentPlayerIndex": 0,
+            "phase": "BUYING"
+          }
+        }
+        """.trimIndent())
+        advanceUntilIdle()
+
+        viewModel.proposeTrade(
+            toPlayerId = "p2",
+            offerMoney = 10,
+            requestMoney = 0,
+            offerPropertyIds = emptyList(),
+            requestPropertyIds = emptyList(),
+            offerJailCards = 0,
+            requestJailCards = 0
+        )
+
+        assertNull(fakeService.lastTradeTargetId)
+    }
+
+    @Test
+    fun `proposeTrade should delegate when state contains live players`() = runTest(testDispatcher) {
+        fakeService.currentPlayerId = "p1"
+        fakeService.emitTestEvent("""
+        {
+          "event": "STATE_UPDATED",
+          "gameId": "game-1",
+          "gameState": {
+            "gameId": "game-1",
+            "fields": [],
+            "players": [
+              {"id":"p1","name":"Alice","money":500},
+              {"id":"p2","name":"Bob","money":300}
+            ],
+            "currentPlayerIndex": 0,
+            "phase": "BUYING"
+          }
+        }
+        """.trimIndent())
+        advanceUntilIdle()
+
+        viewModel.proposeTrade(
+            toPlayerId = "p2",
+            offerMoney = 10,
+            requestMoney = 5,
+            offerPropertyIds = emptyList(),
+            requestPropertyIds = emptyList(),
+            offerJailCards = 0,
+            requestJailCards = 0
+        )
+
+        assertEquals("p2", fakeService.lastTradeTargetId)
+        assertEquals(10, fakeService.lastTradeOfferMoney)
+        assertEquals(5, fakeService.lastTradeRequestMoney)
     }
 
     @Test
@@ -2065,6 +2204,60 @@ class GameViewModelTest {
         assertTrue("Expected dramaEvent to emit the message", dramaMessages.contains(testMessage))
 
         job.cancel()
+    }
+
+    @Test
+    fun `reportCheater does NOT delegate when current player is bankrupt`() = runTest(testDispatcher) {
+        fakeService.currentPlayerId = "p1"
+        fakeService.emitTestEvent("""
+            {
+              "event": "STATE_UPDATED",
+              "gameId": "game-1",
+              "gameState": {
+                "gameId": "game-1",
+                "fields": [],
+                "players": [
+                  {"id":"p1","name":"Alice","money":501,"eliminated":true},
+                  {"id":"p2","name":"Bob","money":1500}
+                ],
+                "currentPlayerIndex": 0,
+                "phase": "BUYING"
+              }
+            }
+            """.trimIndent())
+        advanceUntilIdle()
+
+        viewModel.reportCheater("p2")
+
+        assertFalse(fakeService.reportCheaterCalled)
+        assertEquals("", fakeService.lastReportedPlayerId)
+    }
+
+    @Test
+    fun `reportCheater does NOT delegate when reported player is bankrupt`() = runTest(testDispatcher) {
+        fakeService.currentPlayerId = "p1"
+        fakeService.emitTestEvent("""
+            {
+              "event": "STATE_UPDATED",
+              "gameId": "game-1",
+              "gameState": {
+                "gameId": "game-1",
+                "fields": [],
+                "players": [
+                  {"id":"p1","name":"Alice","money":501},
+                  {"id":"p2","name":"Bob","money":0,"eliminated":true}
+                ],
+                "currentPlayerIndex": 0,
+                "phase": "BUYING"
+              }
+            }
+            """.trimIndent())
+        advanceUntilIdle()
+
+        viewModel.reportCheater("p2")
+
+        assertFalse(fakeService.reportCheaterCalled)
+        assertEquals("", fakeService.lastReportedPlayerId)
     }
 
     @Test

@@ -854,6 +854,8 @@ class GameViewModel(
     }
 
     fun reportCheater(reportedPlayerId: String) {
+        val reportedPlayer = gameState.value?.players?.find { it.id == reportedPlayerId }
+        if (reportedPlayer?.isBankrupt() == true) return
         if (!guardAction("reportCheater", actionGates.value.canReportCheater)) return
         if (_reportCheaterInFlight.value) return
         startReportCheaterAction()
@@ -983,6 +985,9 @@ class GameViewModel(
     }
 
     fun showTradeOverlay(player: Player) {
+        val me = gameState.value?.players?.find { it.id == currentPlayerId }
+        if (me?.isBankrupt() == true || player.isBankrupt()) return
+
         _selectedPlayerForOverlay.value = null
         _selectedPlayerForTrade.value = player
     }
@@ -1000,7 +1005,19 @@ class GameViewModel(
         offerJailCards: Int,
         requestJailCards: Int
     ) {
-        if (!guardAction("proposeTrade", actionGates.value.canTrade)) return
+        val canStartOrUpdateTrade = actionGates.value.canTrade || gameState.value?.pendingTradeOffer != null
+        if (!guardAction("proposeTrade", canStartOrUpdateTrade)) return
+        val state = gameState.value
+        if (state != null) {
+            val me = state.players.find { it.id == currentPlayerId }
+            val tradePartner = state.players.find { it.id == toPlayerId }
+            if (me == null ||
+                tradePartner == null ||
+                me.isBankrupt() ||
+                tradePartner.isBankrupt()
+            ) return
+        }
+
         gameService.proposeTrade(
             toPlayerId = toPlayerId,
             offerMoney = offerMoney,

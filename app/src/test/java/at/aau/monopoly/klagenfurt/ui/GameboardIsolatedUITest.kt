@@ -4,6 +4,7 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.unit.Density
@@ -96,6 +97,9 @@ class GameboardIsolatedUITest {
         composeTestRule.onNodeWithText("🚨 Report")
             .assertExists()
             .assertIsEnabled()
+        composeTestRule.onNodeWithTag("report_action_button_player2")
+            .assertExists()
+            .assertIsEnabled()
     }
 
     @Test
@@ -140,6 +144,9 @@ class GameboardIsolatedUITest {
         }
 
         composeTestRule.onNodeWithText("🔁 Trade")
+            .assertExists()
+            .assertIsEnabled()
+        composeTestRule.onNodeWithTag("trade_action_button_player2")
             .assertExists()
             .assertIsEnabled()
     }
@@ -213,6 +220,9 @@ class GameboardIsolatedUITest {
         }
 
         composeTestRule.onNodeWithText("🔁 Reopen Trade")
+            .assertExists()
+            .assertIsEnabled()
+        composeTestRule.onNodeWithTag("trade_action_button_player2")
             .assertExists()
             .assertIsEnabled()
     }

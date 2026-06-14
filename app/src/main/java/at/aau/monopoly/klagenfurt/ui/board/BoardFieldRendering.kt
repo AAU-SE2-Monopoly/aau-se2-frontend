@@ -34,6 +34,7 @@ import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.RectangleShape
@@ -220,6 +221,7 @@ fun FieldItem(
     animatingPlayerId: String? = null,
     animatingStep: Int? = null,
     animationComplete: Boolean = true,
+    isActivePlayerField: Boolean = false,
     freeParkingMoney: Int = 0,
     onFreeParkingMoneyClick: () -> Unit = {}
 ) {
@@ -262,6 +264,9 @@ fun FieldItem(
                 field = field,
                 bounds = bounds
             )
+            if (isActivePlayerField) {
+                ActivePlayerFieldHighlight()
+            }
             CornerPlayerTokenContainer(
                 index = index,
                 sw = sw,
@@ -318,6 +323,10 @@ fun FieldItem(
                 MortgagedOverlay(bounds = bounds)
             }
 
+            if (isActivePlayerField) {
+                ActivePlayerFieldHighlight()
+            }
+
             PlayerTokenContainer(
                 side = side,
                 sw = sw,
@@ -337,6 +346,25 @@ fun FieldItem(
             }
         }
     }
+}
+
+@Composable
+private fun BoxScope.ActivePlayerFieldHighlight() {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .testTag("ActivePlayerFieldHighlight")
+            .background(
+                Brush.verticalGradient(
+                    listOf(
+                        Color.Black.copy(alpha = 0.48f),
+                        Color.Black.copy(alpha = 0.24f),
+                        Color.Black.copy(alpha = 0.06f)
+                    )
+                )
+            )
+            .border(1.dp, Color.Black.copy(alpha = 0.55f))
+    )
 }
 
 private fun innerCornerAlignment(index: Int): Alignment = when (index) {

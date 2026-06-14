@@ -1,6 +1,9 @@
 package at.aau.monopoly.klagenfurt.ui
 
+import androidx.compose.material3.Button
+import androidx.compose.material3.Text
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import at.aau.monopoly.klagenfurt.model.Player
 import at.aau.monopoly.klagenfurt.model.card.ChanceCard
@@ -46,6 +49,30 @@ class PlayerInfoPanelTest {
             PlayerInfoPanel(player = player, fields = emptyList(), isCurrentTurn = true)
         }
         composeTestRule.onNodeWithText("⭐ Current Turn").assertExists()
+    }
+
+    @Test
+    fun `current turn panel exposes highlighted panel tag`() {
+        composeTestRule.setContent {
+            PlayerInfoPanel(player = player, fields = emptyList(), isCurrentTurn = true)
+        }
+        composeTestRule.onNodeWithTag("CurrentTurnPlayerPanel").assertExists()
+    }
+
+    @Test
+    fun `renders optional action content beside money row`() {
+        composeTestRule.setContent {
+            PlayerInfoPanel(
+                player = player,
+                fields = emptyList(),
+                actionContent = {
+                    Button(onClick = {}) {
+                        Text("Side Action")
+                    }
+                }
+            )
+        }
+        composeTestRule.onNodeWithText("Side Action").assertExists()
     }
 
     @Test

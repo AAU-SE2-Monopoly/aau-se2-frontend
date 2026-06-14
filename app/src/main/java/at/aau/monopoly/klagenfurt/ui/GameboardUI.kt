@@ -842,6 +842,16 @@ fun GameboardContent(
     val currentField = currentFieldOverride ?: currentTurnPlayer?.let { p ->
         fields.getOrNull(p.position)
     }
+    val activePlayerFieldIndex = movementAnimationState
+        ?.takeUnless { it.isComplete }
+        ?.let { animation ->
+            when {
+                animation.currentStepIndex < 0 -> animation.startPosition
+                animation.currentStepIndex in animation.path.indices -> animation.path[animation.currentStepIndex]
+                else -> null
+            }
+        }
+        ?: currentTurnPlayer?.position
 
     val playersByField: Map<Int, List<Player>> = remember(boardPlayers) {
         boardPlayers.groupBy { it.position }
@@ -885,6 +895,7 @@ fun GameboardContent(
                                     else null
                                 },
                                 animationComplete = movementAnimationState?.isComplete ?: true,
+                                isActivePlayerField = index == activePlayerFieldIndex,
                                 freeParkingMoney = gameState?.freeParkingMoney ?: 0,
                                 onFreeParkingMoneyClick = onFreeParkingMoneyClick
                             )
@@ -943,29 +954,25 @@ fun GameboardContent(
                             fields = fields,
                             cards = emptyList(),
                             isCurrentTurn = player.id == currentTurnPlayer?.id,
-                            onCardClick = { onPlayerCardClick(player) }
-                        )
-
-                        Row(
-                            modifier = Modifier
-                                .padding(top = 4.dp, end = 4.dp),
-                            horizontalArrangement = Arrangement.spacedBy(6.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            GlassActionButton(
-                                text = "🚨 Report",
-                                onClick = { onReportCheater(player.id) },
-                                enabled = canReport
-                            )
-
-                            if (canStartNewTrade || canReopenTrade) {
+                            onCardClick = { onPlayerCardClick(player) },
+                            actionContent = {
                                 GlassActionButton(
-                                    text = tradeLabel,
-                                    onClick = { onStartTrade(player) },
-                                    enabled = true
+                                    text = "🚨 Report",
+                                    onClick = { onReportCheater(player.id) },
+                                    enabled = canReport,
+                                    modifier = Modifier.testTag("report_action_button_${player.id}")
                                 )
+
+                                if (canStartNewTrade || canReopenTrade) {
+                                    GlassActionButton(
+                                        text = tradeLabel,
+                                        onClick = { onStartTrade(player) },
+                                        enabled = true,
+                                        modifier = Modifier.testTag("trade_action_button_${player.id}")
+                                    )
+                                }
                             }
-                        }
+                        )
                     }
                 }
             }

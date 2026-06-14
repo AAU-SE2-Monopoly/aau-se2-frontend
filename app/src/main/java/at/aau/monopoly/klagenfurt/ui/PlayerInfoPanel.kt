@@ -18,10 +18,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -52,7 +55,8 @@ fun PlayerInfoPanel(
     isCurrentTurn: Boolean = false,
     isOwnPlayer: Boolean = false,
     onCardClick: (() -> Unit)? = null,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    actionContent: @Composable RowScope.() -> Unit = {}
 ) {
     val scale = if (isOwnPlayer) OWN_SCALE else OTHER_SCALE
     val cardW = (ORIG_CARD_W * scale).dp
@@ -82,8 +86,26 @@ fun PlayerInfoPanel(
     Column(
         modifier = modifier
             .width(280.dp)
+            .testTag(if (isCurrentTurn) "CurrentTurnPlayerPanel" else "PlayerInfoPanel")
             .clip(RoundedCornerShape(12.dp))
-            .background(PanelBg)
+            .background(
+                if (isCurrentTurn) {
+                    Brush.horizontalGradient(
+                        listOf(
+                            Color.Black.copy(alpha = 0.82f),
+                            Color.Black.copy(alpha = 0.56f),
+                            GoldAccent.copy(alpha = 0.18f)
+                        )
+                    )
+                } else {
+                    Brush.horizontalGradient(listOf(PanelBg, PanelBg))
+                }
+            )
+            .border(
+                width = if (isCurrentTurn) 1.dp else 0.dp,
+                color = if (isCurrentTurn) GoldAccent.copy(alpha = 0.72f) else Color.Transparent,
+                shape = RoundedCornerShape(12.dp)
+            )
             .padding(6.dp),
         horizontalAlignment = if (isOwnPlayer) Alignment.End else Alignment.Start
     ) {
@@ -93,29 +115,44 @@ fun PlayerInfoPanel(
             horizontalArrangement = if (isOwnPlayer) Arrangement.End else Arrangement.Start,
             modifier = Modifier.fillMaxWidth()
         ) {
-            Text(
-                text = player.name,
-                color = Color.White,
-                fontWeight = FontWeight.ExtraBold,
-                fontSize = 10.sp
-            )
-            Spacer(modifier = Modifier.width(4.dp))
-            Text("", fontSize = 9.sp)
-            Text(
-                text = "€${player.money}",
-                color = Color(0xFF81C784),
-                fontWeight = FontWeight.ExtraBold,
-                fontSize = 11.sp
-            )
-            Spacer(modifier = Modifier.width(6.dp))
-            // Player icon
-            Image(
-                painter = painterResource(id = getPlayerTokenResource(player.iconId)),
-                contentDescription = "${player.name} icon",
-                modifier = Modifier
-                    .size(20.dp)
-                    .clip(RoundedCornerShape(4.dp))
-                    .background(Color.White)
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = if (isOwnPlayer) Arrangement.End else Arrangement.Start,
+                modifier = Modifier.weight(1f, fill = true)
+            ) {
+                Text(
+                    text = player.name,
+                    color = Color.White,
+                    fontWeight = FontWeight.ExtraBold,
+                    fontSize = 10.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f, fill = false)
+                )
+                Spacer(modifier = Modifier.width(4.dp))
+                Text(
+                    text = "€${player.money}",
+                    color = Color(0xFF81C784),
+                    fontWeight = FontWeight.ExtraBold,
+                    fontSize = 11.sp,
+                    maxLines = 1
+                )
+                Spacer(modifier = Modifier.width(6.dp))
+                // Player icon
+                Image(
+                    painter = painterResource(id = getPlayerTokenResource(player.iconId)),
+                    contentDescription = "${player.name} icon",
+                    modifier = Modifier
+                        .size(20.dp)
+                        .clip(RoundedCornerShape(4.dp))
+                        .background(Color.White)
+                )
+            }
+
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                content = actionContent
             )
         }
 
@@ -263,4 +300,3 @@ private fun ScaledChanceCard(card: Card, scale: Float, w: Dp, h: Dp) {
             .graphicsLayer(scaleX = animScale.value, scaleY = animScale.value)
     )
 }
-

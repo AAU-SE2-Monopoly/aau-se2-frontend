@@ -42,6 +42,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.mapNotNull
+import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.runningFold
 import kotlinx.coroutines.flow.shareIn
@@ -60,11 +61,6 @@ class GameViewModel(
         val timestampMs: Long = System.currentTimeMillis()
     )
 
-    internal data class LogAccumulator(
-        val gameId: String,
-        val entries: List<LogEntry>
-    )
-
     enum class TurnPresentationPhase {
         IDLE,
         WAITING_FOR_ROLL_INPUT,
@@ -73,19 +69,6 @@ class GameViewModel(
         MOVING_TOKEN,
         REVEALING_LANDING_EFFECT,
         READY_FOR_ACTION
-    }
-
-    sealed class PresentationTask {
-        data class ShowDice(val sequenceId: Long, val roll: DiceRoll) : PresentationTask()
-        data class MoveToken(
-            val sequenceId: Long,
-            val playerId: String,
-            val path: List<Int>
-        ) : PresentationTask()
-
-        data class RevealLanding(val sequenceId: Long, val event: GameEvent?) : PresentationTask()
-        data class RevealLog(val sequenceId: Long, val entries: List<LogEntry>) : PresentationTask()
-        data class SyncSnapshot(val sequenceId: Long) : PresentationTask()
     }
 
     data class ActiveDicePresentation(
@@ -143,6 +126,7 @@ class GameViewModel(
         val paymentInFlight: Boolean,
         val propertyInFlight: Boolean,
         val cardDrawInFlight: Boolean,
+        val actionExecutionInFlight: Boolean,
         val bankruptcyConfirm: Boolean,
         val buildingPending: Boolean,
         val doubleRollAdvanceInFlight: Boolean,
@@ -158,34 +142,24 @@ class GameViewModel(
 
     private val objectMapper = JacksonProvider.objectMapper
 
-    private val gameEventFlow: SharedFlow<GameEvent> = gameService.events
-        .mapNotNull { jsonString ->
-            try {
-                objectMapper.readValue(jsonString, GameEvent::class.java)
-            } catch (e: Exception) {
-                Log.e("GameViewModel", "Parsing error: ${e.message}", e)
-                null
-            }
-        }
+    private val localGameEvents = MutableSharedFlow<GameEvent>(extraBufferCapacity = 1)
+
+    private val gameEventFlow: SharedFlow<GameEvent> = merge(
+        gameService.events
+            .mapNotNull { jsonString ->
+                try {
+                    objectMapper.readValue(jsonString, GameEvent::class.java)
+                } catch (e: Exception) {
+                    Log.e("GameViewModel", "Parsing error: ${e.message}", e)
+                    null
+                }
+            },
+        localGameEvents
+    )
         .shareIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5000),
             replay = 1
-        )
-
-    private val logEventFlow: SharedFlow<GameEvent> = gameService.logEvents
-        .mapNotNull { jsonString ->
-            try {
-                objectMapper.readValue(jsonString, GameEvent::class.java)
-            } catch (e: Exception) {
-                Log.e("GameViewModel", "logEventFlow parse error: ${e.message}", e)
-                null
-            }
-        }
-        .shareIn(
-            scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(5000),
-            replay = 80
         )
 
     private val _errorMessage = MutableStateFlow<String?>(null)
@@ -218,11 +192,11 @@ class GameViewModel(
     private val _doubleRollAdvanceInFlight = MutableStateFlow(false)
 
     private val _reportCheaterInFlight = MutableStateFlow(false)
-    val reportCheaterInFlight: StateFlow<Boolean> = _reportCheaterInFlight.asStateFlow()
 
     private var paymentActionToken: Long = 0
     private var propertyActionToken: Long = 0
     private var cardDrawActionToken: Long = 0
+    private var actionExecutionToken: Long = 0
     private var doubleRollAdvanceToken: Long = 0
     private var reportCheaterActionToken: Long = 0
 
@@ -272,6 +246,21 @@ class GameViewModel(
         _cardDrawInFlight.value = false
     }
 
+    private fun startActionExecution() {
+        val token = ++actionExecutionToken
+        _isExecutingAction.value = true
+        viewModelScope.launch {
+            delay(ACTION_TIMEOUT_MS)
+            if (actionExecutionToken == token) {
+                _isExecutingAction.value = false
+            }
+        }
+    }
+
+    private fun finishActionExecution() {
+        _isExecutingAction.value = false
+    }
+
     private fun startDoubleRollAdvance() {
         val token = ++doubleRollAdvanceToken
         _doubleRollAdvanceInFlight.value = true
@@ -279,6 +268,7 @@ class GameViewModel(
             delay(ACTION_TIMEOUT_MS)
             if (doubleRollAdvanceToken == token) {
                 _doubleRollAdvanceInFlight.value = false
+                rollAfterDoubleAdvancePending = false
             }
         }
     }
@@ -303,7 +293,7 @@ class GameViewModel(
     }
 
     private val _currentActionCard = MutableStateFlow<Card?>(null)
-    val currentActionCard: StateFlow<Card?> get() = _visibleActionCard.asStateFlow()
+    val currentActionCard: StateFlow<Card?> = _currentActionCard.asStateFlow()
 
     private val _isExecutingAction = MutableStateFlow(false)
     val isExecutingAction: StateFlow<Boolean> = _isExecutingAction.asStateFlow()
@@ -324,6 +314,7 @@ class GameViewModel(
 
     private val _presentedEventLog = MutableStateFlow<List<LogEntry>>(emptyList())
     val presentedEventLog: StateFlow<List<LogEntry>> = _presentedEventLog.asStateFlow()
+    val eventLog: StateFlow<List<LogEntry>> = presentedEventLog
 
     private val _visibleCurrentField = MutableStateFlow<Field?>(null)
     val visibleCurrentField: StateFlow<Field?> = _visibleCurrentField.asStateFlow()
@@ -353,9 +344,14 @@ class GameViewModel(
 
     private var rollRequestInFlight = false
     private var rollActionToken: Long = 0
+    private var timedOutRollPlayerId: String? = null
 
     val gameState: StateFlow<GameState?> = gameEventFlow
         .runningFold<GameEvent, GameState?>(null) { lastState, event ->
+            if (event.event == LOCAL_GAME_SWITCH_EVENT) {
+                return@runningFold null
+            }
+
             val eventGameId = event.gameId
 
             val isDifferentGame = eventGameId.isNotBlank() &&
@@ -391,68 +387,6 @@ class GameViewModel(
             isHost && isWaiting && players.size >= 2
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
-
-    val eventLog: StateFlow<List<LogEntry>> = logEventFlow
-        .runningFold(LogAccumulator(gameId = "", entries = emptyList())) { acc, event ->
-            val eventGameId = event.gameId
-            val incomingGameId = when {
-                eventGameId.isNotBlank() -> eventGameId
-                gameService.currentGameId.isNotBlank() -> gameService.currentGameId
-                else -> acc.gameId
-            }
-
-            val shouldIgnore =
-                event.event == "ERROR" ||
-                        (event.event != "GAME_CREATED" &&
-                                incomingGameId.isNotBlank() &&
-                                gameService.currentGameId.isNotBlank() &&
-                                incomingGameId != gameService.currentGameId)
-
-            if (shouldIgnore) {
-                if (event.event == "ERROR") {
-                    Log.w("GameViewModel", "Server ERROR [game=${event.gameId}]: ${event.message}")
-                }
-                acc
-            } else {
-                val isGameSwitch =
-                    incomingGameId.isNotBlank() &&
-                            acc.gameId.isNotBlank() &&
-                            incomingGameId != acc.gameId
-
-                val baseEntries =
-                    if (isGameSwitch || event.event == "GAME_CREATED") {
-                        emptyList()
-                    } else {
-                        acc.entries
-                    }
-
-                val isTechnical =
-                    event.event == "STATE_SNAPSHOT" ||
-                            event.event == "STATE_UPDATED"
-
-                val entryText =
-                    event.message?.takeIf { it.isNotBlank() }
-                        ?: humanReadableEvent(event.event, event.gameId)
-
-                if (entryText.isBlank()) {
-                    LogAccumulator(gameId = incomingGameId, entries = baseEntries)
-                } else {
-                    val entry = LogEntry(
-                        text = entryText,
-                        eventType = event.event.ifBlank { "UNKNOWN" },
-                        isTechnical = isTechnical,
-                        timestampMs = currentTimeProvider()
-                    )
-
-                    LogAccumulator(
-                        gameId = incomingGameId,
-                        entries = (baseEntries + entry).takeLast(MAX_LOG_ENTRIES)
-                    )
-                }
-            }
-        }
-        .map { it.entries }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     val lastDiceRoll: StateFlow<DiceRoll?> = gameState
         .map { it?.lastDiceRoll }
@@ -519,6 +453,7 @@ class GameViewModel(
         _paymentActionInFlight,
         _propertyActionInFlight,
         _cardDrawInFlight,
+        _isExecutingAction,
         _showBankruptcyConfirmation,
         _buildingActionPending,
         _doubleRollAdvanceInFlight,
@@ -528,15 +463,16 @@ class GameViewModel(
             paymentInFlight = values[0],
             propertyInFlight = values[1],
             cardDrawInFlight = values[2],
-            bankruptcyConfirm = values[3],
-            buildingPending = values[4],
-            doubleRollAdvanceInFlight = values[5],
-            reportCheaterInFlight = values[6]
+            actionExecutionInFlight = values[3],
+            bankruptcyConfirm = values[4],
+            buildingPending = values[5],
+            doubleRollAdvanceInFlight = values[6],
+            reportCheaterInFlight = values[7]
         )
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.Eagerly,
-        initialValue = ActionGateLocks(false, false, false, false, false, false, false)
+        initialValue = ActionGateLocks(false, false, false, false, false, false, false, false)
     )
 
     val actionGates: StateFlow<ActionGates> = combine(
@@ -666,14 +602,35 @@ class GameViewModel(
 
     fun joinGame(gameId: String, playerName: String) {
         viewModelScope.launch {
-            gameService.joinGame(gameId, playerName)
+            val result = gameService.joinGame(gameId, playerName)
+            if (result.isFailure) {
+                resetForGameSwitch(gameService.currentGameId)
+                if (gameService.currentGameId.isNotBlank()) {
+                    gameService.requestState()
+                }
+            }
         }
     }
 
     fun startGame() = gameService.startGame()
 
-private fun guardAction(actionName: String, canRun: Boolean): Boolean {
-        if (gameState.value == null) return true
+    private fun guardAction(actionName: String, canRun: Boolean): Boolean {
+        val state = gameState.value
+        if (state == null) {
+            Log.d("GameViewModel", "$actionName ignored before game state is synced")
+            return false
+        }
+
+        val currentGameId = gameService.currentGameId
+        if (
+            currentGameId.isNotBlank() &&
+            state.gameId.isNotBlank() &&
+            state.gameId != currentGameId
+        ) {
+            Log.d("GameViewModel", "$actionName ignored for stale game state ${state.gameId}")
+            return false
+        }
+
         if (!canRun) {
             Log.d("GameViewModel", "$actionName ignored by action gate")
             return false
@@ -718,6 +675,13 @@ private fun guardAction(actionName: String, canRun: Boolean): Boolean {
             delay(5000L)
             if (rollActionToken == token) {
                 rollRequestInFlight = false
+                if (_activeDicePresentation.value?.isRolling == true) {
+                    timedOutRollPlayerId = gameState.value?.currentPlayer
+                        ?.id
+                        ?.takeIf { it == gameService.currentPlayerId }
+                    _activeDicePresentation.value = null
+                    _presentationPhase.value = phaseFromRawState(gameState.value)
+                }
             }
         }
 
@@ -843,7 +807,10 @@ private fun guardAction(actionName: String, canRun: Boolean): Boolean {
         ownerId: String?,
         fieldId: Int?
     ) {
-        if (!guardAction("showPayRentOverlay", _visiblePaymentState.value != null)) return
+        if (gameState.value == null || _visiblePaymentState.value == null) {
+            Log.d("GameViewModel", "showPayRentOverlay ignored — state=${gameState.value != null} payment=${_visiblePaymentState.value != null}")
+            return
+        }
         _currentRentAmount.value = amount
         _currentRentOwnerId.value = ownerId
         _currentRentFieldId.value = fieldId
@@ -868,17 +835,20 @@ private fun guardAction(actionName: String, canRun: Boolean): Boolean {
 
     fun dismissBankruptcyOverlay() {
         _showBankruptcyOverlay.value = false
+        clearVisibleBankruptcy()
     }
 
     fun acceptBankruptcyResolution() {
         _showBankruptcyOverlay.value = false
-        _bankruptcyPlayerId.value = ""
-        _bankruptcyPlayerName.value = ""
+        clearVisibleBankruptcy()
     }
 
     fun requestState() = gameService.requestState()
 
     fun setGameId(gameId: String) {
+        if (gameId != gameService.currentGameId) {
+            resetForGameSwitch(gameId)
+        }
         gameService.setGameId(gameId)
         gameService.subscribeToGame(gameId)
     }
@@ -988,7 +958,8 @@ private fun guardAction(actionName: String, canRun: Boolean): Boolean {
 
     fun executeAction() {
         if (!guardAction("executeAction", actionGates.value.canExecuteCard)) return
-        _isExecutingAction.value = true
+        if (_isExecutingAction.value) return
+        startActionExecution()
         Log.d("ActionCard", "Executing action for player: $currentPlayerId")
         gameService.executeAction(currentPlayerId)
     }
@@ -1073,11 +1044,14 @@ private fun guardAction(actionName: String, canRun: Boolean): Boolean {
                 base.phase == TurnPresentationPhase.IDLE
         val rollInputReady = base.phase == TurnPresentationPhase.WAITING_FOR_ROLL_INPUT
         val payment = base.visiblePayment
+        val rawBankruptcyPending =
+            state.phase == GamePhase.BANKRUPTCY || state.bankruptcyPlayerId.isNotBlank()
         val hasVisibleBlockingOverlay =
             payment != null ||
                     base.visibleActionCard != null ||
                     base.visibleBankruptcy != null ||
                     locks.bankruptcyConfirm
+        val hasBlockingState = hasVisibleBlockingOverlay || rawBankruptcyPending
         val currentField = base.visibleCurrentField
         val isBuyableField = currentField is OwnableField
         val isUnownedField = (currentField as? OwnableField)?.ownerId == null
@@ -1086,13 +1060,14 @@ private fun guardAction(actionName: String, canRun: Boolean): Boolean {
         val canRoll = state.phase == GamePhase.ROLLING &&
                 isCurrentPlayer &&
                 rollInputReady &&
+                !rawBankruptcyPending &&
                 !rollRequestInFlight
         val doubleRollPending = state.lastDiceRoll?.isDouble == true &&
                 isCurrentPlayer &&
                 (state.phase == GamePhase.BUYING || state.phase == GamePhase.TURN_END)
         val canRollAgainAfterDouble = doubleRollPending &&
                 presentationReady &&
-                !hasVisibleBlockingOverlay &&
+                !hasBlockingState &&
                 state.pendingPayment == null &&
                 !locks.doubleRollAdvanceInFlight
         val canRollDice = canRoll
@@ -1102,59 +1077,67 @@ private fun guardAction(actionName: String, canRun: Boolean): Boolean {
         val canEndTurn = (state.phase == GamePhase.BUYING || state.phase == GamePhase.TURN_END) &&
                 isCurrentPlayer &&
                 presentationReady &&
-                !hasVisibleBlockingOverlay &&
+                !hasBlockingState &&
                 state.pendingPayment == null &&
                 !doubleRollPending
         val canBuyProperty = state.phase == GamePhase.BUYING &&
                 isCurrentPlayer &&
                 presentationReady &&
-                !hasVisibleBlockingOverlay &&
+                !hasBlockingState &&
                 isBuyableField &&
                 isUnownedField
         val canDrawChance = state.phase == GamePhase.BUYING &&
                 isCurrentPlayer &&
                 presentationReady &&
-                !hasVisibleBlockingOverlay &&
+                !hasBlockingState &&
                 isOnChance &&
                 !state.hasDrawnCardThisTurn &&
                 !locks.cardDrawInFlight
         val canDrawCommunityChest = state.phase == GamePhase.BUYING &&
                 isCurrentPlayer &&
                 presentationReady &&
-                !hasVisibleBlockingOverlay &&
+                !hasBlockingState &&
                 isOnCommunityChest &&
                 !state.hasDrawnCardThisTurn &&
                 !locks.cardDrawInFlight
         val canExecuteCard = isCurrentPlayer &&
                 presentationReady &&
                 base.visibleActionCard != null &&
-                !_isExecutingAction.value
+                !rawBankruptcyPending &&
+                !locks.actionExecutionInFlight
         val canPayRent = isCurrentPlayer &&
                 presentationReady &&
-                payment?.source == PaymentSource.RENT &&
+                payment != null &&
+                payment.source != PaymentSource.TAX &&
+                !rawBankruptcyPending &&
                 !locks.paymentInFlight &&
                 (localPlayer?.money ?: 0) >= payment.amount
         val canPayTax = isCurrentPlayer &&
                 presentationReady &&
                 payment?.source == PaymentSource.TAX &&
+                !rawBankruptcyPending &&
                 !locks.paymentInFlight &&
                 (localPlayer?.money ?: 0) >= payment.amount
         val paymentForCurrentPlayer = payment != null && isCurrentPlayer
         val canManageProperties = localPlayerActive &&
+                !rawBankruptcyPending &&
                 !locks.propertyInFlight &&
                 !locks.buildingPending &&
                 (payment == null || paymentForCurrentPlayer)
         val canDeclareBankruptcy = isCurrentPlayer &&
                 presentationReady &&
                 payment != null &&
+                !rawBankruptcyPending &&
                 !locks.paymentInFlight &&
                 !locks.bankruptcyConfirm
-        val canTrade = isCurrentPlayer &&
+        val canTrade = localPlayerActive &&
+                isCurrentPlayer &&
                 presentationReady &&
-                !hasVisibleBlockingOverlay &&
+                !hasBlockingState &&
                 state.pendingTradeOffer == null
         val canReport = localPlayerActive &&
                 presentationReady &&
+                !rawBankruptcyPending &&
                 !locks.reportCheaterInFlight &&
                 (localPlayer?.money ?: 0) > 500
 
@@ -1180,6 +1163,15 @@ private fun guardAction(actionName: String, canRun: Boolean): Boolean {
     }
 
     private fun handleIncomingGameEvent(event: GameEvent) {
+        if (event.event == LOCAL_GAME_SWITCH_EVENT) {
+            previousGameState = null
+            hardSyncPresentation(null)
+            _presentedEventLog.value = emptyList()
+            _showGameOverOverlay.value = false
+            _hostEndedGame.value = false
+            return
+        }
+
         if (
             event.event == "GAME_CREATED" &&
             event.gameId.isNotBlank() &&
@@ -1219,12 +1211,34 @@ private fun guardAction(actionName: String, canRun: Boolean): Boolean {
 
             event.event == "DICE_ROLLED" -> {
                 rollRequestInFlight = false
-                startTurnPresentation(event, oldState, event.gameState, includeDice = true)
+                val timedOutPlayerId = timedOutRollPlayerId
+                val activeDice = _activeDicePresentation.value
+                if (
+                    timedOutPlayerId != null &&
+                    (oldState?.currentPlayer?.id == timedOutPlayerId ||
+                            event.gameState?.currentPlayer?.id == timedOutPlayerId)
+                ) {
+                    timedOutRollPlayerId = null
+                    Log.d("GameViewModel", "Hard syncing late DICE_ROLLED for timed-out local roll")
+                    hardSyncPresentation(event.gameState, event)
+                    appendPresentedLog(event)
+                } else if (activeDice != null && !activeDice.isRolling && presentationJob?.isActive == true) {
+                    Log.d("GameViewModel", "Ignoring stale DICE_ROLLED while dice result already shown")
+                    appendOrBufferPresentedLog(event)
+                } else {
+                    timedOutRollPlayerId = null
+                    startTurnPresentation(event, oldState, event.gameState, includeDice = true)
+                }
             }
 
             event.event == "ACTION_EXECUTED" -> {
-                _isExecutingAction.value = false
-                val card = _currentActionCard.value ?: oldState?.currentActionCard
+                val wasExecutingAction = _isExecutingAction.value
+                finishActionExecution()
+                val card = if (wasExecutingAction) {
+                    _currentActionCard.value ?: oldState?.currentActionCard
+                } else {
+                    oldState?.currentActionCard
+                }
                 _currentActionCard.value = null
                 _visibleActionCard.value = null
                 startTurnPresentation(event, oldState, event.gameState, includeDice = false, actionCard = card)
@@ -1266,26 +1280,7 @@ private fun guardAction(actionName: String, canRun: Boolean): Boolean {
                     if (!isPresentationBlocking()) {
                         event.gameState?.let { state ->
                             clearVisiblePayment()
-                            val gs = state
-                            _bankruptcyPlayerId.value = gs.bankruptcyPlayerId
-                            _bankruptcyPlayerName.value = gs.players.find { it.id == gs.bankruptcyPlayerId }?.name ?: ""
-                            _bankruptcyTotalAssets.value = gs.bankruptcyTotalAssets
-                            _bankruptcyTotalDebt.value = gs.bankruptcyTotalDebt
-                            _bankruptcyPropertiesOwned.value = gs.let { s ->
-                                val allFields = s.fields
-                                allFields
-                                    .filter { it.id in s.bankruptcyOwnedFieldIds }
-                                    .filter { it is PropertyField || it is RailroadField || it is UtilityField }
-                                    .map { field -> field.toManageableProperty(allFields) }
-                            } ?: emptyList()
-                            _visibleBankruptcyState.value = VisibleBankruptcyState(
-                                playerId = gs.bankruptcyPlayerId,
-                                playerName = _bankruptcyPlayerName.value,
-                                totalAssets = gs.bankruptcyTotalAssets,
-                                totalDebt = gs.bankruptcyTotalDebt,
-                                propertiesOwned = _bankruptcyPropertiesOwned.value
-                            )
-                            _showBankruptcyOverlay.value = true
+                            revealBankruptcyState(state)
                         }
                         appendPresentedLog(event)
                     } else {
@@ -1308,6 +1303,7 @@ private fun guardAction(actionName: String, canRun: Boolean): Boolean {
             event.event == "PAYMENT_FAILED" -> {
                 showTransientError(event.message ?: "Payment failed")
                 finishPaymentAction()
+                preservePendingPaymentForRetry(event.gameState ?: gameState.value)
                 appendPresentedLog(event)
             }
 
@@ -1320,7 +1316,7 @@ private fun guardAction(actionName: String, canRun: Boolean): Boolean {
                 clearVisiblePayment()
                 _visibleActionCard.value = null
                 _currentActionCard.value = null
-                hardSyncPresentation(event.gameState, event, cancelJob = false)
+                hardSyncPresentation(event.gameState, event, cancelJob = true)
                 appendPresentedLog(event)
                 startQueuedDoubleRollIfReady(event.gameState)
             }
@@ -1347,6 +1343,7 @@ private fun guardAction(actionName: String, canRun: Boolean): Boolean {
 
             else -> {
                 if (event.event == "GAME_STARTED") {
+                    timedOutRollPlayerId = null
                     clearPresentationBuffers()
                     _showGameOverOverlay.value = false
                     _hostEndedGame.value = false
@@ -1433,6 +1430,7 @@ private fun guardAction(actionName: String, canRun: Boolean): Boolean {
     private fun handleNonFatalError(event: GameEvent) {
         rollRequestInFlight = false
         rollAfterDoubleAdvancePending = false
+        timedOutRollPlayerId = null
         _isExecutingAction.value = false
         showTransientError(event.message ?: "An unknown error occurred")
         finishPaymentAction()
@@ -1476,6 +1474,7 @@ private fun guardAction(actionName: String, canRun: Boolean): Boolean {
             return
         }
 
+        bufferPresentedLog(event)
         presentationJob?.cancel()
         animationJob?.cancel()
         presentationJob = viewModelScope.launch {
@@ -1490,6 +1489,7 @@ private fun guardAction(actionName: String, canRun: Boolean): Boolean {
                     )
                     freezePresentedPlayerAtStart(newState, movementPath)
                     delay(DICE_RESULT_PRESENTATION_MS)
+                    flushBufferedPresentedLogs { it.eventType == "DICE_ROLLED" }
                 }
             }
 
@@ -1502,17 +1502,17 @@ private fun guardAction(actionName: String, canRun: Boolean): Boolean {
 
             if (presentationSequenceId != sequenceId) return@launch
 
-            _presentedBoardPlayers.value = copyPlayersForPresentation(newState.players)
-            _visibleCurrentField.value = currentFieldForState(newState)
+            val landingState = previousGameState ?: newState
+            _presentedBoardPlayers.value = copyPlayersForPresentation(landingState.players)
+            _visibleCurrentField.value = currentFieldForState(landingState)
             _presentationPhase.value = TurnPresentationPhase.REVEALING_LANDING_EFFECT
-            revealLandingForState(previousGameState ?: newState)
-            appendPresentedLog(event)
+            revealLandingForState(landingState)
             flushBufferedPresentedLogs()
             delay(LANDING_REVEAL_PRESENTATION_MS)
 
             if (presentationSequenceId == sequenceId) {
                 _activeDicePresentation.value = null
-                _presentationPhase.value = phaseFromRawState(previousGameState ?: newState)
+                _presentationPhase.value = phaseFromRawState(landingState)
             }
         }
     }
@@ -1634,10 +1634,12 @@ private fun guardAction(actionName: String, canRun: Boolean): Boolean {
         }
         nextPresentationSequenceId()
         _movementAnimation.value = null
+        flushBufferedPresentedLogs()
         clearPresentationBuffers()
         renderRawState(state)
         _presentationPhase.value = phaseFromRawState(state)
         rollRequestInFlight = false
+        clearTimedOutRollIfStateAdvanced(state)
         finishPaymentAction()
         finishPropertyAction()
         finishCardDrawAction()
@@ -1663,7 +1665,8 @@ private fun guardAction(actionName: String, canRun: Boolean): Boolean {
             _visibleActionCard.value = null
             _currentActionCard.value = null
             clearVisiblePayment()
-            _visibleBankruptcyState.value = null
+            clearVisibleBankruptcy()
+            _showBankruptcyOverlay.value = false
             _presentationPhase.value = TurnPresentationPhase.IDLE
             return
         }
@@ -1676,7 +1679,7 @@ private fun guardAction(actionName: String, canRun: Boolean): Boolean {
         if (state.phase == GamePhase.BANKRUPTCY || state.bankruptcyPlayerId.isNotBlank()) {
             revealBankruptcyState(state)
         } else {
-            _visibleBankruptcyState.value = null
+            clearVisibleBankruptcy()
             _showBankruptcyOverlay.value = false
         }
         _presentationPhase.value = phaseFromRawState(state)
@@ -1739,9 +1742,63 @@ private fun guardAction(actionName: String, canRun: Boolean): Boolean {
         _showBankruptcyOverlay.value = true
     }
 
+    private fun clearVisibleBankruptcy() {
+        _visibleBankruptcyState.value = null
+        _bankruptcyPlayerId.value = ""
+        _bankruptcyPlayerName.value = ""
+        _bankruptcyTotalAssets.value = 0
+        _bankruptcyTotalDebt.value = 0
+        _bankruptcyPropertiesOwned.value = emptyList()
+    }
+
     private fun clearVisiblePayment() {
         _showPayRentOverlay.value = false
         _visiblePaymentState.value = null
+    }
+
+    private fun clearTimedOutRollIfStateAdvanced(state: GameState?) {
+        val timedOutPlayerId = timedOutRollPlayerId ?: return
+        if (
+            state == null ||
+            state.currentPlayer?.id != timedOutPlayerId ||
+            state.phase != GamePhase.ROLLING
+        ) {
+            timedOutRollPlayerId = null
+        }
+    }
+
+    private fun preservePendingPaymentForRetry(state: GameState?) {
+        val pending = state?.pendingPayment
+        if (pending == null || pending.amount <= 0) {
+            clearVisiblePayment()
+            return
+        }
+
+        _hasPendingPayment.value = true
+        _currentRentAmount.value = pending.amount
+        _currentRentOwnerId.value = pending.creditorPlayerId
+        _currentRentFieldId.value = pending.sourceFieldId
+        _lastDiceTotalForRent.value = state.lastDiceRoll?.total ?: 0
+        _visiblePaymentState.value = VisiblePaymentState(pending)
+        _showPayRentOverlay.value = false
+        lastPendingPaymentKey = "${pending.source}:${pending.sourceFieldId}:${pending.amount}:${pending.creditorPlayerId}"
+    }
+
+    private fun resetForGameSwitch(gameId: String) {
+        localGameEvents.tryEmit(GameEvent(gameId = gameId, event = LOCAL_GAME_SWITCH_EVENT))
+        previousGameState = null
+        rollRequestInFlight = false
+        rollAfterDoubleAdvancePending = false
+        _isExecutingAction.value = false
+        finishPaymentAction()
+        finishPropertyAction()
+        finishCardDrawAction()
+        finishDoubleRollAdvance()
+        finishReportCheaterAction()
+        hardSyncPresentation(null)
+        _presentedEventLog.value = emptyList()
+        _showGameOverOverlay.value = false
+        _hostEndedGame.value = false
     }
 
     private fun clearPresentationBuffers() {
@@ -1751,9 +1808,8 @@ private fun guardAction(actionName: String, canRun: Boolean): Boolean {
         _currentActionCard.value = null
         clearVisiblePayment()
         _showMortgageOverlay.value = false
-        _showBankruptcyOverlay.value = false
         _showBankruptcyConfirmation.value = false
-        _visibleBankruptcyState.value = null
+        clearVisibleBankruptcy()
         _currentRentAmount.value = 0
         _currentRentOwnerId.value = null
         _currentRentFieldId.value = null
@@ -1822,11 +1878,13 @@ private fun guardAction(actionName: String, canRun: Boolean): Boolean {
         createLogEntry(event)?.let { bufferedPresentedLogs.add(it) }
     }
 
-    private fun flushBufferedPresentedLogs() {
+    private fun flushBufferedPresentedLogs(shouldFlush: (LogEntry) -> Boolean = { true }) {
         if (bufferedPresentedLogs.isEmpty()) return
-        _presentedEventLog.value = (_presentedEventLog.value + bufferedPresentedLogs)
+        val logsToFlush = bufferedPresentedLogs.filter(shouldFlush)
+        if (logsToFlush.isEmpty()) return
+        bufferedPresentedLogs.removeAll(logsToFlush)
+        _presentedEventLog.value = (_presentedEventLog.value + logsToFlush)
             .takeLast(MAX_LOG_ENTRIES)
-        bufferedPresentedLogs.clear()
     }
 
     private fun appendPresentedLog(event: GameEvent) {
@@ -1923,6 +1981,7 @@ private fun guardAction(actionName: String, canRun: Boolean): Boolean {
         private const val DICE_RESULT_PRESENTATION_MS = 2_000L
         private const val MOVEMENT_STEP_MS = 250L
         private const val LANDING_REVEAL_PRESENTATION_MS = 500L
+        private const val LOCAL_GAME_SWITCH_EVENT = "LOCAL_GAME_SWITCH"
         private val LANDING_REVEAL_EVENTS = setOf(
             "RENT_DUE",
             "TAX_DUE",

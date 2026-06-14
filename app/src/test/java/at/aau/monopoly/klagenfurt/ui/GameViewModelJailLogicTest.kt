@@ -110,10 +110,10 @@ class GameViewModelJailLogicTest {
             }
         """.trimIndent()
 
-        // Events auf den Log-Flow pushen
-        logEventsFlow.emit(finePaidEventJson)
-        logEventsFlow.emit(cardUsedEventJson)
-        logEventsFlow.emit(playerJailedEventJson)
+        // Events auf den Game-Flow pushen; eventLog is now the presented game log.
+        eventsFlow.emit(finePaidEventJson)
+        eventsFlow.emit(cardUsedEventJson)
+        eventsFlow.emit(playerJailedEventJson)
 
         advanceUntilIdle() // Warten bis die StateFlows aktualisiert sind
 

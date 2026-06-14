@@ -69,6 +69,7 @@ class FakeGameService : GameService {
     /** Set to false to simulate a rejected join during tests */
     var joinGameSuccess: Boolean = true
     var joinGameDelayMs: Long = 0
+    var rollbackGameIdOnJoinFailure: String? = null
 
 
     override fun connect() {
@@ -113,6 +114,7 @@ class FakeGameService : GameService {
                 )
             )
         } else {
+            rollbackGameIdOnJoinFailure?.let { currentGameId = it }
             Result.failure(Exception("Join rejected by server"))
         }
     }
@@ -144,9 +146,11 @@ class FakeGameService : GameService {
     }
 
     var executeActionCalled = false
+    var executeActionCalls = 0
 
     override fun executeAction(playerId: String) {
         executeActionCalled = true
+        executeActionCalls++
     }
 
     var drawCardCalled = false

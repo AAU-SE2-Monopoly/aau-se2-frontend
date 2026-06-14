@@ -50,7 +50,7 @@ data class GameState(
     val bankruptcyPlayerId: String = "",
     val pendingTradeOffer: TradeOffer? = null,
     val hostPlayerId: String = "",
-    val hasDrawnCardThisTurn: Boolean = false,
+    var hasDrawnCardThisTurn: Boolean = false,
     val turnTimerStartedAtMillis: Long = 0L
 ) {
     /** The player whose turn it currently is. */
@@ -75,13 +75,7 @@ data class GameState(
         lastDiceRoll = null
         currentActionCard = null
         pendingPayment = null
-    }
-
-    /** End the current player's turn without changing the current player index. */
-    fun endCurrentTurn() {
-        phase = GamePhase.TURN_END
-        currentActionCard = null
-        pendingPayment = null
+        hasDrawnCardThisTurn = false
     }
 
     /** Returns true when only one player has money / properties remaining. */

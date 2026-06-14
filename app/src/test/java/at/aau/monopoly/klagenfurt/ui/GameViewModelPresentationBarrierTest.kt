@@ -99,6 +99,46 @@ class GameViewModelPresentationBarrierTest {
     }
 
     @Test
+    fun `backend messages are displayed in presented event log`() = runTest(dispatcher) {
+        emit(
+            GameEvent(
+                gameId = "game-1",
+                event = "SOME_BACKEND_EVENT",
+                message = "Backend says the auction started",
+                gameState = state(position = 0, phase = GamePhase.BUYING)
+            )
+        )
+        runCurrent()
+
+        assertEquals("Backend says the auction started", viewModel.presentedEventLog.value.last().text)
+    }
+
+    @Test
+    fun `dice backend message appears in log after dice result hold before landing reveal`() = runTest(dispatcher) {
+        emit(snapshot(state(position = 0, phase = GamePhase.ROLLING)))
+        runCurrent()
+
+        emit(
+            GameEvent(
+                gameId = "game-1",
+                event = "DICE_ROLLED",
+                message = "Alice rolled a 3",
+                gameState = state(position = 3, phase = GamePhase.BUYING, diceRoll = DiceRoll(1, 2))
+            )
+        )
+        runCurrent()
+
+        assertTrue(viewModel.presentedEventLog.value.none { it.eventType == "DICE_ROLLED" })
+
+        advanceTimeBy(2_000L)
+        runCurrent()
+
+        val diceEntry = viewModel.presentedEventLog.value.last { it.eventType == "DICE_ROLLED" }
+        assertEquals("Alice rolled a 3", diceEntry.text)
+        assertNull(viewModel.visiblePaymentState.value)
+    }
+
+    @Test
     fun `action card drawn during active presentation is revealed at landing`() = runTest(dispatcher) {
         val card = ChanceCard(
             id = 7,
@@ -203,6 +243,72 @@ class GameViewModelPresentationBarrierTest {
         assertNull(viewModel.activeDicePresentation.value)
         assertEquals(9, viewModel.presentedBoardPlayers.value.first().position)
         assertNotEquals(GameViewModel.TurnPresentationPhase.MOVING_TOKEN, viewModel.presentationPhase.value)
+    }
+
+    @Test
+    fun `hard sync flushes logs buffered during active presentation`() = runTest(dispatcher) {
+        emit(snapshot(state(position = 0, phase = GamePhase.ROLLING)))
+        runCurrent()
+
+        emit(diceRolled(state(position = 3, phase = GamePhase.BUYING, diceRoll = DiceRoll(1, 2))))
+        runCurrent()
+
+        emit(
+            event(
+                "RENT_DUE",
+                state(
+                    position = 3,
+                    phase = GamePhase.PAYING_RENT,
+                    diceRoll = DiceRoll(1, 2),
+                    pendingPayment = PendingPayment(
+                        amount = 100,
+                        source = PaymentSource.RENT,
+                        sourceFieldId = 3,
+                        creditorPlayerId = "p2"
+                    )
+                )
+            )
+        )
+        runCurrent()
+
+        assertTrue(viewModel.presentedEventLog.value.none { it.eventType == "DICE_ROLLED" })
+        assertTrue(viewModel.presentedEventLog.value.none { it.eventType == "RENT_DUE" })
+
+        emit(event("TURN_TIMEOUT", state(position = 9, phase = GamePhase.ROLLING)))
+        runCurrent()
+
+        val eventTypes = viewModel.presentedEventLog.value.map { it.eventType }
+        assertTrue(eventTypes.contains("DICE_ROLLED"))
+        assertTrue(eventTypes.contains("RENT_DUE"))
+        assertTrue(eventTypes.contains("TURN_TIMEOUT"))
+    }
+
+    @Test
+    fun `late local dice response after roll timeout hard syncs without dice presentation`() = runTest(dispatcher) {
+        emit(snapshot(state(position = 0, phase = GamePhase.ROLLING)))
+        runCurrent()
+
+        viewModel.rollDice()
+        runCurrent()
+
+        assertNotNull(viewModel.activeDicePresentation.value)
+
+        advanceTimeBy(5_000L)
+        runCurrent()
+
+        assertNull(viewModel.activeDicePresentation.value)
+        assertEquals(
+            GameViewModel.TurnPresentationPhase.WAITING_FOR_ROLL_INPUT,
+            viewModel.presentationPhase.value
+        )
+
+        emit(diceRolled(state(position = 4, phase = GamePhase.BUYING, diceRoll = DiceRoll(1, 3))))
+        runCurrent()
+
+        assertNull(viewModel.activeDicePresentation.value)
+        assertEquals(4, viewModel.presentedBoardPlayers.value.first().position)
+        assertEquals(GameViewModel.TurnPresentationPhase.READY_FOR_ACTION, viewModel.presentationPhase.value)
+        assertTrue(viewModel.presentedEventLog.value.any { it.eventType == "DICE_ROLLED" })
     }
 
     @Test
@@ -311,6 +417,127 @@ class GameViewModelPresentationBarrierTest {
         runCurrent()
 
         assertEquals(1, fakeService.rollDiceCalls)
+    }
+
+    @Test
+    fun `duplicate action executions are ignored while request is in flight`() = runTest(dispatcher) {
+        val card = ChanceCard(
+            id = 11,
+            description = "Collect carefully",
+            action = CardAction.COLLECT_MONEY,
+            amount = 100
+        )
+
+        emit(snapshot(state(position = 1, phase = GamePhase.BUYING, actionCard = card)))
+        runCurrent()
+
+        assertTrue(viewModel.actionGates.value.canExecuteCard)
+
+        viewModel.executeAction()
+        viewModel.executeAction()
+        runCurrent()
+
+        assertEquals(1, fakeService.executeActionCalls)
+        assertFalse(viewModel.actionGates.value.canExecuteCard)
+    }
+
+    @Test
+    fun `action execution lock clears after timeout`() = runTest(dispatcher) {
+        val card = ChanceCard(
+            id = 12,
+            description = "Collect eventually",
+            action = CardAction.COLLECT_MONEY,
+            amount = 100
+        )
+
+        emit(snapshot(state(position = 1, phase = GamePhase.BUYING, actionCard = card)))
+        runCurrent()
+
+        viewModel.executeAction()
+        runCurrent()
+
+        assertFalse(viewModel.actionGates.value.canExecuteCard)
+
+        advanceTimeBy(5_000L)
+        runCurrent()
+
+        assertTrue(viewModel.actionGates.value.canExecuteCard)
+    }
+
+    @Test
+    fun `stale action executed does not use dismissed local action card fallback`() = runTest(dispatcher) {
+        val staleCard = ChanceCard(
+            id = 30,
+            description = "Go directly to jail",
+            action = CardAction.GO_TO_JAIL
+        )
+
+        emit(snapshot(state(position = 6, phase = GamePhase.BUYING)))
+        runCurrent()
+
+        viewModel.setCurrentActionCard(staleCard)
+        viewModel.dismissActionCard()
+        runCurrent()
+
+        emit(event("ACTION_EXECUTED", state(position = 8, phase = GamePhase.BUYING)))
+        runCurrent()
+
+        assertEquals(listOf(7, 8), viewModel.movementAnimation.value?.path)
+    }
+
+    @Test
+    fun `dismissing bankruptcy overlay keeps raw bankruptcy action blocker`() = runTest(dispatcher) {
+        val bankruptState = GameState(
+            gameId = "game-1",
+            fields = boardFields(),
+            players = mutableListOf(
+                Player(id = "p1", name = "Alice", position = 0, money = 0),
+                Player(id = "p2", name = "Bob", position = 0, money = 500)
+            ),
+            currentPlayerIndex = 0,
+            phase = GamePhase.TURN_END,
+            bankruptcyPlayerId = "p1",
+            bankruptcyTotalAssets = 0,
+            bankruptcyTotalDebt = 100
+        )
+
+        emit(event("BANKRUPTCY_DECLARED", bankruptState))
+        runCurrent()
+
+        assertTrue(viewModel.showBankruptcyOverlay.value)
+        assertFalse(viewModel.actionGates.value.canEndTurn)
+
+        viewModel.dismissBankruptcyOverlay()
+        runCurrent()
+
+        assertFalse(viewModel.showBankruptcyOverlay.value)
+        assertFalse(viewModel.actionGates.value.canEndTurn)
+
+        emit(event("STATE_UPDATED", state(position = 0, phase = GamePhase.TURN_END)))
+        runCurrent()
+
+        assertTrue(viewModel.actionGates.value.canEndTurn)
+    }
+
+    @Test
+    fun `double roll advance timeout clears queued roll`() = runTest(dispatcher) {
+        emit(snapshot(state(position = 0, phase = GamePhase.BUYING, diceRoll = DiceRoll(2, 2))))
+        runCurrent()
+
+        assertTrue(viewModel.actionGates.value.canRollAgainAfterDouble)
+
+        viewModel.rollAgainAfterDouble()
+        runCurrent()
+        assertEquals(1, fakeService.endTurnCalls)
+
+        advanceTimeBy(5_000L)
+        runCurrent()
+
+        emit(event("TURN_ENDED", state(position = 0, phase = GamePhase.ROLLING, diceRoll = DiceRoll(2, 2))))
+        runCurrent()
+
+        assertEquals(0, fakeService.rollDiceCalls)
+        assertFalse(viewModel.actionGates.value.canRollAgainAfterDouble)
     }
 
     private fun state(

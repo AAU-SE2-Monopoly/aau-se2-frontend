@@ -95,6 +95,7 @@ class GameStompClient(
 
     @Volatile private var _currentGameId: String = SessionPreferences.gameId
     override val currentGameId: String get() = _currentGameId
+    @Volatile private var subscribedGameId: String = ""
 
     @Volatile private var _currentPlayerName: String = SessionPreferences.playerName
     override val currentPlayerName: String get() = _currentPlayerName
@@ -194,16 +195,12 @@ class GameStompClient(
                         subscribeToPersonalTopic()
                         val gameIdSnapshot = _currentGameId
                         if (gameIdSnapshot.isNotBlank()) {
-                            if (gameSubscriptionInFlight.get()) {
-                                Log.d("GameStomp", "Skipping resubscribe to $gameIdSnapshot: subscription in progress")
-                            } else {
-                                val subscribed = subscribeToGameInternal(
-                                    gameId = gameIdSnapshot,
-                                    requestStateAfterSubscribe = true
-                                )
-                                if (!subscribed) {
-                                    throw IllegalStateException("Game subscription was not ready after reconnect")
-                                }
+                            val subscribed = subscribeToGameInternal(
+                                gameId = gameIdSnapshot,
+                                requestStateAfterSubscribe = true
+                            )
+                            if (!subscribed) {
+                                throw IllegalStateException("Game subscription was not ready after reconnect")
                             }
                         } else {
                             lobbyChannel.subscribe()
@@ -256,6 +253,7 @@ class GameStompClient(
         reconnectAttempts.set(0)
         _connectionState.value = false
         _reconnectFailed.value = false
+        subscribedGameId = ""
         gameChannel.cancel()
         lobbyChannel.cancel()
         connectJob?.cancel()
@@ -366,6 +364,7 @@ class GameStompClient(
     }
 
     override suspend fun joinGame(gameId: String, playerName: String, iconId: String): Result<GameEvent> {
+        val previousGameId = _currentGameId
         _currentPlayerName = playerName
         SessionPreferences.playerName = playerName
         SessionPreferences.iconId = iconId
@@ -375,6 +374,7 @@ class GameStompClient(
             requestStateAfterSubscribe = true
         )
         if (!subscribed) {
+            rollbackFailedJoin(previousGameId)
             emitStatus("Join failed: Could not subscribe to game topic")
             return Result.failure(Exception("Join failed: Could not subscribe to game topic"))
         }
@@ -430,6 +430,7 @@ class GameStompClient(
         if (joinEventResult == null) {
             val msg = "Join timeout: no server response for game $gameId"
             Log.w("GameStomp", msg)
+            rollbackFailedJoin(previousGameId)
             emitStatus(msg)
             return Result.failure(Exception(msg))
         }
@@ -442,11 +443,31 @@ class GameStompClient(
             "ERROR" -> {
                 val errMsg = joinEventResult.message ?: "Join rejected by server"
                 Log.w("GameStomp", "Join rejected for game $gameId: $errMsg")
+                rollbackFailedJoin(previousGameId)
                 emitStatus(errMsg)
                 Result.failure(Exception(errMsg))
             }
             else -> {
+                rollbackFailedJoin(previousGameId)
                 Result.failure(Exception("Unexpected event: ${joinEventResult.event}"))
+            }
+        }
+    }
+
+    private fun rollbackFailedJoin(previousGameId: String) {
+        gameChannel.cancel()
+        subscribedGameId = ""
+        _currentGameId = previousGameId
+        SessionPreferences.gameId = previousGameId
+        if (previousGameId.isNotBlank()) {
+            scope.launch {
+                val restored = subscribeToGameInternal(
+                    gameId = previousGameId,
+                    requestStateAfterSubscribe = true
+                )
+                if (!restored) {
+                    emitStatus("Join rollback failed: could not restore previous game subscription")
+                }
             }
         }
     }
@@ -497,19 +518,22 @@ class GameStompClient(
         requestStateAfterSubscribe: Boolean,
         isNewlyCreated: Boolean = false
     ): Boolean = gameSubscriptionMutex.withLock {
-        if (gameChannel.isReady.value && gameId == _currentGameId) {
+        if (gameChannel.isReady.value && gameId == subscribedGameId) {
             Log.d("GameStomp", "Already subscribed to $gameId")
             emitStatus("SUBSCRIBED:$gameId")
             if (requestStateAfterSubscribe) {
-                sendRawInternal("/app/game/state", buildAction())
+                sendRawInternal("/app/game/state", buildAction(gameId = gameId))
             }
             return@withLock true
         }
 
         gameSubscriptionInFlight.set(true)
+        val previousCurrentGameId = _currentGameId
+        val previousSessionGameId = SessionPreferences.gameId
         try {
             _currentGameId = gameId
             SessionPreferences.gameId = gameId
+            subscribedGameId = ""
             gameChannel.cancel()
             gameChannel.subscribe(gameId)
 
@@ -528,7 +552,7 @@ class GameStompClient(
 
             if (ready == null) {
                 Log.e("GameStomp", "Subscription timed out for $gameId (attempt 2/2)")
-                if (isNewlyCreated && gameId.isNotEmpty() && gameId == _currentGameId) {
+                if (isNewlyCreated && gameId.isNotEmpty()) {
                     val capturedSession = session
                     try {
                         if (capturedSession != null) {
@@ -538,14 +562,17 @@ class GameStompClient(
                         throw e
                     } catch (_: Exception) { }
                 }
+                _currentGameId = previousCurrentGameId
+                SessionPreferences.gameId = previousSessionGameId
                 startReconnectLoop()
                 return@withLock false
             }
 
             emitStatus("SUBSCRIBED:$gameId")
+            subscribedGameId = gameId
 
             if (requestStateAfterSubscribe) {
-                sendRawInternal("/app/game/state", buildAction())
+                sendRawInternal("/app/game/state", buildAction(gameId = gameId))
             }
 
             return@withLock true

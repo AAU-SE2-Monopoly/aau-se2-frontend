@@ -190,16 +190,12 @@ fun GameboardScreen(
     val currentField = visibleCurrentField ?: currentTurnPlayer?.let { player ->
         fields.getOrNull(player.position)
     }
-    val isBuyableField = currentField is OwnableField
-    val isUnownedField = (currentField as? OwnableField)?.ownerId == null
-
     val isOnChanceField = currentField is ChanceField
     val isOnCommunityChestField = currentField is CommunityChestField
     val eventLog by viewModel.presentedEventLog.collectAsState()
     val actionGates by viewModel.actionGates.collectAsState()
     val activeDicePresentation by viewModel.activeDicePresentation.collectAsState()
     val visiblePaymentState by viewModel.visiblePaymentState.collectAsState()
-    val visibleBankruptcyState by viewModel.visibleBankruptcyState.collectAsState()
 
     val isRollingPhaseForCurrentPlayer by viewModel.isRollingPhaseForCurrentPlayer.collectAsState()
     val isBuyingPhaseForCurrentPlayer by viewModel.isBuyingPhaseForCurrentPlayer.collectAsState()
@@ -612,7 +608,14 @@ fun GameboardScreen(
                     dismissedDiceSequenceId = sequenceId
                     viewModel.onDiceDismissed(sequenceId)
                 },
-                onClose = { showOverlay = false }
+                onClose = {
+                    showOverlay = false
+                    hasShaken = false
+                    activeDicePresentation?.let { pres ->
+                        dismissedDiceSequenceId = pres.sequenceId
+                        viewModel.onDiceDismissed(pres.sequenceId)
+                    }
+                }
             )
             FreeParkingJackpotOverlay(
                 isVisible = showFreeParkingOverlay,

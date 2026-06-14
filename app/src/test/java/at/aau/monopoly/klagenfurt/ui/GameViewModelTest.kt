@@ -6,6 +6,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
@@ -111,14 +112,50 @@ class GameViewModelTest {
     }
 
     @Test
+    fun `failed join clears stale attempted game state after rollback`() = runTest(testDispatcher) {
+        fakeService.currentGameId = "failed-game"
+        fakeService.emitTestEvent(
+            """
+            {
+              "event": "STATE_SNAPSHOT",
+              "gameId": "failed-game",
+              "gameState": {
+                "gameId": "failed-game",
+                "fields": [],
+                "players": [{"id":"p1","name":"Alice"}],
+                "currentPlayerIndex": 0,
+                "phase": "BUYING"
+              }
+            }
+            """.trimIndent()
+        )
+        advanceUntilIdle()
+
+        assertEquals("failed-game", viewModel.gameState.value?.gameId)
+
+        fakeService.joinGameSuccess = false
+        fakeService.rollbackGameIdOnJoinFailure = "previous-game"
+
+        viewModel.joinGame("failed-game", "Alice")
+        advanceUntilIdle()
+
+        assertEquals("previous-game", fakeService.currentGameId)
+        assertNull(viewModel.gameState.value)
+        assertTrue(fakeService.requestStateCalled)
+    }
+
+    @Test
     fun `startGame should call gameService startGame`() {
         viewModel.startGame()
         assertTrue(fakeService.startGameCalled)
     }
 
     @Test
-    fun `endTurn should call gameService endTurn`() {
+    fun `endTurn should call gameService endTurn`() = runTest(testDispatcher) {
+        seedGameState(phase = "BUYING")
+
         viewModel.endTurn()
+
         assertTrue(fakeService.endTurnCalled)
     }
 
@@ -135,7 +172,9 @@ class GameViewModelTest {
     }
 
     @Test
-    fun `proposeTrade should delegate complete offer to game service`() {
+    fun `proposeTrade should delegate complete offer to game service`() = runTest(testDispatcher) {
+        seedGameState(phase = "BUYING")
+
         viewModel.proposeTrade(
             toPlayerId = "p2",
             offerMoney = 120,
@@ -156,7 +195,9 @@ class GameViewModelTest {
     }
 
     @Test
-    fun `acceptTrade and rejectTrade should delegate trade id to game service`() {
+    fun `acceptTrade and rejectTrade should delegate trade id to game service`() = runTest(testDispatcher) {
+        seedGameState(phase = "BUYING")
+
         viewModel.acceptTrade("trade-1")
         viewModel.rejectTrade("trade-2")
 
@@ -248,8 +289,11 @@ class GameViewModelTest {
     // --- DICE CHEAT TESTS ---
 
     @Test
-    fun `rollDice should call service`() {
+    fun `rollDice should call service`() = runTest(testDispatcher) {
+        seedGameState(phase = "ROLLING")
+
         viewModel.rollDice()
+
         assertTrue(fakeService.rollDiceCalled)
     }
 
@@ -409,7 +453,7 @@ class GameViewModelTest {
 
 
     @Test
-    fun `dismissActionCard should clear current action card`() {
+    fun `dismissActionCard should clear visible action card`() {
         val card = at.aau.monopoly.klagenfurt.model.card.ChanceCard(
             id = 1,
             description = "Collect money",
@@ -422,7 +466,8 @@ class GameViewModelTest {
 
         viewModel.dismissActionCard()
 
-        assertNull(viewModel.currentActionCard.value)
+        assertNull(viewModel.visibleActionCard.value)
+        assertEquals(card, viewModel.currentActionCard.value)
     }
 
     @Test
@@ -856,9 +901,13 @@ class GameViewModelTest {
     }
 
     @Test
-    fun `buyProperty should call gameService with correct field id`() {
-        val fakeService = FakeGameService()
-        val viewModel = GameViewModel(fakeService)
+    fun `buyProperty should call gameService with correct field id`() = runTest(testDispatcher) {
+        seedGameState(
+            phase = "BUYING",
+            fieldsJson = """[
+              {"id":5,"name":"Buyable","type":"PROPERTY","color":"BROWN","price":60,"rent":[2,10,30,90,160,250],"houseCost":50,"hotelCost":50,"ownerId":null,"houses":0,"hasHotel":false,"isMortgaged":false}
+            ]"""
+        )
 
         viewModel.buyProperty(5)
 
@@ -967,7 +1016,7 @@ class GameViewModelTest {
     }
 
     @Test
-    fun `dismissActionCard should clear action card state`() {
+    fun `dismissActionCard should clear visible action card state`() {
         val card = at.aau.monopoly.klagenfurt.model.card.ChanceCard(
             id = 99,
             description = "Test Card",
@@ -978,32 +1027,41 @@ class GameViewModelTest {
         viewModel.setCurrentActionCard(card)
         viewModel.dismissActionCard()
 
-        assertNull(viewModel.currentActionCard.value)
+        assertNull(viewModel.visibleActionCard.value)
+        assertEquals(card, viewModel.currentActionCard.value)
     }
 
     @Test
-    fun `buyHouse should set building action pending to true`() {
+    fun `buyHouse should set building action pending to true`() = runTest(testDispatcher) {
+        seedGameState(phase = "BUYING")
+
         viewModel.buyHouse(1)
 
         assertTrue(viewModel.buildingActionPending.value)
     }
 
     @Test
-    fun `buyHotel should set building action pending to true`() {
+    fun `buyHotel should set building action pending to true`() = runTest(testDispatcher) {
+        seedGameState(phase = "BUYING")
+
         viewModel.buyHotel(1)
 
         assertTrue(viewModel.buildingActionPending.value)
     }
 
     @Test
-    fun `sellHouse should set building action pending to true`() {
+    fun `sellHouse should set building action pending to true`() = runTest(testDispatcher) {
+        seedGameState(phase = "BUYING")
+
         viewModel.sellHouse(1)
 
         assertTrue(viewModel.buildingActionPending.value)
     }
 
     @Test
-    fun `sellHotel should set building action pending to true`() {
+    fun `sellHotel should set building action pending to true`() = runTest(testDispatcher) {
+        seedGameState(phase = "BUYING")
+
         viewModel.sellHotel(1)
 
         assertTrue(viewModel.buildingActionPending.value)
@@ -1119,6 +1177,7 @@ class GameViewModelTest {
     @Test
     fun `PROPERTY_MORTGAGED clears propertyActionInFlight`() = runTest {
         val job = launch { viewModel.propertyActionInFlight.collect {} }
+        seedGameState(phase = "BUYING")
 
         viewModel.mortgageProperty(1)
         assertTrue(viewModel.propertyActionInFlight.value)
@@ -1145,6 +1204,7 @@ class GameViewModelTest {
     @Test
     fun `PROPERTY_UNMORTGAGED clears propertyActionInFlight`() = runTest {
         val job = launch { viewModel.propertyActionInFlight.collect {} }
+        seedGameState(phase = "BUYING")
 
         viewModel.unmortgageProperty(1)
         assertTrue(viewModel.propertyActionInFlight.value)
@@ -1726,7 +1786,9 @@ class GameViewModelTest {
     }
 
     @Test
-    fun `mortgageProperty blocked when propertyActionInFlight is true`() {
+    fun `mortgageProperty blocked when propertyActionInFlight is true`() = runTest(testDispatcher) {
+        seedGameState(phase = "BUYING")
+
         fakeService.mortgagePropertyCalled = false
         viewModel.mortgageProperty(1)
         assertTrue(fakeService.mortgagePropertyCalled)
@@ -1737,7 +1799,9 @@ class GameViewModelTest {
     }
 
     @Test
-    fun `unmortgageProperty blocked when propertyActionInFlight is true`() {
+    fun `unmortgageProperty blocked when propertyActionInFlight is true`() = runTest(testDispatcher) {
+        seedGameState(phase = "BUYING")
+
         fakeService.unmortgagePropertyCalled = false
         viewModel.unmortgageProperty(1)
         assertTrue(fakeService.unmortgagePropertyCalled)
@@ -1748,7 +1812,9 @@ class GameViewModelTest {
     }
 
     @Test
-    fun `sellHouse blocked when propertyActionInFlight is true`() {
+    fun `sellHouse blocked when propertyActionInFlight is true`() = runTest(testDispatcher) {
+        seedGameState(phase = "BUYING")
+
         fakeService.sellHouseCalled = false
         viewModel.sellHouse(1)
         assertTrue(fakeService.sellHouseCalled)
@@ -1759,7 +1825,9 @@ class GameViewModelTest {
     }
 
     @Test
-    fun `sellHouse blocked when buildingActionPending is true`() {
+    fun `sellHouse blocked when buildingActionPending is true`() = runTest(testDispatcher) {
+        seedGameState(phase = "BUYING")
+
         fakeService.sellHouseCalled = false
         fakeService.buyHouseCalled = false
         fakeService.buyHouseCalled = false
@@ -1772,7 +1840,9 @@ class GameViewModelTest {
     }
 
     @Test
-    fun `sellHotel blocked when propertyActionInFlight is true`() {
+    fun `sellHotel blocked when propertyActionInFlight is true`() = runTest(testDispatcher) {
+        seedGameState(phase = "BUYING")
+
         fakeService.sellHotelCalled = false
         viewModel.sellHotel(1)
         assertTrue(fakeService.sellHotelCalled)
@@ -1783,7 +1853,9 @@ class GameViewModelTest {
     }
 
     @Test
-    fun `sellHotel blocked when buildingActionPending is true`() {
+    fun `sellHotel blocked when buildingActionPending is true`() = runTest(testDispatcher) {
+        seedGameState(phase = "BUYING")
+
         fakeService.buyHouseCalled = false
         viewModel.buyHouse(1)
 
@@ -1793,7 +1865,9 @@ class GameViewModelTest {
     }
 
     @Test
-    fun `buyHouse blocked when buildingActionPending is true`() {
+    fun `buyHouse blocked when buildingActionPending is true`() = runTest(testDispatcher) {
+        seedGameState(phase = "BUYING")
+
         fakeService.buyHouseCalled = false
         viewModel.buyHouse(1)
         assertTrue(fakeService.buyHouseCalled)
@@ -1961,7 +2035,8 @@ class GameViewModelTest {
 
 
     @Test
-    fun `reportCheater should delegate to gameService`() {
+    fun `reportCheater should delegate to gameService`() = runTest(testDispatcher) {
+        seedGameState(phase = "BUYING", money = 600)
         val suspectId = "player-99"
 
         viewModel.reportCheater(suspectId)
@@ -2044,22 +2119,28 @@ class GameViewModelTest {
 
     @Test
     fun `payTax calls gameService payTax with current field id`() = runTest {
-        val service = FakeGameService()
-        val viewModel = GameViewModel(service)
-
-        viewModel.showPayRentOverlay(
-            amount = 200,
-            ownerId = null,
-            fieldId = 4
+        seedGameState(
+            eventType = "TAX_DUE",
+            phase = "PAYING_RENT",
+            extraState = """,
+            "pendingPayment": {
+              "amount": 200,
+              "source": "TAX",
+              "sourceFieldId": 4,
+              "creditorPlayerId": null
+            }
+            """
         )
 
         viewModel.payTax()
 
-        assertEquals(4, service.lastPaidTaxFieldId)
+        assertEquals(4, fakeService.lastPaidTaxFieldId)
     }
 
     @Test
     fun `rollDice should set rollRequestInFlight and block consecutive roll calls`() = runTest(testDispatcher) {
+        seedGameState(phase = "ROLLING")
+
         // First roll must succeed
         fakeService.rollDiceCalled = false
         viewModel.rollDice()
@@ -2075,6 +2156,7 @@ class GameViewModelTest {
     @Test
     fun `DICE_ROLLED event should clear rollRequestInFlight lock`() = runTest(testDispatcher) {
         val job = launch { viewModel.gameState.collect {} }
+        seedGameState(phase = "ROLLING")
 
         viewModel.rollDice() // Activate lock
         fakeService.rollDiceCalled = false
@@ -2123,12 +2205,25 @@ class GameViewModelTest {
     @Test
     fun `TURN_ENDED event should clear rollRequestInFlight lock and reset cheat state`() = runTest(testDispatcher) {
         val job = launch { viewModel.gameState.collect {} }
+        seedGameState(phase = "ROLLING")
 
         viewModel.rollDice() // Activate lock
         fakeService.rollDiceCalled = false
 
         // Simulate turn end from server
-        fakeService.emitTestEvent("""{"event":"TURN_ENDED","gameId":"g1"}""")
+        fakeService.emitTestEvent("""
+        {
+          "event": "TURN_ENDED",
+          "gameId": "g1",
+          "gameState": {
+            "gameId": "g1",
+            "fields": [{"id":0,"name":"Go","type":"GO"}],
+            "players": [{"id":"p1","name":"Alice"}],
+            "currentPlayerIndex": 0,
+            "phase": "ROLLING"
+          }
+        }
+        """.trimIndent())
         advanceUntilIdle()
 
         // Lock must be released
@@ -2141,6 +2236,7 @@ class GameViewModelTest {
     @Test
     fun `ERROR event should clear rollRequestInFlight lock`() = runTest(testDispatcher) {
         val job = launch { viewModel.errorMessage.collect {} }
+        seedGameState(phase = "ROLLING")
 
         viewModel.rollDice() // Activate lock
         fakeService.rollDiceCalled = false
@@ -2173,5 +2269,48 @@ class GameViewModelTest {
         job.cancel()
     }
 
+    private suspend fun TestScope.seedGameState(
+        eventType: String = "STATE_UPDATED",
+        phase: String = "BUYING",
+        money: Int = 1500,
+        position: Int = 0,
+        fieldsJson: String = """[{"id":0,"name":"Go","type":"GO"}]""",
+        extraState: String = ""
+    ) {
+        fakeService.currentPlayerId = "p1"
+        fakeService.currentGameId = "g1"
+        fakeService.emitTestEvent(
+            """
+            {
+              "event": "$eventType",
+              "gameId": "g1",
+              "gameState": {
+                "gameId": "g1",
+                "fields": $fieldsJson,
+                "players": [
+                  {
+                    "id": "p1",
+                    "name": "Alice",
+                    "money": $money,
+                    "position": $position,
+                    "ownedPropertyIds": []
+                  },
+                  {
+                    "id": "p2",
+                    "name": "Bob",
+                    "money": 1500,
+                    "position": 0,
+                    "ownedPropertyIds": []
+                  }
+                ],
+                "currentPlayerIndex": 0,
+                "phase": "$phase"
+                $extraState
+              }
+            }
+            """.trimIndent()
+        )
+        advanceUntilIdle()
+    }
 
 }

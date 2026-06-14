@@ -75,6 +75,7 @@ class GameboardIsolatedUITest {
             .assertIsNotEnabled()
     }
 
+
     @Test
     fun testReportButtonEnabledWhenMoneyIsGreaterThan500() {
         val myPlayer = Player(id = "player1", name = "Me", money = 501, position = 0)
@@ -107,4 +108,6 @@ class GameboardIsolatedUITest {
 
         assertNotNull(outline)
     }
+
+
 }

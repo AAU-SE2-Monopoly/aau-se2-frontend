@@ -1881,17 +1881,6 @@ class GameViewModelTest {
     }
 
 
-
-    @Test
-    fun `reportCheater should delegate to gameService`() {
-        val suspectId = "player-99"
-
-        viewModel.reportCheater(suspectId)
-
-        assertTrue(fakeService.reportCheaterCalled)
-        assertEquals(suspectId, fakeService.lastReportedPlayerId)
-    }
-
     @Test
     fun `CHEATER_REPORTED event emits message to dramaEvent flow`() = runTest {
         val dramaMessages = mutableListOf<String>()
@@ -1912,6 +1901,62 @@ class GameViewModelTest {
         assertTrue("Expected dramaEvent to emit the message", dramaMessages.contains(testMessage))
 
         job.cancel()
+    }
+
+    @Test
+    fun `reportCheater delegates to gameService when player has at least 501 money`() = runTest {
+        val suspectId = "player-99"
+
+
+        fakeService.currentPlayerId = "p1"
+        fakeService.emitTestEvent("""
+            {
+              "event": "GAME_START",
+              "gameId": "game-1",
+              "gameState": {
+                "gameId": "game-1",
+                "fields": [],
+                "players": [{"id":"p1","name":"Alice","money":501}],
+                "currentPlayerIndex": 0
+              }
+            }
+            """.trimIndent())
+        advanceUntilIdle()
+
+
+        viewModel.reportCheater(suspectId)
+
+
+        assertTrue(fakeService.reportCheaterCalled)
+        assertEquals(suspectId, fakeService.lastReportedPlayerId)
+    }
+
+    @Test
+    fun `reportCheater does NOT delegate to gameService when player has less than 501 money`() = runTest {
+        val suspectId = "player-99"
+
+
+        fakeService.currentPlayerId = "p1"
+        fakeService.emitTestEvent("""
+            {
+              "event": "GAME_START",
+              "gameId": "game-1",
+              "gameState": {
+                "gameId": "game-1",
+                "fields": [],
+                "players": [{"id":"p1","name":"Alice","money":500}],
+                "currentPlayerIndex": 0
+              }
+            }
+            """.trimIndent())
+        advanceUntilIdle()
+
+
+        viewModel.reportCheater(suspectId)
+
+
+        assertFalse(fakeService.reportCheaterCalled)
+        assertEquals("",fakeService.lastReportedPlayerId)
     }
 
     @Test

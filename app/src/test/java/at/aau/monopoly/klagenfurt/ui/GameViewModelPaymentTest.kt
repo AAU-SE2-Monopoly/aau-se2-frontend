@@ -345,32 +345,4 @@ class GameViewModelPaymentTest {
         job.cancel()
     }
 
-    @Test
-    fun `testDoubleAutoEnd`() = runTest {
-        val job = launch { viewModel.pendingDoubleAutoEnd.collect {} }
-
-        fakeService.currentPlayerId = "p1"
-        fakeService.emitTestEvent("""
-        {
-          "event": "DICE_ROLLED",
-          "gameId": "game-1",
-          "gameState": {
-            "gameId": "game-1",
-            "fields": [],
-            "players": [{"id":"p1","name":"Alice"}],
-            "currentPlayerIndex": 0,
-            "phase": "BUYING",
-            "lastDiceRoll": {"die1":3,"die2":3}
-          }
-        }
-        """.trimIndent())
-        advanceUntilIdle()
-
-        assertTrue(viewModel.pendingDoubleAutoEnd.value)
-
-        viewModel.consumeDoubleAutoEnd()
-        assertFalse(viewModel.pendingDoubleAutoEnd.value)
-
-        job.cancel()
-    }
 }

@@ -962,6 +962,48 @@ class GameboardScreenCoverageTest {
         composeTestRule.onNodeWithTag("use_jail_card_button").assertExists()
         composeTestRule.onNodeWithTag("roll_dice_button").assertExists()
     }
+
+    @Test
+    fun gameboardScreen_payRentReopenButtonCallsViewModel() {
+        val fakeService = FakeGameService()
+        fakeService.currentGameId = "game-1"
+        fakeService.currentPlayerId = "player-1"
+
+        val shakeEvents = kotlinx.coroutines.flow.MutableSharedFlow<Unit>()
+        val viewModel = GameViewModel(fakeService)
+
+        val state = at.aau.monopoly.klagenfurt.model.GameState(
+            gameId = "game-1",
+            fields = emptyList(),
+            players = mutableListOf(
+                at.aau.monopoly.klagenfurt.model.Player(id = "player-1", name = "Me", money = 1500, position =
+                    0),
+                at.aau.monopoly.klagenfurt.model.Player(id = "player-2", name = "Owner", money = 1500,
+                    position = 0)
+            ),
+            currentPlayerIndex = 0,
+            pendingPayment = at.aau.monopoly.klagenfurt.model.PendingPayment(
+                amount = 200,
+                creditorPlayerId = "player-2",
+                sourceFieldId = 1,
+                source = at.aau.monopoly.klagenfurt.model.PaymentSource.RENT
+            )
+        )
+        fakeService.emitGameState(state)
+
+        composeTestRule.setContent {
+            GameboardScreen(viewModel = viewModel, shakeEventsOverride = shakeEvents)
+        }
+        composeTestRule.waitForIdle()
+
+        viewModel.dismissPayRentOverlay()
+        composeTestRule.waitForIdle()
+
+        composeTestRule.onNodeWithTag("pay_rent_reopen_button").performClick()
+        composeTestRule.waitForIdle()
+
+        org.junit.Assert.assertTrue(viewModel.showPayRentOverlay.value)
+    }
 }
 
 

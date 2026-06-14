@@ -329,12 +329,6 @@ fun GameboardScreen(
         }
     }
 
-    val pendingDoubleAutoEnd by viewModel.pendingDoubleAutoEnd.collectAsState()
-    LaunchedEffect(showOverlay, pendingDoubleAutoEnd) {
-        if (!showOverlay && pendingDoubleAutoEnd) {
-            viewModel.consumeDoubleAutoEnd()
-        }
-    }
 
     LaunchedEffect(showActionCardOverlay) {
         if (showActionCardOverlay) {
@@ -424,111 +418,121 @@ fun GameboardScreen(
                 horizontalAlignment = Alignment.End,
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                if (canStartGame) {
-                    GlassButton(
-                        onClick = { viewModel.startGame() },
-                        modifier = Modifier.width(buttonWidth)
-                    ) {
-                        Text("▶️ Start Game")
-                    }
-                }
-
-                if (isRollingPhaseForCurrentPlayer && currentTurnPlayer != null && !mustDrawCard && !isDrawingCard) {
-                    if (currentTurnPlayer.inJail) {
-
-                        Text(
-                            text = "🔒 In Jail (Attempt ${currentTurnPlayer.jailTurns + 1}/3)",
-                            modifier = Modifier
-                                .background(
-                                    Color.Black.copy(alpha = 0.35f),
-                                    shape = RoundedCornerShape(4.dp)
-                                )
-                                .padding(horizontal = 8.dp, vertical = 4.dp),
-                            color = Color.White
-                        )
-
+                if(!showOverlay) {
+                    if (canStartGame) {
                         GlassButton(
-                            onClick = { viewModel.payJailFine() },
-                            enabled = currentTurnPlayer.money >= 50,
-                            modifier = Modifier.width(buttonWidth).testTag("pay_jail_fine_button")
+                            onClick = { viewModel.startGame() },
+                            modifier = Modifier.width(buttonWidth)
                         ) {
-                            Text("💰 Pay 50€")
+                            Text("▶️ Start Game")
                         }
+                    }
 
-                        if (currentTurnPlayer.getOutOfJailCards > 0) {
+                    if (isRollingPhaseForCurrentPlayer && currentTurnPlayer != null && !mustDrawCard && !isDrawingCard) {
+                        if (currentTurnPlayer.inJail) {
+
+                            Text(
+                                text = "🔒 In Jail (Attempt ${currentTurnPlayer.jailTurns + 1}/3)",
+                                modifier = Modifier
+                                    .background(
+                                        Color.Black.copy(alpha = 0.35f),
+                                        shape = RoundedCornerShape(4.dp)
+                                    )
+                                    .padding(horizontal = 8.dp, vertical = 4.dp),
+                                color = Color.White
+                            )
+
                             GlassButton(
-                                onClick = { viewModel.useJailCard() },
-                                modifier = Modifier.width(buttonWidth).testTag("use_jail_card_button")
+                                onClick = { viewModel.payJailFine() },
+                                enabled = currentTurnPlayer.money >= 50,
+                                modifier = Modifier.width(buttonWidth)
+                                    .testTag("pay_jail_fine_button")
                             ) {
-                                Text("🃏 Use Card (${currentTurnPlayer.getOutOfJailCards})")
+                                Text("💰 Pay 50 M")
+                            }
+
+                            if (currentTurnPlayer.getOutOfJailCards > 0) {
+                                GlassButton(
+                                    onClick = { viewModel.useJailCard() },
+                                    modifier = Modifier.width(buttonWidth)
+                                        .testTag("use_jail_card_button")
+                                ) {
+                                    Text("🃏 Use Card (${currentTurnPlayer.getOutOfJailCards})")
+                                }
+                            }
+
+                            GlassButton(
+                                onClick = { showOverlay = true },
+                                modifier = Modifier.width(buttonWidth).testTag("roll_dice_button")
+                            ) {
+                                Text("🎲 Attempt Double")
+                            }
+                        } else {
+                            GlassButton(
+                                onClick = { showOverlay = true },
+                                modifier = Modifier.width(buttonWidth).testTag("roll_dice_button")
+                            ) {
+                                Text("🎲 Roll Dice")
                             }
                         }
+                    }
 
+                    if (canEndTurnForCurrentPlayer && !showActionCardOverlay && !mustDrawCard && !isDrawingCard) {
                         GlassButton(
-                            onClick = { showOverlay = true },
-                            modifier = Modifier.width(buttonWidth).testTag("roll_dice_button")
+                            onClick = { viewModel.endTurn() },
+                            modifier = Modifier.width(buttonWidth).testTag("end_turn_button")
                         ) {
-                            Text("🎲 Attempt Double")
-                        }
-                    } else {
-                        GlassButton(
-                            onClick = { showOverlay = true },
-                            modifier = Modifier.width(buttonWidth).testTag("roll_dice_button")
-                        ) {
-                            Text("🎲 Roll Dice")
+                            Text("⏭️ End Turn")
                         }
                     }
-                }
 
-                if (canEndTurnForCurrentPlayer && !showActionCardOverlay && !mustDrawCard && !isDrawingCard) {
-                    GlassButton(
-                        onClick = { viewModel.endTurn() },
-                        modifier = Modifier.width(buttonWidth).testTag("end_turn_button")
-                    ) {
-                        Text("⏭️ End Turn")
+                    if (hasPendingPayment && !showPayRentOverlay && currentTurnPlayer?.id == currentPlayerId) {
+                        GlassButton(
+                            onClick = {
+                                viewModel.showPayRentOverlay(
+                                    currentRentAmount,
+                                    currentRentOwnerId,
+                                    currentRentFieldId
+                                )
+                            },
+                            modifier = Modifier.width(buttonWidth).testTag("pay_rent_reopen_button")
+                        ) {
+                            Text("💸 Pay Rent Due")
+                        }
                     }
-                }
 
-                if (hasPendingPayment && !showPayRentOverlay && currentTurnPlayer?.id == currentPlayerId) {
-                    GlassButton(
-                        onClick = { viewModel.showPayRentOverlay(currentRentAmount, currentRentOwnerId, currentRentFieldId) },
-                        modifier = Modifier.width(buttonWidth).testTag("pay_rent_reopen_button")
-                    ) {
-                        Text("💸 Pay Rent Due")
+                    if (canBuyCurrentField) {
+                        GlassButton(
+                            onClick = {
+                                viewModel.buyProperty(currentTurnPlayer.position)
+                            },
+                            modifier = Modifier.width(buttonWidth).testTag("buy_property_button")
+                        ) {
+                            Text("🏠 Buy Property")
+                        }
                     }
-                }
 
-                if (canBuyCurrentField) {
-                    GlassButton(
-                        onClick = {
-                            viewModel.buyProperty(currentTurnPlayer.position)
-                        },
-                        modifier = Modifier.width(buttonWidth).testTag("buy_property_button")
-                    ) {
-                        Text("🏠 Buy Property")
+                    if (isOnChanceField && isBuyingPhaseForCurrentPlayer) {
+                        DrawCardButton(
+                            cardType = "CHANCE",
+                            alreadyDrawn = hasDrawnCard,
+                            enabled = !showActionCardOverlay && !hasDrawnCard,
+                            label = "🎰 Draw Chance",
+                            onDraw = { onDrawCard("CHANCE") },
+                            modifier = Modifier.width(buttonWidth)
+                        )
                     }
-                }
 
-                if (isOnChanceField && isBuyingPhaseForCurrentPlayer) {
-                    DrawCardButton(
-                        cardType = "CHANCE",
-                        alreadyDrawn = hasDrawnCard,
-                        enabled = !showActionCardOverlay && !hasDrawnCard,
-                        label = "🎰 Draw Chance",
-                        onDraw = { onDrawCard("CHANCE") },
-                        modifier = Modifier.width(buttonWidth)
-                    )
-                }
-
-                if (isOnCommunityChestField && isBuyingPhaseForCurrentPlayer) {
-                    DrawCardButton(
-                        cardType = "COMMUNITY_CHEST",
-                        alreadyDrawn = hasDrawnCard,
-                        enabled = !showActionCardOverlay && !hasDrawnCard,
-                        label = "⭐ Draw Community",
-                        onDraw = { onDrawCard("COMMUNITY_CHEST") },
-                        modifier = Modifier.width(buttonWidth)
-                    )
+                    if (isOnCommunityChestField && isBuyingPhaseForCurrentPlayer) {
+                        DrawCardButton(
+                            cardType = "COMMUNITY_CHEST",
+                            alreadyDrawn = hasDrawnCard,
+                            enabled = !showActionCardOverlay && !hasDrawnCard,
+                            label = "⭐ Draw Community",
+                            onDraw = { onDrawCard("COMMUNITY_CHEST") },
+                            modifier = Modifier.width(buttonWidth)
+                        )
+                    }
                 }
             }
 
@@ -875,15 +879,16 @@ fun GameboardContent(
 
                         Button(
                             onClick = { onReportCheater(player.id) },
-                            enabled = canReport,
+
                             modifier = Modifier
                                 .padding(top = 4.dp, end = 4.dp)
                                 .height(26.dp),
+                            enabled = canReport,
                             contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
                             colors = ButtonDefaults.buttonColors(
                                 containerColor = Color(0xFFAA0000),
                                 contentColor = Color.White,
-                                disabledContainerColor = Color.Black.copy(alpha = 0.16f),
+                                disabledContainerColor = Color.Gray,
                                 disabledContentColor = Color.White.copy(alpha = 0.5f)
                             ),
                             shape = RoundedCornerShape(6.dp)
@@ -917,7 +922,8 @@ fun GameboardContent(
                 alignment = Alignment.CenterEnd,
                 panelWidth = panelWidth,
                 panelMargin = panelMargin,
-                verticalArrangement = Arrangement.Center
+                verticalArrangement = Arrangement.Center,
+                modifier = Modifier.offset(y = (-50).dp)
             ) {
                 PlayerInfoPanel(
                     player = myPlayer,
@@ -981,7 +987,9 @@ private fun DrawCardButton(
 @Composable
 private fun BoxWithConstraintsScope.PlayerPanel(
     alignment: Alignment,
+
     panelWidth: androidx.compose.ui.unit.Dp,
+    modifier: Modifier = Modifier,
     panelMargin: androidx.compose.ui.unit.Dp,
     verticalArrangement: Arrangement.Vertical,
     content: @Composable ColumnScope.() -> Unit
@@ -989,6 +997,7 @@ private fun BoxWithConstraintsScope.PlayerPanel(
     Column(
         modifier = Modifier
             .align(alignment)
+            .then(modifier)
             .width(panelWidth)
             .padding(panelMargin)
             .wrapContentHeight()

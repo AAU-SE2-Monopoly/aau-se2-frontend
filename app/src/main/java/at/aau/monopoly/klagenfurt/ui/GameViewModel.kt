@@ -770,7 +770,7 @@ class GameViewModel(
 
     fun reportCheater(reportedPlayerId: String) {
         val me = gameState.value?.players?.find { it.id == currentPlayerId }
-        if (me != null && me.money >= 500) {
+        if (me != null && me.money > 500) {
             gameService.reportCheater(reportedPlayerId)
         }
     }

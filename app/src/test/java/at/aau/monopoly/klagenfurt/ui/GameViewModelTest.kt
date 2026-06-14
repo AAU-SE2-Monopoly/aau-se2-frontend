@@ -1904,7 +1904,7 @@ class GameViewModelTest {
     }
 
     @Test
-    fun `reportCheater delegates to gameService when player has at least 500 money`() = runTest {
+    fun `reportCheater delegates to gameService when player has at least 501 money`() = runTest {
         val suspectId = "player-99"
 
 
@@ -1916,7 +1916,7 @@ class GameViewModelTest {
               "gameState": {
                 "gameId": "game-1",
                 "fields": [],
-                "players": [{"id":"p1","name":"Alice","money":500}],
+                "players": [{"id":"p1","name":"Alice","money":501}],
                 "currentPlayerIndex": 0
               }
             }
@@ -1932,7 +1932,7 @@ class GameViewModelTest {
     }
 
     @Test
-    fun `reportCheater does NOT delegate to gameService when player has less than 500 money`() = runTest {
+    fun `reportCheater does NOT delegate to gameService when player has less than 501 money`() = runTest {
         val suspectId = "player-99"
 
 
@@ -1944,7 +1944,7 @@ class GameViewModelTest {
               "gameState": {
                 "gameId": "game-1",
                 "fields": [],
-                "players": [{"id":"p1","name":"Alice","money":499}],
+                "players": [{"id":"p1","name":"Alice","money":500}],
                 "currentPlayerIndex": 0
               }
             }

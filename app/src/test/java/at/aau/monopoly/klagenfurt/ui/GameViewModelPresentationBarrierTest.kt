@@ -99,6 +99,45 @@ class GameViewModelPresentationBarrierTest {
     }
 
     @Test
+    fun `railroad rent event with pending payment reveals after movement presentation`() = runTest(dispatcher) {
+        emit(snapshot(state(position = 0, phase = GamePhase.ROLLING)))
+        runCurrent()
+
+        emit(diceRolled(state(position = 5, phase = GamePhase.BUYING, diceRoll = DiceRoll(2, 3))))
+        runCurrent()
+
+        emit(
+            event(
+                "RAILROAD_RENT_DUE",
+                state(
+                    position = 5,
+                    phase = GamePhase.PAYING_RENT,
+                    diceRoll = DiceRoll(2, 3),
+                    pendingPayment = PendingPayment(
+                        amount = 50,
+                        source = PaymentSource.RENT,
+                        sourceFieldId = 5,
+                        creditorPlayerId = "p2"
+                    )
+                )
+            )
+        )
+        runCurrent()
+
+        assertNull(viewModel.visiblePaymentState.value)
+        assertFalse(viewModel.showPayRentOverlay.value)
+
+        advanceTimeBy(4_000L)
+        runCurrent()
+
+        assertEquals(5, viewModel.presentedBoardPlayers.value.first().position)
+        assertEquals(50, viewModel.currentRentAmount.value)
+        assertEquals(5, viewModel.currentRentFieldId.value)
+        assertTrue(viewModel.showPayRentOverlay.value)
+        assertTrue(viewModel.actionGates.value.canPayRent)
+    }
+
+    @Test
     fun `backend messages are displayed in presented event log`() = runTest(dispatcher) {
         emit(
             GameEvent(
@@ -374,19 +413,20 @@ class GameViewModelPresentationBarrierTest {
 
     @Test
     fun `duplicate cheater reports are ignored while request is in flight`() = runTest(dispatcher) {
-        emit(snapshot(state(position = 0, phase = GamePhase.BUYING, money = 600)))
+        fakeService.currentPlayerId = "p2"
+        emit(snapshot(state(position = 0, phase = GamePhase.BUYING, diceRoll = DiceRoll(3, 4), otherMoney = 600)))
         runCurrent()
 
         assertTrue(viewModel.actionGates.value.canReportCheater)
 
-        viewModel.reportCheater("p2")
-        viewModel.reportCheater("p2")
+        viewModel.reportCheater("p1")
+        viewModel.reportCheater("p1")
         runCurrent()
 
         assertEquals(1, fakeService.reportCheaterCalls)
         assertFalse(viewModel.actionGates.value.canReportCheater)
 
-        emit(event("CHEATER_REPORTED", state(position = 0, phase = GamePhase.BUYING, money = 600)))
+        emit(event("CHEATER_REPORTED", state(position = 0, phase = GamePhase.BUYING, diceRoll = DiceRoll(3, 4), otherMoney = 600)))
         runCurrent()
 
         assertTrue(viewModel.actionGates.value.canReportCheater)
@@ -547,14 +587,15 @@ class GameViewModelPresentationBarrierTest {
         pendingPayment: PendingPayment? = null,
         actionCard: ChanceCard? = null,
         inJail: Boolean = false,
-        money: Int = 500
+        money: Int = 500,
+        otherMoney: Int = 500
     ): GameState =
         GameState(
             gameId = "game-1",
             fields = boardFields(),
             players = mutableListOf(
                 Player(id = "p1", name = "Alice", position = position, money = money, inJail = inJail),
-                Player(id = "p2", name = "Bob", position = 0, money = 500)
+                Player(id = "p2", name = "Bob", position = 0, money = otherMoney)
             ),
             currentPlayerIndex = 0,
             phase = phase,

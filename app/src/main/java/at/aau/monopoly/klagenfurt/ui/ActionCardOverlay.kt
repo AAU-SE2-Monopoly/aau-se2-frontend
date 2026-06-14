@@ -16,6 +16,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -37,6 +38,9 @@ fun ActionCardOverlay(
     isVisible: Boolean,
     card: Card? = null,
     isExecuting: Boolean = false,
+    canExecuteAction: Boolean = true,
+    executingPlayerName: String? = null,
+    onDismiss: (() -> Unit)? = null,
     onExecuteAction: () -> Unit
 ) {
     if (!isVisible || card == null) return
@@ -108,7 +112,7 @@ fun ActionCardOverlay(
                 Spacer(modifier = Modifier.weight(1f))
 
                 // Status Text
-                if (isExecuting) {
+                if (canExecuteAction && isExecuting) {
                     Text(
                         text = "Executing action...",
                         fontSize = 14.sp,
@@ -118,42 +122,63 @@ fun ActionCardOverlay(
                     Spacer(modifier = Modifier.height(12.dp))
                 }
 
-                // Execute Action Button
-                val buttonColor by animateColorAsState(
-                    targetValue = if (isExecuting) Color.Gray else Color(0xFF1B7F1C).copy(alpha = 0.7f),
-                    animationSpec = tween(300)
-                )
-
-                Button(
-                    onClick = onExecuteAction,
-                    enabled = !isExecuting,
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = buttonColor,
-                        disabledContainerColor = Color.White.copy(alpha = 0.15f)
-                    ),
-                    shape = RoundedCornerShape(12.dp),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(50.dp)
-                ) {
-                    Text(
-                        text = if (isExecuting) "⏳ Executing..." else "✓ Execute Action",
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.White
+                if (canExecuteAction) {
+                    // Execute Action Button
+                    val buttonColor by animateColorAsState(
+                        targetValue = if (isExecuting) Color.Gray else Color(0xFF1B7F1C).copy(alpha = 0.7f),
+                        animationSpec = tween(300)
                     )
+
+                    Button(
+                        onClick = onExecuteAction,
+                        enabled = !isExecuting,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = buttonColor,
+                            disabledContainerColor = Color.White.copy(alpha = 0.15f)
+                        ),
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(50.dp)
+                    ) {
+                        Text(
+                            text = if (isExecuting) "⏳ Executing..." else "✓ Execute Action",
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    Text(
+                        text = "Press the button above to execute this action",
+                        fontSize = 12.sp,
+                        color = Color.White.copy(alpha = 0.5f),
+                        fontStyle = androidx.compose.ui.text.font.FontStyle.Italic,
+                        textAlign = TextAlign.Center
+                    )
+                } else {
+                    val playerName = executingPlayerName?.takeIf { it.isNotBlank() } ?: "the current player"
+                    Text(
+                        text = "Waiting for $playerName to execute this card",
+                        fontSize = 14.sp,
+                        color = Color.White.copy(alpha = 0.72f),
+                        fontStyle = androidx.compose.ui.text.font.FontStyle.Italic,
+                        textAlign = TextAlign.Center
+                    )
+                    if (onDismiss != null) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        TextButton(onClick = onDismiss) {
+                            Text(
+                                text = "Close",
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White.copy(alpha = 0.82f)
+                            )
+                        }
+                    }
                 }
-
-                Spacer(modifier = Modifier.height(12.dp))
-
-                // Note Text
-                Text(
-                    text = "Press the button above to execute this action",
-                    fontSize = 12.sp,
-                    color = Color.White.copy(alpha = 0.5f),
-                    fontStyle = androidx.compose.ui.text.font.FontStyle.Italic,
-                    textAlign = TextAlign.Center
-                )
             }
         }
     }
@@ -318,6 +343,5 @@ private fun ActionDetailBox(card: Card) {
         }
     }
 }
-
 
 

@@ -130,7 +130,8 @@ class GameViewModel(
         val bankruptcyConfirm: Boolean,
         val buildingPending: Boolean,
         val doubleRollAdvanceInFlight: Boolean,
-        val reportCheaterInFlight: Boolean
+        val reportCheaterInFlight: Boolean,
+        val tradeActionInFlight: Boolean
     )
 
     private data class PresentationPath(
@@ -193,12 +194,17 @@ class GameViewModel(
 
     private val _reportCheaterInFlight = MutableStateFlow(false)
 
+    private val _tradeActionInFlight = MutableStateFlow(false)
+    val tradeActionInFlight: StateFlow<Boolean> = _tradeActionInFlight.asStateFlow()
+
     private var paymentActionToken: Long = 0
     private var propertyActionToken: Long = 0
     private var cardDrawActionToken: Long = 0
     private var actionExecutionToken: Long = 0
     private var doubleRollAdvanceToken: Long = 0
     private var reportCheaterActionToken: Long = 0
+    private var tradeActionToken: Long = 0
+    private var tradeUiToken: Long = 0
 
     private fun startPaymentAction() {
         val token = ++paymentActionToken
@@ -290,6 +296,31 @@ class GameViewModel(
 
     private fun finishReportCheaterAction() {
         _reportCheaterInFlight.value = false
+    }
+
+    private fun startTradeAction() {
+        val token = ++tradeActionToken
+        _tradeActionInFlight.value = true
+        viewModelScope.launch {
+            delay(TRADE_ACTION_TIMEOUT_MS)
+            if (tradeActionToken == token) {
+                _tradeActionInFlight.value = false
+            }
+        }
+    }
+
+    private fun finishTradeAction() {
+        _tradeActionInFlight.value = false
+    }
+
+    private fun startTradeUiTimeout() {
+        val token = ++tradeUiToken
+        viewModelScope.launch {
+            delay(TRADE_UI_TIMEOUT_MS)
+            if (tradeUiToken == token && gameState.value?.pendingTradeOffer == null) {
+                _selectedPlayerForTrade.value = null
+            }
+        }
     }
 
     private val _currentActionCard = MutableStateFlow<Card?>(null)
@@ -457,7 +488,8 @@ class GameViewModel(
         _showBankruptcyConfirmation,
         _buildingActionPending,
         _doubleRollAdvanceInFlight,
-        _reportCheaterInFlight
+        _reportCheaterInFlight,
+        _tradeActionInFlight
     ) { values ->
         ActionGateLocks(
             paymentInFlight = values[0],
@@ -467,12 +499,13 @@ class GameViewModel(
             bankruptcyConfirm = values[4],
             buildingPending = values[5],
             doubleRollAdvanceInFlight = values[6],
-            reportCheaterInFlight = values[7]
+            reportCheaterInFlight = values[7],
+            tradeActionInFlight = values[8]
         )
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.Eagerly,
-        initialValue = ActionGateLocks(false, false, false, false, false, false, false, false)
+        initialValue = ActionGateLocks(false, false, false, false, false, false, false, false, false)
     )
 
     val actionGates: StateFlow<ActionGates> = combine(
@@ -517,12 +550,7 @@ class GameViewModel(
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
     val showActionCardOverlay: StateFlow<Boolean> = visibleActionCard
-        .map { card ->
-            val isCurrentPlayer =
-                gameState.value?.currentPlayer?.id == gameService.currentPlayerId
-
-            isCurrentPlayer && card != null
-        }
+        .map { card -> card != null }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
     private val _showMortgageOverlay = MutableStateFlow(false)
@@ -854,7 +882,9 @@ class GameViewModel(
     }
 
     fun reportCheater(reportedPlayerId: String) {
-        val reportedPlayer = gameState.value?.players?.find { it.id == reportedPlayerId }
+        val state = gameState.value ?: return
+        if (state.currentPlayer?.id != reportedPlayerId || state.lastDiceRoll == null) return
+        val reportedPlayer = state.players.find { it.id == reportedPlayerId }
         if (reportedPlayer?.isBankrupt() == true) return
         if (!guardAction("reportCheater", actionGates.value.canReportCheater)) return
         if (_reportCheaterInFlight.value) return
@@ -990,9 +1020,11 @@ class GameViewModel(
 
         _selectedPlayerForOverlay.value = null
         _selectedPlayerForTrade.value = player
+        startTradeUiTimeout()
     }
 
     fun hideTradeOverlay() {
+        tradeUiToken++
         _selectedPlayerForTrade.value = null
     }
 
@@ -1031,11 +1063,15 @@ class GameViewModel(
 
     fun acceptTrade(tradeId: String) {
         if (!guardAction("acceptTrade", actionGates.value.canTrade || gameState.value?.pendingTradeOffer != null)) return
+        if (_tradeActionInFlight.value) return
+        startTradeAction()
         gameService.acceptTrade(tradeId)
     }
 
     fun rejectTrade(tradeId: String) {
         if (!guardAction("rejectTrade", actionGates.value.canTrade || gameState.value?.pendingTradeOffer != null)) return
+        if (_tradeActionInFlight.value) return
+        startTradeAction()
         gameService.rejectTrade(tradeId)
     }
 
@@ -1151,8 +1187,12 @@ class GameViewModel(
                 isCurrentPlayer &&
                 presentationReady &&
                 !hasBlockingState &&
+                !locks.tradeActionInFlight &&
                 state.pendingTradeOffer == null
+        val currentPlayerRolled = state.lastDiceRoll != null
         val canReport = localPlayerActive &&
+                !isCurrentPlayer &&
+                currentPlayerRolled &&
                 presentationReady &&
                 !rawBankruptcyPending &&
                 !locks.reportCheaterInFlight &&
@@ -1324,6 +1364,15 @@ class GameViewModel(
                 appendPresentedLog(event)
             }
 
+            event.gameState?.pendingPayment != null -> {
+                if (isPresentationBlocking()) {
+                    bufferPresentedLog(event)
+                } else {
+                    revealLandingForState(event.gameState)
+                    appendPresentedLog(event)
+                }
+            }
+
             event.event == "TURN_ENDED" -> {
                 rollRequestInFlight = false
                 _buildingActionPending.value = false
@@ -1340,7 +1389,10 @@ class GameViewModel(
 
             event.event in PROPERTY_BUILD_TRADE_EVENTS -> {
                 if (event.event == "TRADE_COMPLETED" || event.event == "TRADE_REJECTED") {
+                    finishTradeAction()
+                    tradeUiToken++
                     _selectedPlayerForTrade.value = null
+                    gameService.requestState()
                 }
                 if (event.event in BUILDING_EVENTS) {
                     Log.i("GameViewModel", "Building action completed - refreshing state")
@@ -1403,13 +1455,16 @@ class GameViewModel(
         val visiblePosition = currentPlayerId
             ?.let { id -> _presentedBoardPlayers.value.find { it.id == id }?.position }
             ?: state.currentPlayer?.position
-        _visibleCurrentField.value = visiblePosition?.let { position -> state.fields.getOrNull(position) }
+        _visibleCurrentField.value = visiblePosition?.let { position ->
+            state.fields.firstOrNull { it.id == position } ?: state.fields.getOrNull(position)
+        }
 
         if (state.currentActionCard == null) {
             _currentActionCard.value = null
             _visibleActionCard.value = null
         } else {
             _currentActionCard.value = state.currentActionCard
+            _visibleActionCard.value = state.currentActionCard
         }
 
         updatePendingPaymentState(state, reveal = false)
@@ -1455,6 +1510,7 @@ class GameViewModel(
         finishCardDrawAction()
         finishDoubleRollAdvance()
         finishReportCheaterAction()
+        finishTradeAction()
         if (isPresentationBlocking()) {
             presentationJob?.cancel()
             animationJob?.cancel()
@@ -1662,6 +1718,7 @@ class GameViewModel(
         finishCardDrawAction()
         finishDoubleRollAdvance()
         finishReportCheaterAction()
+        finishTradeAction()
 
         when {
             event?.event == "GAME_OVER" || state?.phase == GamePhase.FINISHED -> {
@@ -1812,6 +1869,7 @@ class GameViewModel(
         finishCardDrawAction()
         finishDoubleRollAdvance()
         finishReportCheaterAction()
+        finishTradeAction()
         hardSyncPresentation(null)
         _presentedEventLog.value = emptyList()
         _showGameOverOverlay.value = false
@@ -1864,7 +1922,8 @@ class GameViewModel(
 
     private fun currentFieldForState(state: GameState?): Field? {
         val player = state?.currentPlayer ?: return null
-        return state.fields.getOrNull(player.position)
+        return state.fields.firstOrNull { it.id == player.position }
+            ?: state.fields.getOrNull(player.position)
     }
 
     private fun phaseFromRawState(state: GameState?): TurnPresentationPhase {
@@ -1998,6 +2057,8 @@ class GameViewModel(
         private const val DICE_RESULT_PRESENTATION_MS = 2_000L
         private const val MOVEMENT_STEP_MS = 250L
         private const val LANDING_REVEAL_PRESENTATION_MS = 500L
+        private const val TRADE_ACTION_TIMEOUT_MS = 20_000L
+        private const val TRADE_UI_TIMEOUT_MS = 60_000L
         private const val LOCAL_GAME_SWITCH_EVENT = "LOCAL_GAME_SWITCH"
         private val LANDING_REVEAL_EVENTS = setOf(
             "RENT_DUE",

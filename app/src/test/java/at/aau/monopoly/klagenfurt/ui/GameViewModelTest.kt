@@ -1,14 +1,21 @@
 package at.aau.monopoly.klagenfurt.ui
 
 import at.aau.monopoly.klagenfurt.FakeGameService
+import at.aau.monopoly.klagenfurt.model.GameState
 import at.aau.monopoly.klagenfurt.model.Player
+import at.aau.monopoly.klagenfurt.model.TradeOffer
+import at.aau.monopoly.klagenfurt.model.enums.GamePhase
+import at.aau.monopoly.klagenfurt.model.field.CommunityChestField
+import at.aau.monopoly.klagenfurt.model.field.GoField
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
+import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import org.junit.After
@@ -119,6 +126,72 @@ class GameViewModelTest {
         viewModel.hideTradeOverlay()
 
         assertNull(viewModel.selectedPlayerForTrade.value)
+    }
+
+    @Test
+    fun `trade overlay uses its own timeout`() = runTest(testDispatcher) {
+        val tradePartner = Player(id = "p2", name = "Bob")
+
+        viewModel.showTradeOverlay(tradePartner)
+        advanceTimeBy(5_000)
+
+        assertEquals(tradePartner, viewModel.selectedPlayerForTrade.value)
+
+        advanceTimeBy(55_000)
+        runCurrent()
+
+        assertNull(viewModel.selectedPlayerForTrade.value)
+    }
+
+    @Test
+    fun `trade overlay timeout ignores stale timer after reopen`() = runTest(testDispatcher) {
+        val firstPartner = Player(id = "p2", name = "Bob")
+        val secondPartner = Player(id = "p3", name = "Carla")
+
+        viewModel.showTradeOverlay(firstPartner)
+        viewModel.hideTradeOverlay()
+        advanceTimeBy(30_000)
+        viewModel.showTradeOverlay(secondPartner)
+
+        advanceTimeBy(30_000)
+        runCurrent()
+
+        assertEquals(secondPartner, viewModel.selectedPlayerForTrade.value)
+
+        advanceTimeBy(30_000)
+        runCurrent()
+
+        assertNull(viewModel.selectedPlayerForTrade.value)
+    }
+
+    @Test
+    fun `trade overlay timeout keeps overlay open while pending trade offer exists`() = runTest(testDispatcher) {
+        val tradePartner = Player(id = "p2", name = "Bob")
+        fakeService.currentPlayerId = "p1"
+        fakeService.emitGameState(
+            GameState(
+                gameId = "game-1",
+                players = mutableListOf(
+                    Player(id = "p1", name = "Alice", money = 1500),
+                    tradePartner
+                ),
+                currentPlayerIndex = 0,
+                phase = GamePhase.BUYING,
+                fields = listOf(GoField(0)),
+                pendingTradeOffer = TradeOffer(
+                    id = "trade-1",
+                    fromPlayerId = "p1",
+                    toPlayerId = "p2"
+                )
+            )
+        )
+        runCurrent()
+
+        viewModel.showTradeOverlay(tradePartner)
+        advanceTimeBy(60_000)
+        runCurrent()
+
+        assertEquals(tradePartner, viewModel.selectedPlayerForTrade.value)
     }
 
     @Test
@@ -338,12 +411,60 @@ class GameViewModelTest {
         seedGameState(phase = "BUYING")
 
         viewModel.acceptTrade("trade-1")
-        viewModel.rejectTrade("trade-2")
 
         assertTrue(fakeService.acceptTradeCalled)
         assertEquals("trade-1", fakeService.lastAcceptedTradeId)
+
+        fakeService.emitTestEvent("""
+        {
+          "event": "TRADE_COMPLETED",
+          "gameId": "game-1",
+          "gameState": {
+            "gameId": "game-1",
+            "fields": [],
+            "players": [{"id":"p1","name":"Alice"},{"id":"p2","name":"Bob"}],
+            "currentPlayerIndex": 0,
+            "phase": "BUYING"
+          }
+        }
+        """.trimIndent())
+        advanceUntilIdle()
+
+        viewModel.rejectTrade("trade-2")
+
         assertTrue(fakeService.rejectTradeCalled)
         assertEquals("trade-2", fakeService.lastRejectedTradeId)
+    }
+
+    @Test
+    fun `trade actions use separate timeout before allowing another trade action`() = runTest(testDispatcher) {
+        val gatesJob = launch { viewModel.actionGates.collect {} }
+        seedGameState(phase = "BUYING")
+
+        viewModel.acceptTrade("trade-1")
+        viewModel.rejectTrade("trade-2")
+        runCurrent()
+
+        assertTrue(fakeService.acceptTradeCalled)
+        assertFalse(fakeService.rejectTradeCalled)
+        assertTrue(viewModel.tradeActionInFlight.value)
+        assertFalse(viewModel.actionGates.value.canTrade)
+
+        advanceTimeBy(5_000)
+
+        assertTrue(viewModel.tradeActionInFlight.value)
+        assertFalse(fakeService.rejectTradeCalled)
+
+        advanceTimeBy(15_000)
+        runCurrent()
+
+        assertFalse(viewModel.tradeActionInFlight.value)
+
+        viewModel.rejectTrade("trade-2")
+
+        assertTrue(fakeService.rejectTradeCalled)
+        assertEquals("trade-2", fakeService.lastRejectedTradeId)
+        gatesJob.cancel()
     }
 
     @Test
@@ -366,6 +487,7 @@ class GameViewModelTest {
         advanceUntilIdle()
 
         assertNull(viewModel.selectedPlayerForTrade.value)
+        assertTrue(fakeService.requestStateCalled)
         job.cancel()
     }
 
@@ -389,11 +511,38 @@ class GameViewModelTest {
         advanceUntilIdle()
 
         assertNull(viewModel.selectedPlayerForTrade.value)
+        assertTrue(fakeService.requestStateCalled)
         job.cancel()
     }
 
     @Test
-    fun `unrelated game event should keep selected trade partner`() = runTest {
+    fun `TRADE_REJECTED should finish trade action without waiting for timeout`() = runTest(testDispatcher) {
+        seedGameState(phase = "BUYING")
+        viewModel.acceptTrade("trade-1")
+        runCurrent()
+
+        assertTrue(viewModel.tradeActionInFlight.value)
+
+        fakeService.emitTestEvent("""
+        {
+          "event": "TRADE_REJECTED",
+          "gameId": "game-1",
+          "gameState": {
+            "gameId": "game-1",
+            "fields": [],
+            "players": [{"id":"p1","name":"Alice"},{"id":"p2","name":"Bob"}],
+            "currentPlayerIndex": 0,
+            "phase": "BUYING"
+          }
+        }
+        """.trimIndent())
+        advanceUntilIdle()
+
+        assertFalse(viewModel.tradeActionInFlight.value)
+    }
+
+    @Test
+    fun `unrelated game event should keep selected trade partner`() = runTest(testDispatcher) {
         val job = launch { viewModel.selectedPlayerForTrade.collect {} }
         val tradePartner = Player(id = "p2", name = "Bob")
         viewModel.showTradeOverlay(tradePartner)
@@ -410,7 +559,7 @@ class GameViewModelTest {
           }
         }
         """.trimIndent())
-        advanceUntilIdle()
+        runCurrent()
 
         assertEquals(tradePartner, viewModel.selectedPlayerForTrade.value)
         job.cancel()
@@ -652,6 +801,31 @@ class GameViewModelTest {
         advanceUntilIdle()
 
         assertEquals("Collect 100", viewModel.currentActionCard.value?.description)
+
+        job.cancel()
+    }
+
+    @Test
+    fun `community chest draw gate uses field id when fields are sparse`() = runTest(testDispatcher) {
+        val job = launch { viewModel.actionGates.collect {} }
+        fakeService.currentPlayerId = "p1"
+        fakeService.currentGameId = "game-1"
+        fakeService.emitGameState(
+            GameState(
+                gameId = "game-1",
+                players = mutableListOf(Player(id = "p1", name = "Alice", position = 2, money = 1500)),
+                currentPlayerIndex = 0,
+                phase = GamePhase.BUYING,
+                fields = listOf(
+                    GoField(id = 0),
+                    CommunityChestField(id = 2)
+                )
+            )
+        )
+        advanceUntilIdle()
+
+        assertTrue(viewModel.actionGates.value.canDrawCommunityChest)
+        assertFalse(viewModel.actionGates.value.canDrawChance)
 
         job.cancel()
     }
@@ -2175,13 +2349,90 @@ class GameViewModelTest {
 
     @Test
     fun `reportCheater should delegate to gameService`() = runTest(testDispatcher) {
-        seedGameState(phase = "BUYING", money = 600)
-        val suspectId = "player-99"
+        fakeService.currentPlayerId = "p2"
+        fakeService.currentGameId = "g1"
+        fakeService.emitTestEvent("""
+        {
+          "event": "STATE_UPDATED",
+          "gameId": "g1",
+          "gameState": {
+            "gameId": "g1",
+            "fields": [],
+            "players": [
+              {"id":"p1","name":"Alice","money":1500},
+              {"id":"p2","name":"Bob","money":600}
+            ],
+            "currentPlayerIndex": 0,
+            "phase": "BUYING",
+            "lastDiceRoll": {"die1":3,"die2":4}
+          }
+        }
+        """.trimIndent())
+        advanceUntilIdle()
+        val suspectId = "p1"
 
         viewModel.reportCheater(suspectId)
 
         assertTrue(fakeService.reportCheaterCalled)
         assertEquals(suspectId, fakeService.lastReportedPlayerId)
+    }
+
+    @Test
+    fun `reportCheater does NOT delegate when current player has not rolled`() = runTest(testDispatcher) {
+        fakeService.currentPlayerId = "p2"
+        fakeService.currentGameId = "g1"
+        fakeService.emitTestEvent("""
+        {
+          "event": "STATE_UPDATED",
+          "gameId": "g1",
+          "gameState": {
+            "gameId": "g1",
+            "fields": [],
+            "players": [
+              {"id":"p1","name":"Alice","money":1500},
+              {"id":"p2","name":"Bob","money":600}
+            ],
+            "currentPlayerIndex": 0,
+            "phase": "BUYING"
+          }
+        }
+        """.trimIndent())
+        advanceUntilIdle()
+
+        viewModel.reportCheater("p1")
+
+        assertFalse(fakeService.reportCheaterCalled)
+        assertEquals("", fakeService.lastReportedPlayerId)
+    }
+
+    @Test
+    fun `reportCheater does NOT delegate when local player reports non current player`() = runTest(testDispatcher) {
+        fakeService.currentPlayerId = "p2"
+        fakeService.currentGameId = "g1"
+        fakeService.emitTestEvent("""
+        {
+          "event": "STATE_UPDATED",
+          "gameId": "g1",
+          "gameState": {
+            "gameId": "g1",
+            "fields": [],
+            "players": [
+              {"id":"p1","name":"Alice","money":1500},
+              {"id":"p2","name":"Bob","money":600},
+              {"id":"p3","name":"Carla","money":1500}
+            ],
+            "currentPlayerIndex": 0,
+            "phase": "BUYING",
+            "lastDiceRoll": {"die1":3,"die2":4}
+          }
+        }
+        """.trimIndent())
+        advanceUntilIdle()
+
+        viewModel.reportCheater("p3")
+
+        assertFalse(fakeService.reportCheaterCalled)
+        assertEquals("", fakeService.lastReportedPlayerId)
     }
 
     @Test

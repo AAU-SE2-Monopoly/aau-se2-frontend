@@ -380,6 +380,88 @@ class ActionCardOverlayTest {
         assert(executeCallCount == 1) { "Execute action should be called once" }
     }
 
+    @Test
+    fun actionCardOverlay_spectatorMode_showsReadOnlyWaitingState() {
+        val card = ChanceCard(
+            id = 1,
+            description = "Bank pays you dividend of €50.",
+            action = CardAction.COLLECT_MONEY,
+            amount = 50
+        )
+
+        composeTestRule.setContent {
+            ActionCardOverlay(
+                isVisible = true,
+                card = card,
+                isExecuting = false,
+                canExecuteAction = false,
+                executingPlayerName = "Alice",
+                onExecuteAction = {}
+            )
+        }
+
+        composeTestRule.waitForIdle()
+        composeTestRule.onNodeWithText("Bank pays you dividend of €50.").assertIsDisplayed()
+        composeTestRule.onNodeWithText("Waiting for Alice to execute this card").assertIsDisplayed()
+        composeTestRule.onNodeWithText("✓ Execute Action").assertDoesNotExist()
+    }
+
+    @Test
+    fun actionCardOverlay_spectatorClose_callsDismissWithoutExecute() {
+        var dismissCallCount = 0
+        var executeCallCount = 0
+        val card = CommunityChestCard(
+            id = 2,
+            description = "You inherit €100.",
+            action = CardAction.COLLECT_MONEY,
+            amount = 100
+        )
+
+        composeTestRule.setContent {
+            ActionCardOverlay(
+                isVisible = true,
+                card = card,
+                isExecuting = false,
+                canExecuteAction = false,
+                executingPlayerName = "Bob",
+                onDismiss = { dismissCallCount++ },
+                onExecuteAction = { executeCallCount++ }
+            )
+        }
+
+        composeTestRule.waitForIdle()
+        composeTestRule.onNodeWithText("Close").performClick()
+
+        assert(dismissCallCount == 1) { "Dismiss should be called once" }
+        assert(executeCallCount == 0) { "Execute action should not be called for spectator close" }
+    }
+
+    @Test
+    fun actionCardOverlay_executingStateDoesNotOverrideSpectatorMode() {
+        val card = ChanceCard(
+            id = 3,
+            description = "Advance to Go.",
+            action = CardAction.MOVE_TO,
+            targetFieldId = 0
+        )
+
+        composeTestRule.setContent {
+            ActionCardOverlay(
+                isVisible = true,
+                card = card,
+                isExecuting = true,
+                canExecuteAction = false,
+                executingPlayerName = "Alice",
+                onExecuteAction = {}
+            )
+        }
+
+        composeTestRule.waitForIdle()
+        composeTestRule.onNodeWithText("Waiting for Alice to execute this card").assertIsDisplayed()
+        composeTestRule.onNodeWithText("Executing action...").assertDoesNotExist()
+        composeTestRule.onNodeWithText("⏳ Executing...").assertDoesNotExist()
+    }
+
     // ============ DESCRIPTION DISPLAY TEST ============
 
     @Test
@@ -452,7 +534,5 @@ class ActionCardOverlayTest {
         composeTestRule.onNodeWithText("Executing action...").assertIsDisplayed()
     }
 }
-
-
 
 

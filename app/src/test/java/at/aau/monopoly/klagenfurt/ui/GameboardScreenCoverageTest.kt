@@ -1,22 +1,33 @@
 package at.aau.monopoly.klagenfurt.ui
 
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsEnabled
+import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import at.aau.monopoly.klagenfurt.DebugSettings
 import at.aau.monopoly.klagenfurt.FakeGameService
 import at.aau.monopoly.klagenfurt.model.GameState
+import at.aau.monopoly.klagenfurt.model.PaymentSource
+import at.aau.monopoly.klagenfurt.model.PendingPayment
 import at.aau.monopoly.klagenfurt.model.Player
+import at.aau.monopoly.klagenfurt.model.card.ChanceCard
+import at.aau.monopoly.klagenfurt.model.enums.CardAction
 import at.aau.monopoly.klagenfurt.model.enums.GamePhase
 import at.aau.monopoly.klagenfurt.model.enums.PropertyColor
 import at.aau.monopoly.klagenfurt.model.field.ChanceField
 import at.aau.monopoly.klagenfurt.model.field.CommunityChestField
 import at.aau.monopoly.klagenfurt.model.field.GoField
 import at.aau.monopoly.klagenfurt.model.field.PropertyField
+import at.aau.monopoly.klagenfurt.model.field.RailroadField
+import at.aau.monopoly.klagenfurt.model.field.TaxField
 import kotlinx.coroutines.flow.MutableSharedFlow
 import org.junit.After
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -62,12 +73,12 @@ class GameboardScreenCoverageTest {
             phase = GamePhase.ROLLING,
             fields = listOf(GoField(0))
         )
-        fakeService.emitGameState(state)
         val viewModel = GameViewModel(fakeService)
 
         composeTestRule.setContent {
             GameboardScreen(viewModel = viewModel, shakeEventsOverride = shakeEvents)
         }
+        fakeService.emitGameState(state)
         composeTestRule.waitForIdle()
 
         // Jail status text
@@ -101,12 +112,12 @@ class GameboardScreenCoverageTest {
             phase = GamePhase.ROLLING,
             fields = listOf(GoField(0))
         )
-        fakeService.emitGameState(state)
         val viewModel = GameViewModel(fakeService)
 
         composeTestRule.setContent {
             GameboardScreen(viewModel = viewModel, shakeEventsOverride = shakeEvents)
         }
+        fakeService.emitGameState(state)
         composeTestRule.waitForIdle()
 
         composeTestRule.onNodeWithTag("use_jail_card_button").assertExists()
@@ -135,17 +146,61 @@ class GameboardScreenCoverageTest {
             phase = GamePhase.ROLLING,
             fields = listOf(GoField(0))
         )
-        fakeService.emitGameState(state)
         val viewModel = GameViewModel(fakeService)
 
         composeTestRule.setContent {
             GameboardScreen(viewModel = viewModel, shakeEventsOverride = shakeEvents)
         }
+        fakeService.emitGameState(state)
         composeTestRule.waitForIdle()
 
         composeTestRule.onNodeWithTag("pay_jail_fine_button").performClick()
         composeTestRule.waitForIdle()
         // Verify the service method was called (payJailFine is a no-op in FakeGameService)
+    }
+
+    @Test
+    fun gameboardScreen_payJailFineButtonEnablesAfterTradeMoneyRefresh() {
+        val fakeService = FakeGameService()
+        fakeService.currentGameId = "game-1"
+        fakeService.currentPlayerId = "player-1"
+
+        val player = Player(
+            id = "player-1",
+            name = "Alice",
+            position = 10,
+            inJail = true,
+            jailTurns = 0,
+            money = 20
+        )
+        val state = GameState(
+            gameId = "game-1",
+            players = mutableListOf(player, Player(id = "player-2", name = "Bob", money = 300)),
+            currentPlayerIndex = 0,
+            phase = GamePhase.ROLLING,
+            fields = listOf(GoField(0))
+        )
+        val viewModel = GameViewModel(fakeService)
+
+        composeTestRule.setContent {
+            GameboardScreen(viewModel = viewModel, shakeEventsOverride = shakeEvents)
+        }
+        fakeService.emitGameState(state)
+        composeTestRule.waitForIdle()
+
+        composeTestRule.onNodeWithTag("pay_jail_fine_button").assertIsNotEnabled()
+
+        fakeService.emitGameState(
+            state.copy(
+                players = mutableListOf(
+                    player.copy(money = 60),
+                    Player(id = "player-2", name = "Bob", money = 260)
+                )
+            )
+        )
+        composeTestRule.waitForIdle()
+
+        composeTestRule.onNodeWithTag("pay_jail_fine_button").assertIsEnabled()
     }
 
     @Test
@@ -171,12 +226,12 @@ class GameboardScreenCoverageTest {
             phase = GamePhase.ROLLING,
             fields = listOf(GoField(0))
         )
-        fakeService.emitGameState(state)
         val viewModel = GameViewModel(fakeService)
 
         composeTestRule.setContent {
             GameboardScreen(viewModel = viewModel, shakeEventsOverride = shakeEvents)
         }
+        fakeService.emitGameState(state)
         composeTestRule.waitForIdle()
 
         composeTestRule.onNodeWithTag("use_jail_card_button").performClick()
@@ -361,6 +416,40 @@ class GameboardScreenCoverageTest {
         composeTestRule.setContent {
             GameboardScreen(viewModel = viewModel, shakeEventsOverride = shakeEvents)
         }
+        composeTestRule.waitForIdle()
+
+        composeTestRule.onNodeWithText("⭐ Draw Community").assertIsDisplayed()
+    }
+
+    @Test
+    fun gameboardScreen_showsDrawCommunityChestButtonWhenFieldIdMatchesSparsePosition() {
+        val fakeService = FakeGameService()
+        fakeService.currentGameId = "game-1"
+        fakeService.currentPlayerId = "player-1"
+
+        val player = Player(
+            id = "player-1",
+            name = "Alice",
+            position = 2,
+            money = 1500
+        )
+
+        val state = GameState(
+            gameId = "game-1",
+            players = mutableListOf(player),
+            currentPlayerIndex = 0,
+            phase = GamePhase.BUYING,
+            fields = listOf(
+                GoField(0),
+                CommunityChestField(id = 2)
+            )
+        )
+        val viewModel = GameViewModel(fakeService)
+
+        composeTestRule.setContent {
+            GameboardScreen(viewModel = viewModel, shakeEventsOverride = shakeEvents)
+        }
+        fakeService.emitGameState(state)
         composeTestRule.waitForIdle()
 
         composeTestRule.onNodeWithText("⭐ Draw Community").assertIsDisplayed()
@@ -789,6 +878,173 @@ class GameboardScreenCoverageTest {
         assertTrue(fakeService.drawCardCalled)
     }
 
+    @Test
+    fun gameboardScreen_currentPlayerCanExecuteVisibleActionCard() {
+        val fakeService = FakeGameService()
+        fakeService.currentGameId = "game-1"
+        fakeService.currentPlayerId = "player-1"
+
+        val player = Player(
+            id = "player-1",
+            name = "Alice",
+            position = 0,
+            money = 1500
+        )
+        val card = ChanceCard(
+            id = 99,
+            description = "Collect a tiny surprise.",
+            action = CardAction.COLLECT_MONEY,
+            amount = 25
+        )
+
+        val state = GameState(
+            gameId = "game-1",
+            players = mutableListOf(player),
+            currentPlayerIndex = 0,
+            phase = GamePhase.BUYING,
+            fields = listOf(GoField(0)),
+            currentActionCard = card
+        )
+        val viewModel = GameViewModel(fakeService)
+
+        composeTestRule.setContent {
+            GameboardScreen(viewModel = viewModel, shakeEventsOverride = shakeEvents)
+        }
+        fakeService.emitGameState(state)
+        composeTestRule.waitUntil(timeoutMillis = 2_000) {
+            viewModel.visibleActionCard.value?.id == card.id
+        }
+        composeTestRule.waitForIdle()
+
+        composeTestRule.onNodeWithText("Collect a tiny surprise.").assertIsDisplayed()
+        composeTestRule.onNodeWithText("✓ Execute Action").assertIsDisplayed()
+        composeTestRule.onNodeWithText("✓ Execute Action").performClick()
+        composeTestRule.waitForIdle()
+
+        assertEquals(1, fakeService.executeActionCalls)
+    }
+
+    @Test
+    fun gameboardScreen_spectatorCanReadAndDismissVisibleActionCardWithoutExecuting() {
+        val fakeService = FakeGameService()
+        fakeService.currentGameId = "game-1"
+        fakeService.currentPlayerId = "player-2"
+
+        val activePlayer = Player(
+            id = "player-1",
+            name = "Alice",
+            position = 0,
+            money = 1500
+        )
+        val spectator = Player(
+            id = "player-2",
+            name = "Bob",
+            position = 0,
+            money = 1500
+        )
+        val card = ChanceCard(
+            id = 100,
+            description = "Collect comedy money.",
+            action = CardAction.COLLECT_MONEY,
+            amount = 50
+        )
+
+        val state = GameState(
+            gameId = "game-1",
+            players = mutableListOf(activePlayer, spectator),
+            currentPlayerIndex = 0,
+            phase = GamePhase.BUYING,
+            fields = listOf(GoField(0)),
+            currentActionCard = card
+        )
+        val viewModel = GameViewModel(fakeService)
+
+        composeTestRule.setContent {
+            GameboardScreen(viewModel = viewModel, shakeEventsOverride = shakeEvents)
+        }
+        fakeService.emitGameState(state)
+        composeTestRule.waitUntil(timeoutMillis = 2_000) {
+            viewModel.visibleActionCard.value?.id == card.id
+        }
+        composeTestRule.waitForIdle()
+
+        composeTestRule.onNodeWithText("Collect comedy money.").assertExists()
+        composeTestRule.onNodeWithText("Waiting for Alice to execute this card").assertExists()
+        composeTestRule.onNodeWithText("✓ Execute Action").assertDoesNotExist()
+
+        composeTestRule.onNodeWithText("Close").assertExists().performClick()
+        composeTestRule.waitForIdle()
+
+        composeTestRule.onNodeWithText("Collect comedy money.").assertDoesNotExist()
+        assertEquals(0, fakeService.executeActionCalls)
+    }
+
+    @Test
+    fun gameboardScreen_spectatorDismissedActionCardReopensForNewCard() {
+        val fakeService = FakeGameService()
+        fakeService.currentGameId = "game-1"
+        fakeService.currentPlayerId = "player-2"
+
+        val activePlayer = Player(
+            id = "player-1",
+            name = "Alice",
+            position = 0,
+            money = 1500
+        )
+        val spectator = Player(
+            id = "player-2",
+            name = "Bob",
+            position = 0,
+            money = 1500
+        )
+        val firstCard = ChanceCard(
+            id = 101,
+            description = "First funny card.",
+            action = CardAction.COLLECT_MONEY,
+            amount = 10
+        )
+        val secondCard = ChanceCard(
+            id = 102,
+            description = "Second funny card.",
+            action = CardAction.COLLECT_MONEY,
+            amount = 20
+        )
+
+        val state = GameState(
+            gameId = "game-1",
+            players = mutableListOf(activePlayer, spectator),
+            currentPlayerIndex = 0,
+            phase = GamePhase.BUYING,
+            fields = listOf(GoField(0)),
+            currentActionCard = firstCard
+        )
+        val viewModel = GameViewModel(fakeService)
+
+        composeTestRule.setContent {
+            GameboardScreen(viewModel = viewModel, shakeEventsOverride = shakeEvents)
+        }
+        fakeService.emitGameState(state)
+        composeTestRule.waitUntil(timeoutMillis = 2_000) {
+            viewModel.visibleActionCard.value?.id == firstCard.id
+        }
+        composeTestRule.waitForIdle()
+
+        composeTestRule.onNodeWithText("First funny card.").assertExists()
+        composeTestRule.onNodeWithText("Close").performClick()
+        composeTestRule.waitForIdle()
+        composeTestRule.onNodeWithText("First funny card.").assertDoesNotExist()
+
+        fakeService.emitGameState(state.copy(currentActionCard = secondCard))
+        composeTestRule.waitUntil(timeoutMillis = 2_000) {
+            viewModel.visibleActionCard.value?.id == secondCard.id
+        }
+        composeTestRule.waitForIdle()
+
+        composeTestRule.onNodeWithText("Second funny card.").assertExists()
+        composeTestRule.onNodeWithText("Waiting for Alice to execute this card").assertExists()
+        assertEquals(0, fakeService.executeActionCalls)
+    }
+
     // ─── Buy property button click coverage ─────────────────────────────
 
     @Test
@@ -884,6 +1140,95 @@ class GameboardScreenCoverageTest {
         composeTestRule.onNodeWithText("💸 Pay Rent Due").assertDoesNotExist() // overlay is shown instead
     }
 
+    @Test
+    fun gameboardScreen_railroadRentOverlayShowsAndPaysHauptbahnhofRent() {
+        val fakeService = FakeGameService()
+        fakeService.currentGameId = "game-1"
+        fakeService.currentPlayerId = "player-1"
+
+        val player = Player(
+            id = "player-1",
+            name = "Alice",
+            position = 5,
+            money = 1500
+        )
+        val railroad = RailroadField(
+            id = 5,
+            name = "Hauptbahnhof",
+            ownerId = "player-2"
+        )
+        val state = GameState(
+            gameId = "game-1",
+            players = mutableListOf(
+                player,
+                Player(id = "player-2", name = "Bob", position = 0, money = 1500)
+            ),
+            currentPlayerIndex = 0,
+            phase = GamePhase.PAYING_RENT,
+            fields = listOf(GoField(0), railroad),
+            pendingPayment = PendingPayment(
+                amount = 50,
+                source = PaymentSource.RENT,
+                sourceFieldId = 5,
+                creditorPlayerId = "player-2"
+            )
+        )
+        val viewModel = GameViewModel(fakeService)
+
+        composeTestRule.setContent {
+            GameboardScreen(viewModel = viewModel, shakeEventsOverride = shakeEvents)
+        }
+        fakeService.emitGameState(state)
+        composeTestRule.waitForIdle()
+
+        composeTestRule.onNodeWithText("RENT DUE").assertIsDisplayed()
+        composeTestRule.onAllNodesWithText("Hauptbahnhof").assertCountEquals(3)
+        composeTestRule.onNodeWithText("Pay Rent").assertIsEnabled().performClick()
+
+        assertTrue(fakeService.payRentCalled)
+        assertEquals(5, fakeService.lastPayRentFieldId)
+    }
+
+    @Test
+    fun gameboardScreen_taxOverlayUsesTaxGateAndPaysTax() {
+        val fakeService = FakeGameService()
+        fakeService.currentGameId = "game-1"
+        fakeService.currentPlayerId = "player-1"
+
+        val player = Player(
+            id = "player-1",
+            name = "Alice",
+            position = 4,
+            money = 1500
+        )
+        val taxField = TaxField(id = 4, name = "Reichensteuer", amount = 200)
+        val state = GameState(
+            gameId = "game-1",
+            players = mutableListOf(player),
+            currentPlayerIndex = 0,
+            phase = GamePhase.PAYING_RENT,
+            fields = listOf(GoField(0), taxField),
+            pendingPayment = PendingPayment(
+                amount = 200,
+                source = PaymentSource.TAX,
+                sourceFieldId = 4,
+                creditorPlayerId = null
+            )
+        )
+        val viewModel = GameViewModel(fakeService)
+
+        composeTestRule.setContent {
+            GameboardScreen(viewModel = viewModel, shakeEventsOverride = shakeEvents)
+        }
+        fakeService.emitGameState(state)
+        composeTestRule.waitForIdle()
+
+        composeTestRule.onNodeWithText("TAX DUE").assertIsDisplayed()
+        composeTestRule.onNodeWithText("Pay Tax").assertIsEnabled().performClick()
+
+        assertEquals(4, fakeService.lastPaidTaxFieldId)
+    }
+
     // ─── Emulator auto-roll coverage ────────────────────────────────────
 
     @Test
@@ -963,10 +1308,3 @@ class GameboardScreenCoverageTest {
         composeTestRule.onNodeWithTag("roll_dice_button").assertExists()
     }
 }
-
-
-
-
-
-
-

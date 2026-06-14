@@ -2346,7 +2346,6 @@ class GameViewModelTest {
     }
 
 
-
     @Test
     fun `reportCheater should delegate to gameService`() = runTest(testDispatcher) {
         fakeService.currentPlayerId = "p2"

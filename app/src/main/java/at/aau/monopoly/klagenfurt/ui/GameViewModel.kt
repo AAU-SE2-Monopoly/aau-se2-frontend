@@ -335,8 +335,6 @@ class GameViewModel(
     private val _selectedPlayerForTrade = MutableStateFlow<Player?>(null)
     val selectedPlayerForTrade: StateFlow<Player?> = _selectedPlayerForTrade.asStateFlow()
 
-
-
     private val _presentationPhase = MutableStateFlow(TurnPresentationPhase.IDLE)
     val presentationPhase: StateFlow<TurnPresentationPhase> = _presentationPhase.asStateFlow()
 

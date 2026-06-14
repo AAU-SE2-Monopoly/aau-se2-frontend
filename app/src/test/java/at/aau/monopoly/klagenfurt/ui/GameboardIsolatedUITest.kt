@@ -117,6 +117,7 @@ class GameboardIsolatedUITest {
             .assertIsEnabled()
     }
 
+
     @Test
     fun testReportButtonHiddenForDeadCurrentPlayer() {
         val myPlayer = Player(id = "player1", name = "Me", money = 501, position = 0)

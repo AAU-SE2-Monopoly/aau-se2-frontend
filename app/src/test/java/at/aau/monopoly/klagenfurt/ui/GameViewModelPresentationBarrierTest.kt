@@ -594,7 +594,8 @@ class GameViewModelPresentationBarrierTest {
             gameId = "game-1",
             fields = boardFields(),
             players = mutableListOf(
-                Player(id = "p1", name = "Alice", position = position, money = money, inJail = inJail),
+                Player(id = "p1", name = "Alice", position = position, money = money, inJail = inJail,consecutiveDoublets
+                = if (diceRoll?.isDouble == true) 1 else 0),
                 Player(id = "p2", name = "Bob", position = 0, money = otherMoney)
             ),
             currentPlayerIndex = 0,

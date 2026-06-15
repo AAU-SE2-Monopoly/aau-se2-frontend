@@ -1115,6 +1115,7 @@ class GameViewModel(
                 !rollRequestInFlight
         val doubleRollPending = state.lastDiceRoll?.isDouble == true &&
                 isCurrentPlayer &&
+                (state.currentPlayer?.consecutiveDoublets ?: 0) > 0 &&
                 (state.phase == GamePhase.BUYING || state.phase == GamePhase.TURN_END)
         val canRollAgainAfterDouble = doubleRollPending &&
                 presentationReady &&

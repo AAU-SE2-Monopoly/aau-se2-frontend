@@ -59,6 +59,8 @@ class FakeGameService : GameService {
     var startGameCalled = false
     var rollDiceCalled = false
     var rollDiceCalls = 0
+    var lastRollDiceIsCheating: Boolean? = null
+    val rollDiceCheatFlags = mutableListOf<Boolean>()
     var endTurnCalled = false
     var requestStateCalled = false
     var subscribeToLobbyCalled = false
@@ -128,6 +130,8 @@ class FakeGameService : GameService {
     override fun rollDice(isCheating: Boolean) {
         rollDiceCalled = true
         rollDiceCalls++
+        lastRollDiceIsCheating = isCheating
+        rollDiceCheatFlags += isCheating
     }
 
     override fun endTurn() {

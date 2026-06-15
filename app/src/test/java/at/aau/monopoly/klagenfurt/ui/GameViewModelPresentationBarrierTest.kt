@@ -412,6 +412,74 @@ class GameViewModelPresentationBarrierTest {
     }
 
     @Test
+    fun `cheat can be armed for repeated queued rolls after doubles`() = runTest(dispatcher) {
+        emit(snapshot(state(position = 0, phase = GamePhase.BUYING, diceRoll = DiceRoll(1, 1))))
+        runCurrent()
+
+        assertTrue(viewModel.actionGates.value.canRollAgainAfterDouble)
+        assertTrue(viewModel.actionGates.value.canActivateCheat)
+
+        viewModel.activateCheatForNextRoll()
+        viewModel.rollAgainAfterDouble()
+        runCurrent()
+
+        emit(event("TURN_ENDED", state(position = 0, phase = GamePhase.ROLLING, diceRoll = DiceRoll(1, 1))))
+        runCurrent()
+
+        assertEquals(listOf(true), fakeService.rollDiceCheatFlags)
+
+        emit(snapshot(state(position = 0, phase = GamePhase.BUYING, diceRoll = DiceRoll(2, 2))))
+        runCurrent()
+
+        assertTrue(viewModel.actionGates.value.canRollAgainAfterDouble)
+        assertTrue(viewModel.actionGates.value.canActivateCheat)
+
+        viewModel.activateCheatForNextRoll()
+        viewModel.rollAgainAfterDouble()
+        runCurrent()
+
+        emit(event("TURN_ENDED", state(position = 0, phase = GamePhase.ROLLING, diceRoll = DiceRoll(2, 2))))
+        runCurrent()
+
+        assertEquals(listOf(true, true), fakeService.rollDiceCheatFlags)
+    }
+
+    @Test
+    fun `rejected roll attempt clears armed cheat before next valid roll`() = runTest(dispatcher) {
+        emit(snapshot(state(position = 0, phase = GamePhase.BUYING, diceRoll = DiceRoll(1, 1))))
+        runCurrent()
+
+        assertTrue(viewModel.actionGates.value.canActivateCheat)
+        viewModel.activateCheatForNextRoll()
+
+        viewModel.rollDice()
+        runCurrent()
+
+        emit(snapshot(state(position = 0, phase = GamePhase.ROLLING)))
+        runCurrent()
+
+        viewModel.rollDice()
+        runCurrent()
+
+        assertEquals(listOf(false), fakeService.rollDiceCheatFlags)
+    }
+
+    @Test
+    fun `roll again after double is blocked while required card draw is pending or in flight`() = runTest(dispatcher) {
+        emit(snapshot(state(position = 1, phase = GamePhase.BUYING, diceRoll = DiceRoll(2, 2))))
+        runCurrent()
+
+        assertTrue(viewModel.actionGates.value.canDrawCard)
+        assertFalse(viewModel.actionGates.value.canRollAgainAfterDouble)
+
+        viewModel.drawCard("CHANCE")
+        runCurrent()
+
+        assertFalse(viewModel.actionGates.value.canDrawCard)
+        assertFalse(viewModel.actionGates.value.canRollAgainAfterDouble)
+    }
+
+    @Test
     fun `duplicate cheater reports are ignored while request is in flight`() = runTest(dispatcher) {
         fakeService.currentPlayerId = "p2"
         emit(snapshot(state(position = 0, phase = GamePhase.BUYING, diceRoll = DiceRoll(3, 4), otherMoney = 600)))

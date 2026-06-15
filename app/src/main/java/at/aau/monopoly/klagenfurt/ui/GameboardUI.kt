@@ -53,7 +53,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
@@ -126,10 +125,20 @@ class GameboardUI : ComponentActivity() {
             viewModel.setGameId(gameId)
         }
         setContent {
-            GameboardScreen(viewModel = viewModel)
+            GameboardScreen(
+                viewModel = viewModel,
+                consumePhysicalShakeCheatArm = ::consumePhysicalShakeCheatArm
+            )
         }
     }
     private var isVolumeUpPressed = false
+    private var physicalShakeCheatArmed = false
+
+    private fun consumePhysicalShakeCheatArm(): Boolean {
+        val wasArmed = physicalShakeCheatArmed
+        physicalShakeCheatArmed = false
+        return wasArmed
+    }
 
     @SuppressLint("RestrictedApi")
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
@@ -138,8 +147,8 @@ class GameboardUI : ComponentActivity() {
                 KeyEvent.ACTION_DOWN -> {
                     if (!isVolumeUpPressed) {
                         isVolumeUpPressed = true
-                        Log.d("DiceDebug", "Cheat enabled (dispatchKeyEvent).")
-                        viewModel.activateCheatForNextRoll()
+                        physicalShakeCheatArmed = true
+                        Log.d("DiceDebug", "Cheat armed for next physical shake.")
                     }
                 }
                 KeyEvent.ACTION_UP -> {
@@ -172,7 +181,8 @@ fun LockScreenOrientation(orientation: Int) {
 fun GameboardScreen(
     modifier: Modifier = Modifier,
     viewModel: GameViewModel,
-    shakeEventsOverride: Flow<Unit>? = null
+    shakeEventsOverride: Flow<Unit>? = null,
+    consumePhysicalShakeCheatArm: () -> Boolean = { false }
 ) {
     val context = LocalContext.current
 
@@ -368,7 +378,9 @@ fun GameboardScreen(
                 if (!localHasShaken && !hasShaken) {
                     localHasShaken = true
                     hasShaken = true
-                    viewModel.activateCheatForNextRoll()
+                    if (consumePhysicalShakeCheatArm()) {
+                        viewModel.activateCheatForNextRoll()
+                    }
                     if (actionGates.canRollAgainAfterDouble) {
                         viewModel.rollAgainAfterDouble()
                     } else {

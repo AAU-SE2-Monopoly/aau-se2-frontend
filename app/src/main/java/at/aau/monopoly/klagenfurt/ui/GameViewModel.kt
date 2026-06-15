@@ -275,6 +275,7 @@ class GameViewModel(
             if (doubleRollAdvanceToken == token) {
                 _doubleRollAdvanceInFlight.value = false
                 rollAfterDoubleAdvancePending = false
+                clearCheatActivation()
             }
         }
     }
@@ -617,6 +618,16 @@ class GameViewModel(
     private var isCheatActive = false
     private var rollAfterDoubleAdvancePending = false
 
+    private fun clearCheatActivation() {
+        isCheatActive = false
+    }
+
+    private fun consumeCheatActivation(): Boolean {
+        val cheatForRoll = isCheatActive
+        isCheatActive = false
+        return cheatForRoll
+    }
+
 
     fun connect() = gameService.connect()
 
@@ -675,16 +686,21 @@ class GameViewModel(
     }
 
     fun rollDice() {
-        if (!guardAction("rollDice", actionGates.value.canRollDice)) return
+        if (!guardAction("rollDice", actionGates.value.canRollDice)) {
+            clearCheatActivation()
+            return
+        }
         val currentPhase = gameState.value?.phase
         if (currentPhase != null && currentPhase != GamePhase.ROLLING) {
             Log.d("GameViewModel", "rollDice ignored outside ROLLING phase")
+            clearCheatActivation()
             return
         }
         startRollRequest()
     }
 
     private fun startRollRequest() {
+        val cheatForRoll = consumeCheatActivation()
         if (rollRequestInFlight) return
         rollRequestInFlight = true
         val sequenceId = nextPresentationSequenceId()
@@ -711,8 +727,7 @@ class GameViewModel(
             }
         }
 
-        gameService.rollDice(isCheating = isCheatActive)
-        isCheatActive = false
+        gameService.rollDice(isCheating = cheatForRoll)
     }
 
     fun onDiceResultDisplayed(sequenceId: Long) {
@@ -733,8 +748,14 @@ class GameViewModel(
     }
 
     fun rollAgainAfterDouble() {
-        if (!guardAction("rollAgainAfterDouble", actionGates.value.canRollAgainAfterDouble)) return
-        if (_doubleRollAdvanceInFlight.value) return
+        if (!guardAction("rollAgainAfterDouble", actionGates.value.canRollAgainAfterDouble)) {
+            clearCheatActivation()
+            return
+        }
+        if (_doubleRollAdvanceInFlight.value) {
+            clearCheatActivation()
+            return
+        }
         rollAfterDoubleAdvancePending = true
         startDoubleRollAdvance()
         gameService.endTurn()
@@ -1108,6 +1129,11 @@ class GameViewModel(
         val isUnownedField = (currentField as? OwnableField)?.ownerId == null
         val isOnChance = currentField is ChanceField
         val isOnCommunityChest = currentField is CommunityChestField
+        val cardDrawRequired =
+            state.phase == GamePhase.BUYING &&
+                    isCurrentPlayer &&
+                    (isOnChance || isOnCommunityChest) &&
+                    !state.hasDrawnCardThisTurn
         val canRoll = state.phase == GamePhase.ROLLING &&
                 isCurrentPlayer &&
                 rollInputReady &&
@@ -1121,6 +1147,8 @@ class GameViewModel(
                 presentationReady &&
                 !hasBlockingState &&
                 state.pendingPayment == null &&
+                !cardDrawRequired &&
+                !locks.cardDrawInFlight &&
                 !locks.doubleRollAdvanceInFlight
         val canRollDice = canRoll
         val canUseJailAction = canRoll &&
@@ -1221,6 +1249,7 @@ class GameViewModel(
     private fun handleIncomingGameEvent(event: GameEvent) {
         if (event.event == LOCAL_GAME_SWITCH_EVENT) {
             previousGameState = null
+            clearCheatActivation()
             hardSyncPresentation(null)
             _presentedEventLog.value = emptyList()
             _showGameOverOverlay.value = false
@@ -1257,6 +1286,9 @@ class GameViewModel(
 
         when {
             isHardSyncEvent(event) -> {
+                if (event.event != "STATE_SNAPSHOT") {
+                    clearCheatActivation()
+                }
                 hardSyncPresentation(event.gameState, event)
                 appendPresentedLog(event)
             }
@@ -1501,6 +1533,7 @@ class GameViewModel(
     private fun handleNonFatalError(event: GameEvent) {
         rollRequestInFlight = false
         rollAfterDoubleAdvancePending = false
+        clearCheatActivation()
         timedOutRollPlayerId = null
         _isExecutingAction.value = false
         showTransientError(event.message ?: "An unknown error occurred")
@@ -1768,6 +1801,8 @@ class GameViewModel(
         rollAfterDoubleAdvancePending = false
         if (canStartQueuedRoll) {
             startRollRequest()
+        } else {
+            clearCheatActivation()
         }
     }
 
@@ -1862,6 +1897,7 @@ class GameViewModel(
         previousGameState = null
         rollRequestInFlight = false
         rollAfterDoubleAdvancePending = false
+        clearCheatActivation()
         _isExecutingAction.value = false
         finishPaymentAction()
         finishPropertyAction()

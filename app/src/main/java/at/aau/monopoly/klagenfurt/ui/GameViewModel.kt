@@ -1198,7 +1198,7 @@ class GameViewModel(
 
         return ActionGates(
             canRollDice = canRollDice,
-            canActivateCheat = canRoll,
+            canActivateCheat = canRoll || canRollAgainAfterDouble,
             canEndTurn = canEndTurn,
             canBuyProperty = canBuyProperty,
             canDrawCard = canDrawChance || canDrawCommunityChest,

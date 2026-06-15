@@ -323,10 +323,15 @@ fun GameboardScreen(
         }
     }
 
-    LaunchedEffect(showOverlay, actionGates.canRollDice, hasShaken) {
-        if (isEmulator && showOverlay && actionGates.canRollDice && !hasShaken) {
+    LaunchedEffect(showOverlay, actionGates.canRollDice, actionGates.canRollAgainAfterDouble, hasShaken) {
+        if (isEmulator && showOverlay && (actionGates.canRollDice || actionGates.canRollAgainAfterDouble) &&
+            !hasShaken) {
             hasShaken = true
-            viewModel.rollDice()
+            if (actionGates.canRollAgainAfterDouble) {
+                viewModel.rollAgainAfterDouble()
+            } else {
+                viewModel.rollDice()
+            }
         }
     }
 
@@ -357,14 +362,19 @@ fun GameboardScreen(
         }
     }
 
-    LaunchedEffect(showOverlay, actionGates.canRollDice, shakeFlow) {
-        if (showOverlay && actionGates.canRollDice) {
+    LaunchedEffect(showOverlay, actionGates.canRollDice, actionGates.canRollAgainAfterDouble, shakeFlow) {
+        if (showOverlay && (actionGates.canRollDice || actionGates.canRollAgainAfterDouble)) {
             var localHasShaken = false
             shakeFlow.collect {
                 if (!localHasShaken && !hasShaken) {
                     localHasShaken = true
                     hasShaken = true
-                    viewModel.rollDice()
+                    viewModel.activateCheatForNextRoll()
+                    if (actionGates.canRollAgainAfterDouble) {
+                        viewModel.rollAgainAfterDouble()
+                    } else {
+                        viewModel.rollDice()
+                    }
                 }
             }
         }
@@ -509,11 +519,8 @@ fun GameboardScreen(
                         } else {
                             GlassButton(
                                 onClick = {
-                                    if (actionGates.canRollAgainAfterDouble) {
-                                        viewModel.rollAgainAfterDouble()
-                                    } else {
                                         showOverlay = true
-                                    }
+
                                 },
                                 enabled = actionGates.canRollDice || actionGates.canRollAgainAfterDouble,
                                 modifier = Modifier.width(buttonWidth).testTag("roll_dice_button")
@@ -627,9 +634,13 @@ fun GameboardScreen(
                 hasShaken = diceOverlayHasShaken,
                 sequenceId = activeDicePresentation?.sequenceId ?: 0L,
                 onShakeButton = {
-                    if (!hasShaken && actionGates.canRollDice) {
+                    if (!hasShaken && (actionGates.canRollDice || actionGates.canRollAgainAfterDouble)) {
                         hasShaken = true
-                        viewModel.rollDice()
+                        if (actionGates.canRollAgainAfterDouble) {
+                            viewModel.rollAgainAfterDouble()
+                        } else {
+                            viewModel.rollDice()
+                        }
                     }
                 },
                 onResultDisplayed = { sequenceId -> viewModel.onDiceResultDisplayed(sequenceId) },

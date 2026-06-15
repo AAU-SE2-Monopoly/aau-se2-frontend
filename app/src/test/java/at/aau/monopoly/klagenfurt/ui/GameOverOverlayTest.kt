@@ -6,6 +6,7 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import at.aau.monopoly.klagenfurt.model.Player
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -14,7 +15,11 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
 @RunWith(RobolectricTestRunner::class)
-@Config(manifest = Config.NONE)
+@Config(
+    sdk = [35],
+    qualifiers = "w360dp-h640dp",
+    manifest = Config.NONE
+)
 class GameOverOverlayTest {
 
     @get:Rule
@@ -25,42 +30,64 @@ class GameOverOverlayTest {
         composeTestRule.setContent {
             GameOverOverlay(
                 isVisible = false,
-                winnerName = "Alice",
+                activePlayers = listOf(Player(id = "p1", name = "Alice")),
                 onBackToLobby = {}
             )
         }
 
-        composeTestRule.onAllNodesWithText("🏆 Game Over").assertCountEquals(0)
-        composeTestRule.onAllNodesWithText("Winner: Alice").assertCountEquals(0)
+        composeTestRule.onAllNodesWithText("Game Over").assertCountEquals(0)
+        composeTestRule.onAllNodesWithText("Alice").assertCountEquals(0)
         composeTestRule.onAllNodesWithText("Back to Lobby").assertCountEquals(0)
     }
 
     @Test
-    fun gameOverOverlay_displaysWinnerName_whenVisible() {
+    fun gameOverOverlay_displaysWinner_whenOnlyOneActivePlayerExists() {
         composeTestRule.setContent {
             GameOverOverlay(
                 isVisible = true,
-                winnerName = "Alice",
+                activePlayers = listOf(Player(id = "p1", name = "Alice", money = 1500)),
                 onBackToLobby = {}
             )
         }
 
-        composeTestRule.onNodeWithText("🏆 Game Over").assertIsDisplayed()
-        composeTestRule.onNodeWithText("Winner: Alice").assertIsDisplayed()
+        composeTestRule.onNodeWithText("🏆").assertIsDisplayed()
+        composeTestRule.onNodeWithText("Game Over").assertIsDisplayed()
+        composeTestRule.onNodeWithText("Winner").assertIsDisplayed()
+        composeTestRule.onNodeWithText("Alice").assertIsDisplayed()
         composeTestRule.onNodeWithText("Back to Lobby").assertIsDisplayed()
     }
 
     @Test
-    fun gameOverOverlay_displaysUnknown_whenWinnerNameIsNull() {
+    fun gameOverOverlay_displaysActivePlayers_whenMoreThanOnePlayerRemains() {
         composeTestRule.setContent {
             GameOverOverlay(
                 isVisible = true,
-                winnerName = null,
+                activePlayers = listOf(
+                    Player(id = "p1", name = "Alice", money = 1500, ownedPropertyIds = mutableListOf(1, 2)),
+                    Player(id = "p2", name = "Bob", money = 900, ownedPropertyIds = mutableListOf(3))
+                ),
                 onBackToLobby = {}
             )
         }
 
-        composeTestRule.onNodeWithText("Winner: Unknown").assertIsDisplayed()
+        composeTestRule.onNodeWithText("Players still in game").assertIsDisplayed()
+        composeTestRule.onNodeWithText("Alice").assertIsDisplayed()
+        composeTestRule.onNodeWithText("1500 € · 🏠 2").assertIsDisplayed()
+        composeTestRule.onNodeWithText("Bob").assertIsDisplayed()
+        composeTestRule.onNodeWithText("900 € · 🏠 1").assertIsDisplayed()
+    }
+
+    @Test
+    fun gameOverOverlay_displaysUnknownWinner_whenNoActivePlayerExists() {
+        composeTestRule.setContent {
+            GameOverOverlay(
+                isVisible = true,
+                activePlayers = emptyList(),
+                onBackToLobby = {}
+            )
+        }
+
+        composeTestRule.onNodeWithText("Players still in game").assertIsDisplayed()
     }
 
     @Test
@@ -70,10 +97,8 @@ class GameOverOverlayTest {
         composeTestRule.setContent {
             GameOverOverlay(
                 isVisible = true,
-                winnerName = "Alice",
-                onBackToLobby = {
-                    clicked = true
-                }
+                activePlayers = listOf(Player(id = "p1", name = "Alice")),
+                onBackToLobby = { clicked = true }
             )
         }
 

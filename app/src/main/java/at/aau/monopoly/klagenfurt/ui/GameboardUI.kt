@@ -784,7 +784,7 @@ fun GameboardScreen(
 
             GameOverOverlay(
                 isVisible = showGameOverOverlay,
-                activePlayers = players.filter { !it.eliminated && !it.isBankrupt() },
+                activePlayers = boardPlayers.filter { !it.eliminated && !it.isBankrupt() },
                 onBackToLobby = {
                     (context as? Activity)?.finish()
                 }

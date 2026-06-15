@@ -249,7 +249,6 @@ fun GameboardScreen(
 
     val showGameOverOverlay by viewModel.showGameOverOverlay.collectAsState()
     val hostEndedGame by viewModel.hostEndedGame.collectAsState()
-    val winner by viewModel.winner.collectAsState()
 
     val revealProgress = remember { Animatable(0f) }
     LaunchedEffect(Unit) {
@@ -785,7 +784,7 @@ fun GameboardScreen(
 
             GameOverOverlay(
                 isVisible = showGameOverOverlay,
-                winnerName = winner?.name,
+                activePlayers = players.filter { !it.eliminated && !it.isBankrupt() },
                 onBackToLobby = {
                     (context as? Activity)?.finish()
                 }

@@ -408,12 +408,6 @@ class BoardFieldRenderingCoverageTest {
         assertEquals(Alignment.TopCenter, invokePrivate("cornerTextAlignment", 30))
         assertEquals(Alignment.BottomCenter, invokePrivate("cornerTextAlignment", 99))
 
-        assertEquals(Alignment.TopStart, invokePrivate("ownerIndicatorAlignment", 0))
-        assertEquals(Alignment.BottomStart, invokePrivate("ownerIndicatorAlignment", 1))
-        assertEquals(Alignment.BottomEnd, invokePrivate("ownerIndicatorAlignment", 2))
-        assertEquals(Alignment.TopEnd, invokePrivate("ownerIndicatorAlignment", 3))
-        assertEquals(Alignment.TopStart, invokePrivate("ownerIndicatorAlignment", 99))
-
         assertNotNull(invokePrivate("outerEdgeTextOffset", 0) as Modifier)
         assertNotNull(invokePrivate("outerEdgeTextOffset", 1) as Modifier)
         assertNotNull(invokePrivate("outerEdgeTextOffset", 2) as Modifier)
@@ -493,7 +487,7 @@ class BoardFieldRenderingCoverageTest {
         composeTestRule.onNodeWithText("Haupt-\nbahnhof").assertExists()
         composeTestRule.onNodeWithText("Heiligen-\ngeistplatz").assertExists()
         composeTestRule.onNodeWithText("Stadtwerke\nKlagenfurt").assertExists()
-        composeTestRule.onAllNodesWithTag("OwnerIndicator").assertCountEquals(3)
+        composeTestRule.onAllNodesWithTag("OwnerIndicator").assertCountEquals(0)
         composeTestRule.onAllNodesWithText("MORTGAGED").assertCountEquals(3)
     }
 
@@ -516,9 +510,7 @@ class BoardFieldRenderingCoverageTest {
     }
 
     @Test
-    fun `owner indicator renders on all four sides`() {
-        // Renders owned properties on bottom (side 0), left (side 1), top (side 2), right (side 3)
-        // to exercise the OwnerIndicator offset branches
+    fun `owned properties do not render owner indicators on any side`() {
         composeTestRule.setContent {
             Column {
                 // side 0 (bottom): index 1-9
@@ -564,7 +556,7 @@ class BoardFieldRenderingCoverageTest {
             }
         }
 
-        composeTestRule.onAllNodesWithTag("OwnerIndicator").assertCountEquals(4)
+        composeTestRule.onAllNodesWithTag("OwnerIndicator").assertCountEquals(0)
     }
 
     @Test
@@ -684,7 +676,7 @@ class BoardFieldRenderingCoverageTest {
     }
 
     @Test
-    fun `CrispVectorImage zoomed branch renders owned fields with owner indicator at zoom`() {
+    fun `CrispVectorImage zoomed branch renders owned fields without owner indicators`() {
         composeTestRule.setContent {
             CompositionLocalProvider(LocalZoomScale provides 2f) {
                 Column {
@@ -712,7 +704,7 @@ class BoardFieldRenderingCoverageTest {
         }
 
         composeTestRule.waitForIdle()
-        composeTestRule.onAllNodesWithTag("OwnerIndicator").assertCountEquals(2)
+        composeTestRule.onAllNodesWithTag("OwnerIndicator").assertCountEquals(0)
     }
 
     @Test
@@ -876,7 +868,7 @@ class BoardFieldRenderingCoverageTest {
     }
 
     @Test
-    fun `field item with non-property ownable field shows dark gray owner indicator`() {
+    fun `field item with non-property ownable field does not show owner indicator`() {
         composeTestRule.setContent {
             Box {
                 FieldItem(
@@ -887,7 +879,7 @@ class BoardFieldRenderingCoverageTest {
             }
         }
 
-        composeTestRule.onAllNodesWithTag("OwnerIndicator").assertCountEquals(1)
+        composeTestRule.onAllNodesWithTag("OwnerIndicator").assertCountEquals(0)
     }
 
     private fun invokePrivate(name: String, vararg args: Any): Any? {

@@ -247,13 +247,13 @@ class GameViewModelPaymentTest {
               "description": "Pay Hospital Fees",
               "action": "PAY_MONEY",
               "amount": 100
+              }
             }
           }
-        }
         """.trimIndent())
         advanceUntilIdle()
 
-        assertEquals("Pay Hospital Fees", viewModel.currentActionCard.value?.description)
+        assertEquals("Pay Hospital Fees", viewModel.visibleActionCard.value?.description)
 
         viewModel.executeAction()
         assertTrue(viewModel.isExecutingAction.value)

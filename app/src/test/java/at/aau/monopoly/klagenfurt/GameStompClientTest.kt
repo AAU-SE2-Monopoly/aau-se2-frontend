@@ -80,7 +80,8 @@ class GameStompClientTest {
     @Test
     fun disconnect_cancels_both_active_jobs() = runTest(testDispatcher) {
         coEvery { stompClient.connect(any<String>()) } returns stompSession
-        coEvery { stompSession.subscribeText(any<String>()) } returns kotlinx.coroutines.flow.flowOf()
+        val activeFlow = MutableSharedFlow<String>()
+        coEvery { stompSession.subscribeText(any<String>()) } returns activeFlow
 
         gameStompClient.connect()
         runCurrent()
@@ -578,6 +579,38 @@ class GameStompClientTest {
     }
 
     @Test
+    fun joinGame_rejection_restores_previous_game_id() = runTest(testDispatcher) {
+        coEvery { stompClient.connect(any<String>()) } returns stompSession
+        val topicFlow = MutableSharedFlow<String>(extraBufferCapacity = 1)
+        coEvery { stompSession.subscribeText(any<String>()) } returns topicFlow
+        coEvery { stompSession.sendText(any<String>(), any<String>()) } returns mockk()
+
+        gameStompClient.connect()
+        runCurrent()
+        gameStompClient.setGameId("previous-game")
+
+        val resultDeferred = async {
+            gameStompClient.joinGame("rejected-game", "Alice", "gti")
+        }
+        runCurrent()
+
+        topicFlow.emit("""{"event":"ERROR","gameId":"rejected-game","message":"Join rejected"}""")
+        runCurrent()
+
+        assertTrue(resultDeferred.await().isFailure)
+        assertEquals("previous-game", gameStompClient.currentGameId)
+        runCurrent()
+
+        coVerify { stompSession.subscribeText("/topic/game/previous-game") }
+        coVerify {
+            stompSession.sendText(
+                "/app/game/state",
+                match { it.contains("\"gameId\":\"previous-game\"") }
+            )
+        }
+    }
+
+    @Test
     fun subscribeToLobby_when_not_connected_logs_warning() = runTest(testDispatcher) {
         gameStompClient.subscribeToLobby()
         runCurrent()
@@ -846,8 +879,10 @@ class GameStompClientTest {
     fun subscribeToGame_does_not_cancel_lobby_subscription() = runTest(testDispatcher) {
         coEvery { stompClient.connect(any<String>()) } returns stompSession
         val lobbyFlow = MutableSharedFlow<String>()
+        val gameFlow = MutableSharedFlow<String>()
         coEvery { stompSession.subscribeText(any<String>()) } returns flowOf()
         coEvery { stompSession.subscribeText("/topic/lobby") } returns lobbyFlow
+        coEvery { stompSession.subscribeText("/topic/game/new-game") } returns gameFlow
         coEvery { stompSession.sendText(any<String>(), any<String>()) } returns mockk()
 
         gameStompClient.connect()
@@ -1900,8 +1935,9 @@ class GameStompClientTest {
 
     @Test
     fun acceptTrade_and_rejectTrade_send_trade_id_payloads() = runTest(testDispatcher) {
+        val subscriptionFlow = MutableSharedFlow<String>()
         coEvery { stompClient.connect(any<String>()) } returns stompSession
-        coEvery { stompSession.subscribeText(any<String>()) } returns flowOf()
+        coEvery { stompSession.subscribeText(any<String>()) } returns subscriptionFlow
         coEvery { stompSession.sendText(any<String>(), any<String>()) } returns mockk()
 
         gameStompClient.connect()

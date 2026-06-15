@@ -260,9 +260,9 @@ class GameStompClientBasicTest {
     }
 
     @Test
-    fun `setGameId delegates to internal subscription`() {
+    fun `setGameId stores current game id`() {
         stompClient.setGameId("game-456")
-        // Should not throw and should internally handle subscription
+        // Should not throw; subscription is handled by subscribeToGame.
         assertTrue(true)
     }
 

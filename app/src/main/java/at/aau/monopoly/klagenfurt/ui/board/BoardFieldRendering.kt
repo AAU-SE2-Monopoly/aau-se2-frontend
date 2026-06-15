@@ -34,6 +34,7 @@ import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.RectangleShape
@@ -220,6 +221,7 @@ fun FieldItem(
     animatingPlayerId: String? = null,
     animatingStep: Int? = null,
     animationComplete: Boolean = true,
+    isActivePlayerField: Boolean = false,
     freeParkingMoney: Int = 0,
     onFreeParkingMoneyClick: () -> Unit = {}
 ) {
@@ -262,6 +264,9 @@ fun FieldItem(
                 field = field,
                 bounds = bounds
             )
+            if (isActivePlayerField) {
+                ActivePlayerFieldHighlight()
+            }
             CornerPlayerTokenContainer(
                 index = index,
                 sw = sw,
@@ -301,21 +306,13 @@ fun FieldItem(
                 )
             }
 
-            // Owner indicator dot on owned fields
-            if (field is OwnableField && field.ownerId != null) {
-                val dotColor = when (field) {
-                    is PropertyField -> field.color.toComposeColor()
-                    else -> Color.DarkGray
-                }
-                OwnerIndicator(
-                    side = side,
-                    fieldColor = dotColor
-                )
-            }
-
             // Mortgaged overlay watermark
             if (field is OwnableField && field.isMortgaged) {
                 MortgagedOverlay(bounds = bounds)
+            }
+
+            if (isActivePlayerField) {
+                ActivePlayerFieldHighlight()
             }
 
             PlayerTokenContainer(
@@ -337,6 +334,25 @@ fun FieldItem(
             }
         }
     }
+}
+
+@Composable
+private fun BoxScope.ActivePlayerFieldHighlight() {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .testTag("ActivePlayerFieldHighlight")
+            .background(
+                Brush.verticalGradient(
+                    listOf(
+                        Color.Black.copy(alpha = 0.48f),
+                        Color.Black.copy(alpha = 0.24f),
+                        Color.Black.copy(alpha = 0.06f)
+                    )
+                )
+            )
+            .border(1.dp, Color.Black.copy(alpha = 0.55f))
+    )
 }
 
 private fun innerCornerAlignment(index: Int): Alignment = when (index) {
@@ -532,47 +548,6 @@ private fun BoxScope.FieldImage(
         contentScale = ContentScale.Fit,
         colorFilter = tint?.let { ColorFilter.tint(it, BlendMode.SrcAtop) }
     )
-}
-
-/**
- * A small colored dot in the outer corner of a field indicating it's owned.
- * Color matches the property color for PropertyFields, dark-gray for railroads/utilities.
- */
-@Composable
-private fun BoxScope.OwnerIndicator(
-    side: Int,
-    fieldColor: Color
-) {
-    val dotSize = 4.dp
-    val alignment = ownerIndicatorAlignment(side)
-
-    val inset = 2.dp
-    val (offsetX, offsetY) = when (side) {
-        0 -> inset to inset           // bottom: top-start corner → push right and down
-        1 -> (-inset) to (-inset)     // left: bottom-start corner → push left and up
-        2 -> (-inset) to (-inset)     // top: bottom-end corner → push left and up
-        3 -> inset to inset           // right: top-end corner → push right and down
-        else -> inset to inset
-    }
-
-    Box(
-        modifier = Modifier
-            .size(dotSize)
-            .align(alignment)
-            .offset(x = offsetX, y = offsetY)
-            .clip(CircleShape)
-            .background(fieldColor)
-            .border(0.5.dp, Color.Black.copy(alpha = 0.3f), CircleShape)
-            .testTag("OwnerIndicator")
-    )
-}
-
-private fun ownerIndicatorAlignment(side: Int): Alignment = when (side) {
-    0 -> Alignment.TopStart
-    1 -> Alignment.BottomStart
-    2 -> Alignment.BottomEnd
-    3 -> Alignment.TopEnd
-    else -> Alignment.TopStart
 }
 
 /**

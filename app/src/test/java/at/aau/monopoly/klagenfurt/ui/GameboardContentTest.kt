@@ -100,6 +100,80 @@ class GameboardContentTest {
     }
 
     @Test
+    fun `GameboardContent highlights current players standing field`() {
+        val fields = listOf(
+            GoField(id = 0, name = "Go", type = FieldType.GO),
+            PropertyField(
+                id = 1,
+                name = "Herrengasse",
+                color = PropertyColor.BROWN,
+                price = 60,
+                rent = listOf(2),
+                houseCost = 50,
+                hotelCost = 50
+            )
+        )
+        val player = Player(id = "p1", name = "Alice", iconId = "lindwurm", position = 1)
+
+        composeTestRule.setContent {
+            GameboardContent(
+                fields = fields,
+                players = listOf(player),
+                currentPlayerId = "p1",
+                currentTurnPlayer = player
+            )
+        }
+
+        composeTestRule.onAllNodesWithTag("ActivePlayerFieldHighlight").assertCountEquals(1)
+    }
+
+    @Test
+    fun `GameboardContent highlights movement animation step field`() {
+        val fields = listOf(
+            GoField(id = 0, name = "Go", type = FieldType.GO),
+            PropertyField(
+                id = 1,
+                name = "Herrengasse",
+                color = PropertyColor.BROWN,
+                price = 60,
+                rent = listOf(2),
+                houseCost = 50,
+                hotelCost = 50
+            )
+        )
+        val player = Player(id = "p1", name = "Alice", iconId = "lindwurm", position = 0)
+
+        composeTestRule.setContent {
+            GameboardContent(
+                fields = fields,
+                players = listOf(player),
+                currentPlayerId = "p1",
+                currentTurnPlayer = player,
+                movementAnimationState = MovementAnimationState(
+                    playerId = "p1",
+                    startPosition = 0,
+                    path = listOf(0, 1),
+                    currentStepIndex = 1,
+                    isComplete = false
+                )
+            )
+        }
+
+        composeTestRule.onAllNodesWithTag("ActivePlayerFieldHighlight").assertCountEquals(1)
+    }
+
+    @Test
+    fun `GameboardContent does not highlight field without current player or movement`() {
+        val fields = listOf(GoField(id = 0, name = "Go", type = FieldType.GO))
+
+        composeTestRule.setContent {
+            GameboardContent(fields = fields, players = emptyList(), currentTurnPlayer = null)
+        }
+
+        composeTestRule.onAllNodesWithTag("ActivePlayerFieldHighlight").assertCountEquals(0)
+    }
+
+    @Test
     fun `verify GameboardContent handles empty lists`() {
         composeTestRule.setContent {
             GameboardContent(fields = emptyList(), players = emptyList())

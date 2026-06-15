@@ -53,7 +53,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
@@ -107,6 +106,13 @@ import at.aau.monopoly.klagenfurt.model.enums.GamePhase
 
 import at.aau.monopoly.klagenfurt.model.PaymentSource
 
+private val GlassPanelColor = Color.Black.copy(alpha = 0.42f)
+private val GlassBorderColor = Color.White.copy(alpha = 0.28f)
+private val GlassDisabledColor = Color.Black.copy(alpha = 0.16f)
+
+private fun List<Field>.fieldAtBoardPosition(position: Int): Field? =
+    firstOrNull { it.id == position } ?: getOrNull(position)
+
 class GameboardUI : ComponentActivity() {
     private val viewModel: GameViewModel by viewModels {
         GameViewModel.Factory(ServiceLocator.provideGameService())
@@ -119,10 +125,20 @@ class GameboardUI : ComponentActivity() {
             viewModel.setGameId(gameId)
         }
         setContent {
-            GameboardScreen(viewModel = viewModel)
+            GameboardScreen(
+                viewModel = viewModel,
+                consumePhysicalShakeCheatArm = ::consumePhysicalShakeCheatArm
+            )
         }
     }
     private var isVolumeUpPressed = false
+    private var physicalShakeCheatArmed = false
+
+    private fun consumePhysicalShakeCheatArm(): Boolean {
+        val wasArmed = physicalShakeCheatArmed
+        physicalShakeCheatArmed = false
+        return wasArmed
+    }
 
     @SuppressLint("RestrictedApi")
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
@@ -131,8 +147,8 @@ class GameboardUI : ComponentActivity() {
                 KeyEvent.ACTION_DOWN -> {
                     if (!isVolumeUpPressed) {
                         isVolumeUpPressed = true
-                        Log.d("DiceDebug", "Cheat enabled (dispatchKeyEvent).")
-                        viewModel.activateCheatForNextRoll()
+                        physicalShakeCheatArmed = true
+                        Log.d("DiceDebug", "Cheat armed for next physical shake.")
                     }
                 }
                 KeyEvent.ACTION_UP -> {
@@ -165,7 +181,8 @@ fun LockScreenOrientation(orientation: Int) {
 fun GameboardScreen(
     modifier: Modifier = Modifier,
     viewModel: GameViewModel,
-    shakeEventsOverride: Flow<Unit>? = null
+    shakeEventsOverride: Flow<Unit>? = null,
+    consumePhysicalShakeCheatArm: () -> Boolean = { false }
 ) {
     val context = LocalContext.current
 
@@ -181,28 +198,27 @@ fun GameboardScreen(
 
     val fields by viewModel.fields.collectAsState(initial = emptyList())
     val gameState by viewModel.gameState.collectAsState()
-    val players = gameState?.players ?: emptyList()
+    val rawPlayers = gameState?.players ?: emptyList()
+    val presentedBoardPlayers by viewModel.presentedBoardPlayers.collectAsState()
+    val boardPlayers = presentedBoardPlayers.takeIf { it.isNotEmpty() } ?: rawPlayers
     val currentPlayerId = viewModel.currentPlayerId
     val currentTurnPlayer = gameState?.currentPlayer
-    val currentField = currentTurnPlayer?.let { player ->
-        fields.getOrNull(player.position)
+    val visibleCurrentField by viewModel.visibleCurrentField.collectAsState()
+    val currentField = visibleCurrentField ?: currentTurnPlayer?.let { player ->
+        fields.fieldAtBoardPosition(player.position)
     }
-    val isBuyableField = currentField is OwnableField
-    val isUnownedField = (currentField as? OwnableField)?.ownerId == null
-
     val isOnChanceField = currentField is ChanceField
     val isOnCommunityChestField = currentField is CommunityChestField
-    val eventLog by viewModel.eventLog.collectAsState()
+    val eventLog by viewModel.presentedEventLog.collectAsState()
+    val actionGates by viewModel.actionGates.collectAsState()
+    val activeDicePresentation by viewModel.activeDicePresentation.collectAsState()
+    val visiblePaymentState by viewModel.visiblePaymentState.collectAsState()
 
     val isRollingPhaseForCurrentPlayer by viewModel.isRollingPhaseForCurrentPlayer.collectAsState()
     val isBuyingPhaseForCurrentPlayer by viewModel.isBuyingPhaseForCurrentPlayer.collectAsState()
-    val lastDiceRoll by viewModel.lastDiceRoll.collectAsState()
     val canStartGame by viewModel.canStartGame.collectAsState()
     val canEndTurnForCurrentPlayer by viewModel.canEndTurnForCurrentPlayer.collectAsState()
-    val canBuyCurrentField =
-        isBuyingPhaseForCurrentPlayer &&
-                isBuyableField &&
-                isUnownedField
+    val canBuyCurrentField = actionGates.canBuyProperty
 
     val gameStarted = gameState?.phase != null &&
             gameState!!.phase != GamePhase.WAITING &&
@@ -213,9 +229,10 @@ fun GameboardScreen(
     val myPlayer = gameState?.players?.find { it.id == currentPlayerId }
     val myPlayerIsActive = myPlayer != null && !myPlayer.eliminated && gameStarted
 
-    val currentActionCard by viewModel.currentActionCard.collectAsState()
+    val currentActionCard by viewModel.visibleActionCard.collectAsState()
     val isExecutingAction by viewModel.isExecutingAction.collectAsState()
     val showActionCardOverlay by viewModel.showActionCardOverlay.collectAsState()
+    var dismissedSpectatorActionCardId by remember { mutableStateOf<Int?>(null) }
 
     val showPayRentOverlay by viewModel.showPayRentOverlay.collectAsState()
     val showMortgageOverlay by viewModel.showMortgageOverlay.collectAsState()
@@ -237,17 +254,11 @@ fun GameboardScreen(
     val hasPendingPayment by viewModel.hasPendingPayment.collectAsState()
 
     var showOverlay by remember { mutableStateOf(false) }
+    var dismissedDiceSequenceId by remember { mutableStateOf<Long?>(null) }
     var showFreeParkingOverlay by remember { mutableStateOf(false) }
 
     val showGameOverOverlay by viewModel.showGameOverOverlay.collectAsState()
     val hostEndedGame by viewModel.hostEndedGame.collectAsState()
-
-    val bufferedEventLog by remember {
-        derivedStateOf {
-            if (showOverlay) eventLog.filter { it.eventType != "DICE_ROLLED" }
-            else eventLog
-        }
-    }
 
     val revealProgress = remember { Animatable(0f) }
     LaunchedEffect(Unit) {
@@ -290,8 +301,15 @@ fun GameboardScreen(
     val shakeFlow: Flow<Unit> = shakeEventsOverride ?: shakeDetector!!.shakeEvents
 
     var hasShaken by remember { mutableStateOf(false) }
-    var hasDrawnCard by remember { mutableStateOf(false) }
+    val hasDrawnCardThisTurn = gameState?.hasDrawnCardThisTurn == true
     var isDrawingCard by remember { mutableStateOf(false) }
+    val diceOverlayVisible =
+        showOverlay ||
+                (activeDicePresentation != null &&
+                        dismissedDiceSequenceId != activeDicePresentation?.sequenceId)
+    val diceOverlayHasShaken = hasShaken || activeDicePresentation != null
+    val diceOverlayIsRolling = activeDicePresentation?.isRolling ?: (showOverlay && hasShaken)
+    val diceOverlayResult = activeDicePresentation?.diceRoll?.let { Pair(it.die1, it.die2) }
 
     val isEmulator = remember {
         android.os.Build.FINGERPRINT.startsWith("generic")
@@ -303,46 +321,71 @@ fun GameboardScreen(
                 || android.os.Build.PRODUCT.contains("emulator")
     }
 
-    LaunchedEffect(showOverlay) {
-        if (showOverlay) hasShaken = false
+    LaunchedEffect(showOverlay, activeDicePresentation?.sequenceId) {
+        if (showOverlay && activeDicePresentation == null) hasShaken = false
     }
 
-    LaunchedEffect(showOverlay, isRollingPhaseForCurrentPlayer, hasShaken) {
-        if (isEmulator && showOverlay && isRollingPhaseForCurrentPlayer && !hasShaken) {
-            hasShaken = true
-            viewModel.rollDice()
+    LaunchedEffect(activeDicePresentation?.sequenceId) {
+        if (activeDicePresentation == null) {
+            showOverlay = false
+            hasShaken = false
         }
     }
 
-    LaunchedEffect(isRollingPhaseForCurrentPlayer) {
-        if (isRollingPhaseForCurrentPlayer) {
+    LaunchedEffect(showOverlay, actionGates.canRollDice, actionGates.canRollAgainAfterDouble, hasShaken) {
+        if (isEmulator && showOverlay && (actionGates.canRollDice || actionGates.canRollAgainAfterDouble) &&
+            !hasShaken) {
+            hasShaken = true
+            if (actionGates.canRollAgainAfterDouble) {
+                viewModel.rollAgainAfterDouble()
+            } else {
+                viewModel.rollDice()
+            }
+        }
+    }
+
+    LaunchedEffect(actionGates.canRollDice) {
+        if (actionGates.canRollDice) {
             hasShaken = false
-            hasDrawnCard = false
             isDrawingCard = false
         }
     }
 
-    LaunchedEffect(isBuyingPhaseForCurrentPlayer, isRollingPhaseForCurrentPlayer, canEndTurnForCurrentPlayer) {
-        if (!isBuyingPhaseForCurrentPlayer && !isRollingPhaseForCurrentPlayer && !canEndTurnForCurrentPlayer && showOverlay) {
+    LaunchedEffect(actionGates.canRollDice, activeDicePresentation?.sequenceId, canEndTurnForCurrentPlayer) {
+        if (!actionGates.canRollDice && activeDicePresentation == null && !canEndTurnForCurrentPlayer && showOverlay) {
             showOverlay = false
         }
     }
 
 
-    LaunchedEffect(showActionCardOverlay) {
-        if (showActionCardOverlay) {
+
+    LaunchedEffect(showActionCardOverlay, actionGates.canDrawCard) {
+        if (showActionCardOverlay || actionGates.canDrawCard) {
             isDrawingCard = false
         }
     }
 
-    LaunchedEffect(showOverlay, isRollingPhaseForCurrentPlayer, shakeFlow) {
-        if (showOverlay && isRollingPhaseForCurrentPlayer) {
+    LaunchedEffect(currentActionCard?.id) {
+        if (currentActionCard?.id != dismissedSpectatorActionCardId) {
+            dismissedSpectatorActionCardId = null
+        }
+    }
+
+    LaunchedEffect(showOverlay, actionGates.canRollDice, actionGates.canRollAgainAfterDouble, shakeFlow) {
+        if (showOverlay && (actionGates.canRollDice || actionGates.canRollAgainAfterDouble)) {
             var localHasShaken = false
             shakeFlow.collect {
                 if (!localHasShaken && !hasShaken) {
                     localHasShaken = true
                     hasShaken = true
-                    viewModel.rollDice()
+                    if (consumePhysicalShakeCheatArm()) {
+                        viewModel.activateCheatForNextRoll()
+                    }
+                    if (actionGates.canRollAgainAfterDouble) {
+                        viewModel.rollAgainAfterDouble()
+                    } else {
+                        viewModel.rollDice()
+                    }
                 }
             }
         }
@@ -370,9 +413,11 @@ fun GameboardScreen(
         ) {
             GameboardContent(
                 fields = fields,
-                players = players,
+                players = rawPlayers,
+                boardPlayers = boardPlayers,
                 currentPlayerId = currentPlayerId,
                 currentTurnPlayer = currentTurnPlayer,
+                currentFieldOverride = currentField,
                 onPlayerCardClick = { player ->
                     if (player.id == currentPlayerId && myPlayerIsActive) {
                         viewModel.showMortgageManagementOverlay()
@@ -384,30 +429,41 @@ fun GameboardScreen(
                 onDismissOverlay = { viewModel.hidePlayerOverlay() },
                 movementAnimationState = movementState,
                 onReportCheater = { reportedPlayerId -> viewModel.reportCheater(reportedPlayerId) },
+                canReportCheater = actionGates.canReportCheater,
                 onStartTrade = { player ->
                     viewModel.showTradeOverlay(player)
-                    viewModel.proposeTrade(
-                        toPlayerId = player.id,
-                        offerMoney = 0,
-                        requestMoney = 0,
-                        offerPropertyIds = emptyList(),
-                        requestPropertyIds = emptyList(),
-                        offerJailCards = 0,
-                        requestJailCards = 0
-                    )
+                    if (gameState?.pendingTradeOffer == null) {
+                        viewModel.proposeTrade(
+                            toPlayerId = player.id,
+                            offerMoney = 0,
+                            requestMoney = 0,
+                            offerPropertyIds = emptyList(),
+                            requestPropertyIds = emptyList(),
+                            offerJailCards = 0,
+                            requestJailCards = 0
+                        )
+                    }
                 },
+                canStartTrade = actionGates.canTrade,
                 gameState = gameState,
                 onFreeParkingMoneyClick = { showFreeParkingOverlay = true },
                 modifier = Modifier.fillMaxSize()
             )
 
             val buttonWidth = 180.dp
-            val mustDrawCard = (isOnChanceField || isOnCommunityChestField) && !hasDrawnCard && isBuyingPhaseForCurrentPlayer
+            val shouldShowRollAgain =
+                actionGates.canRollAgainAfterDouble ||
+                        gameState?.lastDiceRoll?.isDouble == true &&
+                        gameState?.phase == GamePhase.ROLLING
+            val mustDrawCard =
+                (isOnChanceField || isOnCommunityChestField) &&
+                        !hasDrawnCardThisTurn &&
+                        actionGates.canDrawCard
 
-            val onDrawCard: (String) -> Unit = { type ->
-                viewModel.drawCard(type)
-                hasDrawnCard = true
+            val onDrawCard: (String) -> Unit = onDrawCard@ { type ->
+                if (isDrawingCard) return@onDrawCard
                 isDrawingCard = true
+                viewModel.drawCard(type)
             }
 
             Column(
@@ -417,7 +473,7 @@ fun GameboardScreen(
                 horizontalAlignment = Alignment.End,
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                if(!showOverlay) {
+                if (!showOverlay) {
                     if (canStartGame) {
                         GlassButton(
                             onClick = { viewModel.startGame() },
@@ -427,7 +483,12 @@ fun GameboardScreen(
                         }
                     }
 
-                    if (isRollingPhaseForCurrentPlayer && currentTurnPlayer != null && !mustDrawCard && !isDrawingCard) {
+                    if (
+                        (actionGates.canRollDice || actionGates.canRollAgainAfterDouble) &&
+                        currentTurnPlayer != null &&
+                        !mustDrawCard &&
+                        !isDrawingCard
+                    ) {
                         if (currentTurnPlayer.inJail) {
 
                             Text(
@@ -443,18 +504,17 @@ fun GameboardScreen(
 
                             GlassButton(
                                 onClick = { viewModel.payJailFine() },
-                                enabled = currentTurnPlayer.money >= 50,
-                                modifier = Modifier.width(buttonWidth)
-                                    .testTag("pay_jail_fine_button")
+                                enabled = actionGates.canUseJailAction && currentTurnPlayer.money >= 50,
+                                modifier = Modifier.width(buttonWidth).testTag("pay_jail_fine_button")
                             ) {
-                                Text("💰 Pay 50 M")
+                                Text("💰 Pay 50€")
                             }
 
                             if (currentTurnPlayer.getOutOfJailCards > 0) {
                                 GlassButton(
                                     onClick = { viewModel.useJailCard() },
-                                    modifier = Modifier.width(buttonWidth)
-                                        .testTag("use_jail_card_button")
+                                    enabled = actionGates.canUseJailAction,
+                                    modifier = Modifier.width(buttonWidth).testTag("use_jail_card_button")
                                 ) {
                                     Text("🃏 Use Card (${currentTurnPlayer.getOutOfJailCards})")
                                 }
@@ -462,21 +522,26 @@ fun GameboardScreen(
 
                             GlassButton(
                                 onClick = { showOverlay = true },
+                                enabled = actionGates.canRollDice,
                                 modifier = Modifier.width(buttonWidth).testTag("roll_dice_button")
                             ) {
                                 Text("🎲 Attempt Double")
                             }
                         } else {
                             GlassButton(
-                                onClick = { showOverlay = true },
+                                onClick = {
+                                        showOverlay = true
+
+                                },
+                                enabled = actionGates.canRollDice || actionGates.canRollAgainAfterDouble,
                                 modifier = Modifier.width(buttonWidth).testTag("roll_dice_button")
                             ) {
-                                Text("🎲 Roll Dice")
+                                Text(if (shouldShowRollAgain) "Roll Again" else "🎲 Roll Dice")
                             }
                         }
                     }
 
-                    if (canEndTurnForCurrentPlayer && !showActionCardOverlay && !mustDrawCard && !isDrawingCard) {
+                    if (actionGates.canEndTurn && !showActionCardOverlay && !mustDrawCard && !isDrawingCard) {
                         GlassButton(
                             onClick = { viewModel.endTurn() },
                             modifier = Modifier.width(buttonWidth).testTag("end_turn_button")
@@ -485,25 +550,20 @@ fun GameboardScreen(
                         }
                     }
 
-                    if (hasPendingPayment && !showPayRentOverlay && currentTurnPlayer?.id == currentPlayerId) {
+                    val isReopenTaxPayment = visiblePaymentState?.source == PaymentSource.TAX
+                    if (visiblePaymentState != null && !showPayRentOverlay && currentTurnPlayer?.id == currentPlayerId) {
                         GlassButton(
-                            onClick = {
-                                viewModel.showPayRentOverlay(
-                                    currentRentAmount,
-                                    currentRentOwnerId,
-                                    currentRentFieldId
-                                )
-                            },
+                            onClick = { viewModel.showPayRentOverlay(currentRentAmount, currentRentOwnerId, currentRentFieldId) },
                             modifier = Modifier.width(buttonWidth).testTag("pay_rent_reopen_button")
                         ) {
-                            Text("💸 Pay Rent Due")
+                            Text(if (isReopenTaxPayment) "💸 Pay Tax Due" else "💸 Pay Rent Due")
                         }
                     }
 
                     if (canBuyCurrentField) {
                         GlassButton(
                             onClick = {
-                                viewModel.buyProperty(currentTurnPlayer.position)
+                                currentField?.let { field -> viewModel.buyProperty(field.id) }
                             },
                             modifier = Modifier.width(buttonWidth).testTag("buy_property_button")
                         ) {
@@ -514,8 +574,8 @@ fun GameboardScreen(
                     if (isOnChanceField && isBuyingPhaseForCurrentPlayer) {
                         DrawCardButton(
                             cardType = "CHANCE",
-                            alreadyDrawn = hasDrawnCard,
-                            enabled = !showActionCardOverlay && !hasDrawnCard,
+                            alreadyDrawn = hasDrawnCardThisTurn,
+                            enabled = actionGates.canDrawChance && !showActionCardOverlay && !isDrawingCard,
                             label = "🎰 Draw Chance",
                             onDraw = { onDrawCard("CHANCE") },
                             modifier = Modifier.width(buttonWidth)
@@ -525,8 +585,8 @@ fun GameboardScreen(
                     if (isOnCommunityChestField && isBuyingPhaseForCurrentPlayer) {
                         DrawCardButton(
                             cardType = "COMMUNITY_CHEST",
-                            alreadyDrawn = hasDrawnCard,
-                            enabled = !showActionCardOverlay && !hasDrawnCard,
+                            alreadyDrawn = hasDrawnCardThisTurn,
+                            enabled = actionGates.canDrawCommunityChest && !showActionCardOverlay && !isDrawingCard,
                             label = "⭐ Draw Community",
                             onDraw = { onDrawCard("COMMUNITY_CHEST") },
                             modifier = Modifier.width(buttonWidth)
@@ -559,27 +619,54 @@ fun GameboardScreen(
                 }
             }
 
-            GameboardOverlayLayer(eventLog = bufferedEventLog)
+            GameboardOverlayLayer(eventLog = eventLog)
 
+            val canExecuteVisibleAction = actionGates.canExecuteCard
+            val actionCardDismissedForSpectator =
+                !canExecuteVisibleAction && currentActionCard?.id == dismissedSpectatorActionCardId
             ActionCardOverlay(
-                isVisible = showActionCardOverlay,
+                isVisible = showActionCardOverlay && !actionCardDismissedForSpectator,
                 card = currentActionCard,
-                isExecuting = isExecutingAction,
+                isExecuting = isExecutingAction && canExecuteVisibleAction,
+                canExecuteAction = canExecuteVisibleAction,
+                executingPlayerName = currentTurnPlayer?.name,
+                onDismiss = if (canExecuteVisibleAction) {
+                    null
+                } else {
+                    { currentActionCard?.let { dismissedSpectatorActionCardId = it.id } }
+                },
                 onExecuteAction = { viewModel.executeAction() }
             )
 
             DiceRollOverlay(
-                isVisible = showOverlay,
-                diceResult = lastDiceRoll?.let { Pair(it.die1, it.die2) },
-                isRolling = isRollingPhaseForCurrentPlayer,
-                hasShaken = hasShaken,
+                isVisible = diceOverlayVisible,
+                diceResult = diceOverlayResult,
+                isRolling = diceOverlayIsRolling,
+                hasShaken = diceOverlayHasShaken,
+                sequenceId = activeDicePresentation?.sequenceId ?: 0L,
                 onShakeButton = {
-                    if (!hasShaken && isRollingPhaseForCurrentPlayer) {
+                    if (!hasShaken && (actionGates.canRollDice || actionGates.canRollAgainAfterDouble)) {
                         hasShaken = true
-                        viewModel.rollDice()
+                        if (actionGates.canRollAgainAfterDouble) {
+                            viewModel.rollAgainAfterDouble()
+                        } else {
+                            viewModel.rollDice()
+                        }
                     }
                 },
-                onClose = { showOverlay = false }
+                onResultDisplayed = { sequenceId -> viewModel.onDiceResultDisplayed(sequenceId) },
+                onDismissed = { sequenceId ->
+                    dismissedDiceSequenceId = sequenceId
+                    viewModel.onDiceDismissed(sequenceId)
+                },
+                onClose = {
+                    showOverlay = false
+                    hasShaken = false
+                    activeDicePresentation?.let { pres ->
+                        dismissedDiceSequenceId = pres.sequenceId
+                        viewModel.onDiceDismissed(pres.sequenceId)
+                    }
+                }
             )
             FreeParkingJackpotOverlay(
                 isVisible = showFreeParkingOverlay,
@@ -596,18 +683,22 @@ fun GameboardScreen(
                 ?.takeUnless { it.id == dismissedTradeId }
                 ?.let { offer ->
                     when (currentPlayerId) {
-                        offer.fromPlayerId -> players.find { it.id == offer.toPlayerId }
-                        offer.toPlayerId -> players.find { it.id == offer.fromPlayerId }
-                        else -> players.find { it.id == offer.fromPlayerId }
+                        offer.fromPlayerId -> rawPlayers.find { it.id == offer.toPlayerId }
+                        offer.toPlayerId -> rawPlayers.find { it.id == offer.fromPlayerId }
+                        else -> rawPlayers.find { it.id == offer.fromPlayerId }
                     }
                 }
-            val visibleTradePlayer = selectedTradePlayer ?: publicTradePlayer
+                ?.takeUnless { it.isBankrupt() }
+            val selectedLiveTradePlayer = selectedTradePlayer
+                ?.let { selected -> rawPlayers.find { it.id == selected.id } ?: selected }
+                ?.takeUnless { it.isBankrupt() }
+            val visibleTradePlayer = selectedLiveTradePlayer ?: publicTradePlayer
             if (visibleTradePlayer != null) {
                 TradeOverlay(
                     isVisible = true,
                     currentPlayerId = currentPlayerId,
                     tradePartner = visibleTradePlayer,
-                    players = players,
+                    players = rawPlayers,
                     fields = fields,
                     pendingTradeOffer = pendingTradeOffer,
                     onProposeTrade = { toPlayerId, offerMoney, requestMoney, offerPropertyIds, requestPropertyIds, offerJailCards, requestJailCards ->
@@ -636,18 +727,23 @@ fun GameboardScreen(
                     }
                 )
             }
-            val isTaxPayment = gameState?.pendingPayment?.source == PaymentSource.TAX
+            val isTaxPayment = visiblePaymentState?.source == PaymentSource.TAX
+            val canPayVisiblePayment = if (isTaxPayment) {
+                actionGates.canPayTax
+            } else {
+                canPayRent
+            }
             PayRentOverlay(
                 isVisible = showPayRentOverlay && currentTurnPlayer?.id == currentPlayerId,
                 rentAmount = currentRentAmount,
                 ownerName = currentRentOwnerId?.let { ownerId ->
-                    players.find { it.id == ownerId }?.name
+                    rawPlayers.find { it.id == ownerId }?.name
                 },
                 fieldName = currentRentFieldId?.let { id ->
                     fields.find { it.id == id }?.name
                 } ?: "",
                 currentMoney = currentTurnPlayer?.money ?: 0,
-                canPay = canPayRent,
+                canPay = canPayVisiblePayment,
                 canRaiseFunds = canRaiseFunds,
                 paymentInFlight = paymentActionInFlight,
                 propertyInFlight = propertyActionInFlight,
@@ -666,7 +762,7 @@ fun GameboardScreen(
                 properties = manageableProperties,
                 currentMoney = myPlayer?.money ?: 0,
                 actionInFlight = propertyActionInFlight,
-                isPayingRent = isPayingRent == true,
+                isPayingRent = visiblePaymentState != null && isPayingRent == true,
                 onBuyHouse = { fieldId -> viewModel.buyHouse(fieldId) },
                 onBuyHotel = { fieldId -> viewModel.buyHotel(fieldId) },
                 onMortgage = { fieldId -> viewModel.mortgageProperty(fieldId) },
@@ -700,7 +796,7 @@ fun GameboardScreen(
 
             GameOverOverlay(
                 isVisible = showGameOverOverlay,
-                activePlayers = players.filter { !it.eliminated && !it.isBankrupt() },
+                activePlayers = boardPlayers.filter { !it.eliminated && !it.isBankrupt() },
                 onBackToLobby = {
                     (context as? Activity)?.finish()
                 }
@@ -774,14 +870,18 @@ fun BoxScope.GameboardOverlayLayer(eventLog: List<GameViewModel.LogEntry>) {
 fun GameboardContent(
     fields: List<Field>,
     players: List<Player> = emptyList(),
+    boardPlayers: List<Player> = players,
     currentPlayerId: String = "",
     currentTurnPlayer: Player? = null,
+    currentFieldOverride: Field? = null,
     onPlayerCardClick: (Player) -> Unit = {},
     selectedPlayerForOverlay: Player? = null,
     onDismissOverlay: () -> Unit = {},
     movementAnimationState: MovementAnimationState? = null,
     onReportCheater: (String) -> Unit = {},
+    canReportCheater: Boolean = false,
     onStartTrade: (Player) -> Unit = {},
+    canStartTrade: Boolean = false,
     gameState: at.aau.monopoly.klagenfurt.model.GameState? = null,
     onFreeParkingMoneyClick: () -> Unit = {},
     modifier: Modifier = Modifier
@@ -789,12 +889,22 @@ fun GameboardContent(
     val myPlayer = players.find { it.id == currentPlayerId }
     val otherPlayers = players.filter { it.id != currentPlayerId }
 
-    val currentField = currentTurnPlayer?.let { p ->
-        fields.getOrNull(p.position)
+    val currentField = currentFieldOverride ?: currentTurnPlayer?.let { p ->
+        fields.fieldAtBoardPosition(p.position)
     }
+    val activePlayerFieldIndex = movementAnimationState
+        ?.takeUnless { it.isComplete }
+        ?.let { animation ->
+            when {
+                animation.currentStepIndex < 0 -> animation.startPosition
+                animation.currentStepIndex in animation.path.indices -> animation.path[animation.currentStepIndex]
+                else -> null
+            }
+        }
+        ?: currentTurnPlayer?.position
 
-    val playersByField: Map<Int, List<Player>> = remember(players) {
-        players.groupBy { it.position }
+    val playersByField: Map<Int, List<Player>> = remember(boardPlayers) {
+        boardPlayers.groupBy { it.position }
     }
 
     BoxWithConstraints(modifier = modifier.fillMaxSize()) {
@@ -835,6 +945,7 @@ fun GameboardContent(
                                     else null
                                 },
                                 animationComplete = movementAnimationState?.isComplete ?: true,
+                                isActivePlayerField = index == activePlayerFieldIndex,
                                 freeParkingMoney = gameState?.freeParkingMoney ?: 0,
                                 onFreeParkingMoneyClick = onFreeParkingMoneyClick
                             )
@@ -865,52 +976,61 @@ fun GameboardContent(
                 verticalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterVertically)
             ) {
                 otherPlayers.forEach { player ->
+                    val pendingTradeOffer = gameState?.pendingTradeOffer
+                    val isCurrentLocalTurn = currentTurnPlayer?.id == currentPlayerId
+                    val myPlayerCanAct = myPlayer != null && !myPlayer.isBankrupt()
+                    val playerCanBeTargeted = !player.isBankrupt()
+                    val currentPlayerRolled = gameState?.lastDiceRoll != null
+                    val isReportTarget = player.id == currentTurnPlayer?.id
+                    val shouldShowReport = !isCurrentLocalTurn &&
+                            currentPlayerRolled &&
+                            isReportTarget &&
+                            myPlayerCanAct &&
+                            playerCanBeTargeted
+                    val canReport = shouldShowReport &&
+                            canReportCheater &&
+                            myPlayer.money > 500
+                    val isPendingTradeParticipant =
+                        pendingTradeOffer?.fromPlayerId == player.id ||
+                                pendingTradeOffer?.toPlayerId == player.id
+                    val canStartNewTrade = pendingTradeOffer == null &&
+                            isCurrentLocalTurn &&
+                            canStartTrade &&
+                            myPlayerCanAct &&
+                            playerCanBeTargeted
+                    val canReopenTrade = pendingTradeOffer != null &&
+                            isPendingTradeParticipant &&
+                            myPlayerCanAct &&
+                            playerCanBeTargeted
+                    val tradeLabel = if (canReopenTrade) "🔁 Reopen Trade" else "🔁 Trade"
+
                     Column(horizontalAlignment = Alignment.End) {
                         PlayerInfoPanel(
                             player = player,
                             fields = fields,
                             cards = emptyList(),
                             isCurrentTurn = player.id == currentTurnPlayer?.id,
-                            onCardClick = { onPlayerCardClick(player) }
+                            onCardClick = { onPlayerCardClick(player) },
+                            actionContent = {
+                                if (shouldShowReport) {
+                                    GlassActionButton(
+                                        text = "🚨 Report",
+                                        onClick = { onReportCheater(player.id) },
+                                        enabled = canReport,
+                                        modifier = Modifier.testTag("report_action_button_${player.id}")
+                                    )
+                                }
+
+                                if (canStartNewTrade || canReopenTrade) {
+                                    GlassActionButton(
+                                        text = tradeLabel,
+                                        onClick = { onStartTrade(player) },
+                                        enabled = true,
+                                        modifier = Modifier.testTag("trade_action_button_${player.id}")
+                                    )
+                                }
+                            }
                         )
-
-                        val canReport = (myPlayer?.money ?: 0) > 500
-
-                        Button(
-                            onClick = { onReportCheater(player.id) },
-
-                            modifier = Modifier
-                                .padding(top = 4.dp, end = 4.dp)
-                                .height(26.dp),
-                            enabled = canReport,
-                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = Color(0xFFAA0000),
-                                contentColor = Color.White,
-                                disabledContainerColor = Color.Gray,
-                                disabledContentColor = Color.White.copy(alpha = 0.5f)
-                            ),
-                            shape = RoundedCornerShape(6.dp)
-                        ) {
-                            Text("🚨 Report", fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                        }
-
-                        Button(
-                            onClick = { onStartTrade(player) },
-                            enabled = gameState?.pendingTradeOffer == null &&
-                                    currentTurnPlayer?.id == currentPlayerId,
-                            modifier = Modifier
-                                .padding(top = 4.dp, end = 4.dp)
-                                .height(26.dp),
-                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = Color.Black.copy(alpha = 0.35f),
-                                disabledContainerColor = Color.Black.copy(alpha = 0.16f)
-                            ),
-                            shape = RoundedCornerShape(6.dp)
-                        ) {
-                            Text("🔁", fontSize = 13.sp, color = Color.White, fontWeight = FontWeight.Bold)
-                        }
                     }
                 }
             }
@@ -921,8 +1041,7 @@ fun GameboardContent(
                 alignment = Alignment.CenterEnd,
                 panelWidth = panelWidth,
                 panelMargin = panelMargin,
-                verticalArrangement = Arrangement.Center,
-                modifier = Modifier.offset(y = (-50).dp)
+                verticalArrangement = Arrangement.Center
             ) {
                 PlayerInfoPanel(
                     player = myPlayer,
@@ -957,12 +1076,40 @@ private fun GlassButton(
         modifier = modifier,
         enabled = enabled,
         colors = ButtonDefaults.buttonColors(
-            containerColor = Color.Black.copy(alpha = 0.35f),
-            contentColor = Color.White
+            containerColor = GlassPanelColor,
+            contentColor = Color.White,
+            disabledContainerColor = GlassDisabledColor,
+            disabledContentColor = Color.White.copy(alpha = 0.45f)
         ),
         shape = RoundedCornerShape(12.dp),
         content = content
     )
+}
+
+@Composable
+private fun GlassActionButton(
+    text: String,
+    onClick: () -> Unit,
+    enabled: Boolean,
+    modifier: Modifier = Modifier
+) {
+    Button(
+        onClick = onClick,
+        modifier = modifier
+            .height(26.dp)
+            .border(1.dp, GlassBorderColor, RoundedCornerShape(8.dp)),
+        enabled = enabled,
+        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
+        colors = ButtonDefaults.buttonColors(
+            containerColor = GlassPanelColor,
+            contentColor = Color.White,
+            disabledContainerColor = GlassDisabledColor,
+            disabledContentColor = Color.White.copy(alpha = 0.45f)
+        ),
+        shape = RoundedCornerShape(8.dp)
+    ) {
+        Text(text, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+    }
 }
 
 @Composable
@@ -986,9 +1133,7 @@ private fun DrawCardButton(
 @Composable
 private fun BoxWithConstraintsScope.PlayerPanel(
     alignment: Alignment,
-
     panelWidth: androidx.compose.ui.unit.Dp,
-    modifier: Modifier = Modifier,
     panelMargin: androidx.compose.ui.unit.Dp,
     verticalArrangement: Arrangement.Vertical,
     content: @Composable ColumnScope.() -> Unit
@@ -996,7 +1141,6 @@ private fun BoxWithConstraintsScope.PlayerPanel(
     Column(
         modifier = Modifier
             .align(alignment)
-            .then(modifier)
             .width(panelWidth)
             .padding(panelMargin)
             .wrapContentHeight()
@@ -1105,12 +1249,16 @@ fun TradeOverlay(
         Surface(
             modifier = Modifier
                 .fillMaxWidth(0.86f)
-                .heightIn(max = 660.dp),
-            color = Color(0xFFF8F4EA),
-            shape = RoundedCornerShape(8.dp)
+                .heightIn(max = 660.dp)
+                .offset(y = 56.dp)
+                .border(1.dp, GlassBorderColor, RoundedCornerShape(10.dp)),
+            color = Color.Black.copy(alpha = 0.62f),
+            shape = RoundedCornerShape(10.dp)
         ) {
             Column(
-                modifier = Modifier.padding(18.dp),
+                modifier = Modifier
+                    .padding(18.dp)
+                    .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 Row(
@@ -1118,12 +1266,20 @@ fun TradeOverlay(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(
-                        text = "Trade with ${tradePartner.name}",
-                        fontSize = 22.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color(0xFF1D1D1D)
-                    )
+                    Column {
+                        Text(
+                            text = "Trade with ${tradePartner.name}",
+                            fontSize = 22.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White
+                        )
+                        Text(
+                            text = "${fromPlayer.name} is trading with ${toPlayer.name}",
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = Color.White.copy(alpha = 0.78f)
+                        )
+                    }
                     Row(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                         verticalAlignment = Alignment.CenterVertically
@@ -1133,16 +1289,16 @@ fun TradeOverlay(
                             enabled = canToggleAccept,
                             shape = RoundedCornerShape(6.dp),
                             colors = ButtonDefaults.buttonColors(
-                                containerColor = if (currentPlayerAccepted) Color(0xFF2E7D32) else Color(0xFF6750A4),
+                                containerColor = if (currentPlayerAccepted) Color(0xFF2E7D32) else GlassPanelColor,
                                 contentColor = Color.White,
-                                disabledContainerColor = Color.LightGray,
-                                disabledContentColor = Color.DarkGray
+                                disabledContainerColor = GlassDisabledColor,
+                                disabledContentColor = Color.White.copy(alpha = 0.45f)
                             )
                         ) {
                             Text(if (currentPlayerAccepted) "Accepted" else "Accept")
                         }
                         TextButton(onClick = onDismiss) {
-                            Text("Close")
+                            Text("Close", color = Color.White)
                         }
                     }
                 }
@@ -1324,7 +1480,7 @@ private fun TradeProposalEditor(
     ) {
         if (initialOffer != null) {
             TextButton(onClick = { onRejectTrade(initialOffer.id) }) {
-                Text("Cancel")
+                Text("Cancel", color = Color.White)
             }
         }
         if (initialOffer == null) {
@@ -1341,7 +1497,13 @@ private fun TradeProposalEditor(
                     )
                 },
                 enabled = canSubmit,
-                shape = RoundedCornerShape(6.dp)
+                shape = RoundedCornerShape(6.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = GlassPanelColor,
+                    contentColor = Color.White,
+                    disabledContainerColor = GlassDisabledColor,
+                    disabledContentColor = Color.White.copy(alpha = 0.45f)
+                )
             ) {
                 Text("Start Offer")
             }
@@ -1361,12 +1523,12 @@ private fun TradeAcceptStatus(
     ) {
         Text(
             text = "${fromPlayer.name}: ${if (fromPlayer.id in acceptedByPlayerIds) "Accepted" else "Reviewing"}",
-            color = if (fromPlayer.id in acceptedByPlayerIds) Color(0xFF1B5E20) else Color.DarkGray,
+            color = if (fromPlayer.id in acceptedByPlayerIds) Color(0xFF81C784) else Color.White.copy(alpha = 0.72f),
             fontWeight = FontWeight.Medium
         )
         Text(
             text = "${toPlayer.name}: ${if (toPlayer.id in acceptedByPlayerIds) "Accepted" else "Reviewing"}",
-            color = if (toPlayer.id in acceptedByPlayerIds) Color(0xFF1B5E20) else Color.DarkGray,
+            color = if (toPlayer.id in acceptedByPlayerIds) Color(0xFF81C784) else Color.White.copy(alpha = 0.72f),
             fontWeight = FontWeight.Medium
         )
     }
@@ -1391,12 +1553,12 @@ private fun TradeSideEditor(
         modifier = modifier,
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        Text(title, fontWeight = FontWeight.Bold, color = Color(0xFF222222))
+        Text(title, fontWeight = FontWeight.Bold, color = Color.White)
         val moneyAmount = moneyText.toIntOrNull()?.coerceAtLeast(0) ?: 0
         Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text(
                 text = "Money: ${moneyAmount}€ / ${maxMoney}€",
-                color = if (enabled) Color(0xFF222222) else Color.DarkGray,
+                color = if (enabled) Color.White else Color.White.copy(alpha = 0.55f),
                 fontWeight = FontWeight.Medium
             )
             Row(
@@ -1409,7 +1571,8 @@ private fun TradeSideEditor(
                     },
                     enabled = enabled && moneyAmount < maxMoney,
                     shape = RoundedCornerShape(6.dp),
-                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
+                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = GlassPanelColor)
                 ) {
                     Text("+100€")
                 }
@@ -1419,7 +1582,8 @@ private fun TradeSideEditor(
                     },
                     enabled = enabled && moneyAmount < maxMoney,
                     shape = RoundedCornerShape(6.dp),
-                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
+                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = GlassPanelColor)
                 ) {
                     Text("+10€")
                 }
@@ -1427,7 +1591,7 @@ private fun TradeSideEditor(
                     onClick = { onMoneyChange("0") },
                     enabled = enabled && moneyAmount > 0
                 ) {
-                    Text("Reset")
+                    Text("Reset", color = Color.White)
                 }
             }
         }
@@ -1435,18 +1599,18 @@ private fun TradeSideEditor(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text("Jail cards: $jailCards / $maxJailCards", color = Color(0xFF333333))
+            Text("Jail cards: $jailCards / $maxJailCards", color = Color.White.copy(alpha = 0.86f))
             TextButton(
                 onClick = { onJailCardsChange((jailCards - 1).coerceAtLeast(0)) },
                 enabled = enabled && jailCards > 0
-            ) { Text("-") }
+            ) { Text("-", color = Color.White) }
             TextButton(
                 onClick = { onJailCardsChange((jailCards + 1).coerceAtMost(maxJailCards)) },
                 enabled = enabled && jailCards < maxJailCards
-            ) { Text("+") }
+            ) { Text("+", color = Color.White) }
         }
         if (properties.isEmpty()) {
-            Text("No tradeable properties", color = Color.DarkGray, fontSize = 13.sp)
+            Text("No tradeable properties", color = Color.White.copy(alpha = 0.62f), fontSize = 13.sp)
         } else {
             LazyRow(
                 modifier = Modifier
@@ -1496,7 +1660,7 @@ private fun TradeOfferReview(
 
     Text(
         text = "${fromPlayer?.name ?: "A player"} offers a trade to ${toPlayer?.name ?: "another player"}.",
-        color = Color.Black
+        color = Color.White
     )
     if (fromPlayer != null && toPlayer != null) {
         TradeAcceptStatus(
@@ -1534,14 +1698,15 @@ private fun TradeOfferReview(
             TextButton(
                 onClick = { onRejectTrade(offer.id) }
             ) {
-                Text("Cancel")
+                Text("Cancel", color = Color.White)
             }
             Spacer(modifier = Modifier.width(8.dp))
         }
         Button(
             onClick = { onAcceptTrade(offer.id) },
             enabled = isInvolved && !currentPlayerAccepted,
-            shape = RoundedCornerShape(6.dp)
+            shape = RoundedCornerShape(6.dp),
+            colors = ButtonDefaults.buttonColors(containerColor = GlassPanelColor)
         ) {
             Text(
                 when {
@@ -1564,15 +1729,15 @@ private fun TradeOfferColumn(
     modifier: Modifier = Modifier
 ) {
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        Text(title, fontWeight = FontWeight.Bold, color = Color.Black)
-        Text("Money: $money", color = Color(0xFF333333))
-        Text("Jail cards: $jailCards", color = Color(0xFF333333))
+        Text(title, fontWeight = FontWeight.Bold, color = Color.White)
+        Text("Money: $money", color = Color.White.copy(alpha = 0.86f))
+        Text("Jail cards: $jailCards", color = Color.White.copy(alpha = 0.86f))
         val propertyNames = propertyIds.mapNotNull { id -> fields.find { it.id == id }?.name }
         if (propertyNames.isEmpty()) {
-            Text("No properties", color = Color.DarkGray)
+            Text("No properties", color = Color.White.copy(alpha = 0.62f))
         } else {
             propertyNames.forEach { name ->
-                Text("- $name", color = Color(0xFF333333), fontSize = 13.sp)
+                Text("- $name", color = Color.White.copy(alpha = 0.86f), fontSize = 13.sp)
             }
         }
     }

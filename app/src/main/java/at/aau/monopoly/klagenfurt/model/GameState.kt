@@ -48,7 +48,10 @@ data class GameState(
     val bankruptcyPropertiesCount: Int = 0,
     val bankruptcyOwnedFieldIds: List<Int> = emptyList(),
     val bankruptcyPlayerId: String = "",
-    val pendingTradeOffer: TradeOffer? = null
+    val pendingTradeOffer: TradeOffer? = null,
+    val hostPlayerId: String = "",
+    var hasDrawnCardThisTurn: Boolean = false,
+    val turnTimerStartedAtMillis: Long = 0L
 ) {
     /** The player whose turn it currently is. */
     val currentPlayer: Player?
@@ -69,8 +72,12 @@ data class GameState(
             }
         }
         phase = GamePhase.ROLLING
+        lastDiceRoll = null
+        currentActionCard = null
+        pendingPayment = null
+        hasDrawnCardThisTurn = false
     }
 
     /** Returns true when only one player has money / properties remaining. */
-    fun isGameOver(): Boolean = players.count { !it.isBankrupt() } <= 1
+    fun isGameOver(): Boolean = players.count { !it.eliminated && !it.isBankrupt() } <= 1
 }

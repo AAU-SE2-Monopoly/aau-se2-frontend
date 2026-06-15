@@ -11,6 +11,16 @@ data class ChanceCard(
     override val action: CardAction,
     override val amount: Int = 0,
     override val targetFieldId: Int? = null,
-    override val moveSpaces: Int = 0
-) : Card(id, description, action, amount, targetFieldId, moveSpaces)
-
+    override val moveSpaces: Int = 0,
+    override val perBuildingAmount: Int = 0,
+    override val perHotelAmount: Int = 0
+) : Card(
+    id = id,
+    description = description,
+    action = action,
+    amount = amount,
+    targetFieldId = targetFieldId,
+    moveSpaces = moveSpaces,
+    perBuildingAmount = perBuildingAmount,
+    perHotelAmount = perHotelAmount
+)

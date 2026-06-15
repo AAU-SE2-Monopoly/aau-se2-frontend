@@ -37,6 +37,15 @@ class GameStateTest {
     }
 
     @Test
+    fun `advanceTurn resets card drawn flag`() {
+        val state = makeState(2).copy(hasDrawnCardThisTurn = true)
+
+        state.advanceTurn()
+
+        assertFalse(state.hasDrawnCardThisTurn)
+    }
+
+    @Test
     fun `advanceTurn wraps around`() {
         val state = makeState(2)
         state.advanceTurn() // -> p2

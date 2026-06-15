@@ -27,6 +27,8 @@ class CardDeserializer : JsonDeserializer<Card>() {
         val amount = node.get("amount")?.asInt() ?: 0
         val targetFieldId = node.get("targetFieldId")?.asInt()
         val moveSpaces = node.get("moveSpaces")?.asInt() ?: 0
+        val perBuildingAmount = node.get("perBuildingAmount")?.asInt() ?: 0
+        val perHotelAmount = node.get("perHotelAmount")?.asInt() ?: 0
 
         // Determine the type
         val typeStr = node.get("type")?.asText() ?: "CHANCE"
@@ -38,7 +40,9 @@ class CardDeserializer : JsonDeserializer<Card>() {
                 action = action,
                 amount = amount,
                 targetFieldId = targetFieldId,
-                moveSpaces = moveSpaces
+                moveSpaces = moveSpaces,
+                perBuildingAmount = perBuildingAmount,
+                perHotelAmount = perHotelAmount
             )
             else -> ChanceCard(
                 id = id,
@@ -46,7 +50,9 @@ class CardDeserializer : JsonDeserializer<Card>() {
                 action = action,
                 amount = amount,
                 targetFieldId = targetFieldId,
-                moveSpaces = moveSpaces
+                moveSpaces = moveSpaces,
+                perBuildingAmount = perBuildingAmount,
+                perHotelAmount = perHotelAmount
             )
         }
     }

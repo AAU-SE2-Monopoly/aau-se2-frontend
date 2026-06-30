@@ -581,7 +581,9 @@ class GameViewModel(
 
     val canRaiseFunds: StateFlow<Boolean> = gameState
         .map { state ->
-            state?.pendingPayment?.debtorCanPayAfterAssets ?: false
+            val pending = state?.pendingPayment ?: return@map false
+            val localPlayer = state.players.find { it.id == gameService.currentPlayerId }
+            pending.isOwedByLocalPlayer(state) && pending.canBeCoveredBy(localPlayer)
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
@@ -922,13 +924,17 @@ class GameViewModel(
         return true
     }
 
-    private fun PendingPayment.isOwedByLocalPlayer(): Boolean {
+    private fun PendingPayment.isOwedByLocalPlayer(state: GameState? = gameState.value): Boolean {
         val localPlayerId = gameService.currentPlayerId
         if (debtorPlayerId != null) return debtorPlayerId == localPlayerId
 
-        val state = gameState.value ?: return false
+        state ?: return false
         return state.phase == GamePhase.PAYING_RENT &&
                 state.currentPlayer?.id == localPlayerId
+    }
+
+    private fun PendingPayment.canBeCoveredBy(player: Player?): Boolean {
+        return player != null && (player.money >= amount || debtorCanPayAfterAssets)
     }
 
     private fun updatePendingPaymentState(state: GameState?, reveal: Boolean = false) {
@@ -1139,6 +1145,8 @@ class GameViewModel(
         val currentField = base.visibleCurrentField
         val isBuyableField = currentField is OwnableField
         val isUnownedField = (currentField as? OwnableField)?.ownerId == null
+        val paymentOwedByLocalPlayer = payment?.pendingPayment?.isOwedByLocalPlayer(state) == true
+        val paymentCanBeCovered = payment?.pendingPayment?.canBeCoveredBy(localPlayer) == true
         val isOnChance = currentField is ChanceField
         val isOnCommunityChest = currentField is CommunityChestField
         val cardDrawRequired =
@@ -1200,6 +1208,7 @@ class GameViewModel(
         val canPayRent = isCurrentPlayer &&
                 presentationReady &&
                 payment != null &&
+                paymentOwedByLocalPlayer &&
                 payment.source != PaymentSource.TAX &&
                 !rawBankruptcyPending &&
                 !locks.paymentInFlight &&
@@ -1207,6 +1216,7 @@ class GameViewModel(
         val canPayTax = isCurrentPlayer &&
                 presentationReady &&
                 payment?.source == PaymentSource.TAX &&
+                paymentOwedByLocalPlayer &&
                 !rawBankruptcyPending &&
                 !locks.paymentInFlight &&
                 (localPlayer?.money ?: 0) >= payment.amount
@@ -1217,6 +1227,8 @@ class GameViewModel(
         val canDeclareBankruptcy = isCurrentPlayer &&
                 presentationReady &&
                 payment != null &&
+                paymentOwedByLocalPlayer &&
+                !paymentCanBeCovered &&
                 !rawBankruptcyPending &&
                 !locks.paymentInFlight &&
                 !locks.bankruptcyConfirm

@@ -1746,7 +1746,7 @@ class GameViewModelTest {
           "gameState": {
             "gameId": "g1",
             "fields": [],
-            "players": [{"id":"p1","name":"Alice","money":500}],
+            "players": [{"id":"p1","name":"Alice","money":50}],
             "currentPlayerIndex": 0,
             "phase": "PAYING_RENT",
             "pendingPayment": {"amount":100,"source":"RENT","sourceFieldId":5,"creditorPlayerId":"p2"},
@@ -1765,6 +1765,48 @@ class GameViewModelTest {
     }
 
     @Test
+    fun `declareBankruptcy is blocked when player can pay with cash`() = runTest {
+        val job = launch { viewModel.showBankruptcyConfirmation.collect {} }
+        val canRaiseFundsJob = launch { viewModel.canRaiseFunds.collect {} }
+
+        fakeService.emitTestEvent("""
+        {
+          "event": "RENT_DUE",
+          "gameId": "g1",
+          "gameState": {
+            "gameId": "g1",
+            "fields": [],
+            "players": [{"id":"p1","name":"Alice","money":1450}],
+            "currentPlayerIndex": 0,
+            "phase": "PAYING_RENT",
+            "pendingPayment": {
+              "amount": 100,
+              "source": "RENT",
+              "sourceFieldId": 5,
+              "creditorPlayerId": "p2",
+              "debtorPlayerId": "p1",
+              "debtorCanPayAfterAssets": false
+            },
+            "lastDiceRoll": {"die1":3,"die2":4}
+          }
+        }
+        """.trimIndent())
+        advanceUntilIdle()
+
+        assertTrue(viewModel.actionGates.value.canPayRent)
+        assertTrue(viewModel.canRaiseFunds.value)
+        assertFalse(viewModel.actionGates.value.canDeclareBankruptcy)
+
+        fakeService.declareBankruptcyCalled = false
+        viewModel.declareBankruptcy()
+        assertFalse(fakeService.declareBankruptcyCalled)
+        assertFalse(viewModel.showBankruptcyConfirmation.value)
+
+        job.cancel()
+        canRaiseFundsJob.cancel()
+    }
+
+    @Test
     fun `confirmDeclareBankruptcy sends action to backend`() = runTest {
         val job = launch { viewModel.showBankruptcyConfirmation.collect {} }
 
@@ -1775,7 +1817,7 @@ class GameViewModelTest {
           "gameState": {
             "gameId": "g1",
             "fields": [],
-            "players": [{"id":"p1","name":"Alice","money":500}],
+            "players": [{"id":"p1","name":"Alice","money":50}],
             "currentPlayerIndex": 0,
             "phase": "PAYING_RENT",
             "pendingPayment": {"amount":100,"source":"RENT","sourceFieldId":5,"creditorPlayerId":"p2"},
@@ -1807,7 +1849,7 @@ class GameViewModelTest {
           "gameState": {
             "gameId": "g1",
             "fields": [],
-            "players": [{"id":"p1","name":"Alice","money":500}],
+            "players": [{"id":"p1","name":"Alice","money":50}],
             "currentPlayerIndex": 0,
             "phase": "PAYING_RENT",
             "pendingPayment": {"amount":100,"source":"RENT","sourceFieldId":5,"creditorPlayerId":"p2"},
@@ -1838,7 +1880,7 @@ class GameViewModelTest {
           "gameState": {
             "gameId": "g1",
             "fields": [],
-            "players": [{"id":"p1","name":"Alice","money":500}],
+            "players": [{"id":"p1","name":"Alice","money":50}],
             "currentPlayerIndex": 0,
             "phase": "PAYING_RENT",
             "pendingPayment": {"amount":100,"source":"RENT","sourceFieldId":5,"creditorPlayerId":"p2"},

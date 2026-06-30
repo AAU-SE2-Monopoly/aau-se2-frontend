@@ -36,8 +36,6 @@ class GameboardContentTest {
     @get:Rule
     val composeTestRule = createAndroidComposeRule<ComponentActivity>()
 
-    // ...existing tests...
-
     @Test
     fun `verify GameboardContent renders multiple players`() {
         val fields = listOf(GoField(id = 0, name = "Go", type = FieldType.GO))
@@ -420,6 +418,29 @@ class GameboardContentTest {
         composeTestRule.onNodeWithText("💵 Free Parking Jackpot").assertDoesNotExist()
     }
 
+    @Test
+    fun `GameboardContent derives player info from boardPlayers for side panels`() {
+        val fields = listOf(GoField(id = 0, name = "Go", type = FieldType.GO))
+        // Raw players have new money (400)
+        val rawPlayers = listOf(
+            Player(id = "p1", name = "Alice", money = 400, position = 0)
+        )
+        // Board players have old money (500)
+        val boardPlayers = listOf(
+            Player(id = "p1", name = "Alice", money = 500, position = 0)
+        )
 
+        composeTestRule.setContent {
+            GameboardContent(
+                fields = fields,
+                players = rawPlayers,
+                boardPlayers = boardPlayers,
+                currentPlayerId = "p1"
+            )
+        }
 
+        // Side panel should show OLD money (500) from boardPlayers
+        composeTestRule.onNodeWithText("\u20ac500").assertExists()
+        composeTestRule.onNodeWithText("\u20ac400").assertDoesNotExist()
+    }
 }

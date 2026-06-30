@@ -886,8 +886,9 @@ fun GameboardContent(
     onFreeParkingMoneyClick: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
-    val myPlayer = players.find { it.id == currentPlayerId }
-    val otherPlayers = players.filter { it.id != currentPlayerId }
+    val logicalMyPlayer = players.find { it.id == currentPlayerId }
+    val myPlayer = boardPlayers.find { it.id == currentPlayerId }
+    val otherPlayers = boardPlayers.filter { it.id != currentPlayerId }
 
     val currentField = currentFieldOverride ?: currentTurnPlayer?.let { p ->
         fields.fieldAtBoardPosition(p.position)
@@ -976,10 +977,11 @@ fun GameboardContent(
                 verticalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterVertically)
             ) {
                 otherPlayers.forEach { player ->
+                    val logicalOtherPlayer = players.find { it.id == player.id } ?: player
                     val pendingTradeOffer = gameState?.pendingTradeOffer
                     val isCurrentLocalTurn = currentTurnPlayer?.id == currentPlayerId
-                    val myPlayerCanAct = myPlayer != null && !myPlayer.isBankrupt()
-                    val playerCanBeTargeted = !player.isBankrupt()
+                    val myPlayerCanAct = logicalMyPlayer != null && !logicalMyPlayer.isBankrupt()
+                    val playerCanBeTargeted = !logicalOtherPlayer.isBankrupt()
                     val currentPlayerRolled = gameState?.lastDiceRoll != null
                     val isReportTarget = player.id == currentTurnPlayer?.id
                     val shouldShowReport = !isCurrentLocalTurn &&
@@ -989,7 +991,7 @@ fun GameboardContent(
                             playerCanBeTargeted
                     val canReport = shouldShowReport &&
                             canReportCheater &&
-                            myPlayer.money > 500
+                            logicalMyPlayer.money > 500
                     val isPendingTradeParticipant =
                         pendingTradeOffer?.fromPlayerId == player.id ||
                                 pendingTradeOffer?.toPlayerId == player.id
@@ -1010,7 +1012,7 @@ fun GameboardContent(
                             fields = fields,
                             cards = emptyList(),
                             isCurrentTurn = player.id == currentTurnPlayer?.id,
-                            onCardClick = { onPlayerCardClick(player) },
+                            onCardClick = { onPlayerCardClick(logicalOtherPlayer) },
                             actionContent = {
                                 if (shouldShowReport) {
                                     GlassActionButton(
@@ -1024,7 +1026,7 @@ fun GameboardContent(
                                 if (canStartNewTrade || canReopenTrade) {
                                     GlassActionButton(
                                         text = tradeLabel,
-                                        onClick = { onStartTrade(player) },
+                                        onClick = { onStartTrade(logicalOtherPlayer) },
                                         enabled = true,
                                         modifier = Modifier.testTag("trade_action_button_${player.id}")
                                     )
@@ -1049,7 +1051,7 @@ fun GameboardContent(
                     cards = emptyList(),
                     isCurrentTurn = myPlayer.id == currentTurnPlayer?.id,
                     isOwnPlayer = true,
-                    onCardClick = { onPlayerCardClick(myPlayer) }
+                    onCardClick = { onPlayerCardClick(logicalMyPlayer ?: myPlayer) }
                 )
             }
         }

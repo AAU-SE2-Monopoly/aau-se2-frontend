@@ -243,6 +243,29 @@ class ActionCardOverlayTest {
     }
 
     @Test
+    fun actionCardOverlay_displays_nearest_railroad_without_sentinel_id() {
+        val card = ChanceCard(
+            id = 1,
+            description = "Move to nearest railroad",
+            action = CardAction.MOVE_TO,
+            targetFieldId = -1
+        )
+
+        composeTestRule.setContent {
+            ActionCardOverlay(
+                isVisible = true,
+                card = card,
+                isExecuting = false,
+                onExecuteAction = {}
+            )
+        }
+
+        composeTestRule.waitForIdle()
+        composeTestRule.onNodeWithText("Advance to Field").assertIsDisplayed()
+        composeTestRule.onNodeWithText("Nearest railroad").assertIsDisplayed()
+    }
+
+    @Test
     fun actionCardOverlay_displays_moveForward_action() {
         val card = ChanceCard(
             id = 1,

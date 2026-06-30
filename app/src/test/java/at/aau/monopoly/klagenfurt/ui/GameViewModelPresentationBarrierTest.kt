@@ -252,11 +252,33 @@ class GameViewModelPresentationBarrierTest {
             description = "Go directly to jail",
             action = CardAction.GO_TO_JAIL
         )
+        val doubleRoll = DiceRoll(3, 3)
         viewModel.setCurrentActionCard(card)
 
-        emit(snapshot(state(position = 6, phase = GamePhase.BUYING, actionCard = card)))
+        emit(
+            snapshot(
+                state(
+                    position = 6,
+                    phase = GamePhase.BUYING,
+                    diceRoll = doubleRoll,
+                    actionCard = card,
+                    consecutiveDoublets = 1
+                )
+            )
+        )
         runCurrent()
-        emit(event("ACTION_EXECUTED", state(position = 10, phase = GamePhase.ROLLING, inJail = true)))
+        emit(
+            event(
+                "ACTION_EXECUTED",
+                state(
+                    position = 10,
+                    phase = GamePhase.TURN_END,
+                    diceRoll = doubleRoll,
+                    inJail = true,
+                    consecutiveDoublets = 0
+                )
+            )
+        )
         runCurrent()
 
         assertEquals(listOf(10), viewModel.movementAnimation.value?.path)
@@ -265,6 +287,9 @@ class GameViewModelPresentationBarrierTest {
         runCurrent()
 
         assertEquals(10, viewModel.presentedBoardPlayers.value.first().position)
+        assertFalse(viewModel.actionGates.value.canRollAgainAfterDouble)
+        assertFalse(viewModel.actionGates.value.canUseJailAction)
+        assertTrue(viewModel.actionGates.value.canEndTurn)
     }
 
     @Test
@@ -648,6 +673,298 @@ class GameViewModelPresentationBarrierTest {
         assertFalse(viewModel.actionGates.value.canRollAgainAfterDouble)
     }
 
+    @Test
+    fun `presentedBoardPlayers money remains old during movement and flips after landing reveal`() = runTest(dispatcher) {
+        val oldMoney = 500
+        val newMoney = 400
+        emit(snapshot(state(position = 0, phase = GamePhase.ROLLING, money = oldMoney)))
+        runCurrent()
+
+        // Alice rolls a 3, landing on a field where she pays 100 tax.
+        // We use DICE_ROLLED to trigger movement.
+        emit(
+            event(
+                "DICE_ROLLED",
+                state(
+                    position = 3,
+                    phase = GamePhase.BUYING,
+                    money = newMoney,
+                    diceRoll = DiceRoll(1, 2)
+                )
+            )
+        )
+        runCurrent()
+
+        // During SHOWING_DICE_RESULT, position should be 0 and money should be 500
+        assertEquals(0, viewModel.presentedBoardPlayers.value.first().position)
+        assertEquals(oldMoney, viewModel.presentedBoardPlayers.value.first().money)
+
+        advanceTimeBy(2_000L) // DICE_RESULT_PRESENTATION_MS
+        runCurrent()
+
+        // During MOVING_TOKEN, money should STILL be 500 even as token moves
+        assertEquals(GameViewModel.TurnPresentationPhase.MOVING_TOKEN, viewModel.presentationPhase.value)
+        assertEquals(oldMoney, viewModel.presentedBoardPlayers.value.first().money)
+
+        advanceTimeBy(3 * 250L) // MOVEMENT_STEP_MS * 3 steps
+        runCurrent()
+
+        // Movement finished, now in REVEALING_LANDING_EFFECT
+        assertEquals(GameViewModel.TurnPresentationPhase.REVEALING_LANDING_EFFECT, viewModel.presentationPhase.value)
+        // Now money should have flipped to 400
+        assertEquals(newMoney, viewModel.presentedBoardPlayers.value.first().money)
+        assertEquals(3, viewModel.presentedBoardPlayers.value.first().position)
+    }
+
+    @Test
+    fun `tax paid event during movement updates money at landing reveal`() = runTest(dispatcher) {
+        val oldMoney = 500
+        val taxedMoney = 300
+        val roll = DiceRoll(1, 3)
+        emit(snapshot(state(position = 0, phase = GamePhase.ROLLING, money = oldMoney)))
+        runCurrent()
+
+        emit(event("DICE_ROLLED", state(position = 4, phase = GamePhase.BUYING, money = oldMoney, diceRoll = roll)))
+        runCurrent()
+
+        emit(event("TAX_PAID", state(position = 4, phase = GamePhase.BUYING, money = taxedMoney, diceRoll = roll)))
+        runCurrent()
+
+        assertEquals(0, viewModel.presentedBoardPlayers.value.first().position)
+        assertEquals(oldMoney, viewModel.presentedBoardPlayers.value.first().money)
+
+        advanceTimeBy(2_000L)
+        runCurrent()
+
+        assertEquals(GameViewModel.TurnPresentationPhase.MOVING_TOKEN, viewModel.presentationPhase.value)
+        assertEquals(oldMoney, viewModel.presentedBoardPlayers.value.first().money)
+
+        advanceTimeBy(4 * 250L)
+        runCurrent()
+
+        assertEquals(GameViewModel.TurnPresentationPhase.REVEALING_LANDING_EFFECT, viewModel.presentationPhase.value)
+        assertEquals(4, viewModel.presentedBoardPlayers.value.first().position)
+        assertEquals(taxedMoney, viewModel.presentedBoardPlayers.value.first().money)
+    }
+
+    @Test
+    fun `rent paid during landing reveal immediately updates presented player balances`() = runTest(dispatcher) {
+        val oldMoney = 500
+        val oldOwnerMoney = 700
+        val paidMoney = 400
+        val paidOwnerMoney = 800
+        val roll = DiceRoll(1, 2)
+        val pendingPayment = PendingPayment(
+            amount = 100,
+            source = PaymentSource.RENT,
+            sourceFieldId = 3,
+            creditorPlayerId = "p2",
+            debtorPlayerId = "p1"
+        )
+        emit(snapshot(state(position = 0, phase = GamePhase.ROLLING, money = oldMoney, otherMoney = oldOwnerMoney)))
+        runCurrent()
+
+        emit(event("DICE_ROLLED", state(position = 3, phase = GamePhase.BUYING, money = oldMoney, otherMoney = oldOwnerMoney, diceRoll = roll)))
+        runCurrent()
+
+        emit(
+            event(
+                "RENT_DUE",
+                state(
+                    position = 3,
+                    phase = GamePhase.PAYING_RENT,
+                    money = oldMoney,
+                    otherMoney = oldOwnerMoney,
+                    diceRoll = roll,
+                    pendingPayment = pendingPayment
+                )
+            )
+        )
+        runCurrent()
+
+        advanceTimeBy(2_000L)
+        runCurrent()
+        advanceTimeBy(3 * 250L)
+        runCurrent()
+
+        assertEquals(GameViewModel.TurnPresentationPhase.REVEALING_LANDING_EFFECT, viewModel.presentationPhase.value)
+        assertEquals(oldMoney, viewModel.presentedBoardPlayers.value.first { it.id == "p1" }.money)
+        assertEquals(oldOwnerMoney, viewModel.presentedBoardPlayers.value.first { it.id == "p2" }.money)
+
+        emit(
+            event(
+                "RENT_PAID",
+                state(
+                    position = 3,
+                    phase = GamePhase.TURN_END,
+                    money = paidMoney,
+                    otherMoney = paidOwnerMoney,
+                    diceRoll = roll
+                )
+            )
+        )
+        runCurrent()
+
+        assertEquals(3, viewModel.presentedBoardPlayers.value.first { it.id == "p1" }.position)
+        assertEquals(paidMoney, viewModel.presentedBoardPlayers.value.first { it.id == "p1" }.money)
+        assertEquals(paidOwnerMoney, viewModel.presentedBoardPlayers.value.first { it.id == "p2" }.money)
+        assertFalse(viewModel.showPayRentOverlay.value)
+    }
+
+    @Test
+    fun `rent paid buffered during movement clears rent due overlay at landing reveal`() = runTest(dispatcher) {
+        val oldMoney = 500
+        val oldOwnerMoney = 700
+        val paidMoney = 400
+        val paidOwnerMoney = 800
+        val roll = DiceRoll(1, 2)
+        val pendingPayment = PendingPayment(
+            amount = 100,
+            source = PaymentSource.RENT,
+            sourceFieldId = 3,
+            creditorPlayerId = "p2",
+            debtorPlayerId = "p1"
+        )
+        emit(snapshot(state(position = 0, phase = GamePhase.ROLLING, money = oldMoney, otherMoney = oldOwnerMoney)))
+        runCurrent()
+
+        emit(event("DICE_ROLLED", state(position = 3, phase = GamePhase.BUYING, money = oldMoney, otherMoney = oldOwnerMoney, diceRoll = roll)))
+        runCurrent()
+
+        emit(
+            event(
+                "RENT_DUE",
+                state(
+                    position = 3,
+                    phase = GamePhase.PAYING_RENT,
+                    money = oldMoney,
+                    otherMoney = oldOwnerMoney,
+                    diceRoll = roll,
+                    pendingPayment = pendingPayment
+                )
+            )
+        )
+        runCurrent()
+
+        emit(
+            event(
+                "RENT_PAID",
+                state(
+                    position = 3,
+                    phase = GamePhase.TURN_END,
+                    money = paidMoney,
+                    otherMoney = paidOwnerMoney,
+                    diceRoll = roll
+                )
+            )
+        )
+        runCurrent()
+
+        assertEquals(GameViewModel.TurnPresentationPhase.SHOWING_DICE_RESULT, viewModel.presentationPhase.value)
+        assertFalse(viewModel.showPayRentOverlay.value)
+
+        advanceTimeBy(2_000L)
+        runCurrent()
+        advanceTimeBy(3 * 250L)
+        runCurrent()
+
+        assertEquals(GameViewModel.TurnPresentationPhase.REVEALING_LANDING_EFFECT, viewModel.presentationPhase.value)
+        assertFalse(viewModel.showPayRentOverlay.value)
+        assertNull(viewModel.visiblePaymentState.value)
+        assertEquals(paidMoney, viewModel.presentedBoardPlayers.value.first { it.id == "p1" }.money)
+        assertEquals(paidOwnerMoney, viewModel.presentedBoardPlayers.value.first { it.id == "p2" }.money)
+    }
+
+    @Test
+    fun `property bought immediately updates presented player balance`() = runTest(dispatcher) {
+        emit(snapshot(state(position = 5, phase = GamePhase.BUYING, money = 500)))
+        runCurrent()
+
+        emit(event("PROPERTY_BOUGHT", state(position = 5, phase = GamePhase.BUYING, money = 440)))
+        runCurrent()
+
+        assertEquals(5, viewModel.presentedBoardPlayers.value.first { it.id == "p1" }.position)
+        assertEquals(440, viewModel.presentedBoardPlayers.value.first { it.id == "p1" }.money)
+    }
+
+    @Test
+    fun `legacy pending payment blocks local property spend action`() = runTest(dispatcher) {
+        emit(
+            snapshot(
+                state(
+                    position = 0,
+                    phase = GamePhase.PAYING_RENT,
+                    pendingPayment = PendingPayment(amount = 100, source = PaymentSource.TAX)
+                )
+            )
+        )
+        runCurrent()
+
+        assertTrue(viewModel.actionGates.value.canManageProperties)
+
+        viewModel.buyHouse(1)
+
+        assertFalse(fakeService.buyHouseCalled)
+    }
+
+    @Test
+    fun `MOVE_TO nearest railroad sentinel animates to resolved backend position`() = runTest(dispatcher) {
+        val card = ChanceCard(
+            id = 101,
+            description = "Advance to nearest railroad",
+            action = CardAction.MOVE_TO,
+            targetFieldId = -1
+        )
+        emit(snapshot(state(position = 7, phase = GamePhase.BUYING, actionCard = card)))
+        runCurrent()
+
+        emit(event("ACTION_EXECUTED", state(position = 15, phase = GamePhase.BUYING)))
+        runCurrent()
+
+        assertEquals(GameViewModel.TurnPresentationPhase.MOVING_TOKEN, viewModel.presentationPhase.value)
+        assertEquals(15, viewModel.movementAnimation.value?.path?.last())
+        assertEquals(7, viewModel.presentedBoardPlayers.value.first { it.id == "p1" }.position)
+
+        advanceTimeBy(8 * 250L)
+        runCurrent()
+
+        assertEquals(15, viewModel.presentedBoardPlayers.value.first { it.id == "p1" }.position)
+    }
+
+    @Test
+    fun `MOVE_TO 30 via card is animated before jailing`() = runTest(dispatcher) {
+        val card = ChanceCard(
+            id = 100,
+            description = "Travel to field 30",
+            action = CardAction.MOVE_TO,
+            targetFieldId = 30
+        )
+        // Simulate backend reordering: ACTION_EXECUTED comes first
+        emit(snapshot(state(position = 28, phase = GamePhase.BUYING, actionCard = card)))
+        runCurrent()
+
+        // ACTION_EXECUTED triggers movement animation to 30
+        emit(event("ACTION_EXECUTED", state(position = 30, phase = GamePhase.BUYING)))
+        runCurrent()
+
+        assertEquals(GameViewModel.TurnPresentationPhase.MOVING_TOKEN, viewModel.presentationPhase.value)
+        assertEquals(listOf(29, 30), viewModel.movementAnimation.value?.path)
+
+        // While moving, PLAYER_JAILED arrives
+        emit(event("PLAYER_JAILED", state(position = 10, phase = GamePhase.TURN_END, inJail = true)))
+        runCurrent()
+
+        // It MUST be buffered (stay in MOVING_TOKEN to 30)
+        assertEquals(GameViewModel.TurnPresentationPhase.MOVING_TOKEN, viewModel.presentationPhase.value)
+        assertEquals(30, viewModel.movementAnimation.value?.path?.last())
+
+        advanceTimeBy(1000L) // Finish movement
+        runCurrent()
+
+        // After movement and reveal, it should finally flip to jail position 10
+        assertEquals(10, viewModel.presentedBoardPlayers.value.first().position)
+    }
+
     private fun state(
         position: Int,
         phase: GamePhase,
@@ -656,14 +973,21 @@ class GameViewModelPresentationBarrierTest {
         actionCard: ChanceCard? = null,
         inJail: Boolean = false,
         money: Int = 500,
-        otherMoney: Int = 500
+        otherMoney: Int = 500,
+        consecutiveDoublets: Int = if (diceRoll?.isDouble == true) 1 else 0
     ): GameState =
         GameState(
             gameId = "game-1",
             fields = boardFields(),
             players = mutableListOf(
-                Player(id = "p1", name = "Alice", position = position, money = money, inJail = inJail,consecutiveDoublets
-                = if (diceRoll?.isDouble == true) 1 else 0),
+                Player(
+                    id = "p1",
+                    name = "Alice",
+                    position = position,
+                    money = money,
+                    inJail = inJail,
+                    consecutiveDoublets = consecutiveDoublets
+                ),
                 Player(id = "p2", name = "Bob", position = 0, money = otherMoney)
             ),
             currentPlayerIndex = 0,

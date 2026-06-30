@@ -1943,6 +1943,7 @@ class GameViewModelTest {
               "source": "RENT",
               "sourceFieldId": 5,
               "creditorPlayerId": "p2",
+              "debtorPlayerId": "p1",
               "debtorCanPayAfterAssets": true
             },
             "lastDiceRoll": {"die1":3,"die2":4}
@@ -2041,6 +2042,7 @@ class GameViewModelTest {
               "source": "RENT",
               "sourceFieldId": 5,
               "creditorPlayerId": "p2",
+              "debtorPlayerId": "p1",
               "debtorCanPayAfterAssets": true
             }
           }
@@ -2078,6 +2080,7 @@ class GameViewModelTest {
               "source": "RENT",
               "sourceFieldId": 5,
               "creditorPlayerId": "p2",
+              "debtorPlayerId": "p1",
               "debtorCanPayAfterAssets": true
             }
           }

@@ -141,7 +141,12 @@ private fun CardActionDetails(card: Card, accentColor: Color, s: CardScale) {
             }
             CardAction.MOVE_TO -> {
                 Text("Advance to", fontSize = s.sp(7f), color = Color.Gray)
-                Text("Field #${card.targetFieldId ?: "?"}", fontWeight = FontWeight.Bold, fontSize = s.sp(10f), color = accentColor)
+                Text(
+                    moveToTargetLabel(card.targetFieldId, includeFieldPrefix = true),
+                    fontWeight = FontWeight.Bold,
+                    fontSize = s.sp(10f),
+                    color = accentColor
+                )
             }
             CardAction.MOVE_FORWARD -> {
                 Text("Move", fontSize = s.sp(7f), color = Color.Gray)

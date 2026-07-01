@@ -841,6 +841,50 @@ class GameStompClient(
         Log.d("GameStomp", "Debug bankruptcy setup requested")
     }
 
+    override fun debugForceDoublet() {
+        val action = GameAction(
+            gameId = _currentGameId,
+            playerId = currentPlayerId,
+            action = "DEBUG_FORCE_DOUBLET",
+            payload = emptyMap()
+        )
+        sendRaw("/app/game/action", JacksonProvider.objectMapper.writeValueAsString(action))
+        Log.d("GameStomp", "Debug force doublet requested")
+    }
+
+    override fun debugForceJail() {
+        val action = GameAction(
+            gameId = _currentGameId,
+            playerId = currentPlayerId,
+            action = "DEBUG_FORCE_JAIL",
+            payload = emptyMap()
+        )
+        sendRaw("/app/game/action", JacksonProvider.objectMapper.writeValueAsString(action))
+        Log.d("GameStomp", "Debug force jail requested")
+    }
+
+    override fun debugForceBackwards() {
+        val action = GameAction(
+            gameId = _currentGameId,
+            playerId = currentPlayerId,
+            action = "DEBUG_FORCE_BACKWARDS",
+            payload = emptyMap()
+        )
+        sendRaw("/app/game/action", JacksonProvider.objectMapper.writeValueAsString(action))
+        Log.d("GameStomp", "Debug force backwards requested")
+    }
+
+    override fun debugForceGameOver() {
+        val action = GameAction(
+            gameId = _currentGameId,
+            playerId = currentPlayerId,
+            action = "DEBUG_FORCE_GAME_OVER",
+            payload = emptyMap()
+        )
+        sendRaw("/app/game/action", JacksonProvider.objectMapper.writeValueAsString(action))
+        Log.d("GameStomp", "Debug force game over requested")
+    }
+
     override fun payTax(fieldId: Int) {
         val action = GameAction(
             gameId = _currentGameId,

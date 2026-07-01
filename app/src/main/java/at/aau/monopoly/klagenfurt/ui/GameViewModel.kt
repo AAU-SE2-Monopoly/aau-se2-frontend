@@ -852,6 +852,22 @@ class GameViewModel(
         gameService.debugSetupBankruptcy()
     }
 
+    fun debugForceDoublet() {
+        gameService.debugForceDoublet()
+    }
+
+    fun debugForceJail() {
+        gameService.debugForceJail()
+    }
+
+    fun debugForceBackwards() {
+        gameService.debugForceBackwards()
+    }
+
+    fun debugForceGameOver() {
+        gameService.debugForceGameOver()
+    }
+
     fun showPayRentOverlay(
         amount: Int,
         ownerId: String?,

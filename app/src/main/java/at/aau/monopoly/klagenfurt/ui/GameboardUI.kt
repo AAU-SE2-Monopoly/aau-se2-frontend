@@ -275,6 +275,7 @@ fun GameboardScreen(
     var showOverlay by remember { mutableStateOf(false) }
     var dismissedDiceSequenceId by remember { mutableStateOf<Long?>(null) }
     var showFreeParkingOverlay by remember { mutableStateOf(false) }
+    var isDebugMenuExpanded by remember { mutableStateOf(false) }
 
     val showGameOverOverlay by viewModel.showGameOverOverlay.collectAsState()
     val hostEndedGame by viewModel.hostEndedGame.collectAsState()
@@ -615,27 +616,79 @@ fun GameboardScreen(
             }
 
             if (DebugSettings.isEnabled && currentTurnPlayer?.id == currentPlayerId) {
-                Column(
+                Box(
                     modifier = Modifier
                         .align(Alignment.TopEnd)
-                        .padding(20.dp),
-                    horizontalAlignment = Alignment.End,
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                        .padding(20.dp)
                 ) {
                     GlassButton(
-                        onClick = { viewModel.debugForwardGame() },
-                        modifier = Modifier.width(buttonWidth).testTag("debug_forward_game_button")
+                        onClick = { isDebugMenuExpanded = true },
+                        modifier = Modifier.width(buttonWidth).testTag("debug_menu_toggle_button")
                     ) {
-                        Text("⚡ DEBUG: Forward")
-                    }
-
-                    GlassButton(
-                        onClick = { viewModel.debugSetupBankruptcy() },
-                        modifier = Modifier.width(buttonWidth).testTag("debug_bankruptcy_setup_button")
-                    ) {
-                        Text("💀 DEBUG: Bankrupt")
+                        Text("🛠️ Debug Menu")
                     }
                 }
+            }
+
+            if (isDebugMenuExpanded) {
+                AlertDialog(
+                    onDismissRequest = { isDebugMenuExpanded = false },
+                    containerColor = Color(0xFF1C233D),
+                    titleContentColor = Color(0xFFA2AAF0),
+                    textContentColor = Color.White,
+                    title = { Text("Debug Menu", fontWeight = FontWeight.Bold) },
+                    text = {
+                        Column(
+                            verticalArrangement = Arrangement.spacedBy(10.dp),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .verticalScroll(rememberScrollState())
+                        ) {
+                            val debugButtonModifier = Modifier.fillMaxWidth()
+
+                            Button(
+                                onClick = { viewModel.debugForwardGame(); isDebugMenuExpanded = false },
+                                modifier = debugButtonModifier,
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF3949AB))
+                            ) { Text("⚡ Fast-Forward Game") }
+
+                            Button(
+                                onClick = { viewModel.debugSetupBankruptcy(); isDebugMenuExpanded = false },
+                                modifier = debugButtonModifier,
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFD32F2F))
+                            ) { Text("💀 Setup Bankruptcy") }
+
+                            Button(
+                                onClick = { viewModel.debugForceDoublet(); isDebugMenuExpanded = false },
+                                modifier = debugButtonModifier,
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF43A047))
+                            ) { Text("🎲 Force Doublet") }
+
+                            Button(
+                                onClick = { viewModel.debugForceJail(); isDebugMenuExpanded = false },
+                                modifier = debugButtonModifier,
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFB8C00))
+                            ) { Text("🔒 Force Jail (3rd Doublet)") }
+
+                            Button(
+                                onClick = { viewModel.debugForceBackwards(); isDebugMenuExpanded = false },
+                                modifier = debugButtonModifier,
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF7B1FA2))
+                            ) { Text("🔙 Force Backwards Card") }
+
+                            Button(
+                                onClick = { viewModel.debugForceGameOver(); isDebugMenuExpanded = false },
+                                modifier = debugButtonModifier,
+                                colors = ButtonDefaults.buttonColors(containerColor = Color.Black)
+                            ) { Text("🏁 Force Game Over") }
+                        }
+                    },
+                    confirmButton = {
+                        TextButton(onClick = { isDebugMenuExpanded = false }) {
+                            Text("Close", color = Color(0xFFA2AAF0))
+                        }
+                    }
+                )
             }
 
             GameboardOverlayLayer(eventLog = eventLog)

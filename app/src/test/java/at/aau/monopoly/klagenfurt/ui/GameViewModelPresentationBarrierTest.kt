@@ -645,7 +645,7 @@ class GameViewModelPresentationBarrierTest {
     }
 
     @Test
-    fun `dismissing bankruptcy overlay keeps raw bankruptcy action blocker`() = runTest(dispatcher) {
+    fun `dismissing bankruptcy overlay unlocks actions`() = runTest(dispatcher) {
         val bankruptState = GameState(
             gameId = "game-1",
             fields = boardFields(),
@@ -670,11 +670,7 @@ class GameViewModelPresentationBarrierTest {
         runCurrent()
 
         assertFalse(viewModel.showBankruptcyOverlay.value)
-        assertFalse(viewModel.actionGates.value.canEndTurn)
-
-        emit(event("STATE_UPDATED", state(position = 0, phase = GamePhase.TURN_END)))
-        runCurrent()
-
+        // Now it should be TRUE because the overlay is gone and phase is TURN_END
         assertTrue(viewModel.actionGates.value.canEndTurn)
     }
 

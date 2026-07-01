@@ -302,6 +302,38 @@ class GameViewModelTest {
     }
 
     @Test
+    fun `proposeTrade should delegate while current player has pending payment`() = runTest(testDispatcher) {
+        seedGameState(
+            phase = "PAYING_RENT",
+            extraState = """,
+                "pendingPayment": {
+                  "amount": 500,
+                  "source": "RENT",
+                  "sourceFieldId": 1,
+                  "creditorPlayerId": "p2",
+                  "debtorPlayerId": "p1"
+                }
+            """.trimIndent()
+        )
+
+        assertTrue(viewModel.actionGates.value.canTrade)
+
+        viewModel.proposeTrade(
+            toPlayerId = "p2",
+            offerMoney = 0,
+            requestMoney = 500,
+            offerPropertyIds = emptyList(),
+            requestPropertyIds = emptyList(),
+            offerJailCards = 0,
+            requestJailCards = 0
+        )
+
+        assertEquals("p2", fakeService.lastTradeTargetId)
+        assertEquals(0, fakeService.lastTradeOfferMoney)
+        assertEquals(500, fakeService.lastTradeRequestMoney)
+    }
+
+    @Test
     fun `proposeTrade should not delegate when current player is bankrupt`() = runTest(testDispatcher) {
         fakeService.currentPlayerId = "p1"
         fakeService.emitTestEvent("""
@@ -2200,7 +2232,7 @@ class GameViewModelTest {
     }
 
     @Test
-    fun `canRaiseFunds false when pendingPayment is null`() = runTest {
+    fun `canRaiseFunds true when pendingPayment is null`() = runTest {
         val job = launch { viewModel.canRaiseFunds.collect {} }
 
         fakeService.emitTestEvent("""
@@ -2218,17 +2250,17 @@ class GameViewModelTest {
         """.trimIndent())
         advanceUntilIdle()
 
-        assertFalse(viewModel.canRaiseFunds.value)
+        assertTrue(viewModel.canRaiseFunds.value)
 
         job.cancel()
     }
 
     @Test
-    fun `canRaiseFunds false when gameState is null initially`() = runTest {
+    fun `canRaiseFunds true when gameState is null initially`() = runTest {
         val job = launch { viewModel.canRaiseFunds.collect {} }
         advanceUntilIdle()
 
-        assertFalse(viewModel.canRaiseFunds.value)
+        assertTrue(viewModel.canRaiseFunds.value)
 
         job.cancel()
     }

@@ -581,9 +581,10 @@ class GameViewModel(
 
     val canRaiseFunds: StateFlow<Boolean> = gameState
         .map { state ->
-            val pending = state?.pendingPayment ?: return@map false
+            val pending = state?.pendingPayment ?: return@map true
             val localPlayer = state.players.find { it.id == gameService.currentPlayerId }
-            pending.isOwedByLocalPlayer(state) && pending.canBeCoveredBy(localPlayer)
+            if (!pending.isOwedByLocalPlayer(state)) return@map true
+            pending.canBeCoveredBy(localPlayer)
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
@@ -839,7 +840,7 @@ class GameViewModel(
             return
         }
         if (_paymentActionInFlight.value || _showBankruptcyConfirmation.value) return
-        if (state.phase == GamePhase.BANKRUPTCY || state.bankruptcyPlayerId.isNotBlank()) return
+        if (state.phase == GamePhase.BANKRUPTCY) return
 
         val pending = _visiblePaymentState.value?.pendingPayment ?: state.pendingPayment
         val localPlayer = state.players.find { it.id == gameService.currentPlayerId }
@@ -1179,13 +1180,17 @@ class GameViewModel(
                 base.phase == TurnPresentationPhase.IDLE
         val rollInputReady = base.phase == TurnPresentationPhase.WAITING_FOR_ROLL_INPUT
         val payment = base.visiblePayment
-        val rawBankruptcyPending =
-            state.phase == GamePhase.BANKRUPTCY || state.bankruptcyPlayerId.isNotBlank()
+        val rawBankruptcyPending = state.phase == GamePhase.BANKRUPTCY
         val hasVisibleBlockingOverlay =
             payment != null ||
                     base.visibleActionCard != null ||
                     base.visibleBankruptcy != null ||
                     locks.bankruptcyConfirm
+        val hasNonPaymentBlockingState =
+            base.visibleActionCard != null ||
+                    base.visibleBankruptcy != null ||
+                    locks.bankruptcyConfirm ||
+                    rawBankruptcyPending
         val hasBlockingState = hasVisibleBlockingOverlay || rawBankruptcyPending
         val currentField = base.visibleCurrentField
         val isBuyableField = currentField is OwnableField
@@ -1202,7 +1207,7 @@ class GameViewModel(
         val canRoll = state.phase == GamePhase.ROLLING &&
                 isCurrentPlayer &&
                 rollInputReady &&
-                !rawBankruptcyPending &&
+                !hasNonPaymentBlockingState &&
                 !rollRequestInFlight
         val doubleRollPending = state.lastDiceRoll?.isDouble == true &&
                 isCurrentPlayer &&
@@ -1257,14 +1262,14 @@ class GameViewModel(
                 payment.source != PaymentSource.TAX &&
                 !rawBankruptcyPending &&
                 !locks.paymentInFlight &&
-                (localPlayer?.money ?: 0) >= payment.amount
+                ((localPlayer?.money ?: 0) >= payment.amount)
         val canPayTax = isCurrentPlayer &&
                 presentationReady &&
                 payment?.source == PaymentSource.TAX &&
                 paymentOwedByLocalPlayer &&
                 !rawBankruptcyPending &&
                 !locks.paymentInFlight &&
-                (localPlayer?.money ?: 0) >= payment.amount
+                ((localPlayer?.money ?: 0) >= payment.amount)
         val canManageProperties = localPlayerActive &&
                 !rawBankruptcyPending &&
                 !locks.propertyInFlight &&
@@ -1280,7 +1285,8 @@ class GameViewModel(
         val canTrade = localPlayerActive &&
                 isCurrentPlayer &&
                 presentationReady &&
-                !hasBlockingState &&
+                !hasNonPaymentBlockingState &&
+                (payment == null || paymentOwedByLocalPlayer) &&
                 !locks.tradeActionInFlight &&
                 state.pendingTradeOffer == null
         val currentPlayerRolled = state.lastDiceRoll != null
@@ -1290,7 +1296,7 @@ class GameViewModel(
                 presentationReady &&
                 !rawBankruptcyPending &&
                 !locks.reportCheaterInFlight &&
-                (localPlayer?.money ?: 0) > 500
+                (localPlayer.money > 500)
 
         return ActionGates(
             canRollDice = canRollDice,
@@ -1891,11 +1897,11 @@ class GameViewModel(
         _currentActionCard.value = state.currentActionCard
         _visibleActionCard.value = state.currentActionCard
         updatePendingPaymentState(state, reveal = state.pendingPayment != null)
-        if (state.phase == GamePhase.BANKRUPTCY || state.bankruptcyPlayerId.isNotBlank()) {
+        
+        // Modal bankruptcy overlays are triggered by BANKRUPTCY_DECLARED event itself.
+        // We do NOT reopen them from raw state snapshots unless we are explicitly in BANKRUPTCY phase.
+        if (state.phase == GamePhase.BANKRUPTCY) {
             revealBankruptcyState(state)
-        } else {
-            clearVisibleBankruptcy()
-            _showBankruptcyOverlay.value = false
         }
         _presentationPhase.value = phaseFromRawState(state)
     }
@@ -1928,7 +1934,7 @@ class GameViewModel(
             updatePendingPaymentState(state, reveal = state.pendingPayment != null)
         }
 
-        if (state.phase == GamePhase.BANKRUPTCY || state.bankruptcyPlayerId.isNotBlank()) {
+        if (state.phase == GamePhase.BANKRUPTCY) {
             revealBankruptcyState(state)
         }
     }

@@ -675,6 +675,63 @@ class GameViewModelPresentationBarrierTest {
     }
 
     @Test
+    fun `bankruptcy declared syncs advanced turn so next player can roll after dismiss`() = runTest(dispatcher) {
+        fakeService.currentPlayerId = "p2"
+        val beforeBankruptcyState = GameState(
+            gameId = "game-1",
+            fields = boardFields(),
+            players = mutableListOf(
+                Player(id = "p1", name = "Alice", position = 3, money = 0),
+                Player(id = "p2", name = "Bob", position = 0, money = 500),
+                Player(id = "p3", name = "Charlie", position = 0, money = 500)
+            ),
+            currentPlayerIndex = 0,
+            phase = GamePhase.PAYING_RENT,
+            pendingPayment = PendingPayment(
+                amount = 100,
+                source = PaymentSource.RENT,
+                sourceFieldId = 3,
+                creditorPlayerId = "p2",
+                debtorPlayerId = "p1"
+            )
+        )
+        val afterBankruptcyState = GameState(
+            gameId = "game-1",
+            fields = boardFields(),
+            players = mutableListOf(
+                Player(id = "p1", name = "Alice", position = 3, money = 0, eliminated = true),
+                Player(id = "p2", name = "Bob", position = 0, money = 500),
+                Player(id = "p3", name = "Charlie", position = 0, money = 500)
+            ),
+            currentPlayerIndex = 1,
+            phase = GamePhase.ROLLING,
+            bankruptcyPlayerId = "p1",
+            bankruptcyTotalAssets = 0,
+            bankruptcyTotalDebt = 100
+        )
+
+        emit(snapshot(beforeBankruptcyState))
+        runCurrent()
+
+        assertEquals(GameViewModel.TurnPresentationPhase.READY_FOR_ACTION, viewModel.presentationPhase.value)
+        assertFalse(viewModel.actionGates.value.canRollDice)
+
+        emit(event("BANKRUPTCY_DECLARED", afterBankruptcyState))
+        runCurrent()
+
+        assertTrue(viewModel.showBankruptcyOverlay.value)
+        assertEquals(GameViewModel.TurnPresentationPhase.WAITING_FOR_ROLL_INPUT, viewModel.presentationPhase.value)
+        assertFalse(viewModel.actionGates.value.canRollDice)
+
+        viewModel.dismissBankruptcyOverlay()
+        runCurrent()
+
+        assertFalse(viewModel.showBankruptcyOverlay.value)
+        assertEquals("p2", viewModel.gameState.value?.currentPlayer?.id)
+        assertTrue(viewModel.actionGates.value.canRollDice)
+    }
+
+    @Test
     fun `double roll advance timeout clears queued roll`() = runTest(dispatcher) {
         emit(snapshot(state(position = 0, phase = GamePhase.BUYING, diceRoll = DiceRoll(2, 2))))
         runCurrent()

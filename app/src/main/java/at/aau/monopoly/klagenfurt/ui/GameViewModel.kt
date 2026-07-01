@@ -870,6 +870,7 @@ class GameViewModel(
     }
 
     fun cancelDeclareBankruptcy() {
+        if (!_showBankruptcyConfirmation.value || _paymentActionInFlight.value) return
         _showBankruptcyConfirmation.value = false
         _showPayRentOverlay.value = true
     }
@@ -1445,8 +1446,7 @@ class GameViewModel(
                     finishPaymentAction()
                     if (!isPresentationBlocking()) {
                         event.gameState?.let { state ->
-                            clearVisiblePayment()
-                            revealBankruptcyState(state)
+                            revealDeclaredBankruptcyState(state)
                         }
                         appendPresentedLog(event)
                     } else {
@@ -1856,7 +1856,7 @@ class GameViewModel(
         _movementAnimation.value = null
         flushBufferedPresentedLogs()
         clearPresentationBuffers()
-        renderRawState(state)
+        renderRawState(state, revealPendingPayment = !_paymentActionInFlight.value)
         _presentationPhase.value = phaseFromRawState(state)
         rollRequestInFlight = false
         clearTimedOutRollIfStateAdvanced(state)
@@ -1879,7 +1879,7 @@ class GameViewModel(
         }
     }
 
-    private fun renderRawState(state: GameState?) {
+    private fun renderRawState(state: GameState?, revealPendingPayment: Boolean = true) {
         if (state == null) {
             _presentedBoardPlayers.value = emptyList()
             _visibleCurrentField.value = null
@@ -1896,7 +1896,7 @@ class GameViewModel(
         _visibleCurrentField.value = currentFieldForState(state)
         _currentActionCard.value = state.currentActionCard
         _visibleActionCard.value = state.currentActionCard
-        updatePendingPaymentState(state, reveal = state.pendingPayment != null)
+        updatePendingPaymentState(state, reveal = revealPendingPayment && state.pendingPayment != null)
         
         // Modal bankruptcy overlays are triggered by BANKRUPTCY_DECLARED event itself.
         // We do NOT reopen them from raw state snapshots unless we are explicitly in BANKRUPTCY phase.
@@ -1943,6 +1943,17 @@ class GameViewModel(
         _visibleActionCard.value = card
     }
 
+    private fun revealDeclaredBankruptcyState(state: GameState) {
+        _presentedBoardPlayers.value = copyPlayersForPresentation(state.players)
+        _visibleCurrentField.value = currentFieldForState(state)
+        _currentActionCard.value = state.currentActionCard
+        _visibleActionCard.value = state.currentActionCard
+        _presentationPhase.value = phaseFromRawState(state)
+        _showBankruptcyConfirmation.value = false
+        clearResolvedPaymentState()
+        revealBankruptcyState(state)
+    }
+
     private fun revealBankruptcyState(state: GameState) {
         val playerId = state.bankruptcyPlayerId
         val properties = state.fields
@@ -1977,6 +1988,16 @@ class GameViewModel(
     private fun clearVisiblePayment() {
         _showPayRentOverlay.value = false
         _visiblePaymentState.value = null
+    }
+
+    private fun clearResolvedPaymentState() {
+        clearVisiblePayment()
+        _hasPendingPayment.value = false
+        _currentRentAmount.value = 0
+        _currentRentOwnerId.value = null
+        _currentRentFieldId.value = null
+        _lastDiceTotalForRent.value = 0
+        lastPendingPaymentKey = null
     }
 
     private fun clearTimedOutRollIfStateAdvanced(state: GameState?) {
@@ -2181,7 +2202,7 @@ class GameViewModel(
                     }
                     event.event in LANDING_REVEAL_EVENTS -> {
                         if (event.event == "BANKRUPTCY_DECLARED") {
-                            event.gameState?.let { clearVisiblePayment(); revealBankruptcyState(it) }
+                            event.gameState?.let { revealDeclaredBankruptcyState(it) }
                         } else {
                             revealLandingForState(event.gameState ?: previousGameState)
                         }

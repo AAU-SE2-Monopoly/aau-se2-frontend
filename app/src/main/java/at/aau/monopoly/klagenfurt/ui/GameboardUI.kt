@@ -113,6 +113,25 @@ private val GlassDisabledColor = Color.Black.copy(alpha = 0.16f)
 private fun List<Field>.fieldAtBoardPosition(position: Int): Field? =
     firstOrNull { it.id == position } ?: getOrNull(position)
 
+internal fun resolveActivePlayerFieldId(
+    currentTurnPlayer: Player?,
+    boardPlayers: List<Player>,
+    movementAnimationState: MovementAnimationState?
+): Int? {
+    val animation = movementAnimationState?.takeUnless { it.isComplete }
+    if (animation != null) {
+        return when {
+            animation.currentStepIndex < 0 -> animation.startPosition
+            animation.currentStepIndex in animation.path.indices -> animation.path[animation.currentStepIndex]
+            else -> null
+        }
+    }
+
+    return currentTurnPlayer?.let { currentPlayer ->
+        boardPlayers.find { it.id == currentPlayer.id }?.position ?: currentPlayer.position
+    }
+}
+
 class GameboardUI : ComponentActivity() {
     private val viewModel: GameViewModel by viewModels {
         GameViewModel.Factory(ServiceLocator.provideGameService())
@@ -893,16 +912,11 @@ fun GameboardContent(
     val currentField = currentFieldOverride ?: currentTurnPlayer?.let { p ->
         fields.fieldAtBoardPosition(p.position)
     }
-    val activePlayerFieldIndex = movementAnimationState
-        ?.takeUnless { it.isComplete }
-        ?.let { animation ->
-            when {
-                animation.currentStepIndex < 0 -> animation.startPosition
-                animation.currentStepIndex in animation.path.indices -> animation.path[animation.currentStepIndex]
-                else -> null
-            }
-        }
-        ?: currentTurnPlayer?.position
+    val activePlayerFieldId = resolveActivePlayerFieldId(
+        currentTurnPlayer = currentTurnPlayer,
+        boardPlayers = boardPlayers,
+        movementAnimationState = movementAnimationState
+    )
 
     val playersByField: Map<Int, List<Player>> = remember(boardPlayers) {
         boardPlayers.groupBy { it.position }
@@ -946,7 +960,7 @@ fun GameboardContent(
                                     else null
                                 },
                                 animationComplete = movementAnimationState?.isComplete ?: true,
-                                isActivePlayerField = index == activePlayerFieldIndex,
+                                isActivePlayerField = field.id == activePlayerFieldId,
                                 freeParkingMoney = gameState?.freeParkingMoney ?: 0,
                                 onFreeParkingMoneyClick = onFreeParkingMoneyClick
                             )

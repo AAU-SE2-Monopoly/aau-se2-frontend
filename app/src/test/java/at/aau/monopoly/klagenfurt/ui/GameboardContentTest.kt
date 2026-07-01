@@ -28,6 +28,7 @@ import at.aau.monopoly.klagenfurt.model.GameState
 import at.aau.monopoly.klagenfurt.model.field.Field
 import at.aau.monopoly.klagenfurt.model.field.FreeParkingField
 import at.aau.monopoly.klagenfurt.ui.board.FieldItem
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 
 @RunWith(AndroidJUnit4::class)
@@ -158,6 +159,39 @@ class GameboardContentTest {
         }
 
         composeTestRule.onAllNodesWithTag("ActivePlayerFieldHighlight").assertCountEquals(1)
+    }
+
+    @Test
+    fun `active player highlight uses presented position before movement starts`() {
+        val rawTurnPlayer = Player(id = "p1", name = "Alice", position = 4)
+        val presentedPlayer = Player(id = "p1", name = "Alice", position = 0)
+
+        val activeFieldId = resolveActivePlayerFieldId(
+            currentTurnPlayer = rawTurnPlayer,
+            boardPlayers = listOf(presentedPlayer),
+            movementAnimationState = null
+        )
+
+        assertEquals(0, activeFieldId)
+    }
+
+    @Test
+    fun `active player highlight follows movement animation step`() {
+        val player = Player(id = "p1", name = "Alice", position = 0)
+
+        val activeFieldId = resolveActivePlayerFieldId(
+            currentTurnPlayer = player,
+            boardPlayers = listOf(player),
+            movementAnimationState = MovementAnimationState(
+                playerId = "p1",
+                startPosition = 0,
+                path = listOf(1, 2, 3),
+                currentStepIndex = 1,
+                isComplete = false
+            )
+        )
+
+        assertEquals(2, activeFieldId)
     }
 
     @Test

@@ -1589,6 +1589,8 @@ class GameViewModel(
                 event.gameState?.phase == GamePhase.FINISHED
 
     private fun handleNonFatalError(event: GameEvent) {
+        val shouldRestorePaymentOverlay = _paymentActionInFlight.value &&
+                (event.gameState?.pendingPayment ?: gameState.value?.pendingPayment) != null
         rollRequestInFlight = false
         rollAfterDoubleAdvancePending = false
         clearCheatActivation()
@@ -1607,6 +1609,9 @@ class GameViewModel(
             _activeDicePresentation.value = null
             _movementAnimation.value = null
             renderRawState(previousGameState)
+        }
+        if (shouldRestorePaymentOverlay) {
+            revealPendingPaymentForRetry(event.gameState ?: gameState.value)
         }
         flushBufferedPresentedLogs()
         appendPresentedLog(event)
@@ -1959,6 +1964,20 @@ class GameViewModel(
         _lastDiceTotalForRent.value = state.lastDiceRoll?.total ?: 0
         _visiblePaymentState.value = VisiblePaymentState(pending)
         _showPayRentOverlay.value = false
+        lastPendingPaymentKey = "${pending.source}:${pending.sourceFieldId}:${pending.amount}:${pending.creditorPlayerId}:${pending.debtorPlayerId}"
+    }
+
+    private fun revealPendingPaymentForRetry(state: GameState?) {
+        val pending = state?.pendingPayment
+        if (pending == null || pending.amount <= 0) return
+
+        _hasPendingPayment.value = true
+        _currentRentAmount.value = pending.amount
+        _currentRentOwnerId.value = pending.creditorPlayerId
+        _currentRentFieldId.value = pending.sourceFieldId
+        _lastDiceTotalForRent.value = state.lastDiceRoll?.total ?: 0
+        _visiblePaymentState.value = VisiblePaymentState(pending)
+        _showPayRentOverlay.value = true
         lastPendingPaymentKey = "${pending.source}:${pending.sourceFieldId}:${pending.amount}:${pending.creditorPlayerId}:${pending.debtorPlayerId}"
     }
 

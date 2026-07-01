@@ -1865,6 +1865,72 @@ class GameViewModelTest {
     }
 
     @Test
+    fun `bankruptcy confirmation error restores payment overlay`() = runTest {
+        val overlayJob = launch { viewModel.showPayRentOverlay.collect {} }
+        val confirmationJob = launch { viewModel.showBankruptcyConfirmation.collect {} }
+
+        fakeService.emitTestEvent("""
+        {
+          "event": "RENT_DUE",
+          "gameId": "g1",
+          "gameState": {
+            "gameId": "g1",
+            "fields": [],
+            "players": [{"id":"p1","name":"Alice","money":50}],
+            "currentPlayerIndex": 0,
+            "phase": "PAYING_RENT",
+            "pendingPayment": {
+              "amount": 100,
+              "source": "RENT",
+              "sourceFieldId": 5,
+              "creditorPlayerId": "p2",
+              "debtorPlayerId": "p1",
+              "debtorCanPayAfterAssets": false
+            }
+          }
+        }
+        """.trimIndent())
+        advanceUntilIdle()
+
+        viewModel.declareBankruptcy()
+        advanceUntilIdle()
+        viewModel.confirmDeclareBankruptcy()
+
+        assertFalse(viewModel.showPayRentOverlay.value)
+        assertFalse(viewModel.showBankruptcyConfirmation.value)
+
+        fakeService.emitTestEvent("""
+        {
+          "event": "ERROR",
+          "gameId": "g1",
+          "message": "Mortgage all properties before declaring bankruptcy.",
+          "gameState": {
+            "gameId": "g1",
+            "fields": [],
+            "players": [{"id":"p1","name":"Alice","money":50}],
+            "currentPlayerIndex": 0,
+            "phase": "PAYING_RENT",
+            "pendingPayment": {
+              "amount": 100,
+              "source": "RENT",
+              "sourceFieldId": 5,
+              "creditorPlayerId": "p2",
+              "debtorPlayerId": "p1",
+              "debtorCanPayAfterAssets": false
+            }
+          }
+        }
+        """.trimIndent())
+        runCurrent()
+
+        assertTrue(viewModel.showPayRentOverlay.value)
+        assertEquals("Mortgage all properties before declaring bankruptcy.", viewModel.errorMessage.value)
+
+        overlayJob.cancel()
+        confirmationJob.cancel()
+    }
+
+    @Test
     fun `declareBankruptcy does nothing when confirmation already open`() = runTest {
         val job = launch { viewModel.showBankruptcyConfirmation.collect {} }
         val job2 = launch { viewModel.showPayRentOverlay.collect {} }

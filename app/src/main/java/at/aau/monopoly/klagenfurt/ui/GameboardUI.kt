@@ -959,8 +959,16 @@ fun GameboardContent(
     modifier: Modifier = Modifier
 ) {
     val logicalMyPlayer = players.find { it.id == currentPlayerId }
-    val myPlayer = boardPlayers.find { it.id == currentPlayerId }
-    val otherPlayers = boardPlayers.filter { it.id != currentPlayerId }
+    val panelPlayers = remember(players, boardPlayers) {
+        val rawPlayersById = players.associateBy { it.id }
+        boardPlayers.map { presentedPlayer ->
+            rawPlayersById[presentedPlayer.id]
+                ?.copy(position = presentedPlayer.position)
+                ?: presentedPlayer
+        }
+    }
+    val myPlayer = panelPlayers.find { it.id == currentPlayerId }
+    val otherPlayers = panelPlayers.filter { it.id != currentPlayerId }
 
     val currentField = currentFieldOverride ?: currentTurnPlayer?.let { p ->
         fields.fieldAtBoardPosition(p.position)

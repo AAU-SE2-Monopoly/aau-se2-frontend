@@ -825,14 +825,43 @@ class GameViewModel(
     }
 
     fun declareBankruptcy() {
-        if (!guardAction("declareBankruptcy", actionGates.value.canDeclareBankruptcy)) return
+        val state = gameState.value ?: run {
+            Log.d("GameViewModel", "declareBankruptcy ignored before game state is synced")
+            return
+        }
+        val currentGameId = gameService.currentGameId
+        if (
+            currentGameId.isNotBlank() &&
+            state.gameId.isNotBlank() &&
+            state.gameId != currentGameId
+        ) {
+            Log.d("GameViewModel", "declareBankruptcy ignored for stale game state ${state.gameId}")
+            return
+        }
         if (_paymentActionInFlight.value || _showBankruptcyConfirmation.value) return
+        if (state.phase == GamePhase.BANKRUPTCY || state.bankruptcyPlayerId.isNotBlank()) return
+
+        val pending = _visiblePaymentState.value?.pendingPayment ?: state.pendingPayment
+        val localPlayer = state.players.find { it.id == gameService.currentPlayerId }
+        if (
+            pending == null ||
+            !pending.isOwedByLocalPlayer(state) ||
+            pending.canBeCoveredBy(localPlayer)
+        ) {
+            Log.d("GameViewModel", "declareBankruptcy ignored because payment is not bankruptable")
+            return
+        }
+
         _showPayRentOverlay.value = false
         _showBankruptcyConfirmation.value = true
     }
 
     fun confirmDeclareBankruptcy() {
-        if (!guardAction("confirmDeclareBankruptcy", actionGates.value.canConfirmDeclareBankruptcy)) return
+        if (!_showBankruptcyConfirmation.value) return
+        if (gameState.value == null) {
+            Log.d("GameViewModel", "confirmDeclareBankruptcy ignored before game state is synced")
+            return
+        }
         if (_paymentActionInFlight.value) return
         _showBankruptcyConfirmation.value = false
         startPaymentAction()

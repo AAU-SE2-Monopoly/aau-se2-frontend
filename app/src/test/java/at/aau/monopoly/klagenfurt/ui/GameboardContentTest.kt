@@ -453,7 +453,7 @@ class GameboardContentTest {
     }
 
     @Test
-    fun `GameboardContent derives player info from boardPlayers for side panels`() {
+    fun `GameboardContent side panels show raw balance while tokens use boardPlayers`() {
         val fields = listOf(GoField(id = 0, name = "Go", type = FieldType.GO))
         // Raw players have new money (400)
         val rawPlayers = listOf(
@@ -473,8 +473,8 @@ class GameboardContentTest {
             )
         }
 
-        // Side panel should show OLD money (500) from boardPlayers
-        composeTestRule.onNodeWithText("\u20ac500").assertExists()
-        composeTestRule.onNodeWithText("\u20ac400").assertDoesNotExist()
+        // Side panel should show current raw money while boardPlayers still drive token positions.
+        composeTestRule.onNodeWithText("\u20ac400").assertExists()
+        composeTestRule.onNodeWithText("\u20ac500").assertDoesNotExist()
     }
 }

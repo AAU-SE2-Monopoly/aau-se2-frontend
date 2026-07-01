@@ -1792,6 +1792,44 @@ class GameViewModelTest {
     }
 
     @Test
+    fun `declareBankruptcy uses pending payment even when action gate has not opened`() = runTest {
+        val job = launch { viewModel.showBankruptcyConfirmation.collect {} }
+
+        fakeService.emitTestEvent("""
+        {
+          "event": "RENT_DUE",
+          "gameId": "g1",
+          "gameState": {
+            "gameId": "g1",
+            "fields": [],
+            "players": [{"id":"p1","name":"Alice","money":50}],
+            "currentPlayerIndex": 0,
+            "phase": "PAYING_RENT",
+            "pendingPayment": {
+              "amount": 100,
+              "source": "RENT",
+              "sourceFieldId": 5,
+              "creditorPlayerId": "p2",
+              "debtorPlayerId": "p1",
+              "debtorCanPayAfterAssets": false
+            }
+          }
+        }
+        """.trimIndent())
+        advanceUntilIdle()
+
+        viewModel.dismissPayRentOverlay()
+
+        assertFalse(viewModel.showPayRentOverlay.value)
+
+        viewModel.declareBankruptcy()
+
+        assertTrue(viewModel.showBankruptcyConfirmation.value)
+
+        job.cancel()
+    }
+
+    @Test
     fun `declareBankruptcy is blocked when player can pay with cash`() = runTest {
         val job = launch { viewModel.showBankruptcyConfirmation.collect {} }
         val canRaiseFundsJob = launch { viewModel.canRaiseFunds.collect {} }
@@ -1858,6 +1896,43 @@ class GameViewModelTest {
         viewModel.declareBankruptcy()
         advanceUntilIdle()
         viewModel.confirmDeclareBankruptcy()
+        assertTrue(fakeService.declareBankruptcyCalled)
+        assertFalse(viewModel.showBankruptcyConfirmation.value)
+
+        job.cancel()
+    }
+
+    @Test
+    fun `confirmDeclareBankruptcy sends action immediately after opening confirmation`() = runTest {
+        val job = launch { viewModel.showBankruptcyConfirmation.collect {} }
+
+        fakeService.emitTestEvent("""
+        {
+          "event": "RENT_DUE",
+          "gameId": "g1",
+          "gameState": {
+            "gameId": "g1",
+            "fields": [],
+            "players": [{"id":"p1","name":"Alice","money":50}],
+            "currentPlayerIndex": 0,
+            "phase": "PAYING_RENT",
+            "pendingPayment": {
+              "amount": 100,
+              "source": "RENT",
+              "sourceFieldId": 5,
+              "creditorPlayerId": "p2",
+              "debtorPlayerId": "p1",
+              "debtorCanPayAfterAssets": false
+            }
+          }
+        }
+        """.trimIndent())
+        advanceUntilIdle()
+
+        fakeService.declareBankruptcyCalled = false
+        viewModel.declareBankruptcy()
+        viewModel.confirmDeclareBankruptcy()
+
         assertTrue(fakeService.declareBankruptcyCalled)
         assertFalse(viewModel.showBankruptcyConfirmation.value)
 

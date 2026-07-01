@@ -1381,6 +1381,33 @@ class GameViewModelTest {
     }
 
     @Test
+    fun `HOUSE_SOLD clears property and building action locks`() = runTest(testDispatcher) {
+        seedGameState(phase = "BUYING")
+
+        viewModel.sellHouse(1)
+
+        assertTrue(viewModel.propertyActionInFlight.value)
+        assertTrue(viewModel.buildingActionPending.value)
+
+        fakeService.emitTestEvent("""
+        {
+          "event": "HOUSE_SOLD",
+          "gameId": "g1",
+          "gameState": {
+            "gameId": "g1",
+            "fields": [],
+            "players": [],
+            "phase": "BUYING"
+          }
+        }
+        """.trimIndent())
+        advanceUntilIdle()
+
+        assertFalse(viewModel.propertyActionInFlight.value)
+        assertFalse(viewModel.buildingActionPending.value)
+    }
+
+    @Test
     fun `PAYMENT_FAILED shows error message`() = runTest {
         val captured = mutableListOf<String?>()
         val job = launch { viewModel.errorMessage.collect { captured.add(it) } }

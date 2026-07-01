@@ -132,6 +132,10 @@ class GameServiceTest {
         }
         override fun debugForwardGame() { debugForwardCalled = true }
         override fun debugSetupBankruptcy() { debugSetupCalled = true }
+        override fun debugForceDoublet() {}
+        override fun debugForceJail() {}
+        override fun debugForceBackwards() {}
+        override fun debugForceGameOver() {}
         override fun payTax(fieldId: Int) {
             // no-op
         }

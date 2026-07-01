@@ -1551,14 +1551,24 @@ class GameViewModel(
     }
 
     private fun handleImmediateRequestState(event: GameEvent) {
-        if (
-            event.event == "HOUSE_BOUGHT" ||
-            event.event == "HOTEL_BOUGHT" ||
-            event.event == "HOUSE_SOLD" ||
-            event.event == "HOTEL_SOLD" ||
-            event.event == "ERROR"
-        ) {
-            _buildingActionPending.value = false
+        when (event.event) {
+            "HOUSE_BOUGHT",
+            "HOTEL_BOUGHT",
+            "HOUSE_SOLD",
+            "HOTEL_SOLD" -> {
+                _buildingActionPending.value = false
+                finishPropertyAction()
+            }
+
+            "PROPERTY_MORTGAGED",
+            "PROPERTY_UNMORTGAGED" -> {
+                finishPropertyAction()
+            }
+
+            "ERROR" -> {
+                _buildingActionPending.value = false
+                finishPropertyAction()
+            }
         }
     }
 

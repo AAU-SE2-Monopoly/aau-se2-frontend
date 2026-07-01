@@ -526,6 +526,32 @@ class GameViewModelPresentationBarrierTest {
     }
 
     @Test
+    fun `cheater report updates balances during active presentation`() = runTest(dispatcher) {
+        val roll = DiceRoll(1, 2)
+        emit(snapshot(state(position = 0, phase = GamePhase.ROLLING, money = 1000, otherMoney = 1000)))
+        runCurrent()
+
+        emit(diceRolled(state(position = 3, phase = GamePhase.BUYING, diceRoll = roll, money = 1000, otherMoney = 1000)))
+        runCurrent()
+
+        assertEquals(GameViewModel.TurnPresentationPhase.SHOWING_DICE_RESULT, viewModel.presentationPhase.value)
+        assertEquals(0, viewModel.presentedBoardPlayers.value.first { it.id == "p1" }.position)
+
+        emit(
+            event(
+                "CHEATER_REPORT_FAILED",
+                state(position = 3, phase = GamePhase.BUYING, diceRoll = roll, money = 500, otherMoney = 1500)
+            )
+        )
+        runCurrent()
+
+        val reportedPlayers = viewModel.presentedBoardPlayers.value
+        assertEquals(0, reportedPlayers.first { it.id == "p1" }.position)
+        assertEquals(500, reportedPlayers.first { it.id == "p1" }.money)
+        assertEquals(1500, reportedPlayers.first { it.id == "p2" }.money)
+    }
+
+    @Test
     fun `duplicate card draws are ignored while request is in flight`() = runTest(dispatcher) {
         emit(snapshot(state(position = 1, phase = GamePhase.BUYING)))
         runCurrent()

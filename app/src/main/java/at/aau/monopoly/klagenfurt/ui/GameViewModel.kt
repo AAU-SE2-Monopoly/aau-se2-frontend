@@ -1334,7 +1334,7 @@ class GameViewModel(
 
         if (shouldIgnoreEvent(event)) return
 
-        if (event.event == "CHEATER_REPORTED" || event.event == "CHEATER_REPORT_FAILED") {
+        if (event.event in CHEATER_REPORT_EVENTS) {
             finishReportCheaterAction()
             event.message?.let { msg ->
                 viewModelScope.launch { _dramaEvent.emit(msg) }
@@ -1362,6 +1362,11 @@ class GameViewModel(
 
             event.event == "ERROR" -> {
                 handleNonFatalError(event)
+            }
+
+            event.event in CHEATER_REPORT_EVENTS -> {
+                event.gameState?.let { renderNonBoardStatePreservingTokens(it) }
+                appendPresentedLog(event)
             }
 
             event.event == "DICE_ROLLED" -> {
@@ -2290,6 +2295,10 @@ class GameViewModel(
         private val JAIL_ACTION_EVENTS = setOf(
             "JAIL_FINE_PAID",
             "JAIL_CARD_USED"
+        )
+        private val CHEATER_REPORT_EVENTS = setOf(
+            "CHEATER_REPORTED",
+            "CHEATER_REPORT_FAILED"
         )
         private val PRESENTATION_BUFFERED_LOG_EVENTS = setOf(
             "DICE_ROLLED",

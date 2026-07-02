@@ -9,6 +9,7 @@ import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import at.aau.monopoly.klagenfurt.DebugSettings
 import at.aau.monopoly.klagenfurt.FakeGameService
 import at.aau.monopoly.klagenfurt.model.GameState
@@ -534,6 +535,8 @@ class GameboardScreenCoverageTest {
 
         composeTestRule.onNodeWithTag("debug_forward_game_button").performClick()
         composeTestRule.waitForIdle()
+
+        assertTrue(fakeService.debugForwardGameCalled)
     }
 
     @Test
@@ -571,6 +574,53 @@ class GameboardScreenCoverageTest {
 
         composeTestRule.onNodeWithTag("debug_bankruptcy_setup_button").performClick()
         composeTestRule.waitForIdle()
+
+        assertTrue(fakeService.debugSetupBankruptcyCalled)
+    }
+
+    @Test
+    fun gameboardScreen_bankPaymentDebugButtonsCallViewModel() {
+        DebugSettings.isEnabled = true
+        val fakeService = FakeGameService()
+        fakeService.currentGameId = "game-1"
+        fakeService.currentPlayerId = "player-1"
+
+        val player = Player(
+            id = "player-1",
+            name = "Alice",
+            position = 0,
+            money = 1500
+        )
+        val state = GameState(
+            gameId = "game-1",
+            players = mutableListOf(player),
+            currentPlayerIndex = 0,
+            phase = GamePhase.ROLLING,
+            fields = listOf(GoField(0))
+        )
+        fakeService.emitGameState(state)
+        val viewModel = GameViewModel(fakeService)
+
+        composeTestRule.setContent {
+            GameboardScreen(viewModel = viewModel, shakeEventsOverride = shakeEvents)
+        }
+        composeTestRule.waitForIdle()
+
+        val buttonChecks = listOf(
+            "debug_land_on_tax_field_button" to { fakeService.debugLandOnTaxFieldCalled },
+            "debug_execute_pay_money_button" to { fakeService.debugExecutePayMoneyCalled },
+            "debug_execute_pay_per_building_button" to { fakeService.debugExecutePayPerBuildingCalled },
+            "debug_execute_pay_each_button" to { fakeService.debugExecutePayEachCalled },
+            "debug_execute_collect_from_each_button" to { fakeService.debugExecuteCollectFromEachCalled }
+        )
+
+        buttonChecks.forEach { (tag, wasCalled) ->
+            composeTestRule.onNodeWithTag("debug_menu_toggle_button").assertExists().performClick()
+            composeTestRule.waitForIdle()
+            composeTestRule.onNodeWithTag(tag).performScrollTo().performClick()
+            composeTestRule.waitForIdle()
+            assertTrue("Expected $tag to call its debug service method", wasCalled())
+        }
     }
 
     @Test

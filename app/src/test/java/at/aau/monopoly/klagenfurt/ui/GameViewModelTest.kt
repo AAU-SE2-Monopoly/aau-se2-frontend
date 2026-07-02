@@ -51,6 +51,33 @@ class GameViewModelTest {
         Dispatchers.resetMain()
     }
 
+    @Test
+    fun `debug actions delegate to game service`() {
+        viewModel.debugForwardGame()
+        viewModel.debugSetupBankruptcy()
+        viewModel.debugLandOnTaxField()
+        viewModel.debugExecutePayMoney()
+        viewModel.debugExecutePayPerBuilding()
+        viewModel.debugExecutePayEach()
+        viewModel.debugExecuteCollectFromEach()
+        viewModel.debugForceDoublet()
+        viewModel.debugForceJail()
+        viewModel.debugForceBackwards()
+        viewModel.debugForceGameOver()
+
+        assertTrue(fakeService.debugForwardGameCalled)
+        assertTrue(fakeService.debugSetupBankruptcyCalled)
+        assertTrue(fakeService.debugLandOnTaxFieldCalled)
+        assertTrue(fakeService.debugExecutePayMoneyCalled)
+        assertTrue(fakeService.debugExecutePayPerBuildingCalled)
+        assertTrue(fakeService.debugExecutePayEachCalled)
+        assertTrue(fakeService.debugExecuteCollectFromEachCalled)
+        assertTrue(fakeService.debugForceDoubletCalled)
+        assertTrue(fakeService.debugForceJailCalled)
+        assertTrue(fakeService.debugForceBackwardsCalled)
+        assertTrue(fakeService.debugForceGameOverCalled)
+    }
+
     // --- OVERLAY TESTS ---
     @Test
     fun `initial selectedPlayerForOverlay state should be null`() {

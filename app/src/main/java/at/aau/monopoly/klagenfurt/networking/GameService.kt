@@ -74,5 +74,23 @@ interface GameService {
     fun debugForwardGame()
     /** DEBUG remove this block of code to remove */
     fun debugSetupBankruptcy()
+    /** DEBUG remove this block of code to remove */
+    fun debugLandOnTaxField()
+    /** DEBUG remove this block of code to remove */
+    fun debugExecutePayMoney()
+    /** DEBUG remove this block of code to remove */
+    fun debugExecutePayPerBuilding()
+    /** DEBUG remove this block of code to remove */
+    fun debugExecutePayEach()
+    /** DEBUG remove this block of code to remove */
+    fun debugExecuteCollectFromEach()
+    /** DEBUG remove this block of code to remove */
+    fun debugForceDoublet()
+    /** DEBUG remove this block of code to remove */
+    fun debugForceJail()
+    /** DEBUG remove this block of code to remove */
+    fun debugForceBackwards()
+    /** DEBUG remove this block of code to remove */
+    fun debugForceGameOver()
     fun payTax(fieldId: Int)
 }

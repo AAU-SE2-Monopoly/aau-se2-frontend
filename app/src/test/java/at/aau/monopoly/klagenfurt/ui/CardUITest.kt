@@ -87,6 +87,13 @@ class CardUITest {
     }
 
     @Test
+    fun `MOVE_TO nearest railroad target shows readable label`() {
+        val card = ChanceCard(id = 1, description = "Test", action = CardAction.MOVE_TO, targetFieldId = -1)
+        composeTestRule.setContent { CardUI(card = card) }
+        composeTestRule.onNodeWithText("Nearest railroad").assertExists()
+    }
+
+    @Test
     fun `MOVE_FORWARD action shows spaces`() {
         val card = ChanceCard(id = 1, description = "Test", action = CardAction.MOVE_FORWARD, moveSpaces = 3)
         composeTestRule.setContent { CardUI(card = card) }

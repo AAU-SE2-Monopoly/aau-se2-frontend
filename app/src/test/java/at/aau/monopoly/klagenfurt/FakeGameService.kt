@@ -310,8 +310,29 @@ class FakeGameService : GameService {
         lastRejectedTradeId = tradeId
     }
 
-    override fun debugForwardGame() {}
-    override fun debugSetupBankruptcy() {}
+    var debugForwardGameCalled = false
+    var debugSetupBankruptcyCalled = false
+    var debugLandOnTaxFieldCalled = false
+    var debugExecutePayMoneyCalled = false
+    var debugExecutePayPerBuildingCalled = false
+    var debugExecutePayEachCalled = false
+    var debugExecuteCollectFromEachCalled = false
+    var debugForceDoubletCalled = false
+    var debugForceJailCalled = false
+    var debugForceBackwardsCalled = false
+    var debugForceGameOverCalled = false
+
+    override fun debugForwardGame() { debugForwardGameCalled = true }
+    override fun debugSetupBankruptcy() { debugSetupBankruptcyCalled = true }
+    override fun debugLandOnTaxField() { debugLandOnTaxFieldCalled = true }
+    override fun debugExecutePayMoney() { debugExecutePayMoneyCalled = true }
+    override fun debugExecutePayPerBuilding() { debugExecutePayPerBuildingCalled = true }
+    override fun debugExecutePayEach() { debugExecutePayEachCalled = true }
+    override fun debugExecuteCollectFromEach() { debugExecuteCollectFromEachCalled = true }
+    override fun debugForceDoublet() { debugForceDoubletCalled = true }
+    override fun debugForceJail() { debugForceJailCalled = true }
+    override fun debugForceBackwards() { debugForceBackwardsCalled = true }
+    override fun debugForceGameOver() { debugForceGameOverCalled = true }
     var lastPaidTaxFieldId: Int? = null
     override fun payTax(fieldId: Int) {
         lastPaidTaxFieldId = fieldId

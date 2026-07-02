@@ -35,6 +35,11 @@ class GameServiceTest {
         var declareBankruptcyCalled = false
         var debugForwardCalled = false
         var debugSetupCalled = false
+        var debugLandOnTaxCalled = false
+        var debugExecutePayMoneyCalled = false
+        var debugExecutePayPerBuildingCalled = false
+        var debugExecutePayEachCalled = false
+        var debugExecuteCollectFromEachCalled = false
         var proposeTradeCalled = false
         var lastTradeTargetId: String? = null
         var lastTradeOfferMoney: Int? = null
@@ -132,6 +137,15 @@ class GameServiceTest {
         }
         override fun debugForwardGame() { debugForwardCalled = true }
         override fun debugSetupBankruptcy() { debugSetupCalled = true }
+        override fun debugLandOnTaxField() { debugLandOnTaxCalled = true }
+        override fun debugExecutePayMoney() { debugExecutePayMoneyCalled = true }
+        override fun debugExecutePayPerBuilding() { debugExecutePayPerBuildingCalled = true }
+        override fun debugExecutePayEach() { debugExecutePayEachCalled = true }
+        override fun debugExecuteCollectFromEach() { debugExecuteCollectFromEachCalled = true }
+        override fun debugForceDoublet() {}
+        override fun debugForceJail() {}
+        override fun debugForceBackwards() {}
+        override fun debugForceGameOver() {}
         override fun payTax(fieldId: Int) {
             // no-op
         }
@@ -203,6 +217,41 @@ class GameServiceTest {
         val service = TestGameService()
         service.debugSetupBankruptcy()
         junit.framework.Assert.assertTrue(service.debugSetupCalled)
+    }
+
+    @Test
+    fun `debugLandOnTaxField is callable through interface`() {
+        val service = TestGameService()
+        service.debugLandOnTaxField()
+        junit.framework.Assert.assertTrue(service.debugLandOnTaxCalled)
+    }
+
+    @Test
+    fun `debugExecutePayMoney is callable through interface`() {
+        val service = TestGameService()
+        service.debugExecutePayMoney()
+        junit.framework.Assert.assertTrue(service.debugExecutePayMoneyCalled)
+    }
+
+    @Test
+    fun `debugExecutePayPerBuilding is callable through interface`() {
+        val service = TestGameService()
+        service.debugExecutePayPerBuilding()
+        junit.framework.Assert.assertTrue(service.debugExecutePayPerBuildingCalled)
+    }
+
+    @Test
+    fun `debugExecutePayEach is callable through interface`() {
+        val service = TestGameService()
+        service.debugExecutePayEach()
+        junit.framework.Assert.assertTrue(service.debugExecutePayEachCalled)
+    }
+
+    @Test
+    fun `debugExecuteCollectFromEach is callable through interface`() {
+        val service = TestGameService()
+        service.debugExecuteCollectFromEach()
+        junit.framework.Assert.assertTrue(service.debugExecuteCollectFromEachCalled)
     }
 
     @Test

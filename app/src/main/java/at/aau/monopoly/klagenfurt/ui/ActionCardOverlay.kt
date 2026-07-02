@@ -292,7 +292,7 @@ private fun ActionDetailBox(card: Card) {
                         fontWeight = FontWeight.Medium
                     )
                     Text(
-                        text = "#${card.targetFieldId ?: "?"}",
+                        text = moveToTargetLabel(card.targetFieldId, includeFieldPrefix = false),
                         fontSize = 28.sp,
                         fontWeight = FontWeight.ExtraBold,
                         color = Color(0xFF5E35B1)

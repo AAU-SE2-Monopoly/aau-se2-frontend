@@ -113,6 +113,25 @@ private val GlassDisabledColor = Color.Black.copy(alpha = 0.16f)
 private fun List<Field>.fieldAtBoardPosition(position: Int): Field? =
     firstOrNull { it.id == position } ?: getOrNull(position)
 
+internal fun resolveActivePlayerFieldId(
+    currentTurnPlayer: Player?,
+    boardPlayers: List<Player>,
+    movementAnimationState: MovementAnimationState?
+): Int? {
+    val animation = movementAnimationState?.takeUnless { it.isComplete }
+    if (animation != null) {
+        return when {
+            animation.currentStepIndex < 0 -> animation.startPosition
+            animation.currentStepIndex in animation.path.indices -> animation.path[animation.currentStepIndex]
+            else -> null
+        }
+    }
+
+    return currentTurnPlayer?.let { currentPlayer ->
+        boardPlayers.find { it.id == currentPlayer.id }?.position ?: currentPlayer.position
+    }
+}
+
 class GameboardUI : ComponentActivity() {
     private val viewModel: GameViewModel by viewModels {
         GameViewModel.Factory(ServiceLocator.provideGameService())
@@ -256,6 +275,7 @@ fun GameboardScreen(
     var showOverlay by remember { mutableStateOf(false) }
     var dismissedDiceSequenceId by remember { mutableStateOf<Long?>(null) }
     var showFreeParkingOverlay by remember { mutableStateOf(false) }
+    var isDebugMenuExpanded by remember { mutableStateOf(false) }
 
     val showGameOverOverlay by viewModel.showGameOverOverlay.collectAsState()
     val hostEndedGame by viewModel.hostEndedGame.collectAsState()
@@ -596,27 +616,109 @@ fun GameboardScreen(
             }
 
             if (DebugSettings.isEnabled && currentTurnPlayer?.id == currentPlayerId) {
-                Column(
+                Box(
                     modifier = Modifier
                         .align(Alignment.TopEnd)
-                        .padding(20.dp),
-                    horizontalAlignment = Alignment.End,
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                        .padding(20.dp)
                 ) {
                     GlassButton(
-                        onClick = { viewModel.debugForwardGame() },
-                        modifier = Modifier.width(buttonWidth).testTag("debug_forward_game_button")
+                        onClick = { isDebugMenuExpanded = true },
+                        modifier = Modifier.width(buttonWidth).testTag("debug_menu_toggle_button")
                     ) {
-                        Text("⚡ DEBUG: Forward")
-                    }
-
-                    GlassButton(
-                        onClick = { viewModel.debugSetupBankruptcy() },
-                        modifier = Modifier.width(buttonWidth).testTag("debug_bankruptcy_setup_button")
-                    ) {
-                        Text("💀 DEBUG: Bankrupt")
+                        Text("🛠️ Debug Menu")
                     }
                 }
+            }
+
+            if (isDebugMenuExpanded) {
+                AlertDialog(
+                    onDismissRequest = { isDebugMenuExpanded = false },
+                    containerColor = Color(0xFF1C233D),
+                    titleContentColor = Color(0xFFA2AAF0),
+                    textContentColor = Color.White,
+                    title = { Text("Debug Menu", fontWeight = FontWeight.Bold) },
+                    text = {
+                        Column(
+                            verticalArrangement = Arrangement.spacedBy(10.dp),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .verticalScroll(rememberScrollState())
+                        ) {
+                            val debugButtonModifier = Modifier.fillMaxWidth()
+
+                            Button(
+                                onClick = { viewModel.debugForwardGame(); isDebugMenuExpanded = false },
+                                modifier = debugButtonModifier.testTag("debug_forward_game_button"),
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF3949AB))
+                            ) { Text("⚡ Fast-Forward Game") }
+
+                            Button(
+                                onClick = { viewModel.debugSetupBankruptcy(); isDebugMenuExpanded = false },
+                                modifier = debugButtonModifier.testTag("debug_bankruptcy_setup_button"),
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFD32F2F))
+                            ) { Text("💀 Setup Bankruptcy") }
+
+                            Button(
+                                onClick = { viewModel.debugLandOnTaxField(); isDebugMenuExpanded = false },
+                                modifier = debugButtonModifier.testTag("debug_land_on_tax_field_button"),
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00695C))
+                            ) { Text("Land On Tax Field") }
+
+                            Button(
+                                onClick = { viewModel.debugExecutePayMoney(); isDebugMenuExpanded = false },
+                                modifier = debugButtonModifier.testTag("debug_execute_pay_money_button"),
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF546E7A))
+                            ) { Text("Execute Pay Money") }
+
+                            Button(
+                                onClick = { viewModel.debugExecutePayPerBuilding(); isDebugMenuExpanded = false },
+                                modifier = debugButtonModifier.testTag("debug_execute_pay_per_building_button"),
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF6D4C41))
+                            ) { Text("Execute Pay Per Building") }
+
+                            Button(
+                                onClick = { viewModel.debugExecutePayEach(); isDebugMenuExpanded = false },
+                                modifier = debugButtonModifier.testTag("debug_execute_pay_each_button"),
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF5D4037))
+                            ) { Text("Execute Pay Each") }
+
+                            Button(
+                                onClick = { viewModel.debugExecuteCollectFromEach(); isDebugMenuExpanded = false },
+                                modifier = debugButtonModifier.testTag("debug_execute_collect_from_each_button"),
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00838F))
+                            ) { Text("Execute Collect From Each") }
+
+                            Button(
+                                onClick = { viewModel.debugForceDoublet(); isDebugMenuExpanded = false },
+                                modifier = debugButtonModifier,
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF43A047))
+                            ) { Text("🎲 Force Doublet") }
+
+                            Button(
+                                onClick = { viewModel.debugForceJail(); isDebugMenuExpanded = false },
+                                modifier = debugButtonModifier,
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFB8C00))
+                            ) { Text("🔒 Force Jail (3rd Doublet)") }
+
+                            Button(
+                                onClick = { viewModel.debugForceBackwards(); isDebugMenuExpanded = false },
+                                modifier = debugButtonModifier,
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF7B1FA2))
+                            ) { Text("🔙 Force Backwards Card") }
+
+                            Button(
+                                onClick = { viewModel.debugForceGameOver(); isDebugMenuExpanded = false },
+                                modifier = debugButtonModifier,
+                                colors = ButtonDefaults.buttonColors(containerColor = Color.Black)
+                            ) { Text("🏁 Force Game Over") }
+                        }
+                    },
+                    confirmButton = {
+                        TextButton(onClick = { isDebugMenuExpanded = false }) {
+                            Text("Close", color = Color(0xFFA2AAF0))
+                        }
+                    }
+                )
             }
 
             GameboardOverlayLayer(eventLog = eventLog)
@@ -886,22 +988,26 @@ fun GameboardContent(
     onFreeParkingMoneyClick: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
-    val myPlayer = players.find { it.id == currentPlayerId }
-    val otherPlayers = players.filter { it.id != currentPlayerId }
+    val logicalMyPlayer = players.find { it.id == currentPlayerId }
+    val panelPlayers = remember(players, boardPlayers) {
+        val rawPlayersById = players.associateBy { it.id }
+        boardPlayers.map { presentedPlayer ->
+            rawPlayersById[presentedPlayer.id]
+                ?.copy(position = presentedPlayer.position)
+                ?: presentedPlayer
+        }
+    }
+    val myPlayer = panelPlayers.find { it.id == currentPlayerId }
+    val otherPlayers = panelPlayers.filter { it.id != currentPlayerId }
 
     val currentField = currentFieldOverride ?: currentTurnPlayer?.let { p ->
         fields.fieldAtBoardPosition(p.position)
     }
-    val activePlayerFieldIndex = movementAnimationState
-        ?.takeUnless { it.isComplete }
-        ?.let { animation ->
-            when {
-                animation.currentStepIndex < 0 -> animation.startPosition
-                animation.currentStepIndex in animation.path.indices -> animation.path[animation.currentStepIndex]
-                else -> null
-            }
-        }
-        ?: currentTurnPlayer?.position
+    val activePlayerFieldId = resolveActivePlayerFieldId(
+        currentTurnPlayer = currentTurnPlayer,
+        boardPlayers = boardPlayers,
+        movementAnimationState = movementAnimationState
+    )
 
     val playersByField: Map<Int, List<Player>> = remember(boardPlayers) {
         boardPlayers.groupBy { it.position }
@@ -945,7 +1051,7 @@ fun GameboardContent(
                                     else null
                                 },
                                 animationComplete = movementAnimationState?.isComplete ?: true,
-                                isActivePlayerField = index == activePlayerFieldIndex,
+                                isActivePlayerField = field.id == activePlayerFieldId,
                                 freeParkingMoney = gameState?.freeParkingMoney ?: 0,
                                 onFreeParkingMoneyClick = onFreeParkingMoneyClick
                             )
@@ -976,10 +1082,11 @@ fun GameboardContent(
                 verticalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterVertically)
             ) {
                 otherPlayers.forEach { player ->
+                    val logicalOtherPlayer = players.find { it.id == player.id } ?: player
                     val pendingTradeOffer = gameState?.pendingTradeOffer
                     val isCurrentLocalTurn = currentTurnPlayer?.id == currentPlayerId
-                    val myPlayerCanAct = myPlayer != null && !myPlayer.isBankrupt()
-                    val playerCanBeTargeted = !player.isBankrupt()
+                    val myPlayerCanAct = logicalMyPlayer != null && !logicalMyPlayer.isBankrupt()
+                    val playerCanBeTargeted = !logicalOtherPlayer.isBankrupt()
                     val currentPlayerRolled = gameState?.lastDiceRoll != null
                     val isReportTarget = player.id == currentTurnPlayer?.id
                     val shouldShowReport = !isCurrentLocalTurn &&
@@ -989,7 +1096,7 @@ fun GameboardContent(
                             playerCanBeTargeted
                     val canReport = shouldShowReport &&
                             canReportCheater &&
-                            myPlayer.money > 500
+                            logicalMyPlayer.money > 500
                     val isPendingTradeParticipant =
                         pendingTradeOffer?.fromPlayerId == player.id ||
                                 pendingTradeOffer?.toPlayerId == player.id
@@ -1010,7 +1117,7 @@ fun GameboardContent(
                             fields = fields,
                             cards = emptyList(),
                             isCurrentTurn = player.id == currentTurnPlayer?.id,
-                            onCardClick = { onPlayerCardClick(player) },
+                            onCardClick = { onPlayerCardClick(logicalOtherPlayer) },
                             actionContent = {
                                 if (shouldShowReport) {
                                     GlassActionButton(
@@ -1024,7 +1131,7 @@ fun GameboardContent(
                                 if (canStartNewTrade || canReopenTrade) {
                                     GlassActionButton(
                                         text = tradeLabel,
-                                        onClick = { onStartTrade(player) },
+                                        onClick = { onStartTrade(logicalOtherPlayer) },
                                         enabled = true,
                                         modifier = Modifier.testTag("trade_action_button_${player.id}")
                                     )
@@ -1049,7 +1156,7 @@ fun GameboardContent(
                     cards = emptyList(),
                     isCurrentTurn = myPlayer.id == currentTurnPlayer?.id,
                     isOwnPlayer = true,
-                    onCardClick = { onPlayerCardClick(myPlayer) }
+                    onCardClick = { onPlayerCardClick(logicalMyPlayer ?: myPlayer) }
                 )
             }
         }

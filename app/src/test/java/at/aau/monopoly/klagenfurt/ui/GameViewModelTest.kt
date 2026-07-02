@@ -2098,6 +2098,87 @@ class GameViewModelTest {
     }
 
     @Test
+    fun `confirmed tax bankruptcy keeps payment closed and advances to next player`() = runTest {
+        val overlayJob = launch { viewModel.showPayRentOverlay.collect {} }
+        val confirmationJob = launch { viewModel.showBankruptcyConfirmation.collect {} }
+        val bankruptcyJob = launch { viewModel.showBankruptcyOverlay.collect {} }
+
+        fakeService.emitTestEvent("""
+        {
+          "event": "TAX_DUE",
+          "gameId": "g1",
+          "gameState": {
+            "gameId": "g1",
+            "fields": [],
+            "players": [
+              {"id":"p1","name":"Alice","money":50},
+              {"id":"p2","name":"Bob","money":500},
+              {"id":"p3","name":"Charlie","money":500}
+            ],
+            "currentPlayerIndex": 0,
+            "phase": "PAYING_RENT",
+            "pendingPayment": {
+              "amount": 100,
+              "source": "TAX",
+              "sourceFieldId": 4,
+              "creditorPlayerId": null,
+              "debtorPlayerId": "p1",
+              "debtorCanPayAfterAssets": false
+            }
+          }
+        }
+        """.trimIndent())
+        advanceUntilIdle()
+
+        assertTrue(viewModel.showPayRentOverlay.value)
+        assertFalse(viewModel.canRaiseFunds.value)
+        assertTrue(viewModel.actionGates.value.canDeclareBankruptcy)
+
+        viewModel.declareBankruptcy()
+        viewModel.confirmDeclareBankruptcy()
+
+        assertTrue(fakeService.declareBankruptcyCalled)
+        assertFalse(viewModel.showPayRentOverlay.value)
+        assertFalse(viewModel.showBankruptcyConfirmation.value)
+
+        fakeService.emitTestEvent("""
+        {
+          "event": "BANKRUPTCY_DECLARED",
+          "gameId": "g1",
+          "gameState": {
+            "gameId": "g1",
+            "fields": [],
+            "players": [
+              {"id":"p1","name":"Alice","money":0,"eliminated":true},
+              {"id":"p2","name":"Bob","money":500},
+              {"id":"p3","name":"Charlie","money":500}
+            ],
+            "currentPlayerIndex": 1,
+            "phase": "ROLLING",
+            "pendingPayment": null,
+            "bankruptcyPlayerId": "p1",
+            "bankruptcyTotalAssets": 50,
+            "bankruptcyTotalDebt": 100,
+            "bankruptcyPropertiesCount": 0,
+            "bankruptcyOwnedFieldIds": []
+          }
+        }
+        """.trimIndent())
+        advanceUntilIdle()
+
+        assertFalse(viewModel.showPayRentOverlay.value)
+        assertNull(viewModel.visiblePaymentState.value)
+        assertFalse(viewModel.hasPendingPayment.value)
+        assertTrue(viewModel.showBankruptcyOverlay.value)
+        assertEquals("p2", viewModel.gameState.value?.currentPlayer?.id)
+        assertEquals(GamePhase.ROLLING, viewModel.gameState.value?.phase)
+
+        overlayJob.cancel()
+        confirmationJob.cancel()
+        bankruptcyJob.cancel()
+    }
+
+    @Test
     fun `stale snapshot after bankruptcy confirmation does not reopen pay rent overlay`() = runTest {
         val overlayJob = launch { viewModel.showPayRentOverlay.collect {} }
         val confirmationJob = launch { viewModel.showBankruptcyConfirmation.collect {} }

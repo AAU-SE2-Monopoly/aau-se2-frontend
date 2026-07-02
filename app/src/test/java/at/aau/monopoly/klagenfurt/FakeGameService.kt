@@ -312,6 +312,11 @@ class FakeGameService : GameService {
 
     override fun debugForwardGame() {}
     override fun debugSetupBankruptcy() {}
+    override fun debugLandOnTaxField() {}
+    override fun debugExecutePayMoney() {}
+    override fun debugExecutePayPerBuilding() {}
+    override fun debugExecutePayEach() {}
+    override fun debugExecuteCollectFromEach() {}
     override fun debugForceDoublet() {}
     override fun debugForceJail() {}
     override fun debugForceBackwards() {}

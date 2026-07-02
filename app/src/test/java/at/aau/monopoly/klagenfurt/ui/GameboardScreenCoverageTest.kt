@@ -486,8 +486,17 @@ class GameboardScreenCoverageTest {
         }
         composeTestRule.waitForIdle()
 
+        // Toggle debug menu
+        composeTestRule.onNodeWithTag("debug_menu_toggle_button").assertExists().performClick()
+        composeTestRule.waitForIdle()
+
         composeTestRule.onNodeWithTag("debug_forward_game_button").assertExists()
         composeTestRule.onNodeWithTag("debug_bankruptcy_setup_button").assertExists()
+        composeTestRule.onNodeWithTag("debug_land_on_tax_field_button").assertExists()
+        composeTestRule.onNodeWithTag("debug_execute_pay_money_button").assertExists()
+        composeTestRule.onNodeWithTag("debug_execute_pay_per_building_button").assertExists()
+        composeTestRule.onNodeWithTag("debug_execute_pay_each_button").assertExists()
+        composeTestRule.onNodeWithTag("debug_execute_collect_from_each_button").assertExists()
     }
 
     @Test
@@ -517,6 +526,10 @@ class GameboardScreenCoverageTest {
         composeTestRule.setContent {
             GameboardScreen(viewModel = viewModel, shakeEventsOverride = shakeEvents)
         }
+        composeTestRule.waitForIdle()
+
+        // Toggle debug menu
+        composeTestRule.onNodeWithTag("debug_menu_toggle_button").assertExists().performClick()
         composeTestRule.waitForIdle()
 
         composeTestRule.onNodeWithTag("debug_forward_game_button").performClick()
@@ -552,6 +565,10 @@ class GameboardScreenCoverageTest {
         }
         composeTestRule.waitForIdle()
 
+        // Toggle debug menu
+        composeTestRule.onNodeWithTag("debug_menu_toggle_button").assertExists().performClick()
+        composeTestRule.waitForIdle()
+
         composeTestRule.onNodeWithTag("debug_bankruptcy_setup_button").performClick()
         composeTestRule.waitForIdle()
     }
@@ -585,6 +602,7 @@ class GameboardScreenCoverageTest {
         }
         composeTestRule.waitForIdle()
 
+        composeTestRule.onNodeWithTag("debug_menu_toggle_button").assertDoesNotExist()
         composeTestRule.onNodeWithTag("debug_forward_game_button").assertDoesNotExist()
         composeTestRule.onNodeWithTag("debug_bankruptcy_setup_button").assertDoesNotExist()
     }

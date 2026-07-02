@@ -841,6 +841,61 @@ class GameStompClient(
         Log.d("GameStomp", "Debug bankruptcy setup requested")
     }
 
+    override fun debugLandOnTaxField() {
+        val action = GameAction(
+            gameId = _currentGameId,
+            playerId = currentPlayerId,
+            action = "DEBUG_LAND_ON_TAX_FIELD",
+            payload = emptyMap()
+        )
+        sendRaw("/app/game/action", JacksonProvider.objectMapper.writeValueAsString(action))
+        Log.d("GameStomp", "Debug land on tax field requested")
+    }
+
+    override fun debugExecutePayMoney() {
+        val action = GameAction(
+            gameId = _currentGameId,
+            playerId = currentPlayerId,
+            action = "DEBUG_EXECUTE_PAY_MONEY",
+            payload = emptyMap()
+        )
+        sendRaw("/app/game/action", JacksonProvider.objectMapper.writeValueAsString(action))
+        Log.d("GameStomp", "Debug execute pay money requested")
+    }
+
+    override fun debugExecutePayPerBuilding() {
+        val action = GameAction(
+            gameId = _currentGameId,
+            playerId = currentPlayerId,
+            action = "DEBUG_EXECUTE_PAY_PER_BUILDING",
+            payload = emptyMap()
+        )
+        sendRaw("/app/game/action", JacksonProvider.objectMapper.writeValueAsString(action))
+        Log.d("GameStomp", "Debug execute pay per building requested")
+    }
+
+    override fun debugExecutePayEach() {
+        val action = GameAction(
+            gameId = _currentGameId,
+            playerId = currentPlayerId,
+            action = "DEBUG_EXECUTE_PAY_EACH",
+            payload = emptyMap()
+        )
+        sendRaw("/app/game/action", JacksonProvider.objectMapper.writeValueAsString(action))
+        Log.d("GameStomp", "Debug execute pay each requested")
+    }
+
+    override fun debugExecuteCollectFromEach() {
+        val action = GameAction(
+            gameId = _currentGameId,
+            playerId = currentPlayerId,
+            action = "DEBUG_EXECUTE_COLLECT_FROM_EACH",
+            payload = emptyMap()
+        )
+        sendRaw("/app/game/action", JacksonProvider.objectMapper.writeValueAsString(action))
+        Log.d("GameStomp", "Debug execute collect from each requested")
+    }
+
     override fun debugForceDoublet() {
         val action = GameAction(
             gameId = _currentGameId,

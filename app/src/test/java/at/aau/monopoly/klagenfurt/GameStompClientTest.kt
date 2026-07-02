@@ -1844,6 +1844,39 @@ class GameStompClientTest {
     }
 
     @Test
+    fun bankPaymentDebugMethods_send_debug_actions() = runTest(testDispatcher) {
+        coEvery { stompClient.connect(any<String>()) } returns stompSession
+        coEvery { stompSession.subscribeText(any<String>()) } returns flowOf()
+        coEvery { stompSession.sendText(any<String>(), any<String>()) } returns mockk()
+
+        gameStompClient.connect()
+        advanceUntilIdle()
+        gameStompClient.setGameId("game-1")
+
+        gameStompClient.debugLandOnTaxField()
+        gameStompClient.debugExecutePayMoney()
+        gameStompClient.debugExecutePayPerBuilding()
+        gameStompClient.debugExecutePayEach()
+        gameStompClient.debugExecuteCollectFromEach()
+        advanceUntilIdle()
+
+        listOf(
+            "DEBUG_LAND_ON_TAX_FIELD",
+            "DEBUG_EXECUTE_PAY_MONEY",
+            "DEBUG_EXECUTE_PAY_PER_BUILDING",
+            "DEBUG_EXECUTE_PAY_EACH",
+            "DEBUG_EXECUTE_COLLECT_FROM_EACH"
+        ).forEach { expectedAction ->
+            coVerify {
+                stompSession.sendText(
+                    "/app/game/action",
+                    match { it.contains("\"action\":\"$expectedAction\"") }
+                )
+            }
+        }
+    }
+
+    @Test
     fun reportCheater_sends_report_cheater_action_with_target_id() = runTest(testDispatcher) {
         coEvery { stompClient.connect(any<String>()) } returns stompSession
         coEvery { stompSession.subscribeText(any<String>()) } returns flowOf()

@@ -883,6 +883,26 @@ class GameViewModel(
         gameService.debugSetupBankruptcy()
     }
 
+    fun debugLandOnTaxField() {
+        gameService.debugLandOnTaxField()
+    }
+
+    fun debugExecutePayMoney() {
+        gameService.debugExecutePayMoney()
+    }
+
+    fun debugExecutePayPerBuilding() {
+        gameService.debugExecutePayPerBuilding()
+    }
+
+    fun debugExecutePayEach() {
+        gameService.debugExecutePayEach()
+    }
+
+    fun debugExecuteCollectFromEach() {
+        gameService.debugExecuteCollectFromEach()
+    }
+
     fun debugForceDoublet() {
         gameService.debugForceDoublet()
     }

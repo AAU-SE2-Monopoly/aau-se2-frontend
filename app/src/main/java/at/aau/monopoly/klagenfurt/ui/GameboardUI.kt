@@ -648,15 +648,45 @@ fun GameboardScreen(
 
                             Button(
                                 onClick = { viewModel.debugForwardGame(); isDebugMenuExpanded = false },
-                                modifier = debugButtonModifier,
+                                modifier = debugButtonModifier.testTag("debug_forward_game_button"),
                                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF3949AB))
                             ) { Text("⚡ Fast-Forward Game") }
 
                             Button(
                                 onClick = { viewModel.debugSetupBankruptcy(); isDebugMenuExpanded = false },
-                                modifier = debugButtonModifier,
+                                modifier = debugButtonModifier.testTag("debug_bankruptcy_setup_button"),
                                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFD32F2F))
                             ) { Text("💀 Setup Bankruptcy") }
+
+                            Button(
+                                onClick = { viewModel.debugLandOnTaxField(); isDebugMenuExpanded = false },
+                                modifier = debugButtonModifier.testTag("debug_land_on_tax_field_button"),
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00695C))
+                            ) { Text("Land On Tax Field") }
+
+                            Button(
+                                onClick = { viewModel.debugExecutePayMoney(); isDebugMenuExpanded = false },
+                                modifier = debugButtonModifier.testTag("debug_execute_pay_money_button"),
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF546E7A))
+                            ) { Text("Execute Pay Money") }
+
+                            Button(
+                                onClick = { viewModel.debugExecutePayPerBuilding(); isDebugMenuExpanded = false },
+                                modifier = debugButtonModifier.testTag("debug_execute_pay_per_building_button"),
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF6D4C41))
+                            ) { Text("Execute Pay Per Building") }
+
+                            Button(
+                                onClick = { viewModel.debugExecutePayEach(); isDebugMenuExpanded = false },
+                                modifier = debugButtonModifier.testTag("debug_execute_pay_each_button"),
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF5D4037))
+                            ) { Text("Execute Pay Each") }
+
+                            Button(
+                                onClick = { viewModel.debugExecuteCollectFromEach(); isDebugMenuExpanded = false },
+                                modifier = debugButtonModifier.testTag("debug_execute_collect_from_each_button"),
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00838F))
+                            ) { Text("Execute Collect From Each") }
 
                             Button(
                                 onClick = { viewModel.debugForceDoublet(); isDebugMenuExpanded = false },
